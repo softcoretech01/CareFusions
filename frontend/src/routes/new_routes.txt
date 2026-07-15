@@ -1,0 +1,76 @@
+import { HospitalMaster } from '../pages/admin/masters/HospitalMaster';
+import { BranchMaster } from '../pages/admin/masters/BranchMaster';
+import { DepartmentMaster } from '../pages/admin/masters/DepartmentMaster';
+import { DoctorMaster } from '../pages/admin/masters/DoctorMaster';
+import { DoctorSpecializationMaster } from '../pages/admin/masters/DoctorSpecializationMaster';
+import { NurseMaster } from '../pages/admin/masters/NurseMaster';
+import { PharmacistMaster } from '../pages/admin/masters/PharmacistMaster';
+import { LabTechnicianMaster } from '../pages/admin/masters/LabTechnicianMaster';
+import { ReceptionistMaster } from '../pages/admin/masters/ReceptionistMaster';
+import { HousekeepingMaster } from '../pages/admin/masters/HousekeepingMaster';
+import { PatientCategoryMaster } from '../pages/admin/masters/PatientCategoryMaster';
+import { BloodGroupMaster } from '../pages/admin/masters/BloodGroupMaster';
+import { ConsultationTypeMaster } from '../pages/admin/masters/ConsultationTypeMaster';
+import { AppointmentStatusMaster } from '../pages/admin/masters/AppointmentStatusMaster';
+import { MedicineMaster } from '../pages/admin/masters/MedicineMaster';
+import { MedicineCategoryMaster } from '../pages/admin/masters/MedicineCategoryMaster';
+import { TestMaster } from '../pages/admin/masters/TestMaster';
+import { SampleTypeMaster } from '../pages/admin/masters/SampleTypeMaster';
+import { RadiologyServiceMaster } from '../pages/admin/masters/RadiologyServiceMaster';
+import { EquipmentMaster } from '../pages/admin/masters/EquipmentMaster';
+import { ServiceMaster } from '../pages/admin/masters/ServiceMaster';
+import { TaxMaster } from '../pages/admin/masters/TaxMaster';
+import { PaymentModeMaster } from '../pages/admin/masters/PaymentModeMaster';
+import { InsuranceProviderMaster } from '../pages/admin/masters/InsuranceProviderMaster';
+import { TpaMaster } from '../pages/admin/masters/TpaMaster';
+import { VendorMaster } from '../pages/admin/masters/VendorMaster';
+import { ItemCategoryMaster } from '../pages/admin/masters/ItemCategoryMaster';
+import { WarehouseMaster } from '../pages/admin/masters/WarehouseMaster';
+import { CoaMaster } from '../pages/admin/masters/CoaMaster';
+import { CostCenterMaster } from '../pages/admin/masters/CostCenterMaster';
+import { UsersMaster } from '../pages/admin/masters/UsersMaster';
+import { RolesMaster } from '../pages/admin/masters/RolesMaster';
+import { PermissionsMaster } from '../pages/admin/masters/PermissionsMaster';
+import { SmsMaster } from '../pages/admin/masters/SmsMaster';
+import { EmailMaster } from '../pages/admin/masters/EmailMaster';
+import { PromptsMaster } from '../pages/admin/masters/PromptsMaster';
+import { ClinicalRulesMaster } from '../pages/admin/masters/ClinicalRulesMaster';
+
+
+      { path: 'masters/hospital', element: <HospitalMaster /> },
+      { path: 'masters/branch', element: <BranchMaster /> },
+      { path: 'masters/department', element: <DepartmentMaster /> },
+      { path: 'masters/doctor', element: <DoctorMaster /> },
+      { path: 'masters/doctor-specialization', element: <DoctorSpecializationMaster /> },
+      { path: 'masters/nurse', element: <NurseMaster /> },
+      { path: 'masters/pharmacist', element: <PharmacistMaster /> },
+      { path: 'masters/lab-technician', element: <LabTechnicianMaster /> },
+      { path: 'masters/receptionist', element: <ReceptionistMaster /> },
+      { path: 'masters/housekeeping', element: <HousekeepingMaster /> },
+      { path: 'masters/patient-category', element: <PatientCategoryMaster /> },
+      { path: 'masters/blood-group', element: <BloodGroupMaster /> },
+      { path: 'masters/consultation-type', element: <ConsultationTypeMaster /> },
+      { path: 'masters/appointment-status', element: <AppointmentStatusMaster /> },
+      { path: 'masters/medicine', element: <MedicineMaster /> },
+      { path: 'masters/medicine-category', element: <MedicineCategoryMaster /> },
+      { path: 'masters/test', element: <TestMaster /> },
+      { path: 'masters/sample-type', element: <SampleTypeMaster /> },
+      { path: 'masters/radiology-service', element: <RadiologyServiceMaster /> },
+      { path: 'masters/equipment', element: <EquipmentMaster /> },
+      { path: 'masters/service', element: <ServiceMaster /> },
+      { path: 'masters/tax', element: <TaxMaster /> },
+      { path: 'masters/payment-mode', element: <PaymentModeMaster /> },
+      { path: 'masters/insurance-provider', element: <InsuranceProviderMaster /> },
+      { path: 'masters/tpa', element: <TpaMaster /> },
+      { path: 'masters/vendor', element: <VendorMaster /> },
+      { path: 'masters/item-category', element: <ItemCategoryMaster /> },
+      { path: 'masters/warehouse', element: <WarehouseMaster /> },
+      { path: 'masters/coa', element: <CoaMaster /> },
+      { path: 'masters/cost-center', element: <CostCenterMaster /> },
+      { path: 'masters/users', element: <UsersMaster /> },
+      { path: 'masters/roles', element: <RolesMaster /> },
+      { path: 'masters/permissions', element: <PermissionsMaster /> },
+      { path: 'masters/sms', element: <SmsMaster /> },
+      { path: 'masters/email', element: <EmailMaster /> },
+      { path: 'masters/prompts', element: <PromptsMaster /> },
+      { path: 'masters/clinical-rules', element: <ClinicalRulesMaster /> },
