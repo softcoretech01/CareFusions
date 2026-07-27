@@ -1,0 +1,120 @@
+import { useState } from 'react';
+import { useIPD } from '../../contexts/IPDContext';
+import { useNavigate } from 'react-router-dom';
+import { Clock, CheckCircle } from 'lucide-react';
+import { DateFilter } from '../../components/ui/DateFilter';
+
+export const AdmissionDesk = () => {
+  const { admissionRequests } = useIPD();
+  const navigate = useNavigate();
+
+  const today = new Date().toISOString().split('T')[0];
+  const [dateFrom, setDateFrom] = useState(today);
+  const [dateTo, setDateTo] = useState(today);
+  const [appliedDateFrom, setAppliedDateFrom] = useState(today);
+  const [appliedDateTo, setAppliedDateTo] = useState(today);
+
+  const handleSearch = () => {
+    setAppliedDateFrom(dateFrom);
+    setAppliedDateTo(dateTo);
+  };
+
+  const handleReset = () => {
+    setDateFrom('');
+    setDateTo('');
+    setAppliedDateFrom('');
+    setAppliedDateTo('');
+  };
+
+  const pendingRequests = admissionRequests.filter(r => {
+    if (r.status !== 'Pending') return false;
+    
+    if (appliedDateFrom && appliedDateTo) {
+      const rDate = new Date(r.requestDate).toISOString().split('T')[0];
+      return rDate >= appliedDateFrom && rDate <= appliedDateTo;
+    }
+    return true;
+  });
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-800">Admission Desk</h1>
+        </div>
+        <button 
+          onClick={() => navigate('/ipd/new-admission')}
+          className="px-6 py-2.5 bg-primary text-white font-bold rounded-xl hover:bg-primary/90 transition-colors"
+        >
+          Direct Admission
+        </button>
+      </div>
+
+      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex flex-col h-[calc(100vh-10rem)]">
+        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+          <h2 className="text-lg font-bold text-slate-800">Pending Admission Requests</h2>
+          <DateFilter
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            onDateFromChange={setDateFrom}
+            onDateToChange={setDateTo}
+            onSearch={handleSearch}
+            onReset={handleReset}
+          />
+        </div>
+        <div className="overflow-x-auto flex-1">
+          <table className="w-full">
+            <thead className="bg-white text-xs font-semibold text-slate-500 uppercase tracking-wider sticky top-0 border-b border-slate-100 shadow-sm z-10">
+              <tr>
+                <th className="px-6 py-4 text-left">Request Time</th>
+                <th className="px-6 py-4 text-left">Patient Details</th>
+                <th className="px-6 py-4 text-left">Requested By</th>
+                <th className="px-6 py-4 text-left">Details</th>
+                <th className="px-6 py-4 text-left">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {pendingRequests.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-12 text-center text-slate-400">
+                    No pending admission requests.
+                  </td>
+                </tr>
+              ) : (
+                pendingRequests.map(req => (
+                  <tr key={req.id} className="hover:bg-slate-50/70 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2 text-sm text-slate-600 font-medium">
+                        <Clock className="w-4 h-4 text-amber-500" />
+                        {new Date(req.requestDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="font-bold text-slate-800">{req.patientName}</div>
+                      <div className="text-xs text-slate-500">{req.uhid}</div>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-slate-600">
+                      {req.requestedBy}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm font-bold text-slate-700">{req.admissionType} • {req.specialty}</div>
+                      <div className="text-xs text-slate-500 truncate max-w-[200px]">{req.provisionalDiagnosis}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <button 
+                        onClick={() => navigate('/ipd/new-admission', { state: { request: req } })}
+                        className="px-4 py-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
+                      >
+                        <CheckCircle className="w-4 h-4" /> Process Admission
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};

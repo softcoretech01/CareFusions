@@ -1,34 +1,27 @@
-import { Search, Bell, Settings, Moon, Sun, Monitor, MapPin, Building, Zap } from 'lucide-react';
-import { useAppDispatch, useAppSelector } from '../hooks/redux';
-import { setTheme } from '../redux/slices/themeSlice';
+import { Search, Zap, CalendarDays } from 'lucide-react';
+
 import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { LiveClock } from '../components/ui/LiveClock';
 
 export const RegistrationTopNavigation = () => {
-  const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const themeMode = useAppSelector((state) => state.theme.mode);
-
-  const cycleTheme = () => {
-    if (themeMode === 'light') dispatch(setTheme('dark'));
-    else if (themeMode === 'dark') dispatch(setTheme('system'));
-    else dispatch(setTheme('light'));
-  };
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
   return (
     <header className="h-20 bg-white border-b border-slate-100 flex items-center justify-between px-8 sticky top-0 z-10 shadow-sm">
       
-      <div className="flex items-center gap-6">
-        {/* Hospital Selector (Mock) */}
-        <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors">
-          <Building className="w-4 h-4 text-primary" />
-          Central General Hospital
+      <div className="flex items-center gap-3 mr-6">
+        <div className="relative flex items-center gap-2 text-sm font-semibold text-slate-700 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors">
+          <CalendarDays className="w-4 h-4 text-primary" />
+          <input 
+            type="date"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            className="bg-transparent border-none p-0 focus:ring-0 focus:outline-none text-sm font-semibold text-slate-700 cursor-pointer"
+          />
         </div>
-        
-        {/* Branch Selector (Mock) */}
-        <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors">
-          <MapPin className="w-4 h-4 text-primary" />
-          Main Campus
-        </div>
+        <LiveClock />
       </div>
 
       <div className="flex-1 max-w-xl relative mx-8">
@@ -38,10 +31,6 @@ export const RegistrationTopNavigation = () => {
           placeholder="Search patient by UHID, Name, Mobile, or Scan QR..."
           className="w-full bg-slate-50 border border-slate-200 rounded-full py-2.5 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm placeholder:text-slate-400 font-medium"
         />
-        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
-           <span className="text-[10px] font-bold text-slate-400 border border-slate-200 px-1.5 py-0.5 rounded shadow-sm bg-white">Ctrl</span>
-           <span className="text-[10px] font-bold text-slate-400 border border-slate-200 px-1.5 py-0.5 rounded shadow-sm bg-white">K</span>
-        </div>
       </div>
 
       <div className="flex items-center gap-4">
@@ -55,26 +44,8 @@ export const RegistrationTopNavigation = () => {
           Quick Reg
         </button>
 
-        <button 
-          onClick={cycleTheme}
-          className="p-2.5 rounded-xl hover:bg-hover text-gray-500 hover:text-primary transition-colors"
-          title={`Theme: ${themeMode}`}
-        >
-          {themeMode === 'light' && <Sun className="w-5 h-5" />}
-          {themeMode === 'dark' && <Moon className="w-5 h-5" />}
-          {themeMode === 'system' && <Monitor className="w-5 h-5" />}
-        </button>
 
-        <button className="p-2.5 rounded-xl hover:bg-hover text-gray-500 hover:text-primary transition-colors relative">
-          <Bell className="w-5 h-5" />
-          <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-danger rounded-full border-2 border-card"></span>
-        </button>
-        
-        <button className="p-2.5 rounded-xl hover:bg-hover text-gray-500 hover:text-primary transition-colors">
-          <Settings className="w-5 h-5" />
-        </button>
 
-        <div className="h-8 w-[1px] bg-border mx-2"></div>
 
         <div className="flex items-center gap-3 cursor-pointer p-1.5 rounded-xl hover:bg-hover transition-colors">
           <div className="text-right hidden md:block mr-2">

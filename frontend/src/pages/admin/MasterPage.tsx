@@ -2,6 +2,7 @@ import { useParams } from 'react-router-dom';
 import { Plus, Search, Filter, Download, Edit2, Trash2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '../../components/ui/Button';
+import { exportToExcel } from '../../utils/exportToExcel';
 
 export const MasterPage = () => {
   const { masterId } = useParams();
@@ -76,7 +77,7 @@ export const MasterPage = () => {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-slate-800">{title}</h1>
-          <p className="text-slate-500 mt-1">Manage and configure your {title.toLowerCase()} settings.</p>
+          <p className="text-slate-500 mt-1"></p>
         </div>
         
         <Button variant="filled" color="primary" icon={Plus}>
@@ -100,9 +101,10 @@ export const MasterPage = () => {
             <button className="p-2 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 transition-colors">
               <Filter className="w-4 h-4" />
             </button>
-            <button className="p-2 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 transition-colors">
-              <Download className="w-4 h-4" />
-            </button>
+            <button className="p-2 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 transition-colors" onClick={() => exportToExcel([], 'MasterPage')}>
+                  <Download className="w-5 h-5" />
+                  Export
+                </button>
           </div>
         </div>
 

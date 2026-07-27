@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 
@@ -7,7 +7,7 @@ interface ModalProps {
   onClose: () => void;
   title: string;
   children: React.ReactNode;
-  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | '6xl' | '7xl';
 }
 
 const maxWidthClasses = {
@@ -16,9 +16,15 @@ const maxWidthClasses = {
   lg: 'max-w-lg',
   xl: 'max-w-xl',
   '2xl': 'max-w-2xl',
+  '3xl': 'max-w-3xl',
+  '4xl': 'max-w-4xl',
+  '5xl': 'max-w-5xl',
+  '6xl': 'max-w-6xl',
+  '7xl': 'max-w-7xl',
 };
 
-export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, maxWidth = 'md' }) => {
+export const Modal: React.FC<ModalProps & { size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | '6xl' | '7xl' }> = ({ isOpen, onClose, title, children, maxWidth, size }) => {
+  const finalMaxWidth = size || maxWidth || 'md';
   return (
     <AnimatePresence>
       {isOpen && (
@@ -39,7 +45,7 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ type: 'spring', bounce: 0, duration: 0.3 }}
-              className={`bg-white rounded-2xl shadow-xl w-full ${maxWidthClasses[maxWidth]} pointer-events-auto flex flex-col max-h-[90vh]`}
+              className={`bg-white rounded-2xl shadow-xl w-full ${maxWidthClasses[finalMaxWidth]} pointer-events-auto flex flex-col max-h-[90vh]`}
             >
               {/* Header */}
               <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">

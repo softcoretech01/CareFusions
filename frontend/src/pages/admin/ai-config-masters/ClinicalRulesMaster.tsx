@@ -3,6 +3,7 @@ import { Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle } from 'lu
 import { motion } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
+import { exportToExcel } from '../../../utils/exportToExcel';
 
 // Mock data generator for initial state
 const generateInitialData = () => {
@@ -146,9 +147,10 @@ export const ClinicalRulesMaster = () => {
             <button className="p-2.5 text-slate-500 hover:bg-slate-50 rounded-xl transition-colors border border-slate-200">
               <Filter className="w-5 h-5" />
             </button>
-            <button className="p-2.5 text-slate-500 hover:bg-slate-50 rounded-xl transition-colors border border-slate-200">
-              <Download className="w-5 h-5" />
-            </button>
+            <button className="p-2.5 text-slate-500 hover:bg-slate-50 rounded-xl transition-colors border border-slate-200" onClick={() => exportToExcel(records, 'ClinicalRulesMaster')}>
+                  <Download className="w-5 h-5" />
+                  Export
+                </button>
           </div>
         </div>
 

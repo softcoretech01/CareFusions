@@ -1,295 +1,403 @@
-import { useState } from 'react';
-import { Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { useState, useMemo } from 'react';
+import { 
+  Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle, 
+  Save, RefreshCw, ChevronLeft, ChevronRight, Eye, Power
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
+import { exportToExcel } from '../../../utils/exportToExcel';
 
-// Mock data generator for initial state
-const generateInitialData = () => {
-  const mockNames: Record<string, string[]> = {
-    'department': ['Cardiology', 'Neurology', 'Orthopedics', 'Pediatrics', 'Oncology', 'Emergency', 'Radiology'],
-    'hospital': ['City General Hospital', 'CareFusions North', 'CareFusions South', 'Metro Health Center', 'Valley Medical', 'Lakeside Clinic', 'Downtown Care'],
-    'branch': ['Main Campus', 'North Wing', 'South Branch', 'East Side Clinic', 'West End Hospital', 'Suburban Center', 'City Annex'],
-    'employee': ['John Smith', 'Sarah Jenkins', 'Michael Chen', 'Emily Davis', 'Robert Wilson', 'Maria Garcia', 'David Taylor'],
-    'nurse': ['Nurse Mary', 'Nurse Jessica', 'Nurse Peter', 'Nurse Claire', 'Nurse Joy', 'Nurse Emma', 'Nurse Jack'],
-    'pharmacist': ['Pharm. Adam', 'Pharm. Eve', 'Pharm. Bill', 'Pharm. Melinda', 'Pharm. Steve', 'Pharm. Woz', 'Pharm. Tim'],
-    'lab-technician': ['Tech Brian', 'Tech Lisa', 'Tech Monica', 'Tech Chandler', 'Tech Joey', 'Tech Rachel', 'Tech Ross'],
-    'receptionist': ['Ann', 'Pam', 'Jim', 'Dwight', 'Michael', 'Stanley', 'Phyllis'],
-    'housekeeping': ['Jose', 'Maria', 'Luis', 'Carmen', 'Jorge', 'Ana', 'Carlos'],
-    'doctor': ['Dr. James Wilson', 'Dr. Sarah Patel', 'Dr. Michael Chang', 'Dr. Emily Brown', 'Dr. Robert Lee', 'Dr. Maria Rodriguez', 'Dr. David Kim'],
-    'doctor-specialization': ['Cardiologist', 'Neurologist', 'Orthopedic Surgeon', 'Pediatrician', 'Oncologist', 'General Physician', 'Dermatologist'],
-    'patient-category': ['General', 'VIP', 'Corporate', 'Staff', 'Government Scheme', 'Insurance', 'International'],
-    'blood-group': ['A Positive (A+)', 'A Negative (A-)', 'B Positive (B+)', 'B Negative (B-)', 'O Positive (O+)', 'O Negative (O-)', 'AB Positive (AB+)'],
-    'consultation-type': ['First Visit', 'Follow Up', 'Emergency', 'Teleconsultation', 'Routine Checkup', 'Specialist Referral', 'Free Camp'],
-    'appointment-status': ['Scheduled', 'Arrived', 'Consulting', 'Completed', 'Cancelled', 'No Show', 'Rescheduled'],
-    'medicine': ['Paracetamol 500mg', 'Amoxicillin 250mg', 'Omeprazole 20mg', 'Ibuprofen 400mg', 'Azithromycin 500mg', 'Cetirizine 10mg', 'Metformin 500mg'],
-    'medicine-category': ['Antibiotics', 'Analgesics', 'Antacids', 'Antipyretics', 'Antihistamines', 'Vitamins', 'Cardiovascular'],
-    'test': ['Complete Blood Count (CBC)', 'Lipid Profile', 'Liver Function Test (LFT)', 'Kidney Function Test (KFT)', 'Thyroid Profile', 'Blood Sugar Fasting', 'HbA1c'],
-    'sample-type': ['Blood', 'Urine', 'Stool', 'Sputum', 'Saliva', 'Swab', 'Tissue'],
-    'radiology-service': ['X-Ray Chest PA View', 'MRI Brain', 'CT Scan Abdomen', 'Ultrasound Whole Abdomen', 'ECG', 'Mammography', 'Dexa Scan'],
-    'equipment': ['Siemens MRI Scanner', 'GE CT Scanner', 'Philips X-Ray Machine', 'Ultrasound Machine 1', 'ECG Machine 1', 'Ventilator A', 'Defibrillator'],
-    'service': ['Consultation Fee', 'Registration Fee', 'Bed Charge (General)', 'Bed Charge (Private)', 'ICU Charge', 'Nursing Charge', 'Diet Charge'],
-    'tax': ['GST 5%', 'GST 12%', 'GST 18%', 'VAT 5%', 'Service Tax', 'CESS 1%', 'Zero Tax'],
-    'payment-mode': ['Cash', 'Credit Card', 'Debit Card', 'UPI', 'Bank Transfer', 'Cheque', 'Insurance Claim'],
-    'insurance-provider': ['Star Health', 'HDFC Ergo', 'ICICI Lombard', 'Max Bupa', 'Religare', 'Apollo Munich', 'New India Assurance'],
-    'tpa': ['MediAssist', 'Vidal Health', 'Raksha TPA', 'Paramount Health', 'Family Health Plan', 'MDIndia', 'Heritage Health'],
-    'vendor': ['MedTech Suppliers', 'PharmaCare Inc.', 'Global Equipments', 'Surgical Solutions', 'BioLife Diagnostics', 'Prime IT Solutions', 'Care Uniforms'],
-    'item-category': ['Surgical Items', 'Consumables', 'Stationery', 'Housekeeping', 'IT Equipment', 'Implants', 'Linen'],
-    'warehouse': ['Main Central Store', 'Pharmacy Store', 'OT Store', 'Lab Store', 'Ward Store A', 'Emergency Store', 'Dietary Store'],
-    'coa': ['Cash in Hand', 'Bank Accounts', 'Accounts Receivable', 'Inventory', 'Accounts Payable', 'Salary Expense', 'Utility Expense'],
-    'cost-center': ['OPD Clinic', 'Inpatient Wards', 'Operation Theatre', 'Laboratory', 'Radiology', 'Pharmacy', 'Emergency Dept'],
-    'users': ['admin_john', 'dr_sarah', 'nurse_mary', 'pharmacy_bill', 'lab_tech1', 'frontdesk_ann', 'billing_tom'],
-    'roles': ['System Administrator', 'Senior Doctor', 'Head Nurse', 'Pharmacist', 'Lab Technician', 'Receptionist', 'Billing Executive'],
-    'permissions': ['Create Patient', 'Edit Patient', 'View Reports', 'Approve Billing', 'Manage Inventory', 'Access Settings', 'Delete Records'],
-    'sms': ['Appointment Confirmation', 'Welcome Message', 'Report Ready', 'Payment Receipt', 'Discharge Summary', 'Follow-up Reminder', 'Birthday Greeting'],
-    'email': ['Welcome Email', 'Invoice Copy', 'Lab Report', 'Prescription', 'Appointment Reminder', 'Feedback Request', 'Newsletter'],
-    'prompts': ['Summarize Patient History', 'Extract Symptoms', 'Suggest Investigations', 'Draft Discharge Summary', 'Analyze Lab Report', 'Check Drug Interactions', 'Generate Diet Plan'],
-    'clinical-rules': ['High BP Alert', 'Allergy Warning', 'Diabetic Protocol', 'Pregnancy Contraindication', 'Pediatric Dosage Check', 'Renal Failure Adjustments', 'Critical Value Alert'],
-  };
+export interface DepartmentRecord {
+  id: number;
+  departmentCode: string;
+  departmentName: string;
+  departmentType: string;
+  description: string;
+  departmentHead: string;
+  status: string;
+  createdBy?: string;
+  createdDate?: string;
+  updatedBy?: string;
+  updatedDate?: string;
+}
 
-  const names = mockNames['department'] || ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'Zeta', 'Eta'];
-  
-  return Array.from({ length: 7 }).map((_, idx) => ({
-    id: idx + 1,
-    code: `CODE-${idx + 1}0${idx + 1}`,
-    name: names[idx % names.length],
-    status: idx % 3 === 0 ? 'Inactive' : 'Active'
-  }));
-};
+const emptyData: Omit<DepartmentRecord, 'id'> = { departmentCode: '', departmentName: '', departmentType: 'Clinical', description: '', departmentHead: '', status: 'Active' };
+
+export const mockData: DepartmentRecord[] = [{"id": 1, "departmentCode": "DPT-001", "departmentName": "Pharmacy", "departmentType": "Clinical", "description": "Central Pharmacy", "departmentHead": "Dr. Smith", "status": "Active", "createdBy": "System", "createdDate": "2024-01-01"},
+{"id": 2, "departmentCode": "DPT-002", "departmentName": "Laboratory", "departmentType": "Clinical", "description": "Pathology & Micro", "departmentHead": "Dr. Jones", "status": "Active", "createdBy": "System", "createdDate": "2024-01-01"},
+{"id": 3, "departmentCode": "DPT-003", "departmentName": "Radiology", "departmentType": "Clinical", "description": "X-Ray, MRI, CT", "departmentHead": "Dr. Banner", "status": "Active", "createdBy": "System", "createdDate": "2024-01-01"},
+{"id": 4, "departmentCode": "DPT-004", "departmentName": "Operation Theatre", "departmentType": "Clinical", "description": "Main OT Complex", "departmentHead": "Dr. Strange", "status": "Active", "createdBy": "System", "createdDate": "2024-01-01"},
+{"id": 5, "departmentCode": "DPT-005", "departmentName": "ICU", "departmentType": "Clinical", "description": "Intensive Care Unit", "departmentHead": "Dr. Carter", "status": "Active", "createdBy": "System", "createdDate": "2024-01-01"},
+{"id": 6, "departmentCode": "DPT-006", "departmentName": "Emergency", "departmentType": "Clinical", "description": "ER / Casualty", "departmentHead": "Dr. Greene", "status": "Active", "createdBy": "System", "createdDate": "2024-01-01"},
+{"id": 7, "departmentCode": "DPT-007", "departmentName": "OPD", "departmentType": "Clinical", "description": "Outpatient Dept", "departmentHead": "Dr. House", "status": "Active", "createdBy": "System", "createdDate": "2024-01-01"},
+{"id": 8, "departmentCode": "DPT-008", "departmentName": "IPD", "departmentType": "Clinical", "description": "Inpatient Wards", "departmentHead": "Dr. Wilson", "status": "Active", "createdBy": "System", "createdDate": "2024-01-01"},
+{"id": 9, "departmentCode": "DPT-009", "departmentName": "Blood Bank", "departmentType": "Clinical", "description": "Blood Storage & Processing", "departmentHead": "Dr. Cullen", "status": "Active", "createdBy": "System", "createdDate": "2024-01-01"},
+{"id": 10, "departmentCode": "DPT-010", "departmentName": "Biomedical Engineering", "departmentType": "Non-Clinical", "description": "BME Support", "departmentHead": "Eng. Stark", "status": "Active", "createdBy": "System", "createdDate": "2024-01-01"},
+{"id": 11, "departmentCode": "DPT-011", "departmentName": "Housekeeping", "departmentType": "Non-Clinical", "description": "Hospital Cleanliness", "departmentHead": "Mr. Filch", "status": "Active", "createdBy": "System", "createdDate": "2024-01-01"},
+{"id": 12, "departmentCode": "DPT-012", "departmentName": "Laundry", "departmentType": "Non-Clinical", "description": "Linen Management", "departmentHead": "Mrs. Weasley", "status": "Active", "createdBy": "System", "createdDate": "2024-01-01"},
+{"id": 13, "departmentCode": "DPT-013", "departmentName": "Kitchen", "departmentType": "Non-Clinical", "description": "Dietary Services", "departmentHead": "Chef Gordon", "status": "Active", "createdBy": "System", "createdDate": "2024-01-01"},
+{"id": 14, "departmentCode": "DPT-014", "departmentName": "Maintenance", "departmentType": "Non-Clinical", "description": "Facility Maintenance", "departmentHead": "Mr. Fixit", "status": "Active", "createdBy": "System", "createdDate": "2024-01-01"},
+{"id": 15, "departmentCode": "DPT-015", "departmentName": "Administration", "departmentType": "Non-Clinical", "description": "Hospital Admin", "departmentHead": "Mr. Boss", "status": "Active", "createdBy": "System", "createdDate": "2024-01-01"},
+{"id": 16, "departmentCode": "DPT-016", "departmentName": "Finance", "departmentType": "Non-Clinical", "description": "Billing & Accounts", "departmentHead": "Ms. Penny", "status": "Active", "createdBy": "System", "createdDate": "2024-01-01"},
+{"id": 17, "departmentCode": "DPT-017", "departmentName": "HR", "departmentType": "Non-Clinical", "description": "Human Resources", "departmentHead": "Mr. Toby", "status": "Active", "createdBy": "System", "createdDate": "2024-01-01"},
+{"id": 18, "departmentCode": "DPT-018", "departmentName": "IT", "departmentType": "Non-Clinical", "description": "Information Tech", "departmentHead": "Mr. Moss", "status": "Active", "createdBy": "System", "createdDate": "2024-01-01"},
+{"id": 19, "departmentCode": "DPT-019", "departmentName": "Central Store", "departmentType": "Non-Clinical", "description": "Main Inventory", "departmentHead": "Mr. Stock", "status": "Active", "createdBy": "System", "createdDate": "2024-01-01"},
+{"id": 20, "departmentCode": "DPT-020", "departmentName": "CSSD", "departmentType": "Clinical", "description": "Sterilization Dept", "departmentHead": "Nurse Joy", "status": "Active", "createdBy": "System", "createdDate": "2024-01-01"}];
 
 export const DepartmentMaster = () => {
-  const [records, setRecords] = useState(generateInitialData());
+  const [records, setRecords] = useState<DepartmentRecord[]>(mockData);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Pagination & Sorting States
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [sortConfig, setSortConfig] = useState<{key: keyof DepartmentRecord | null, direction: 'asc'|'desc'}>({ key: null, direction: 'asc' });
 
-  // Modal States
+  // Filter States
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterStatus, setFilterStatus] = useState('');
+
+  // Form States
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isViewOpen, setIsViewOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-  const [selectedRecord, setSelectedRecord] = useState<any>(null);
-  const [formData, setFormData] = useState({ name: '', code: '', status: 'Active' });
+  const [selectedRecord, setSelectedRecord] = useState<DepartmentRecord | null>(null);
+  const [formData, setFormData] = useState<Omit<DepartmentRecord, 'id'>>(emptyData);
 
-  // Handlers
+  const validateForm = () => {
+    if (!formData.departmentCode.trim()) return false;
+    if (!formData.departmentName.trim()) return false;
+    return true;
+  };
+
   const handleCreateNew = () => {
     setSelectedRecord(null);
-    setFormData({ name: '', code: '', status: 'Active' });
+    setFormData(emptyData); // Could add auto-generate logic here
     setIsFormOpen(true);
   };
 
-  const handleEdit = (record: any) => {
+  const handleEdit = (record: DepartmentRecord) => {
     setSelectedRecord(record);
-    setFormData({ name: record.name, code: record.code, status: record.status });
+    setFormData(record);
     setIsFormOpen(true);
   };
+  
+  const handleView = (record: DepartmentRecord) => {
+    setSelectedRecord(record);
+    setIsViewOpen(true);
+  };
+  
+  const handleToggleStatus = (record: DepartmentRecord) => {
+    setRecords(records.map(r => 
+      r.id === record.id ? { ...r, status: r.status === 'Active' ? 'Inactive' : 'Active', updatedBy: 'Admin', updatedDate: new Date().toISOString().split('T')[0] } : r
+    ));
+  };
 
-  const handleDeleteRequest = (record: any) => {
+  const handleDelete = (record: DepartmentRecord) => {
     setSelectedRecord(record);
     setIsDeleteOpen(true);
-  };
-
-  const handleSaveForm = () => {
-    if (!formData.name.trim() || !formData.code.trim()) return;
-
-    if (selectedRecord) {
-      // Update
-      setRecords(records.map(r => r.id === selectedRecord.id ? { ...r, ...formData } : r));
-    } else {
-      // Create
-      const newId = Math.max(...records.map(r => r.id), 0) + 1;
-      setRecords([...records, { id: newId, ...formData }]);
-    }
-    setIsFormOpen(false);
   };
 
   const confirmDelete = () => {
     if (selectedRecord) {
       setRecords(records.filter(r => r.id !== selectedRecord.id));
       setIsDeleteOpen(false);
+      setSelectedRecord(null);
     }
   };
 
-  const filteredRecords = records.filter(r => 
-    r.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    r.code.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const handleSave = () => {
+    if (validateForm()) {
+      if (selectedRecord) {
+        setRecords(records.map(r => r.id === selectedRecord.id ? { ...formData, id: r.id, updatedBy: 'Admin', updatedDate: new Date().toISOString().split('T')[0] } : r));
+      } else {
+        const newId = records.length > 0 ? Math.max(...records.map(r => r.id)) + 1 : 1;
+        setRecords([{ ...formData, id: newId, createdBy: 'Admin', createdDate: new Date().toISOString().split('T')[0] }, ...records]);
+      }
+      setIsFormOpen(false);
+    }
+  };
+  
+  const handleSort = (key: keyof DepartmentRecord) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  // Process data (Filter -> Sort -> Paginate)
+  const processedData = useMemo(() => {
+    let result = records.filter(record => {
+      const matchesSearch = Object.values(record).some(val => 
+        String(val).toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      const matchesStatus = filterStatus ? record.status === filterStatus : true;
+      return matchesSearch && matchesStatus;
+    });
+
+    if (sortConfig.key) {
+      const sortKey = sortConfig.key;
+      result.sort((a, b) => {
+        const left = a?.[sortKey] as any;
+        const right = b?.[sortKey] as any;
+        if (left === undefined || right === undefined) return 0;
+        if (left < right) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (left > right) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return result;
+  }, [records, searchTerm, filterStatus, sortConfig]);
+
+  const totalPages = Math.ceil(processedData.length / itemsPerPage);
+  const paginatedData = processedData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="h-full flex flex-col relative"
+      className="h-full flex flex-col"
     >
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-800">Department Master</h1>
-          <p className="text-slate-500 mt-1">Manage and configure your department master settings.</p>
+      {/* Header & Breadcrumbs */}
+      <div className="mb-6">
+        <div className="flex items-center text-sm text-slate-500 mb-2">
+          <span>Masters</span>
+          <span className="mx-2">/</span>
+          <span className="text-primary font-medium">Department Master</span>
         </div>
-        
-        <Button variant="filled" color="primary" icon={Plus} onClick={handleCreateNew}>
-          Create New
-        </Button>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-800">Department Master</h1>
+            <p className="text-slate-500 mt-1">Manage Hospital Departments</p>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            <Button variant="outline" icon={Download} onClick={() => exportToExcel(records, 'DepartmentMaster')}>Export</Button>
+            <Button variant="filled" color="primary" icon={Plus} onClick={handleCreateNew}>
+              Add New
+            </Button>
+          </div>
+        </div>
       </div>
 
       <div className="bg-white rounded-3xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden">
         {/* Toolbar */}
-        <div className="p-4 border-b border-slate-100 flex items-center justify-between gap-4">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-            <input 
-              type="text"
-              placeholder="Search records..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-            />
+        <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+          <div className="flex items-center gap-3">
+            <div className="relative w-72">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input 
+                type="text" 
+                placeholder="Search..."
+                value={searchTerm}
+                onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+              />
+            </div>
+            
+            <button 
+              onClick={() => setShowFilters(!showFilters)}
+              className={`p-2 border rounded-lg transition-colors \${showFilters ? 'border-primary bg-primary/5 text-primary' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+              title="Advanced Filters"
+            >
+              <Filter className="w-4 h-4" />
+            </button>
+            <button className="p-2 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 transition-colors" title="Refresh">
+              <RefreshCw className="w-4 h-4" />
+            </button>
           </div>
-          <div className="flex items-center gap-2">
-            <button className="p-2.5 text-slate-500 hover:bg-slate-50 rounded-xl transition-colors border border-slate-200">
-              <Filter className="w-5 h-5" />
-            </button>
-            <button className="p-2.5 text-slate-500 hover:bg-slate-50 rounded-xl transition-colors border border-slate-200">
-              <Download className="w-5 h-5" />
-            </button>
+          
+          <div className="flex items-center gap-2 text-sm text-slate-500">
+            <span>Show</span>
+            <select 
+              value={itemsPerPage}
+              onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+              className="border border-slate-200 rounded-lg px-2 py-1 outline-none"
+            >
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+            </select>
+            <span>entries</span>
           </div>
         </div>
 
-        {/* Table */}
+        <AnimatePresence>
+          {showFilters && (
+            <motion.div 
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="border-b border-slate-100 bg-slate-50 overflow-hidden"
+            >
+              <div className="p-4 flex gap-4">
+                <select 
+                  value={filterStatus}
+                  onChange={(e) => { setFilterStatus(e.target.value); setCurrentPage(1); }}
+                  className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                >
+                  <option value="">All Statuses</option>
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                </select>
+                {/* Additional advanced filters can go here */}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <div className="flex-1 overflow-auto">
-          <table className="w-full text-left border-collapse">
-            <thead className="bg-slate-50/80 sticky top-0 backdrop-blur-sm z-10">
+          <table className="w-full">
+            <thead className="bg-slate-50 sticky top-0 z-10 border-b border-slate-200">
               <tr>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider w-24">ID</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Name</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Code</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
+<th className="text-left py-3 px-4 font-medium text-slate-500 text-sm cursor-pointer hover:bg-slate-100" onClick={() => handleSort('departmentCode')}>Code</th>
+<th className="text-left py-3 px-4 font-medium text-slate-500 text-sm cursor-pointer hover:bg-slate-100" onClick={() => handleSort('departmentName')}>Name</th>
+<th className="text-left py-3 px-4 font-medium text-slate-500 text-sm cursor-pointer hover:bg-slate-100" onClick={() => handleSort('departmentType')}>Type</th>
+<th className="text-left py-3 px-4 font-medium text-slate-500 text-sm">Head</th>
+<th className="text-left py-3 px-4 font-medium text-slate-500 text-sm">Status</th>
+<th className="text-right py-3 px-4 font-medium text-slate-500 text-sm w-32">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 bg-white">
-              {filteredRecords.map((row) => (
-                <tr key={row.id} className="hover:bg-slate-50/50 transition-colors group">
-                  <td className="px-6 py-4 text-sm font-semibold text-slate-600">
-                    #DEP{row.id}00{row.id}
-                  </td>
-                  <td className="px-6 py-4 text-sm font-bold text-slate-900">
-                    {row.name}
-                  </td>
-                  <td className="px-6 py-4 text-sm font-medium text-slate-500">
-                    {row.code}
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${row.status === 'Inactive' ? 'bg-warning/10 text-warning' : 'bg-success/10 text-success'}`}>
-                      {row.status}
+            <tbody className="divide-y divide-slate-100">
+              {paginatedData.length === 0 ? (
+                <tr><td colSpan={10} className="py-8 text-center text-slate-500">No records found</td></tr>
+              ) : paginatedData.map((record) => (
+                <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
+<td className="py-3 px-4 text-slate-800 font-medium">{record.departmentCode}</td>
+<td className="py-3 px-4 text-slate-800">{record.departmentName}</td>
+<td className="py-3 px-4 text-slate-800"><span className={`px-2 py-1 rounded text-xs \${record.departmentType === 'Clinical' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-600'}`}>{record.departmentType}</span></td>
+<td className="py-3 px-4 text-slate-800">{record.departmentHead || '-'}</td>
+                  <td className="py-3 px-4">
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium \${
+                      record.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'
+                    }`}>
+                      {record.status}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2 transition-opacity">
-                      <Button variant="text" color="primary" icon={Edit2} className="!p-2" aria-label="Edit" onClick={() => handleEdit(row)} />
-                      <Button variant="text" color="danger" icon={Trash2} className="!p-2" aria-label="Delete" onClick={() => handleDeleteRequest(row)} />
+                  <td className="py-3 px-4 text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <button onClick={() => handleView(record)} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="View Details">
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => handleEdit(record)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Edit">
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => handleToggleStatus(record)} className={`p-1.5 rounded-lg transition-colors \${record.status === 'Active' ? 'text-slate-400 hover:text-orange-500 hover:bg-orange-50' : 'text-slate-400 hover:text-emerald-500 hover:bg-emerald-50'}`} title={record.status === 'Active' ? 'Deactivate' : 'Activate'}>
+                        <Power className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => handleDelete(record)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </td>
                 </tr>
               ))}
-              {filteredRecords.length === 0 && (
-                 <tr>
-                   <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
-                     No records found matching "{searchTerm}"
-                   </td>
-                 </tr>
-              )}
             </tbody>
           </table>
         </div>
         
-        {/* Pagination Footer */}
-        <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between text-sm">
-          <span className="text-slate-500 font-medium">Showing {filteredRecords.length} entries</span>
-          <div className="flex gap-1">
-            <button className="px-3 py-1 border border-slate-200 rounded-lg text-slate-500 hover:bg-white transition-colors">Prev</button>
-            <button className="px-3 py-1 bg-primary text-white rounded-lg font-medium shadow-sm shadow-primary/20">1</button>
-            <button className="px-3 py-1 border border-slate-200 rounded-lg text-slate-500 hover:bg-white transition-colors">Next</button>
+        {/* Pagination */}
+        <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+          <div className="text-sm text-slate-500">
+            Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, processedData.length)} of {processedData.length} entries
+          </div>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className="p-1 rounded border border-slate-200 text-slate-500 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="text-sm text-slate-600 px-2">Page {currentPage} of {totalPages || 1}</span>
+            <button 
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages || totalPages === 0}
+              className="p-1 rounded border border-slate-200 text-slate-500 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </div>
 
       {/* Form Modal */}
-      <Modal
-        isOpen={isFormOpen}
+      <Modal 
+        isOpen={isFormOpen} 
         onClose={() => setIsFormOpen(false)}
-        title={selectedRecord ? `Edit Department Master` : `Create Department Master`}
-        maxWidth="xl"
+        title={`\${selectedRecord ? 'Edit' : 'Add'} Department Master`}
+        size="3xl"
       >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-2">
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-slate-700 mb-1">Name</label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => setFormData({...formData, name: e.target.value})}
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-              placeholder="Enter name"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Code</label>
-            <input
-              type="text"
-              value={formData.code}
-              onChange={(e) => setFormData({...formData, code: e.target.value})}
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-              placeholder="Enter code"
-            />
-          </div>
+        <div className="space-y-4 max-h-[70vh] overflow-y-auto px-1">
+<div><label className="block text-sm font-medium text-slate-700 mb-1">Department Code</label><input type="text" value={formData.departmentCode} onChange={(e) => setFormData({...formData, departmentCode: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary"/></div>
+<div><label className="block text-sm font-medium text-slate-700 mb-1">Name</label><input type="text" value={formData.departmentName} onChange={(e) => setFormData({...formData, departmentName: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary"/></div>
+<div><label className="block text-sm font-medium text-slate-700 mb-1">Type</label><select value={formData.departmentType} onChange={(e) => setFormData({...formData, departmentType: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary"><option value="Clinical">Clinical</option><option value="Non-Clinical">Non-Clinical</option></select></div>
+<div><label className="block text-sm font-medium text-slate-700 mb-1">Head</label><input type="text" value={formData.departmentHead} onChange={(e) => setFormData({...formData, departmentHead: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary"/></div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
-            <select
+            <select 
               value={formData.status}
-              onChange={(e) => setFormData({...formData, status: e.target.value})}
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+              onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+              className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
             >
               <option value="Active">Active</option>
               <option value="Inactive">Inactive</option>
             </select>
           </div>
         </div>
-        
-        <div className="mt-8 flex items-center justify-end gap-3 pt-6 border-t border-slate-100">
-          <Button variant="outline" color="secondary" onClick={() => setIsFormOpen(false)}>
-            Cancel
-          </Button>
-          <Button variant="filled" color="primary" onClick={handleSaveForm}>
-            {selectedRecord ? 'Save Changes' : 'Create Record'}
-          </Button>
+
+        {selectedRecord && (
+          <div className="mt-6 pt-4 border-t border-slate-100 grid grid-cols-2 gap-4 text-xs text-slate-500">
+            <div><span className="block font-medium text-slate-700 mb-1">Created By</span>{selectedRecord.createdBy || 'System'} • {selectedRecord.createdDate || 'N/A'}</div>
+            <div><span className="block font-medium text-slate-700 mb-1">Last Updated</span>{selectedRecord.updatedBy || '-'} • {selectedRecord.updatedDate || '-'}</div>
+          </div>
+        )}
+
+        <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-slate-100">
+          <Button variant="outline" onClick={() => setIsFormOpen(false)}>Cancel</Button>
+          <Button variant="filled" color="primary" onClick={handleSave} icon={Save}>{selectedRecord ? 'Update' : 'Save'}</Button>
         </div>
       </Modal>
 
-      {/* Delete Confirmation Modal */}
-      <Modal
-        isOpen={isDeleteOpen}
-        onClose={() => setIsDeleteOpen(false)}
-        title="Confirm Deletion"
-        maxWidth="sm"
-      >
-        <div className="flex flex-col items-center text-center">
-          <div className="w-12 h-12 rounded-full bg-danger/10 text-danger flex items-center justify-center mb-4">
+      {/* View Modal */}
+      <Modal isOpen={isViewOpen} onClose={() => setIsViewOpen(false)} title={`View Department Master Details`} size="md">
+        {selectedRecord && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+<div><span className="text-xs text-slate-400 block">Code</span><span className="text-sm font-medium">{selectedRecord.departmentCode}</span></div>
+<div><span className="text-xs text-slate-400 block">Name</span><span className="text-sm font-medium">{selectedRecord.departmentName}</span></div>
+<div><span className="text-xs text-slate-400 block">Type</span><span className="text-sm font-medium">{selectedRecord.departmentType}</span></div>
+<div><span className="text-xs text-slate-400 block">Head</span><span className="text-sm font-medium">{selectedRecord.departmentHead}</span></div>
+            </div>
+            <div className="pt-4 border-t border-slate-100">
+              <span className="text-xs text-slate-400 block mb-1">Status</span>
+              <span className={`px-2.5 py-1 rounded-full text-xs font-medium \${
+                selectedRecord.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'
+              }`}>
+                {selectedRecord.status}
+              </span>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Delete Modal */}
+      <Modal isOpen={isDeleteOpen} onClose={() => setIsDeleteOpen(false)} title="Delete Record" size="sm">
+        <div className="text-center py-4">
+          <div className="w-12 h-12 rounded-full bg-red-100 text-red-500 flex items-center justify-center mx-auto mb-4">
             <AlertTriangle className="w-6 h-6" />
           </div>
-          <h3 className="text-lg font-bold text-slate-800 mb-2">Delete Record</h3>
-          <p className="text-slate-500 text-sm mb-6">
-            Are you sure you want to delete <span className="font-semibold text-slate-700">{selectedRecord?.name}</span>? 
-            This action cannot be undone.
-          </p>
-          
-          <div className="flex items-center gap-3 w-full">
-            <Button variant="outline" color="secondary" className="flex-1" onClick={() => setIsDeleteOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="filled" color="danger" className="flex-1" onClick={confirmDelete}>
-              Delete
-            </Button>
+          <h3 className="text-lg font-medium text-slate-800 mb-2">Delete Record?</h3>
+          <p className="text-slate-500 mb-6">Are you sure you want to delete this record? This action cannot be undone.</p>
+          <div className="flex justify-center gap-3">
+            <Button variant="outline" onClick={() => setIsDeleteOpen(false)}>Cancel</Button>
+            <Button variant="filled" className="bg-red-500 hover:bg-red-600 text-white border-transparent" onClick={confirmDelete}>Delete</Button>
           </div>
         </div>
       </Modal>
-
     </motion.div>
   );
 };

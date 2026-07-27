@@ -1,8 +1,5 @@
 import { motion } from 'framer-motion';
-import {
-  Building2, Users, Stethoscope, Pill, Microscope,
-  ActivitySquare, ShieldCheck, UserCog, Settings, FileText, LayoutList
-} from 'lucide-react';
+import { Building2, Users, Stethoscope, Pill, Microscope, ShieldCheck, UserCog, Settings, FileText } from 'lucide-react';
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
 
@@ -37,29 +34,12 @@ const donutOptions: ApexOptions = {
 export const Dashboard = () => {
   return (
     <div className="space-y-6">
-      {/* Hero Banner */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-        className="bg-gradient-primary rounded-3xl p-8 text-white shadow-xl shadow-primary/20 flex justify-between items-center relative overflow-hidden"
-      >
-        <div className="relative z-10">
-          <h1 className="text-3xl font-bold mb-2">Welcome to Master Administration ⚡</h1>
-          <p className="text-blue-100 max-w-xl text-lg">
-            You are managing the central configuration hub for TechHMS.
-            Modifications here reflect across all hospitals and branches.
-          </p>
-          <div className="flex gap-4 mt-6">
-            <button className="bg-white text-primary px-6 py-2.5 rounded-xl font-bold hover:bg-blue-50 transition-colors shadow-sm">
-              + Quick Create Master
-            </button>
-            <button className="bg-white/20 hover:bg-white/30 text-white border border-white/30 px-6 py-2.5 rounded-xl font-bold transition-colors">
-              View Audit Logs
-            </button>
-          </div>
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Masters Dashboard</h1>
         </div>
-        <Settings className="absolute -right-10 -bottom-10 w-64 h-64 text-white opacity-10 animate-[spin_20s_linear_infinite]" />
-      </motion.div>
-
+      </div>
+      
       {/* KPIs Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {kpis.map((kpi, idx) => {

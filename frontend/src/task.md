@@ -1,0 +1,11 @@
+- [x] **Task 1: Simplify Patient Registration Name Fields**
+  - Update `PatientRegistration.tsx` to replace First Name, Middle Name, and Last Name with a single "Patient Name" field.
+- [x] **Task 2: Global Context Verification**
+  - Verify that `PatientProvider` and `AppointmentProvider` are globally available (at the root) so that data created in the Online Portal flows directly into Registration and Appointments.
+- [x] **Task 3: Online Appointment Booking Portal**
+  - Create a new screen `OnlineBooking.tsx` to simulate the patient-facing self-service booking.
+  - Integrate a wizard: Select Department -> Select Doctor -> Select Date/Time (based on smart scheduling) -> Collect Patient Info.
+  - On submit, automatically create a patient record (UHID) in `PatientContext` AND an appointment in `AppointmentContext`.
+- [x] **Task 4: Update Sidebar and Routes**
+  - Add the "Online Booking" menu item to `AppointmentSidebar.tsx`.
+  - Register the new route in `routes/index.tsx`.

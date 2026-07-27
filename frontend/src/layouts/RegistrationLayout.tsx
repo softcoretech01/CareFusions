@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import { RegistrationSidebar } from './RegistrationSidebar';
 import { RegistrationTopNavigation } from './RegistrationTopNavigation';
 import { useAppSelector } from '../hooks/redux';
+import { motion } from 'framer-motion';
 
 export const RegistrationLayout = () => {
   const themeMode = useAppSelector((state) => state.theme.mode);
@@ -23,12 +24,17 @@ export const RegistrationLayout = () => {
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       <RegistrationSidebar />
-      
       <div className="flex-1 flex flex-col relative overflow-hidden">
         <RegistrationTopNavigation />
-        
         <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 custom-scrollbar">
-          <Outlet />
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
+            className="h-full"
+          >
+            <Outlet />
+          </motion.div>
         </main>
       </div>
     </div>

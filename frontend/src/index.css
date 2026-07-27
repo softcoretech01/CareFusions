@@ -12,9 +12,14 @@
   --color-hover: #f3f4f6;
   --color-success: #10b981;
   --color-warning: #f59e0b;
-  --color-danger: #ef4444;
+  --color-danger: #b22222;
   --color-info: #0ea5e9;
   --color-purple: #8b5cf6;
+  --color-red-500: #b22222;
+  --color-red-600: #b22222;
+  --color-red-50: #fde8e8;
+  --color-red-100: #fbd5d5;
+  --color-red-200: #f8b4b4;
   
   --font-sans: 'Inter', sans-serif;
   --font-mono: 'IBM Plex Sans', monospace;
@@ -57,4 +62,14 @@
   background: linear-gradient(135deg, #01684c 0%, #018d68 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+}
+
+/* Hide number input spinners globally */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
 }

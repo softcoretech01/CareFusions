@@ -1,4 +1,3 @@
-import React from 'react';
 
 type ButtonVariant = 'filled' | 'outline' | 'text';
 type ButtonColor = 'primary' | 'secondary' | 'danger';
@@ -8,7 +7,8 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   color?: ButtonColor;
   icon?: React.ElementType;
   isLoading?: boolean;
-  children: React.ReactNode;
+  size?: 'sm' | 'md' | 'lg' | string;
+  children?: React.ReactNode;
 }
 
 export const Button = ({

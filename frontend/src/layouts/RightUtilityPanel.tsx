@@ -1,4 +1,4 @@
-import { Sparkles, Calendar as CalendarIcon, Clock } from 'lucide-react';
+import { Sparkles, Clock, Calendar as CalendarIcon } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export const RightUtilityPanel = () => {

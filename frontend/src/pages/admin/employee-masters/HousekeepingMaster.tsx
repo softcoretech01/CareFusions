@@ -3,6 +3,7 @@ import { Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle } from 'lu
 import { motion } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
+import { exportToExcel } from '../../../utils/exportToExcel';
 
 // Mock data generator for initial state
 const generateInitialData = () => {
@@ -121,7 +122,7 @@ export const HousekeepingMaster = () => {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-slate-800">Housekeeping Master</h1>
-          <p className="text-slate-500 mt-1">Manage and configure your housekeeping master settings.</p>
+          <p className="text-slate-500 mt-1"></p>
         </div>
         
         <Button variant="filled" color="primary" icon={Plus} onClick={handleCreateNew}>
@@ -146,9 +147,10 @@ export const HousekeepingMaster = () => {
             <button className="p-2.5 text-slate-500 hover:bg-slate-50 rounded-xl transition-colors border border-slate-200">
               <Filter className="w-5 h-5" />
             </button>
-            <button className="p-2.5 text-slate-500 hover:bg-slate-50 rounded-xl transition-colors border border-slate-200">
-              <Download className="w-5 h-5" />
-            </button>
+            <button className="p-2.5 text-slate-500 hover:bg-slate-50 rounded-xl transition-colors border border-slate-200" onClick={() => exportToExcel(records, 'HousekeepingMaster')}>
+                  <Download className="w-5 h-5" />
+                  Export
+                </button>
           </div>
         </div>
 

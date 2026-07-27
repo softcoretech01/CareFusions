@@ -1,98 +1,143 @@
 import { useState } from 'react';
-import { Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { 
+  Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle, 
+  Save, RefreshCw, Upload
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
+import { exportToExcel } from '../../../utils/exportToExcel';
 
-// Mock data generator for initial state
-const generateInitialData = () => {
-  const mockNames: Record<string, string[]> = {
-    'department': ['Cardiology', 'Neurology', 'Orthopedics', 'Pediatrics', 'Oncology', 'Emergency', 'Radiology'],
-    'hospital': ['City General Hospital', 'CareFusions North', 'CareFusions South', 'Metro Health Center', 'Valley Medical', 'Lakeside Clinic', 'Downtown Care'],
-    'branch': ['Main Campus', 'North Wing', 'South Branch', 'East Side Clinic', 'West End Hospital', 'Suburban Center', 'City Annex'],
-    'employee': ['John Smith', 'Sarah Jenkins', 'Michael Chen', 'Emily Davis', 'Robert Wilson', 'Maria Garcia', 'David Taylor'],
-    'nurse': ['Nurse Mary', 'Nurse Jessica', 'Nurse Peter', 'Nurse Claire', 'Nurse Joy', 'Nurse Emma', 'Nurse Jack'],
-    'pharmacist': ['Pharm. Adam', 'Pharm. Eve', 'Pharm. Bill', 'Pharm. Melinda', 'Pharm. Steve', 'Pharm. Woz', 'Pharm. Tim'],
-    'lab-technician': ['Tech Brian', 'Tech Lisa', 'Tech Monica', 'Tech Chandler', 'Tech Joey', 'Tech Rachel', 'Tech Ross'],
-    'receptionist': ['Ann', 'Pam', 'Jim', 'Dwight', 'Michael', 'Stanley', 'Phyllis'],
-    'housekeeping': ['Jose', 'Maria', 'Luis', 'Carmen', 'Jorge', 'Ana', 'Carlos'],
-    'doctor': ['Dr. James Wilson', 'Dr. Sarah Patel', 'Dr. Michael Chang', 'Dr. Emily Brown', 'Dr. Robert Lee', 'Dr. Maria Rodriguez', 'Dr. David Kim'],
-    'doctor-specialization': ['Cardiologist', 'Neurologist', 'Orthopedic Surgeon', 'Pediatrician', 'Oncologist', 'General Physician', 'Dermatologist'],
-    'patient-category': ['General', 'VIP', 'Corporate', 'Staff', 'Government Scheme', 'Insurance', 'International'],
-    'blood-group': ['A Positive (A+)', 'A Negative (A-)', 'B Positive (B+)', 'B Negative (B-)', 'O Positive (O+)', 'O Negative (O-)', 'AB Positive (AB+)'],
-    'consultation-type': ['First Visit', 'Follow Up', 'Emergency', 'Teleconsultation', 'Routine Checkup', 'Specialist Referral', 'Free Camp'],
-    'appointment-status': ['Scheduled', 'Arrived', 'Consulting', 'Completed', 'Cancelled', 'No Show', 'Rescheduled'],
-    'medicine': ['Paracetamol 500mg', 'Amoxicillin 250mg', 'Omeprazole 20mg', 'Ibuprofen 400mg', 'Azithromycin 500mg', 'Cetirizine 10mg', 'Metformin 500mg'],
-    'medicine-category': ['Antibiotics', 'Analgesics', 'Antacids', 'Antipyretics', 'Antihistamines', 'Vitamins', 'Cardiovascular'],
-    'test': ['Complete Blood Count (CBC)', 'Lipid Profile', 'Liver Function Test (LFT)', 'Kidney Function Test (KFT)', 'Thyroid Profile', 'Blood Sugar Fasting', 'HbA1c'],
-    'sample-type': ['Blood', 'Urine', 'Stool', 'Sputum', 'Saliva', 'Swab', 'Tissue'],
-    'radiology-service': ['X-Ray Chest PA View', 'MRI Brain', 'CT Scan Abdomen', 'Ultrasound Whole Abdomen', 'ECG', 'Mammography', 'Dexa Scan'],
-    'equipment': ['Siemens MRI Scanner', 'GE CT Scanner', 'Philips X-Ray Machine', 'Ultrasound Machine 1', 'ECG Machine 1', 'Ventilator A', 'Defibrillator'],
-    'service': ['Consultation Fee', 'Registration Fee', 'Bed Charge (General)', 'Bed Charge (Private)', 'ICU Charge', 'Nursing Charge', 'Diet Charge'],
-    'tax': ['GST 5%', 'GST 12%', 'GST 18%', 'VAT 5%', 'Service Tax', 'CESS 1%', 'Zero Tax'],
-    'payment-mode': ['Cash', 'Credit Card', 'Debit Card', 'UPI', 'Bank Transfer', 'Cheque', 'Insurance Claim'],
-    'insurance-provider': ['Star Health', 'HDFC Ergo', 'ICICI Lombard', 'Max Bupa', 'Religare', 'Apollo Munich', 'New India Assurance'],
-    'tpa': ['MediAssist', 'Vidal Health', 'Raksha TPA', 'Paramount Health', 'Family Health Plan', 'MDIndia', 'Heritage Health'],
-    'vendor': ['MedTech Suppliers', 'PharmaCare Inc.', 'Global Equipments', 'Surgical Solutions', 'BioLife Diagnostics', 'Prime IT Solutions', 'Care Uniforms'],
-    'item-category': ['Surgical Items', 'Consumables', 'Stationery', 'Housekeeping', 'IT Equipment', 'Implants', 'Linen'],
-    'warehouse': ['Main Central Store', 'Pharmacy Store', 'OT Store', 'Lab Store', 'Ward Store A', 'Emergency Store', 'Dietary Store'],
-    'coa': ['Cash in Hand', 'Bank Accounts', 'Accounts Receivable', 'Inventory', 'Accounts Payable', 'Salary Expense', 'Utility Expense'],
-    'cost-center': ['OPD Clinic', 'Inpatient Wards', 'Operation Theatre', 'Laboratory', 'Radiology', 'Pharmacy', 'Emergency Dept'],
-    'users': ['admin_john', 'dr_sarah', 'nurse_mary', 'pharmacy_bill', 'lab_tech1', 'frontdesk_ann', 'billing_tom'],
-    'roles': ['System Administrator', 'Senior Doctor', 'Head Nurse', 'Pharmacist', 'Lab Technician', 'Receptionist', 'Billing Executive'],
-    'permissions': ['Create Patient', 'Edit Patient', 'View Reports', 'Approve Billing', 'Manage Inventory', 'Access Settings', 'Delete Records'],
-    'sms': ['Appointment Confirmation', 'Welcome Message', 'Report Ready', 'Payment Receipt', 'Discharge Summary', 'Follow-up Reminder', 'Birthday Greeting'],
-    'email': ['Welcome Email', 'Invoice Copy', 'Lab Report', 'Prescription', 'Appointment Reminder', 'Feedback Request', 'Newsletter'],
-    'prompts': ['Summarize Patient History', 'Extract Symptoms', 'Suggest Investigations', 'Draft Discharge Summary', 'Analyze Lab Report', 'Check Drug Interactions', 'Generate Diet Plan'],
-    'clinical-rules': ['High BP Alert', 'Allergy Warning', 'Diabetic Protocol', 'Pregnancy Contraindication', 'Pediatric Dosage Check', 'Renal Failure Adjustments', 'Critical Value Alert'],
-  };
+interface PharmacistRecord {
+  id: number;
+  pharmacistId: string;
+  employeeCode: string;
+  name: string;
+  licenseNumber: string;
+  qualification: string;
+  hospital: string;
+  branch: string;
+  pharmacy: string;
+  mobile: string;
+  email: string;
+  address: string;
+  joiningDate: string;
+  experience: string;
+  shift: string;
+  employmentType: string;
+  status: string;
+  remarks: string;
+}
 
-  const names = mockNames['pharmacist'] || ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'Zeta', 'Eta'];
-  
-  return Array.from({ length: 7 }).map((_, idx) => ({
-    id: idx + 1,
-    code: `CODE-${idx + 1}0${idx + 1}`,
-    name: names[idx % names.length],
-    status: idx % 3 === 0 ? 'Inactive' : 'Active'
-  }));
+const emptyData: Omit<PharmacistRecord, 'id'> = {
+  pharmacistId: '',
+  employeeCode: '',
+  name: '',
+  licenseNumber: '',
+  qualification: '',
+  hospital: '',
+  branch: '',
+  pharmacy: '',
+  mobile: '',
+  email: '',
+  address: '',
+  joiningDate: '',
+  experience: '',
+  shift: '',
+  employmentType: '',
+  status: 'Active',
+  remarks: ''
 };
 
-export const PharmacistMaster = () => {
-  const [records, setRecords] = useState(generateInitialData());
-  const [searchTerm, setSearchTerm] = useState('');
+const mockData: PharmacistRecord[] = [
+  {
+    id: 1,
+    pharmacistId: 'PHR-001',
+    employeeCode: 'EMP-201',
+    name: 'John Doe',
+    licenseNumber: 'LIC-PH-98765',
+    qualification: 'B.Pharm',
+    hospital: 'City General Hospital',
+    branch: 'Main Campus',
+    pharmacy: 'Main Pharmacy',
+    mobile: '9876543210',
+    email: 'john.doe@hospital.com',
+    address: '456 Medical Way',
+    joiningDate: '2020-03-15',
+    experience: '5',
+    shift: 'Morning',
+    employmentType: 'Permanent',
+    status: 'Active',
+    remarks: ''
+  }
+];
 
-  // Modal States
+export const PharmacistMaster = () => {
+  const [records, setRecords] = useState<PharmacistRecord[]>(mockData);
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  // Filter States
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterPharmacy, setFilterPharmacy] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+
+  // Form States
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-  const [selectedRecord, setSelectedRecord] = useState<any>(null);
-  const [formData, setFormData] = useState({ name: '', code: '', status: 'Active' });
+  const [selectedRecord, setSelectedRecord] = useState<PharmacistRecord | null>(null);
+  const [formData, setFormData] = useState<Omit<PharmacistRecord, 'id'>>(emptyData);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Handlers
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+    if (!formData.pharmacistId.trim()) newErrors.pharmacistId = 'Pharmacist ID is required';
+    if (!formData.employeeCode.trim()) newErrors.employeeCode = 'Employee Code is required';
+    if (!formData.name.trim()) newErrors.name = 'Name is required';
+    if (!formData.licenseNumber.trim()) newErrors.licenseNumber = 'License Number is required';
+    if (!formData.qualification.trim()) newErrors.qualification = 'Qualification is required';
+    if (!formData.hospital) newErrors.hospital = 'Hospital is required';
+    if (!formData.branch) newErrors.branch = 'Branch is required';
+    if (!formData.pharmacy) newErrors.pharmacy = 'Pharmacy is required';
+    if (!formData.mobile.trim()) newErrors.mobile = 'Mobile is required';
+
+    // Uniqueness checks
+    if (records.some(r => r.licenseNumber === formData.licenseNumber && r.id !== selectedRecord?.id)) {
+      newErrors.licenseNumber = 'License Number must be unique';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleCreateNew = () => {
     setSelectedRecord(null);
-    setFormData({ name: '', code: '', status: 'Active' });
+    const nextId = records.length > 0 ? Math.max(...records.map(r => r.id)) + 1 : 1;
+    setFormData({
+      ...emptyData,
+      pharmacistId: `PHA-${nextId.toString().padStart(3, '0')}`
+    });
+    setErrors({});
     setIsFormOpen(true);
   };
 
-  const handleEdit = (record: any) => {
+  const handleEdit = (record: PharmacistRecord) => {
     setSelectedRecord(record);
-    setFormData({ name: record.name, code: record.code, status: record.status });
+    setFormData(record);
+    setErrors({});
     setIsFormOpen(true);
   };
 
-  const handleDeleteRequest = (record: any) => {
+  const handleDeleteRequest = (record: PharmacistRecord) => {
     setSelectedRecord(record);
     setIsDeleteOpen(true);
   };
 
   const handleSaveForm = () => {
-    if (!formData.name.trim() || !formData.code.trim()) return;
+    if (!validateForm()) return;
 
     if (selectedRecord) {
-      // Update
       setRecords(records.map(r => r.id === selectedRecord.id ? { ...r, ...formData } : r));
     } else {
-      // Create
       const newId = Math.max(...records.map(r => r.id), 0) + 1;
       setRecords([...records, { id: newId, ...formData }]);
     }
@@ -106,10 +151,17 @@ export const PharmacistMaster = () => {
     }
   };
 
-  const filteredRecords = records.filter(r => 
-    r.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    r.code.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredRecords = records.filter(record => {
+    const matchesSearch = 
+      record.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      record.pharmacistId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      record.licenseNumber.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesPharmacy = !filterPharmacy || record.pharmacy === filterPharmacy;
+    const matchesStatus = !filterStatus || record.status === filterStatus;
+
+    return matchesSearch && matchesPharmacy && matchesStatus;
+  });
 
   return (
     <motion.div 
@@ -117,179 +169,341 @@ export const PharmacistMaster = () => {
       animate={{ opacity: 1, y: 0 }}
       className="h-full flex flex-col relative"
     >
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-800">Pharmacist Master</h1>
-          <p className="text-slate-500 mt-1">Manage and configure your pharmacist master settings.</p>
-        </div>
-        
-        <Button variant="filled" color="primary" icon={Plus} onClick={handleCreateNew}>
-          Create New
-        </Button>
-      </div>
-
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden">
-        {/* Toolbar */}
-        <div className="p-4 border-b border-slate-100 flex items-center justify-between gap-4">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-            <input 
-              type="text"
-              placeholder="Search records..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-            />
+      {!isFormOpen ? (
+        <>
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h1 className="text-3xl font-bold text-slate-800">Pharmacist Master</h1>
+              <p className="text-slate-500 mt-1"></p>
+            </div>
+            <div className="flex gap-3">
+              <Button variant="outline" icon={Download} onClick={() => exportToExcel(records, 'PharmacistMaster')}>Export</Button>
+              <Button variant="filled" color="primary" icon={Plus} onClick={handleCreateNew}>
+                Add Pharmacist
+              </Button>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button className="p-2.5 text-slate-500 hover:bg-slate-50 rounded-xl transition-colors border border-slate-200">
-              <Filter className="w-5 h-5" />
-            </button>
-            <button className="p-2.5 text-slate-500 hover:bg-slate-50 rounded-xl transition-colors border border-slate-200">
-              <Download className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
 
-        {/* Table */}
-        <div className="flex-1 overflow-auto">
-          <table className="w-full text-left border-collapse">
-            <thead className="bg-slate-50/80 sticky top-0 backdrop-blur-sm z-10">
-              <tr>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider w-24">ID</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Name</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Code</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 bg-white">
-              {filteredRecords.map((row) => (
-                <tr key={row.id} className="hover:bg-slate-50/50 transition-colors group">
-                  <td className="px-6 py-4 text-sm font-semibold text-slate-600">
-                    #PHA{row.id}00{row.id}
-                  </td>
-                  <td className="px-6 py-4 text-sm font-bold text-slate-900">
-                    {row.name}
-                  </td>
-                  <td className="px-6 py-4 text-sm font-medium text-slate-500">
-                    {row.code}
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${row.status === 'Inactive' ? 'bg-warning/10 text-warning' : 'bg-success/10 text-success'}`}>
-                      {row.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2 transition-opacity">
-                      <Button variant="text" color="primary" icon={Edit2} className="!p-2" aria-label="Edit" onClick={() => handleEdit(row)} />
-                      <Button variant="text" color="danger" icon={Trash2} className="!p-2" aria-label="Delete" onClick={() => handleDeleteRequest(row)} />
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {filteredRecords.length === 0 && (
-                 <tr>
-                   <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
-                     No records found matching "{searchTerm}"
-                   </td>
-                 </tr>
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden">
+            <div className="p-4 border-b border-slate-100 flex flex-wrap gap-4 items-center justify-between">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search by Name, ID, or License..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm"
+                />
+              </div>
+              <Button
+                variant={showFilters ? "filled" : "outline"}
+                color="secondary"
+                icon={Filter}
+                onClick={() => setShowFilters(!showFilters)}
+              >
+                Filters
+              </Button>
+            </div>
+
+            <AnimatePresence>
+              {showFilters && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="border-b border-slate-200 bg-slate-50/50 p-4"
+                >
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <select
+                      value={filterPharmacy}
+                      onChange={(e) => setFilterPharmacy(e.target.value)}
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    >
+                      <option value="">All Pharmacies</option>
+                      <option value="Main Pharmacy">Main Pharmacy</option>
+                      <option value="OPD Pharmacy">OPD Pharmacy</option>
+                    </select>
+                    <select
+                      value={filterStatus}
+                      onChange={(e) => setFilterStatus(e.target.value)}
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    >
+                      <option value="">All Statuses</option>
+                      <option value="Active">Active</option>
+                      <option value="Inactive">Inactive</option>
+                    </select>
+                  </div>
+                </motion.div>
               )}
-            </tbody>
-          </table>
-        </div>
-        
-        {/* Pagination Footer */}
-        <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between text-sm">
-          <span className="text-slate-500 font-medium">Showing {filteredRecords.length} entries</span>
-          <div className="flex gap-1">
-            <button className="px-3 py-1 border border-slate-200 rounded-lg text-slate-500 hover:bg-white transition-colors">Prev</button>
-            <button className="px-3 py-1 bg-primary text-white rounded-lg font-medium shadow-sm shadow-primary/20">1</button>
-            <button className="px-3 py-1 border border-slate-200 rounded-lg text-slate-500 hover:bg-white transition-colors">Next</button>
-          </div>
-        </div>
-      </div>
+            </AnimatePresence>
 
-      {/* Form Modal */}
-      <Modal
-        isOpen={isFormOpen}
-        onClose={() => setIsFormOpen(false)}
-        title={selectedRecord ? `Edit Pharmacist Master` : `Create Pharmacist Master`}
-        maxWidth="xl"
-      >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-2">
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-slate-700 mb-1">Name</label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => setFormData({...formData, name: e.target.value})}
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-              placeholder="Enter name"
-            />
+            <div className="flex-1 overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-600">
+                  <tr>
+                    <th className="px-4 py-3 font-medium">Pharmacist ID</th>
+                    <th className="px-4 py-3 font-medium">Pharmacist Name</th>
+                    <th className="px-4 py-3 font-medium">License No</th>
+                    <th className="px-4 py-3 font-medium">Pharmacy</th>
+                    <th className="px-4 py-3 font-medium">Mobile</th>
+                    <th className="px-4 py-3 font-medium text-center">Status</th>
+                    <th className="px-4 py-3 font-medium text-center">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredRecords.length > 0 ? (
+                    filteredRecords.map((record) => (
+                      <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-4 py-3 font-medium text-slate-800">{record.pharmacistId}</td>
+                        <td className="px-4 py-3">{record.name}</td>
+                        <td className="px-4 py-3 text-slate-600">{record.licenseNumber}</td>
+                        <td className="px-4 py-3 text-slate-600">{record.pharmacy}</td>
+                        <td className="px-4 py-3 text-slate-600">{record.mobile}</td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
+                            record.status === 'Active' 
+                              ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' 
+                              : 'bg-red-50 text-red-600 border border-red-200'
+                          }`}>
+                            {record.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            <button 
+                              onClick={() => handleEdit(record)}
+                              className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"
+                              title="Edit"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteRequest(record)}
+                              className="p-1.5 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Delete"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
+                        No pharmacists found matching your criteria.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Code</label>
-            <input
-              type="text"
-              value={formData.code}
-              onChange={(e) => setFormData({...formData, code: e.target.value})}
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-              placeholder="Enter code"
-            />
+        </>
+      ) : (
+        <>
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-800">
+                {selectedRecord ? `Edit Pharmacist: ${selectedRecord.name}` : 'Add New Pharmacist'}
+              </h1>
+              <p className="text-slate-500 text-sm">Fill in the complete pharmacist profile</p>
+            </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
-            <select
-              value={formData.status}
-              onChange={(e) => setFormData({...formData, status: e.target.value})}
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-            >
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
-            </select>
-          </div>
-        </div>
-        
-        <div className="mt-8 flex items-center justify-end gap-3 pt-6 border-t border-slate-100">
-          <Button variant="outline" color="secondary" onClick={() => setIsFormOpen(false)}>
-            Cancel
-          </Button>
-          <Button variant="filled" color="primary" onClick={handleSaveForm}>
-            {selectedRecord ? 'Save Changes' : 'Create Record'}
-          </Button>
-        </div>
-      </Modal>
 
-      {/* Delete Confirmation Modal */}
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden">
+            <div className="flex-1 overflow-y-auto p-6 space-y-8">
+              {/* Basic Information */}
+              <section>
+                <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Basic Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Pharmacist ID <span className="text-red-500">*</span></label>
+                    <input
+                      type="text"
+                      value={formData.pharmacistId}
+                      readOnly
+                      className="w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed focus:outline-none"
+                    />
+                    {errors.pharmacistId && <p className="text-red-500 text-xs mt-1">{errors.pharmacistId}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Employee Code <span className="text-red-500">*</span></label>
+                    <input type="text" value={formData.employeeCode} onChange={e => setFormData({...formData, employeeCode: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.employeeCode ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
+                    {errors.employeeCode && <p className="text-red-500 text-xs mt-1">{errors.employeeCode}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Pharmacist Name <span className="text-red-500">*</span></label>
+                    <input type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.name ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
+                    {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">License Number <span className="text-red-500">*</span></label>
+                    <input type="text" value={formData.licenseNumber} onChange={e => setFormData({...formData, licenseNumber: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.licenseNumber ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
+                    {errors.licenseNumber && <p className="text-red-500 text-xs mt-1">{errors.licenseNumber}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Qualification <span className="text-red-500">*</span></label>
+                    <input type="text" value={formData.qualification} onChange={e => setFormData({...formData, qualification: e.target.value})} placeholder="e.g., B.Pharm, D.Pharm" className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.qualification ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
+                    {errors.qualification && <p className="text-red-500 text-xs mt-1">{errors.qualification}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Pharmacy <span className="text-red-500">*</span></label>
+                    <select value={formData.pharmacy} onChange={e => setFormData({...formData, pharmacy: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.pharmacy ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
+                      <option value="">Select Pharmacy</option>
+                      <option value="Main Pharmacy">Main Pharmacy</option>
+                      <option value="OPD Pharmacy">OPD Pharmacy</option>
+                    </select>
+                    {errors.pharmacy && <p className="text-red-500 text-xs mt-1">{errors.pharmacy}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Hospital <span className="text-red-500">*</span></label>
+                    <select value={formData.hospital} onChange={e => setFormData({...formData, hospital: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.hospital ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
+                      <option value="">Select Hospital</option>
+                      <option value="City General Hospital">City General Hospital</option>
+                    </select>
+                    {errors.hospital && <p className="text-red-500 text-xs mt-1">{errors.hospital}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Branch <span className="text-red-500">*</span></label>
+                    <select value={formData.branch} onChange={e => setFormData({...formData, branch: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.branch ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
+                      <option value="">Select Branch</option>
+                      <option value="Main Campus">Main Campus</option>
+                    </select>
+                    {errors.branch && <p className="text-red-500 text-xs mt-1">{errors.branch}</p>}
+                  </div>
+                </div>
+              </section>
+
+              {/* Contact Information */}
+              <section>
+                <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Contact Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Mobile Number <span className="text-red-500">*</span></label>
+                    <input type="text" value={formData.mobile} onChange={e => setFormData({...formData, mobile: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.mobile ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
+                    {errors.mobile && <p className="text-red-500 text-xs mt-1">{errors.mobile}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+                    <input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Address</label>
+                    <input type="text" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                  </div>
+                </div>
+              </section>
+
+              {/* Employment Details */}
+              <section>
+                <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Employment Details</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Joining Date</label>
+                    <input type="date" value={formData.joiningDate} onChange={e => setFormData({...formData, joiningDate: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Shift</label>
+                    <select value={formData.shift} onChange={e => setFormData({...formData, shift: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
+                      <option value="">Select Shift</option>
+                      <option value="Morning">Morning</option>
+                      <option value="Evening">Evening</option>
+                      <option value="Night">Night</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Employment Type</label>
+                    <select value={formData.employmentType} onChange={e => setFormData({...formData, employmentType: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
+                      <option value="">Select Type</option>
+                      <option value="Permanent">Permanent</option>
+                      <option value="Contract">Contract</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Experience (Years)</label>
+                    <input type="number" min="0" value={formData.experience} onChange={e => setFormData({...formData, experience: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                  </div>
+                </div>
+              </section>
+
+              {/* Documents */}
+              <section>
+                <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Documents</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {['Photo', 'License Certificate', 'ID Proof'].map((doc, i) => (
+                    <div key={i} className="border border-slate-200 rounded-xl p-4 flex flex-col gap-2">
+                      <label className="block text-sm font-medium text-slate-700">{doc}</label>
+                      <div className="border-2 border-dashed border-slate-200 rounded-lg p-6 flex flex-col items-center justify-center text-center hover:bg-slate-50 transition-colors cursor-pointer">
+                        <Upload className="w-6 h-6 text-slate-400 mb-2" />
+                        <p className="text-sm text-primary font-medium">Click to upload</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              {/* System */}
+              <section>
+                <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">System</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Status <span className="text-red-500">*</span></label>
+                    <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
+                      <option value="Active">Active</option>
+                      <option value="Inactive">Inactive</option>
+                    </select>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Remarks</label>
+                    <input type="text" value={formData.remarks} onChange={e => setFormData({...formData, remarks: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex justify-between items-center shrink-0">
+              <Button variant="outline" color="secondary" onClick={() => setFormData(emptyData)} icon={RefreshCw}>
+                Reset
+              </Button>
+              <div className="flex gap-3">
+                <Button variant="outline" color="secondary" onClick={() => setIsFormOpen(false)}>
+                  Cancel
+                </Button>
+                <Button variant="filled" color="primary" onClick={handleSaveForm} icon={Save}>
+                  {selectedRecord ? 'Update' : 'Save'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
       <Modal
         isOpen={isDeleteOpen}
         onClose={() => setIsDeleteOpen(false)}
         title="Confirm Deletion"
         maxWidth="sm"
       >
-        <div className="flex flex-col items-center text-center">
-          <div className="w-12 h-12 rounded-full bg-danger/10 text-danger flex items-center justify-center mb-4">
-            <AlertTriangle className="w-6 h-6" />
+        <div className="p-1">
+          <div className="flex items-center gap-4 mb-6 text-amber-600 bg-amber-50 p-4 rounded-xl">
+            <AlertTriangle className="w-8 h-8 shrink-0" />
+            <p className="text-sm font-medium">
+              Are you sure you want to delete <strong>{selectedRecord?.name}</strong>? 
+              This action cannot be undone.
+            </p>
           </div>
-          <h3 className="text-lg font-bold text-slate-800 mb-2">Delete Record</h3>
-          <p className="text-slate-500 text-sm mb-6">
-            Are you sure you want to delete <span className="font-semibold text-slate-700">{selectedRecord?.name}</span>? 
-            This action cannot be undone.
-          </p>
-          
-          <div className="flex items-center gap-3 w-full">
-            <Button variant="outline" color="secondary" className="flex-1" onClick={() => setIsDeleteOpen(false)}>
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" color="secondary" onClick={() => setIsDeleteOpen(false)}>
               Cancel
             </Button>
-            <Button variant="filled" color="danger" className="flex-1" onClick={confirmDelete}>
-              Delete
+            <Button variant="filled" color="danger" onClick={confirmDelete}>
+              Confirm Delete
             </Button>
           </div>
         </div>
       </Modal>
-
     </motion.div>
   );
 };

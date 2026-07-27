@@ -1,19 +1,27 @@
-import { Search, Bell, Settings, Moon, Sun, Monitor } from 'lucide-react';
-import { useAppDispatch, useAppSelector } from '../hooks/redux';
-import { setTheme } from '../redux/slices/themeSlice';
+import { Search, CalendarDays } from 'lucide-react';
+
+import { useState } from 'react';
+import { LiveClock } from '../components/ui/LiveClock';
 
 export const TopNavigation = () => {
-  const dispatch = useAppDispatch();
-  const themeMode = useAppSelector((state) => state.theme.mode);
-
-  const cycleTheme = () => {
-    if (themeMode === 'light') dispatch(setTheme('dark'));
-    else if (themeMode === 'dark') dispatch(setTheme('system'));
-    else dispatch(setTheme('light'));
-  };
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
   return (
     <header className="h-20 bg-white border-b border-slate-100 flex items-center justify-between px-8 sticky top-0 z-10 shadow-sm">
+      {/* Date Filter */}
+      <div className="flex items-center gap-3 mr-6">
+        <div className="relative flex items-center gap-2 text-sm font-semibold text-slate-700 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors">
+          <CalendarDays className="w-4 h-4 text-primary" />
+          <input 
+            type="date"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            className="bg-transparent border-none p-0 focus:ring-0 focus:outline-none text-sm font-semibold text-slate-700 cursor-pointer"
+          />
+        </div>
+        <LiveClock />
+      </div>
+
       <div className="flex-1 max-w-2xl relative">
         <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
         <input
@@ -24,26 +32,8 @@ export const TopNavigation = () => {
       </div>
 
       <div className="flex items-center gap-4 ml-8">
-        <button 
-          onClick={cycleTheme}
-          className="p-2.5 rounded-xl hover:bg-hover text-gray-500 hover:text-primary transition-colors"
-          title={`Theme: ${themeMode}`}
-        >
-          {themeMode === 'light' && <Sun className="w-5 h-5" />}
-          {themeMode === 'dark' && <Moon className="w-5 h-5" />}
-          {themeMode === 'system' && <Monitor className="w-5 h-5" />}
-        </button>
 
-        <button className="p-2.5 rounded-xl hover:bg-hover text-gray-500 hover:text-primary transition-colors relative">
-          <Bell className="w-5 h-5" />
-          <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-danger rounded-full border-2 border-card"></span>
-        </button>
-        
-        <button className="p-2.5 rounded-xl hover:bg-hover text-gray-500 hover:text-primary transition-colors">
-          <Settings className="w-5 h-5" />
-        </button>
 
-        <div className="h-8 w-[1px] bg-border mx-2"></div>
 
         <div className="flex items-center gap-3 cursor-pointer p-1.5 rounded-xl hover:bg-hover transition-colors">
           <div className="text-right hidden md:block mr-2">
