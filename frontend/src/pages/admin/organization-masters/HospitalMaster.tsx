@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle, Save, RefreshCw } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
 import { exportToExcel } from '../../../utils/exportToExcel';
+
+const API_BASE = import.meta.env.VITE_API_URL as string;
 
 interface HospitalRecord {
   id: number;
@@ -54,62 +56,37 @@ const emptyFormData: Omit<HospitalRecord, 'id'> = {
   remarks: ''
 };
 
-const generateInitialData = (): HospitalRecord[] => {
-  return [
-    {
-      id: 1,
-      code: 'HOS-001',
-      name: 'City General Hospital',
-      legalName: 'City General Healthcare Pvt Ltd',
-      registrationNo: 'REG-100293',
-      gstVatNo: 'GST100293',
-      panTinNo: 'PAN12345',
-      contactNumber: '+1 234 567 8900',
-      alternateNumber: '',
-      email: 'contact@citygeneral.com',
-      website: 'www.citygeneral.com',
-      address1: '123 Health Ave',
-      address2: 'Suite 100',
-      country: 'USA',
-      state: 'New York',
-      city: 'New York City',
-      postalCode: '10001',
-      currency: 'USD',
-      financialYear: '2023-2024',
-      timeZone: 'EST',
-      status: 'Active',
-      remarks: 'Main branch'
-    },
-    {
-      id: 2,
-      code: 'HOS-002',
-      name: 'CareFusions North',
-      legalName: 'CareFusions North Inc.',
-      registrationNo: 'REG-987654',
-      gstVatNo: 'GST987654',
-      panTinNo: 'PAN67890',
-      contactNumber: '+1 987 654 3210',
-      alternateNumber: '',
-      email: 'north@carefusions.com',
-      website: 'www.carefusions.com/north',
-      address1: '456 North Blvd',
-      address2: '',
-      country: 'USA',
-      state: 'Illinois',
-      city: 'Chicago',
-      postalCode: '60601',
-      currency: 'USD',
-      financialYear: '2023-2024',
-      timeZone: 'CST',
-      status: 'Active',
-      remarks: ''
-    }
-  ];
-};
+// Map API response field names → HospitalRecord
+const mapApiToRecord = (item: Record<string, unknown>): HospitalRecord => ({
+  id:              item.id              as number,
+  code:            item.code            as string,
+  name:            item.name            as string,
+  legalName:       item.legalName       as string,
+  registrationNo:  item.registrationNo  as string,
+  gstVatNo:        (item.gstVatNo       as string) ?? '',
+  panTinNo:        (item.panTinNo       as string) ?? '',
+  contactNumber:   item.contactNumber   as string,
+  alternateNumber: (item.alternateNumber as string) ?? '',
+  email:           item.email           as string,
+  website:         (item.website        as string) ?? '',
+  address1:        item.address1        as string,
+  address2:        (item.address2       as string) ?? '',
+  country:         item.country         as string,
+  state:           item.state           as string,
+  city:            item.city            as string,
+  postalCode:      item.postalCode      as string,
+  currency:        item.currency        as string,
+  financialYear:   item.financialYear   as string,
+  timeZone:        item.timeZone        as string,
+  status:          item.status          as string,
+  remarks:         (item.remarks        as string) ?? '',
+});
 
 export const HospitalMaster = () => {
-  const [records, setRecords] = useState<HospitalRecord[]>(generateInitialData());
+  const [records, setRecords] = useState<HospitalRecord[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
 
   // Modal States
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -117,6 +94,25 @@ export const HospitalMaster = () => {
   const [selectedRecord, setSelectedRecord] = useState<HospitalRecord | null>(null);
   const [formData, setFormData] = useState<Omit<HospitalRecord, 'id'>>(emptyFormData);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [isSaving, setIsSaving] = useState(false);
+
+  // ── Fetch all hospitals on mount ──────────────────────────
+  const fetchHospitals = async () => {
+    setIsLoading(true);
+    setApiError(null);
+    try {
+      const res = await fetch(`${API_BASE}/hospitals/`);
+      if (!res.ok) throw new Error(`Server error: ${res.status}`);
+      const data: Record<string, unknown>[] = await res.json();
+      setRecords(data.map(mapApiToRecord));
+    } catch (err: unknown) {
+      setApiError(err instanceof Error ? err.message : 'Failed to load hospitals');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchHospitals(); }, []);
 
   // Handlers
   const handleCreateNew = () => {
@@ -160,7 +156,7 @@ export const HospitalMaster = () => {
     if (!formData.timeZone.trim()) errors.timeZone = 'Time Zone is required';
     if (!formData.status) errors.status = 'Status is required';
 
-    // Unique checks
+    // Unique checks against loaded records
     if (records.some(r => r.code === formData.code && r.id !== selectedRecord?.id)) {
       errors.code = 'Hospital Code must be unique';
     }
@@ -175,33 +171,76 @@ export const HospitalMaster = () => {
     return Object.keys(errors).length === 0;
   };
 
-  const handleSaveForm = (saveAndNew: boolean = false) => {
+  const handleSaveForm = async (saveAndNew: boolean = false) => {
     if (!validateForm()) return;
+    setIsSaving(true);
 
-    if (selectedRecord) {
-      // Update
-      setRecords(records.map(r => r.id === selectedRecord.id ? { id: r.id, ...formData } : r));
+    try {
+      const body = {
+        code:            formData.code,
+        name:            formData.name,
+        legalName:       formData.legalName,
+        registrationNo:  formData.registrationNo,
+        gstVatNo:        formData.gstVatNo || null,
+        panTinNo:        formData.panTinNo || null,
+        contactNumber:   formData.contactNumber,
+        alternateNumber: formData.alternateNumber || null,
+        email:           formData.email,
+        website:         formData.website || null,
+        address1:        formData.address1,
+        address2:        formData.address2 || null,
+        country:         formData.country,
+        state:           formData.state,
+        city:            formData.city,
+        postalCode:      formData.postalCode,
+        currency:        formData.currency,
+        financialYear:   formData.financialYear,
+        timeZone:        formData.timeZone,
+        status:          formData.status,
+        remarks:         formData.remarks || null,
+      };
+
+      if (selectedRecord) {
+        // UPDATE
+        const res = await fetch(`${API_BASE}/hospitals/${selectedRecord.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) throw new Error(`Update failed: ${res.status}`);
+      } else {
+        // CREATE
+        const res = await fetch(`${API_BASE}/hospitals/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) throw new Error(`Create failed: ${res.status}`);
+      }
+
+      await fetchHospitals();
+
       if (saveAndNew) {
         handleCreateNew();
       } else {
         setIsFormOpen(false);
       }
-    } else {
-      // Create
-      const newId = Math.max(...records.map(r => r.id), 0) + 1;
-      setRecords([...records, { id: newId, ...formData }]);
-      if (saveAndNew) {
-        handleCreateNew();
-      } else {
-        setIsFormOpen(false);
-      }
+    } catch (err: unknown) {
+      setFormErrors({ _api: err instanceof Error ? err.message : 'Save failed' });
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const confirmDelete = () => {
-    if (selectedRecord) {
-      // Soft Delete simulation
-      setRecords(records.map(r => r.id === selectedRecord.id ? { ...r, status: 'Inactive' } : r));
+  const confirmDelete = async () => {
+    if (!selectedRecord) return;
+    try {
+      const res = await fetch(`${API_BASE}/hospitals/${selectedRecord.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
+      await fetchHospitals();
+      setIsDeleteOpen(false);
+    } catch (err: unknown) {
+      setApiError(err instanceof Error ? err.message : 'Delete failed');
       setIsDeleteOpen(false);
     }
   };
@@ -260,6 +299,12 @@ export const HospitalMaster = () => {
 
             {/* Table */}
             <div className="flex-1 overflow-auto">
+              {/* API Error Banner */}
+              {apiError && (
+                <div className="mx-4 mt-4 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600">
+                  {apiError}
+                </div>
+              )}
               <table className="w-full text-left border-collapse">
                 <thead className="bg-slate-50/80 sticky top-0 backdrop-blur-sm z-10">
                   <tr>
@@ -273,36 +318,47 @@ export const HospitalMaster = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
-                  {filteredRecords.map((row) => (
-                    <tr key={row.id} className="hover:bg-slate-50/50 transition-colors group">
-                      <td className="px-6 py-4 text-sm font-semibold text-slate-600">{row.code}</td>
-                      <td className="px-6 py-4 text-sm font-bold text-slate-900">{row.name}</td>
-                      <td className="px-6 py-4 text-sm font-medium text-slate-500">{row.registrationNo}</td>
-                      <td className="px-6 py-4 text-sm font-medium text-slate-500">{row.city}</td>
-                      <td className="px-6 py-4 text-sm font-medium text-slate-500">{row.contactNumber}</td>
-                      <td className="px-6 py-4">
-                        <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${row.status === 'Inactive' ? 'bg-warning/10 text-warning' : 'bg-success/10 text-success'}`}>
-                          {row.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2 transition-opacity">
-                          <Button variant="text" color="primary" icon={Edit2} className="!p-2" aria-label="Edit" onClick={() => handleEdit(row)} />
-                          <Button variant="text" color="danger" icon={Trash2} className="!p-2" aria-label="Delete" onClick={() => handleDeleteRequest(row)} />
-                        </div>
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan={7} className="px-6 py-12 text-center text-slate-400">
+                        Loading...
                       </td>
                     </tr>
-                  ))}
-                  {filteredRecords.length === 0 && (
-                     <tr>
-                       <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
-                         No records found matching "{searchTerm}"
-                       </td>
-                     </tr>
+                  ) : (
+                    <>
+                      {filteredRecords.map((row) => (
+                        <tr key={row.id} className="hover:bg-slate-50/50 transition-colors group">
+                          <td className="px-6 py-4 text-sm font-semibold text-slate-600">{row.code}</td>
+                          <td className="px-6 py-4 text-sm font-bold text-slate-900">{row.name}</td>
+                          <td className="px-6 py-4 text-sm font-medium text-slate-500">{row.registrationNo}</td>
+                          <td className="px-6 py-4 text-sm font-medium text-slate-500">{row.city}</td>
+                          <td className="px-6 py-4 text-sm font-medium text-slate-500">{row.contactNumber}</td>
+                          <td className="px-6 py-4">
+                            <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${row.status === 'Inactive' ? 'bg-warning/10 text-warning' : 'bg-success/10 text-success'}`}>
+                              {row.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <div className="flex items-center justify-end gap-2 transition-opacity">
+                              <Button variant="text" color="primary" icon={Edit2} className="!p-2" aria-label="Edit" onClick={() => handleEdit(row)} />
+                              <Button variant="text" color="danger" icon={Trash2} className="!p-2" aria-label="Delete" onClick={() => handleDeleteRequest(row)} />
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {filteredRecords.length === 0 && (
+                        <tr>
+                          <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
+                            {searchTerm ? `No records found matching "${searchTerm}"` : 'No hospital records found'}
+                          </td>
+                        </tr>
+                      )}
+                    </>
                   )}
                 </tbody>
               </table>
             </div>
+
             
             {/* Pagination Footer */}
             <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between text-sm">
@@ -576,12 +632,15 @@ export const HospitalMaster = () => {
             Reset
           </Button>
           <div className="flex items-center gap-3">
+            {formErrors._api && (
+              <p className="text-xs text-danger">{formErrors._api}</p>
+            )}
             <Button variant="outline" color="secondary" onClick={() => setIsFormOpen(false)}>
               Cancel
             </Button>
 
-            <Button variant="filled" color="primary" onClick={() => handleSaveForm(false)} icon={Save}>
-              {selectedRecord ? 'Update' : 'Save'}
+            <Button variant="filled" color="primary" onClick={() => handleSaveForm(false)} icon={Save} disabled={isSaving}>
+              {isSaving ? 'Saving...' : selectedRecord ? 'Update' : 'Save'}
             </Button>
           </div>
         </div>
