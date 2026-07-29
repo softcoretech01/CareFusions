@@ -1,0 +1,166 @@
+# Hospital Master — Backend API Implementation Plan
+
+## Overview
+
+Replace the mock data in `/admin/masters/hospital` with a fully connected Python FastAPI backend, MySQL database table, and stored procedures. The frontend will make HTTP calls to the API instead of using local state.
+
+---
+
+## Frontend Analysis Summary
+
+**Entity:** `Hospital`  
+**Screen:** `/admin/masters/hospital`
+
+### All Fields Identified
+
+| Frontend Field | Column Name (PascalCase) | Type | Required | Constraints |
+|---|---|---|---|---|
+| `id` | `HospitalId` | INT | PK | Auto-increment |
+| `code` | `HospitalCode` | VARCHAR(50) | ✅ | UNIQUE |
+| `name` | `HospitalName` | VARCHAR(255) | ✅ | UNIQUE |
+| `legalName` | `LegalName` | VARCHAR(255) | ✅ | — |
+| `registrationNo` | `RegistrationNo` | VARCHAR(100) | ✅ | UNIQUE |
+| `gstVatNo` | `GstVatNo` | VARCHAR(100) | ❌ | — |
+| `panTinNo` | `PanTinNo` | VARCHAR(100) | ❌ | — |
+| `contactNumber` | `ContactNumber` | VARCHAR(20) | ✅ | — |
+| `alternateNumber` | `AlternateNumber` | VARCHAR(20) | ❌ | — |
+| `email` | `Email` | VARCHAR(255) | ✅ | Valid format |
+| `website` | `Website` | VARCHAR(255) | ❌ | — |
+| `address1` | `Address1` | VARCHAR(500) | ✅ | — |
+| `address2` | `Address2` | VARCHAR(500) | ❌ | — |
+| `country` | `Country` | VARCHAR(100) | ✅ | — |
+| `state` | `State` | VARCHAR(100) | ✅ | — |
+| `city` | `City` | VARCHAR(100) | ✅ | — |
+| `postalCode` | `PostalCode` | VARCHAR(20) | ✅ | — |
+| `currency` | `Currency` | ENUM('USD','EUR','GBP','INR') | ✅ | Default: 'USD' |
+| `financialYear` | `FinancialYear` | VARCHAR(20) | ✅ | — |
+| `timeZone` | `TimeZone` | VARCHAR(100) | ✅ | — |
+| `status` | `Status` | ENUM('Active','Inactive') | ✅ | Default: 'Active' |
+| `remarks` | `Remarks` | TEXT | ❌ | — |
+
+### Audit Columns (added for production quality)
+
+| Column Name | Type | Purpose |
+|---|---|---|
+| `CreatedDate` | DATETIME | Auto set on insert |
+| `ModifiedDate` | DATETIME | Auto update on update |
+| `IsDeleted` | TINYINT(1) | Soft delete flag (0/1) |
+
+### Behaviors Observed
+
+- **Delete** → Soft delete: sets `Status = 'Inactive'` and `IsDeleted = 1` (modal confirms: *"soft delete if no branches associated"*)
+- **Code** is disabled on edit (immutable after creation)
+- **Unique checks**: `HospitalCode`, `HospitalName`, `RegistrationNo`
+- **Search** by: Code, Name, City, State, Status
+
+---
+
+## Proposed Changes
+
+### 1. SQL Script — `Python/sql/hospital_master.sql` [NEW]
+
+#### Table: `Hospital`
+```sql
+CREATE TABLE Hospital (
+  HospitalId      INT AUTO_INCREMENT PRIMARY KEY,
+  HospitalCode    VARCHAR(50)  NOT NULL UNIQUE,
+  HospitalName    VARCHAR(255) NOT NULL UNIQUE,
+  LegalName       VARCHAR(255) NOT NULL,
+  RegistrationNo  VARCHAR(100) NOT NULL UNIQUE,
+  GstVatNo        VARCHAR(100),
+  PanTinNo        VARCHAR(100),
+  ContactNumber   VARCHAR(20)  NOT NULL,
+  AlternateNumber VARCHAR(20),
+  Email           VARCHAR(255) NOT NULL,
+  Website         VARCHAR(255),
+  Address1        VARCHAR(500) NOT NULL,
+  Address2        VARCHAR(500),
+  Country         VARCHAR(100) NOT NULL,
+  State           VARCHAR(100) NOT NULL,
+  City            VARCHAR(100) NOT NULL,
+  PostalCode      VARCHAR(20)  NOT NULL,
+  Currency        ENUM('USD','EUR','GBP','INR') NOT NULL DEFAULT 'USD',
+  FinancialYear   VARCHAR(20)  NOT NULL,
+  TimeZone        VARCHAR(100) NOT NULL,
+  Status          ENUM('Active','Inactive') NOT NULL DEFAULT 'Active',
+  Remarks         TEXT,
+  CreatedDate     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  ModifiedDate    DATETIME     ON UPDATE CURRENT_TIMESTAMP,
+  IsDeleted       TINYINT(1)   NOT NULL DEFAULT 0
+);
+```
+
+#### Stored Procedures (4 total)
+
+| SP Name | Operation |
+|---|---|
+| `SpGetHospitals` | Get all (with optional search filter) |
+| `SpGetHospitalById` | Get single record by ID |
+| `SpInsertHospital` | Insert new record, returns new ID |
+| `SpUpdateHospital` | Update existing record by ID |
+| `SpDeleteHospital` | Soft delete (IsDeleted=1, Status='Inactive') |
+
+---
+
+### 2. Python Backend Files
+
+#### [MODIFY] `main.py`
+- Add CORS middleware (to allow frontend at `localhost:5173`)
+- Register hospital router under prefix `/api/v1`
+
+#### [NEW] `app/models/hospital.py`
+- SQLAlchemy ORM model for `Hospital` table
+
+#### [NEW] `app/schemas/hospital.py`
+- `HospitalBase` — shared fields
+- `HospitalCreate` — for POST requests
+- `HospitalUpdate` — for PUT requests
+- `HospitalResponse` — for API responses (includes `HospitalId`)
+
+#### [NEW] `app/routers/hospital.py`
+- FastAPI router with 5 endpoints:
+
+| Method | Path | Stored Procedure | Description |
+|---|---|---|---|
+| GET | `/hospitals` | `SpGetHospitals` | List all (optional `?search=`) |
+| GET | `/hospitals/{id}` | `SpGetHospitalById` | Get by ID |
+| POST | `/hospitals` | `SpInsertHospital` | Create new |
+| PUT | `/hospitals/{id}` | `SpUpdateHospital` | Update |
+| DELETE | `/hospitals/{id}` | `SpDeleteHospital` | Soft delete |
+
+All endpoints call stored procedures via raw SQL (`CALL SpName(...)`), no ORM queries.
+
+---
+
+### 3. Frontend Integration
+
+#### [MODIFY] `HospitalMaster.tsx`
+- Remove `generateInitialData()` mock data function
+- Add `useEffect` to fetch hospitals from `GET /api/v1/hospitals` on mount
+- Replace `setRecords(...)` local state mutations with API calls:
+  - Save → `POST /api/v1/hospitals`
+  - Update → `PUT /api/v1/hospitals/{id}`
+  - Delete → `DELETE /api/v1/hospitals/{id}`
+- Add loading states and error handling (toast or inline message)
+- Search remains client-side filtering on fetched data (no change to UI)
+
+> [!IMPORTANT]
+> The frontend API base URL will be read from `.env` as `VITE_API_URL`. The existing `frontend/.env` already has `VITE_FRONTEND_URL`. A new variable `VITE_API_URL=http://localhost:8000/api/v1` will be added.
+
+> [!NOTE]
+> **No UI/layout changes** are made to the frontend. Only data-fetching logic is replaced.
+
+---
+
+## Verification Plan
+
+### Automated
+- Run FastAPI server: `uvicorn main:app --reload`
+- Check Swagger docs at `http://localhost:8000/docs`
+
+### Manual
+1. Run SQL script on `admin` database → confirm table and SPs created
+2. Start backend → confirm server starts without errors
+3. Open frontend → Hospital Master screen should load live DB data
+4. Test Create, Edit, Delete flows end-to-end
+5. Confirm soft delete sets record to Inactive (not removed from list)
