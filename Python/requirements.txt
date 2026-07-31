@@ -3,4 +3,5 @@ uvicorn[standard]
 sqlalchemy
 pymysql
 python-dotenv
-pydantic
+pydantic[email]
+python-multipart
