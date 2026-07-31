@@ -1,6 +1,8 @@
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+import os
 
 from app.core.audit_middleware import AuditLogMiddleware
 
@@ -10,6 +12,9 @@ from app.routers import (
     manufacturer, store, coa, cost_center, profit_center, payment_term, currency,
     financial_year, bank, cash_counter, role, user, sms_template, email_template,
     whatsapp_template, push_template, reminder_rule, audit_log,
+    doctor, upload, nurse, pharmacist, lab_technician, receptionist, facility_management,
+    patient_category, blood_group, diagnosis, procedure, procedure_type, consultation_type,
+    appointment_status, allergy, medicine, medicine_category, lab_test, sample_type,
 )
 
 # ── Logging ──────────────────────────────────────────────────
@@ -29,8 +34,7 @@ app = FastAPI(
 # ── CORS ──────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173",
-                   "http://localhost:5174"],   # Vite frontend
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -39,6 +43,10 @@ app.add_middleware(
 # ── Global audit trail ────────────────────────────────────────
 # Records an entry for every create/update/delete across all masters.
 app.add_middleware(AuditLogMiddleware)
+
+# ── Static file uploads ───────────────────────────────────────
+os.makedirs("uploads", exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # ── Routers ───────────────────────────────────────────────────
 app.include_router(hospital.router,    prefix="/api/v1")
@@ -75,6 +83,25 @@ app.include_router(whatsapp_template.router, prefix="/api/v1")
 app.include_router(push_template.router, prefix="/api/v1")
 app.include_router(reminder_rule.router, prefix="/api/v1")
 app.include_router(audit_log.router, prefix="/api/v1")
+app.include_router(doctor.router,      prefix="/api/v1")
+app.include_router(upload.router,      prefix="/api/v1")
+app.include_router(nurse.router,       prefix="/api/v1")
+app.include_router(pharmacist.router,  prefix="/api/v1")
+app.include_router(lab_technician.router, prefix="/api/v1")
+app.include_router(receptionist.router,          prefix="/api/v1")
+app.include_router(facility_management.router,   prefix="/api/v1")
+app.include_router(patient_category.router,      prefix="/api/v1")
+app.include_router(blood_group.router,           prefix="/api/v1")
+app.include_router(diagnosis.router,             prefix="/api/v1")
+app.include_router(procedure.router,             prefix="/api/v1")
+app.include_router(procedure_type.router,        prefix="/api/v1")
+app.include_router(consultation_type.router,     prefix="/api/v1")
+app.include_router(appointment_status.router,    prefix="/api/v1")
+app.include_router(allergy.router,               prefix="/api/v1")
+app.include_router(medicine.router,              prefix="/api/v1")
+app.include_router(medicine_category.router,     prefix="/api/v1")
+app.include_router(lab_test.router,              prefix="/api/v1")
+app.include_router(sample_type.router,           prefix="/api/v1")
 
 
 @app.get("/", tags=["Health"])

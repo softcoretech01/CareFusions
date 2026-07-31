@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle, 
-  Save, RefreshCw
+  Save, RefreshCw, CheckCircle2, XCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
@@ -33,35 +33,25 @@ const emptyData: Omit<DiagnosisRecord, 'id'> = {
   remarks: ''
 };
 
-const mockData: DiagnosisRecord[] = [
-  {
-    id: 1,
-    diagnosisCode: 'E11.9',
-    diagnosisName: 'Type 2 diabetes mellitus without complications',
-    icdVersion: 'ICD-10',
-    category: 'Endocrine',
-    description: 'Non-insulin-dependent diabetes',
-    chronicDisease: true,
-    notifiableDisease: false,
-    status: 'Active',
-    remarks: ''
-  },
-  {
-    id: 2,
-    diagnosisCode: 'A00.0',
-    diagnosisName: 'Cholera due to Vibrio cholerae',
-    icdVersion: 'ICD-10',
-    category: 'Infectious',
-    description: 'Classical cholera',
-    chronicDisease: false,
-    notifiableDisease: true,
-    status: 'Active',
-    remarks: ''
-  }
-];
+const mockData: DiagnosisRecord[] = [];
+
+const API_BASE = import.meta.env.VITE_API_URL as string;
+
+const mapApiToRecord = (item: any): DiagnosisRecord => ({
+  id:                item.id,
+  diagnosisCode:     item.diagnosisCode,
+  diagnosisName:     item.diagnosisName,
+  icdVersion:        item.icdVersion,
+  category:          item.category,
+  description:       item.description || '',
+  chronicDisease:    Boolean(item.chronicDisease),
+  notifiableDisease: Boolean(item.notifiableDisease),
+  status:            item.status,
+  remarks:           item.remarks || ''
+});
 
 export const DiagnosisMaster = () => {
-  const [records, setRecords] = useState<DiagnosisRecord[]>(mockData);
+  const [records, setRecords] = useState<DiagnosisRecord[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   
   // Filter States
@@ -76,6 +66,47 @@ export const DiagnosisMaster = () => {
   const [selectedRecord, setSelectedRecord] = useState<DiagnosisRecord | null>(null);
   const [formData, setFormData] = useState<Omit<DiagnosisRecord, 'id'>>(emptyData);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSuccessOpen, setIsSuccessOpen] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [isErrorOpen, setIsErrorOpen] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  
+  const [icdVersionsList, setIcdVersionsList] = useState<string[]>([]);
+  const [categoriesList, setCategoriesList] = useState<string[]>([]);
+
+  const fetchLookups = async () => {
+    try {
+      const [icdRes, catRes] = await Promise.all([
+        fetch(`${API_BASE}/diagnosis/icd-versions`),
+        fetch(`${API_BASE}/diagnosis/categories`)
+      ]);
+      if (icdRes.ok) setIcdVersionsList(await icdRes.json());
+      if (catRes.ok) setCategoriesList(await catRes.json());
+    } catch (err) {
+      console.error('Failed to fetch lookups:', err);
+    }
+  };
+
+  const fetchDiagnosis = async () => {
+    try {
+      setIsLoading(true);
+      const res = await fetch(`${API_BASE}/diagnosis/`);
+      if (!res.ok) throw new Error('Failed to fetch diagnosis records');
+      const data = await res.json();
+      setRecords(data.map(mapApiToRecord));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLookups();
+    fetchDiagnosis();
+  }, []);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -116,23 +147,63 @@ export const DiagnosisMaster = () => {
     setIsDeleteOpen(true);
   };
 
-  const handleSaveForm = () => {
+  const handleSaveForm = async () => {
     if (!validateForm()) return;
+    setIsSaving(true);
+    try {
+      const payload = {
+        diagnosisCode:     formData.diagnosisCode,
+        diagnosisName:     formData.diagnosisName,
+        icdVersion:        formData.icdVersion,
+        category:          formData.category,
+        description:       formData.description || null,
+        chronicDisease:    formData.chronicDisease,
+        notifiableDisease: formData.notifiableDisease,
+        status:            formData.status,
+        remarks:           formData.remarks || null,
+        ...(selectedRecord ? { modifiedBy: 'Dr. John Doe' } : { createdBy: 'Dr. John Doe' }),
+      };
 
-    if (selectedRecord) {
-      setRecords(records.map(r => r.id === selectedRecord.id ? { ...r, ...formData } : r));
-    } else {
-      const newId = Math.max(...records.map(r => r.id), 0) + 1;
-      setRecords([...records, { id: newId, ...formData }]);
+      const url = selectedRecord 
+        ? `${API_BASE}/diagnosis/${selectedRecord.id}`
+        : `${API_BASE}/diagnosis/`;
+      const method = selectedRecord ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || 'Failed to save diagnosis');
+      }
+
+      await fetchDiagnosis();
+      setIsFormOpen(false);
+      setSuccessMessage('This record has been updated successfully.');
+      setIsSuccessOpen(true);
+    } catch (err: any) {
+      setErrorMessage(err.message);
+      setIsErrorOpen(true);
+    } finally {
+      setIsSaving(false);
     }
-    setIsFormOpen(false);
   };
 
-  const confirmDelete = () => {
-    if (selectedRecord) {
-      // Soft Delete
-      setRecords(records.filter(r => r.id !== selectedRecord.id));
+  const confirmDelete = async () => {
+    if (!selectedRecord) return;
+    try {
+      const res = await fetch(`${API_BASE}/diagnosis/${selectedRecord.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete diagnosis');
+      await fetchDiagnosis();
       setIsDeleteOpen(false);
+      setSuccessMessage('This record has been deleted successfully.');
+      setIsSuccessOpen(true);
+    } catch (err: any) {
+      setErrorMessage(err.message);
+      setIsErrorOpen(true);
     }
   };
 
@@ -206,8 +277,9 @@ export const DiagnosisMaster = () => {
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     >
                       <option value="">All ICD Versions</option>
-                      <option value="ICD-10">ICD-10</option>
-                      <option value="ICD-11">ICD-11</option>
+                      {icdVersionsList.map(icd => (
+                        <option key={icd} value={icd}>{icd}</option>
+                      ))}
                     </select>
                     <select
                       value={filterCategory}
@@ -215,11 +287,9 @@ export const DiagnosisMaster = () => {
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     >
                       <option value="">All Categories</option>
-                      <option value="Endocrine">Endocrine</option>
-                      <option value="Infectious">Infectious</option>
-                      <option value="Cardiovascular">Cardiovascular</option>
-                      <option value="Respiratory">Respiratory</option>
-                      <option value="Neurological">Neurological</option>
+                      {categoriesList.map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
                     </select>
                     <select
                       value={filterStatus}
@@ -327,8 +397,9 @@ export const DiagnosisMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">ICD Version <span className="text-red-500">*</span></label>
                     <select value={formData.icdVersion} onChange={e => setFormData({...formData, icdVersion: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.icdVersion ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
                       <option value="">Select Version</option>
-                      <option value="ICD-10">ICD-10</option>
-                      <option value="ICD-11">ICD-11</option>
+                      {icdVersionsList.map(icd => (
+                        <option key={icd} value={icd}>{icd}</option>
+                      ))}
                     </select>
                     {errors.icdVersion && <p className="text-red-500 text-xs mt-1">{errors.icdVersion}</p>}
                   </div>
@@ -336,11 +407,9 @@ export const DiagnosisMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Category <span className="text-red-500">*</span></label>
                     <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.category ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
                       <option value="">Select Category</option>
-                      <option value="Endocrine">Endocrine</option>
-                      <option value="Infectious">Infectious</option>
-                      <option value="Cardiovascular">Cardiovascular</option>
-                      <option value="Respiratory">Respiratory</option>
-                      <option value="Neurological">Neurological</option>
+                      {categoriesList.map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
                     </select>
                     {errors.category && <p className="text-red-500 text-xs mt-1">{errors.category}</p>}
                   </div>
@@ -408,20 +477,68 @@ export const DiagnosisMaster = () => {
         title="Confirm Deletion"
         maxWidth="sm"
       >
-        <div className="p-1">
-          <div className="flex items-center gap-4 mb-6 text-amber-600 bg-amber-50 p-4 rounded-xl">
-            <AlertTriangle className="w-8 h-8 shrink-0" />
-            <p className="text-sm font-medium">
-              Are you sure you want to delete Diagnosis <strong>{selectedRecord?.diagnosisCode}</strong>? 
-              This action cannot be undone.
-            </p>
+        <div className="flex flex-col items-center text-center py-4">
+          <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mb-4">
+            <AlertTriangle className="w-6 h-6" />
           </div>
-          <div className="flex justify-end gap-3">
-            <Button variant="outline" color="secondary" onClick={() => setIsDeleteOpen(false)}>
+          <h3 className="text-lg font-bold text-slate-800 mb-2">Delete Record</h3>
+          <p className="text-slate-500 text-sm mb-6">
+            Are you sure you want to delete Diagnosis <span className="font-semibold text-slate-700">{selectedRecord?.diagnosisName}</span>?
+          </p>
+          <div className="flex items-center gap-3 w-full">
+            <Button variant="outline" color="secondary" className="flex-1" onClick={() => setIsDeleteOpen(false)}>
               Cancel
             </Button>
-            <Button variant="filled" color="danger" onClick={confirmDelete}>
-              Confirm Delete
+            <Button variant="filled" color="danger" className="flex-1" onClick={confirmDelete}>
+              Delete
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Success Modal */}
+      <Modal
+        isOpen={isSuccessOpen}
+        onClose={() => setIsSuccessOpen(false)}
+        title="Success"
+        maxWidth="sm"
+      >
+        <div className="flex flex-col items-center text-center py-4">
+          <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mb-4">
+            <CheckCircle2 className="w-6 h-6" />
+          </div>
+          <h3 className="text-lg font-bold text-slate-800 mb-2">Success</h3>
+          <p className="text-slate-500 text-sm mb-6">
+            {successMessage}
+          </p>
+          
+          <div className="flex items-center justify-center w-full">
+            <Button variant="filled" color="primary" className="w-full" onClick={() => setIsSuccessOpen(false)}>
+              OK
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Error Modal */}
+      <Modal
+        isOpen={isErrorOpen}
+        onClose={() => setIsErrorOpen(false)}
+        title="Error"
+        maxWidth="sm"
+      >
+        <div className="flex flex-col items-center text-center py-4">
+          <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mb-4">
+            <XCircle className="w-6 h-6" />
+          </div>
+          <h3 className="text-lg font-bold text-slate-800 mb-2">Error</h3>
+          <p className="text-slate-500 text-sm mb-6">
+            {errorMessage}
+          </p>
+          
+          <div className="flex items-center justify-center w-full">
+            <Button variant="filled" color="primary" className="w-full" onClick={() => setIsErrorOpen(false)}>
+              OK
             </Button>
           </div>
         </div>

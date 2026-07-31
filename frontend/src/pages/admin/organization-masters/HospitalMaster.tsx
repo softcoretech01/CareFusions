@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
 import { Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle, Save, RefreshCw } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
@@ -6,6 +7,13 @@ import { Modal } from '../../../components/ui/Modal';
 import { exportToExcel } from '../../../utils/exportToExcel';
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
+
+interface HospitalOptions {
+  currencies: string[];
+  financialYears: string[];
+  timeZones: string[];
+  statuses: string[];
+}
 
 interface HospitalRecord {
   id: number;
@@ -49,37 +57,37 @@ const emptyFormData: Omit<HospitalRecord, 'id'> = {
   state: '',
   city: '',
   postalCode: '',
-  currency: 'USD',
-  financialYear: '2023-2024',
-  timeZone: 'UTC',
-  status: 'Active',
+  currency: '',
+  financialYear: '',
+  timeZone: '',
+  status: '',
   remarks: ''
 };
 
 // Map API response field names → HospitalRecord
 const mapApiToRecord = (item: Record<string, unknown>): HospitalRecord => ({
-  id:              item.id              as number,
-  code:            item.code            as string,
-  name:            item.name            as string,
-  legalName:       item.legalName       as string,
-  registrationNo:  item.registrationNo  as string,
-  gstVatNo:        (item.gstVatNo       as string) ?? '',
-  panTinNo:        (item.panTinNo       as string) ?? '',
-  contactNumber:   item.contactNumber   as string,
+  id: item.id as number,
+  code: item.code as string,
+  name: item.name as string,
+  legalName: item.legalName as string,
+  registrationNo: item.registrationNo as string,
+  gstVatNo: (item.gstVatNo as string) ?? '',
+  panTinNo: (item.panTinNo as string) ?? '',
+  contactNumber: item.contactNumber as string,
   alternateNumber: (item.alternateNumber as string) ?? '',
-  email:           item.email           as string,
-  website:         (item.website        as string) ?? '',
-  address1:        item.address1        as string,
-  address2:        (item.address2       as string) ?? '',
-  country:         item.country         as string,
-  state:           item.state           as string,
-  city:            item.city            as string,
-  postalCode:      item.postalCode      as string,
-  currency:        item.currency        as string,
-  financialYear:   item.financialYear   as string,
-  timeZone:        item.timeZone        as string,
-  status:          item.status          as string,
-  remarks:         (item.remarks        as string) ?? '',
+  email: item.email as string,
+  website: (item.website as string) ?? '',
+  address1: item.address1 as string,
+  address2: (item.address2 as string) ?? '',
+  country: item.country as string,
+  state: item.state as string,
+  city: item.city as string,
+  postalCode: item.postalCode as string,
+  currency: item.currency as string,
+  financialYear: item.financialYear as string,
+  timeZone: item.timeZone as string,
+  status: item.status as string,
+  remarks: (item.remarks as string) ?? '',
 });
 
 export const HospitalMaster = () => {
@@ -87,6 +95,13 @@ export const HospitalMaster = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+
+  const [options, setOptions] = useState<HospitalOptions>({
+    currencies: [],
+    financialYears: [],
+    timeZones: [],
+    statuses: []
+  });
 
   // Modal States
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -101,12 +116,21 @@ export const HospitalMaster = () => {
     setIsLoading(true);
     setApiError(null);
     try {
-      const res = await fetch(`${API_BASE}/hospitals/`);
-      if (!res.ok) throw new Error(`Server error: ${res.status}`);
-      const data: Record<string, unknown>[] = await res.json();
-      setRecords(data.map(mapApiToRecord));
+      const [hospitalsRes, optionsRes] = await Promise.all([
+        fetch(`${API_BASE}/hospitals/`),
+        fetch(`${API_BASE}/hospitals/options`)
+      ]);
+
+      if (!hospitalsRes.ok) throw new Error(`Server error: ${hospitalsRes.status}`);
+      if (!optionsRes.ok) throw new Error(`Server error: ${optionsRes.status}`);
+
+      const hospitalsData: Record<string, unknown>[] = await hospitalsRes.json();
+      const optionsData: HospitalOptions = await optionsRes.json();
+
+      setRecords(hospitalsData.map(mapApiToRecord));
+      setOptions(optionsData);
     } catch (err: unknown) {
-      setApiError(err instanceof Error ? err.message : 'Failed to load hospitals');
+      setApiError(err instanceof Error ? err.message : 'Failed to load data');
     } finally {
       setIsLoading(false);
     }
@@ -116,8 +140,21 @@ export const HospitalMaster = () => {
 
   // Handlers
   const handleCreateNew = () => {
+    // Calculate current financial year (April to March)
+    const today = new Date();
+    const currentMonth = today.getMonth(); // 0-11
+    const currentYear = today.getFullYear();
+    const startYear = currentMonth >= 3 ? currentYear : currentYear - 1;
+    const currentFinancialYear = `${startYear}-${startYear + 1}`;
+
     setSelectedRecord(null);
-    setFormData({ ...emptyFormData });
+    setFormData({
+      ...emptyFormData,
+      currency: options.currencies.includes('INR') ? 'INR' : (options.currencies[0] || ''),
+      financialYear: options.financialYears.includes(currentFinancialYear) ? currentFinancialYear : (options.financialYears[0] || ''),
+      timeZone: options.timeZones.includes('IST') ? 'IST' : (options.timeZones[0] || ''),
+      status: options.statuses.includes('Active') ? 'Active' : (options.statuses[0] || '')
+    });
     setFormErrors({});
     setIsFormOpen(true);
   };
@@ -144,13 +181,13 @@ export const HospitalMaster = () => {
     if (!formData.contactNumber.trim()) errors.contactNumber = 'Contact Number is required';
     if (!formData.email.trim()) errors.email = 'Email is required';
     else if (!/^\S+@\S+\.\S+$/.test(formData.email)) errors.email = 'Invalid email format';
-    
+
     if (!formData.address1.trim()) errors.address1 = 'Address Line 1 is required';
     if (!formData.country.trim()) errors.country = 'Country is required';
     if (!formData.state.trim()) errors.state = 'State is required';
     if (!formData.city.trim()) errors.city = 'City is required';
     if (!formData.postalCode.trim()) errors.postalCode = 'Postal Code is required';
-    
+
     if (!formData.currency.trim()) errors.currency = 'Currency is required';
     if (!formData.financialYear.trim()) errors.financialYear = 'Financial Year is required';
     if (!formData.timeZone.trim()) errors.timeZone = 'Time Zone is required';
@@ -177,27 +214,27 @@ export const HospitalMaster = () => {
 
     try {
       const body = {
-        code:            formData.code,
-        name:            formData.name,
-        legalName:       formData.legalName,
-        registrationNo:  formData.registrationNo,
-        gstVatNo:        formData.gstVatNo || null,
-        panTinNo:        formData.panTinNo || null,
-        contactNumber:   formData.contactNumber,
+        code: formData.code,
+        name: formData.name,
+        legalName: formData.legalName,
+        registrationNo: formData.registrationNo,
+        gstVatNo: formData.gstVatNo || null,
+        panTinNo: formData.panTinNo || null,
+        contactNumber: formData.contactNumber,
         alternateNumber: formData.alternateNumber || null,
-        email:           formData.email,
-        website:         formData.website || null,
-        address1:        formData.address1,
-        address2:        formData.address2 || null,
-        country:         formData.country,
-        state:           formData.state,
-        city:            formData.city,
-        postalCode:      formData.postalCode,
-        currency:        formData.currency,
-        financialYear:   formData.financialYear,
-        timeZone:        formData.timeZone,
-        status:          formData.status,
-        remarks:         formData.remarks || null,
+        email: formData.email,
+        website: formData.website || null,
+        address1: formData.address1,
+        address2: formData.address2 || null,
+        country: formData.country,
+        state: formData.state,
+        city: formData.city,
+        postalCode: formData.postalCode,
+        currency: formData.currency,
+        financialYear: formData.financialYear,
+        timeZone: formData.timeZone,
+        status: formData.status,
+        remarks: formData.remarks || null,
       };
 
       if (selectedRecord) {
@@ -219,6 +256,8 @@ export const HospitalMaster = () => {
       }
 
       await fetchHospitals();
+
+      toast.success(selectedRecord ? 'Hospital record updated successfully!' : 'Hospital record created successfully!');
 
       if (saveAndNew) {
         handleCreateNew();
@@ -245,8 +284,8 @@ export const HospitalMaster = () => {
     }
   };
 
-  const filteredRecords = records.filter(r => 
-    r.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+  const filteredRecords = records.filter(r =>
+    r.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     r.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
     r.city.toLowerCase().includes(searchTerm.toLowerCase()) ||
     r.state.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -254,7 +293,7 @@ export const HospitalMaster = () => {
   );
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       className="h-full flex flex-col relative"
@@ -267,7 +306,7 @@ export const HospitalMaster = () => {
               <h1 className="text-3xl font-bold text-slate-800">Hospital Master</h1>
               <p className="text-slate-500 mt-1"></p>
             </div>
-            
+
             <Button variant="filled" color="primary" icon={Plus} onClick={handleCreateNew}>
               Create New
             </Button>
@@ -278,7 +317,7 @@ export const HospitalMaster = () => {
             <div className="p-4 border-b border-slate-100 flex items-center justify-between gap-4">
               <div className="relative flex-1 max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                <input 
+                <input
                   type="text"
                   placeholder="Search by Code, Name, City, State, or Status..."
                   value={searchTerm}
@@ -359,7 +398,7 @@ export const HospitalMaster = () => {
               </table>
             </div>
 
-            
+
             {/* Pagination Footer */}
             <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between text-sm">
               <span className="text-slate-500 font-medium">Showing {filteredRecords.length} entries</span>
@@ -379,7 +418,7 @@ export const HospitalMaster = () => {
               <h1 className="text-3xl font-bold text-slate-800">{selectedRecord ? 'Edit Hospital Master' : 'Create Hospital Master'}</h1>
               <p className="text-slate-500 mt-1"></p>
             </div>
-            
+
             <Button variant="outline" color="secondary" onClick={() => setIsFormOpen(false)}>
               Back to List
             </Button>
@@ -387,265 +426,267 @@ export const HospitalMaster = () => {
 
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden p-8">
             <div className="flex-1 overflow-y-auto pr-6 custom-scrollbar">
-          {/* Basic Information */}
-          <div className="mb-8">
-            <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Basic Information</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Hospital Code <span className="text-danger">*</span></label>
-                <input
-                  type="text"
-                  value={formData.code}
-                  disabled={!!selectedRecord}
-                  onChange={(e) => setFormData({...formData, code: e.target.value})}
-                  className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.code ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all disabled:opacity-50`}
-                />
-                {formErrors.code && <p className="text-xs text-danger mt-1">{formErrors.code}</p>}
+              {/* Basic Information */}
+              <div className="mb-8">
+                <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Basic Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Hospital Code <span className="text-danger">*</span></label>
+                    <input
+                      type="text"
+                      value={formData.code}
+                      disabled={!!selectedRecord}
+                      onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                      className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.code ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all disabled:opacity-50`}
+                    />
+                    {formErrors.code && <p className="text-xs text-danger mt-1">{formErrors.code}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Hospital Name <span className="text-danger">*</span></label>
+                    <input
+                      type="text"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.name ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
+                    />
+                    {formErrors.name && <p className="text-xs text-danger mt-1">{formErrors.name}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Legal Name <span className="text-danger">*</span></label>
+                    <input
+                      type="text"
+                      value={formData.legalName}
+                      onChange={(e) => setFormData({ ...formData, legalName: e.target.value })}
+                      className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.legalName ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
+                    />
+                    {formErrors.legalName && <p className="text-xs text-danger mt-1">{formErrors.legalName}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Registration Number <span className="text-danger">*</span></label>
+                    <input
+                      type="text"
+                      value={formData.registrationNo}
+                      onChange={(e) => setFormData({ ...formData, registrationNo: e.target.value })}
+                      className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.registrationNo ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
+                    />
+                    {formErrors.registrationNo && <p className="text-xs text-danger mt-1">{formErrors.registrationNo}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">GST/VAT Number</label>
+                    <input
+                      type="text"
+                      value={formData.gstVatNo}
+                      onChange={(e) => setFormData({ ...formData, gstVatNo: e.target.value })}
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">PAN/TIN Number</label>
+                    <input
+                      type="text"
+                      value={formData.panTinNo}
+                      onChange={(e) => setFormData({ ...formData, panTinNo: e.target.value })}
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                    />
+                  </div>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Hospital Name <span className="text-danger">*</span></label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.name ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
-                />
-                {formErrors.name && <p className="text-xs text-danger mt-1">{formErrors.name}</p>}
+
+              {/* Contact Information */}
+              <div className="mb-8">
+                <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Contact Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Contact Number <span className="text-danger">*</span></label>
+                    <input
+                      type="text"
+                      value={formData.contactNumber}
+                      onChange={(e) => setFormData({ ...formData, contactNumber: e.target.value })}
+                      className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.contactNumber ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
+                    />
+                    {formErrors.contactNumber && <p className="text-xs text-danger mt-1">{formErrors.contactNumber}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Alternate Number</label>
+                    <input
+                      type="text"
+                      value={formData.alternateNumber}
+                      onChange={(e) => setFormData({ ...formData, alternateNumber: e.target.value })}
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Email <span className="text-danger">*</span></label>
+                    <input
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.email ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
+                    />
+                    {formErrors.email && <p className="text-xs text-danger mt-1">{formErrors.email}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Website</label>
+                    <input
+                      type="text"
+                      value={formData.website}
+                      onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                    />
+                  </div>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Legal Name <span className="text-danger">*</span></label>
-                <input
-                  type="text"
-                  value={formData.legalName}
-                  onChange={(e) => setFormData({...formData, legalName: e.target.value})}
-                  className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.legalName ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
-                />
-                {formErrors.legalName && <p className="text-xs text-danger mt-1">{formErrors.legalName}</p>}
+
+              {/* Address */}
+              <div className="mb-8">
+                <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Address</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Address Line 1 <span className="text-danger">*</span></label>
+                    <input
+                      type="text"
+                      value={formData.address1}
+                      onChange={(e) => setFormData({ ...formData, address1: e.target.value })}
+                      className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.address1 ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
+                    />
+                    {formErrors.address1 && <p className="text-xs text-danger mt-1">{formErrors.address1}</p>}
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Address Line 2</label>
+                    <input
+                      type="text"
+                      value={formData.address2}
+                      onChange={(e) => setFormData({ ...formData, address2: e.target.value })}
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Country <span className="text-danger">*</span></label>
+                    <input
+                      type="text"
+                      value={formData.country}
+                      onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+                      className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.country ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
+                    />
+                    {formErrors.country && <p className="text-xs text-danger mt-1">{formErrors.country}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">State <span className="text-danger">*</span></label>
+                    <input
+                      type="text"
+                      value={formData.state}
+                      onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                      className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.state ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
+                    />
+                    {formErrors.state && <p className="text-xs text-danger mt-1">{formErrors.state}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">City <span className="text-danger">*</span></label>
+                    <input
+                      type="text"
+                      value={formData.city}
+                      onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                      className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.city ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
+                    />
+                    {formErrors.city && <p className="text-xs text-danger mt-1">{formErrors.city}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Postal Code <span className="text-danger">*</span></label>
+                    <input
+                      type="text"
+                      value={formData.postalCode}
+                      onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
+                      className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.postalCode ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
+                    />
+                    {formErrors.postalCode && <p className="text-xs text-danger mt-1">{formErrors.postalCode}</p>}
+                  </div>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Registration Number <span className="text-danger">*</span></label>
-                <input
-                  type="text"
-                  value={formData.registrationNo}
-                  onChange={(e) => setFormData({...formData, registrationNo: e.target.value})}
-                  className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.registrationNo ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
-                />
-                {formErrors.registrationNo && <p className="text-xs text-danger mt-1">{formErrors.registrationNo}</p>}
+
+              {/* Financial & System Information */}
+              <div className="mb-8">
+                <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Financial & System Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Currency <span className="text-danger">*</span></label>
+                    <select
+                      value={formData.currency}
+                      onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
+                      className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.currency ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
+                    >
+                      <option value="" disabled>Select Currency</option>
+                      {options.currencies.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    {formErrors.currency && <p className="text-xs text-danger mt-1">{formErrors.currency}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Financial Year <span className="text-danger">*</span></label>
+                    <select
+                      value={formData.financialYear}
+                      onChange={(e) => setFormData({ ...formData, financialYear: e.target.value })}
+                      className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.financialYear ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
+                    >
+                      <option value="" disabled>Select Year</option>
+                      {options.financialYears.map(fy => <option key={fy} value={fy}>{fy}</option>)}
+                    </select>
+                    {formErrors.financialYear && <p className="text-xs text-danger mt-1">{formErrors.financialYear}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Time Zone <span className="text-danger">*</span></label>
+                    <select
+                      value={formData.timeZone}
+                      onChange={(e) => setFormData({ ...formData, timeZone: e.target.value })}
+                      className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.timeZone ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
+                    >
+                      <option value="" disabled>Select Time Zone</option>
+                      {options.timeZones.map(tz => <option key={tz} value={tz}>{tz}</option>)}
+                    </select>
+                    {formErrors.timeZone && <p className="text-xs text-danger mt-1">{formErrors.timeZone}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Status <span className="text-danger">*</span></label>
+                    <select
+                      value={formData.status}
+                      onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                      className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.status ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
+                    >
+                      <option value="" disabled>Select Status</option>
+                      {options.statuses.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                    {formErrors.status && <p className="text-xs text-danger mt-1">{formErrors.status}</p>}
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Remarks</label>
+                    <input
+                      type="text"
+                      value={formData.remarks}
+                      onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                    />
+                  </div>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">GST/VAT Number</label>
-                <input
-                  type="text"
-                  value={formData.gstVatNo}
-                  onChange={(e) => setFormData({...formData, gstVatNo: e.target.value})}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">PAN/TIN Number</label>
-                <input
-                  type="text"
-                  value={formData.panTinNo}
-                  onChange={(e) => setFormData({...formData, panTinNo: e.target.value})}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                />
+            </div>
+
+            <div className="mt-6 flex items-center justify-between pt-6 border-t border-slate-100">
+              <Button variant="outline" color="secondary" onClick={() => setFormData(emptyFormData)} icon={RefreshCw}>
+                Reset
+              </Button>
+              <div className="flex items-center gap-3">
+                {formErrors._api && (
+                  <p className="text-xs text-danger">{formErrors._api}</p>
+                )}
+                <Button variant="outline" color="secondary" onClick={() => setIsFormOpen(false)}>
+                  Cancel
+                </Button>
+
+                <Button variant="filled" color="primary" onClick={() => handleSaveForm(false)} icon={Save} disabled={isSaving}>
+                  {isSaving ? 'Saving...' : selectedRecord ? 'Update' : 'Save'}
+                </Button>
               </div>
             </div>
           </div>
-
-          {/* Contact Information */}
-          <div className="mb-8">
-            <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Contact Information</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Contact Number <span className="text-danger">*</span></label>
-                <input
-                  type="text"
-                  value={formData.contactNumber}
-                  onChange={(e) => setFormData({...formData, contactNumber: e.target.value})}
-                  className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.contactNumber ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
-                />
-                {formErrors.contactNumber && <p className="text-xs text-danger mt-1">{formErrors.contactNumber}</p>}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Alternate Number</label>
-                <input
-                  type="text"
-                  value={formData.alternateNumber}
-                  onChange={(e) => setFormData({...formData, alternateNumber: e.target.value})}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Email <span className="text-danger">*</span></label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({...formData, email: e.target.value})}
-                  className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.email ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
-                />
-                {formErrors.email && <p className="text-xs text-danger mt-1">{formErrors.email}</p>}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Website</label>
-                <input
-                  type="text"
-                  value={formData.website}
-                  onChange={(e) => setFormData({...formData, website: e.target.value})}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Address */}
-          <div className="mb-8">
-            <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Address</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-slate-700 mb-1">Address Line 1 <span className="text-danger">*</span></label>
-                <input
-                  type="text"
-                  value={formData.address1}
-                  onChange={(e) => setFormData({...formData, address1: e.target.value})}
-                  className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.address1 ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
-                />
-                {formErrors.address1 && <p className="text-xs text-danger mt-1">{formErrors.address1}</p>}
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-slate-700 mb-1">Address Line 2</label>
-                <input
-                  type="text"
-                  value={formData.address2}
-                  onChange={(e) => setFormData({...formData, address2: e.target.value})}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Country <span className="text-danger">*</span></label>
-                <input
-                  type="text"
-                  value={formData.country}
-                  onChange={(e) => setFormData({...formData, country: e.target.value})}
-                  className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.country ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
-                />
-                {formErrors.country && <p className="text-xs text-danger mt-1">{formErrors.country}</p>}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">State <span className="text-danger">*</span></label>
-                <input
-                  type="text"
-                  value={formData.state}
-                  onChange={(e) => setFormData({...formData, state: e.target.value})}
-                  className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.state ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
-                />
-                {formErrors.state && <p className="text-xs text-danger mt-1">{formErrors.state}</p>}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">City <span className="text-danger">*</span></label>
-                <input
-                  type="text"
-                  value={formData.city}
-                  onChange={(e) => setFormData({...formData, city: e.target.value})}
-                  className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.city ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
-                />
-                {formErrors.city && <p className="text-xs text-danger mt-1">{formErrors.city}</p>}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Postal Code <span className="text-danger">*</span></label>
-                <input
-                  type="text"
-                  value={formData.postalCode}
-                  onChange={(e) => setFormData({...formData, postalCode: e.target.value})}
-                  className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.postalCode ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
-                />
-                {formErrors.postalCode && <p className="text-xs text-danger mt-1">{formErrors.postalCode}</p>}
-              </div>
-            </div>
-          </div>
-
-          {/* Financial & System Information */}
-          <div className="mb-8">
-            <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Financial & System Information</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Currency <span className="text-danger">*</span></label>
-                <select
-                  value={formData.currency}
-                  onChange={(e) => setFormData({...formData, currency: e.target.value})}
-                  className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.currency ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
-                >
-                  <option value="USD">USD ($)</option>
-                  <option value="EUR">EUR (€)</option>
-                  <option value="GBP">GBP (£)</option>
-                  <option value="INR">INR (₹)</option>
-                </select>
-                {formErrors.currency && <p className="text-xs text-danger mt-1">{formErrors.currency}</p>}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Financial Year <span className="text-danger">*</span></label>
-                <input
-                  type="text"
-                  value={formData.financialYear}
-                  onChange={(e) => setFormData({...formData, financialYear: e.target.value})}
-                  className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.financialYear ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
-                />
-                {formErrors.financialYear && <p className="text-xs text-danger mt-1">{formErrors.financialYear}</p>}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Time Zone <span className="text-danger">*</span></label>
-                <input
-                  type="text"
-                  value={formData.timeZone}
-                  onChange={(e) => setFormData({...formData, timeZone: e.target.value})}
-                  className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.timeZone ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
-                />
-                {formErrors.timeZone && <p className="text-xs text-danger mt-1">{formErrors.timeZone}</p>}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Status <span className="text-danger">*</span></label>
-                <select
-                  value={formData.status}
-                  onChange={(e) => setFormData({...formData, status: e.target.value})}
-                  className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.status ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
-                >
-                  <option value="Active">Active</option>
-                  <option value="Inactive">Inactive</option>
-                </select>
-                {formErrors.status && <p className="text-xs text-danger mt-1">{formErrors.status}</p>}
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-slate-700 mb-1">Remarks</label>
-                <input
-                  type="text"
-                  value={formData.remarks}
-                  onChange={(e) => setFormData({...formData, remarks: e.target.value})}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <div className="mt-6 flex items-center justify-between pt-6 border-t border-slate-100">
-          <Button variant="outline" color="secondary" onClick={() => setFormData(emptyFormData)} icon={RefreshCw}>
-            Reset
-          </Button>
-          <div className="flex items-center gap-3">
-            {formErrors._api && (
-              <p className="text-xs text-danger">{formErrors._api}</p>
-            )}
-            <Button variant="outline" color="secondary" onClick={() => setIsFormOpen(false)}>
-              Cancel
-            </Button>
-
-            <Button variant="filled" color="primary" onClick={() => handleSaveForm(false)} icon={Save} disabled={isSaving}>
-              {isSaving ? 'Saving...' : selectedRecord ? 'Update' : 'Save'}
-            </Button>
-          </div>
-        </div>
-      </div>
-      </>
+        </>
       )}
 
       {/* Delete Confirmation Modal */}
@@ -661,10 +702,9 @@ export const HospitalMaster = () => {
           </div>
           <h3 className="text-lg font-bold text-slate-800 mb-2">Delete Record</h3>
           <p className="text-slate-500 text-sm mb-6">
-            Are you sure you want to delete <span className="font-semibold text-slate-700">{selectedRecord?.name}</span>? 
-            This will soft delete the hospital if there are no branches associated.
+            Are you sure you want to delete <span className="font-semibold text-slate-700">{selectedRecord?.name}</span>?
           </p>
-          
+
           <div className="flex items-center gap-3 w-full">
             <Button variant="outline" color="secondary" className="flex-1" onClick={() => setIsDeleteOpen(false)}>
               Cancel

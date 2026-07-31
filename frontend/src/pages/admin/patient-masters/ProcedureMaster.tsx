@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle, 
-  Save, RefreshCw
+  Save, RefreshCw, CheckCircle2, XCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
@@ -41,50 +41,34 @@ const emptyData: Omit<ProcedureRecord, 'id'> = {
   remarks: ''
 };
 
-const mockData: ProcedureRecord[] = [
-  {
-    id: 1,
-    procedureCode: 'PRC-001',
-    procedureName: 'Appendectomy',
-    department: 'General Surgery',
-    procedureType: 'Major Surgery',
-    description: 'Surgical removal of the appendix',
-    defaultCharge: '25000',
-    taxApplicable: true,
-    estimatedDuration: '120',
-    requiresConsent: true,
-    requiresAdmission: true,
-    otRequired: true,
-    status: 'Active',
-    remarks: ''
-  },
-  {
-    id: 2,
-    procedureCode: 'PRC-002',
-    procedureName: 'Physiotherapy Session',
-    department: 'Physiotherapy',
-    procedureType: 'Physiotherapy',
-    description: 'Standard 45 min physiotherapy session',
-    defaultCharge: '1000',
-    taxApplicable: false,
-    estimatedDuration: '45',
-    requiresConsent: false,
-    requiresAdmission: false,
-    otRequired: false,
-    status: 'Active',
-    remarks: ''
-  }
-];
+const mockData: ProcedureRecord[] = [];
 
-const procedureTypes = [
-  'Consultation', 'Dressing', 'Injection', 'Minor Surgery', 
-  'Major Surgery', 'Endoscopy', 'Dialysis', 'Physiotherapy', 
-  'ICU Procedure', 'Emergency Procedure'
-];
+const API_BASE = import.meta.env.VITE_API_URL as string;
+
+const mapApiToRecord = (item: any): ProcedureRecord => ({
+  id:                item.id,
+  procedureCode:     item.procedureCode,
+  procedureName:     item.procedureName,
+  department:        item.department,
+  procedureType:     item.procedureType,
+  description:       item.description || '',
+  defaultCharge:     item.defaultCharge || '0',
+  taxApplicable:     Boolean(item.taxApplicable),
+  estimatedDuration: item.estimatedDuration || '',
+  requiresConsent:   Boolean(item.requiresConsent),
+  requiresAdmission: Boolean(item.requiresAdmission),
+  otRequired:        Boolean(item.otRequired),
+  status:            item.status,
+  remarks:           item.remarks || ''
+});
 
 export const ProcedureMaster = () => {
-  const [records, setRecords] = useState<ProcedureRecord[]>(mockData);
+  const [records, setRecords] = useState<ProcedureRecord[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Dynamic Dropdowns
+  const [departments, setDepartments] = useState<{departmentName: string}[]>([]);
+  const [procedureTypesList, setProcedureTypesList] = useState<{typeName: string}[]>([]);
   
   // Filter States
   const [showFilters, setShowFilters] = useState(false);
@@ -98,6 +82,44 @@ export const ProcedureMaster = () => {
   const [selectedRecord, setSelectedRecord] = useState<ProcedureRecord | null>(null);
   const [formData, setFormData] = useState<Omit<ProcedureRecord, 'id'>>(emptyData);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSuccessOpen, setIsSuccessOpen] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [isErrorOpen, setIsErrorOpen] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const fetchProcedures = async () => {
+    try {
+      setIsLoading(true);
+      const res = await fetch(`${API_BASE}/procedures/`);
+      if (!res.ok) throw new Error('Failed to fetch procedure records');
+      const data = await res.json();
+      setRecords(data.map(mapApiToRecord));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchDropdowns = async () => {
+    try {
+      const [dRes, ptRes] = await Promise.all([
+        fetch(`${API_BASE}/departments/`),
+        fetch(`${API_BASE}/procedure-types/`)
+      ]);
+      if (dRes.ok) setDepartments(await dRes.json());
+      if (ptRes.ok) setProcedureTypesList(await ptRes.json());
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    fetchProcedures();
+    fetchDropdowns();
+  }, []);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -139,23 +161,67 @@ export const ProcedureMaster = () => {
     setIsDeleteOpen(true);
   };
 
-  const handleSaveForm = () => {
+  const handleSaveForm = async () => {
     if (!validateForm()) return;
+    setIsSaving(true);
+    try {
+      const payload = {
+        procedureCode:     formData.procedureCode,
+        procedureName:     formData.procedureName,
+        department:        formData.department,
+        procedureType:     formData.procedureType,
+        description:       formData.description || null,
+        defaultCharge:     formData.defaultCharge || "0",
+        taxApplicable:     formData.taxApplicable,
+        estimatedDuration: formData.estimatedDuration || "0",
+        requiresConsent:   formData.requiresConsent,
+        requiresAdmission: formData.requiresAdmission,
+        otRequired:        formData.otRequired,
+        status:            formData.status,
+        remarks:           formData.remarks || null,
+        ...(selectedRecord ? { modifiedBy: 'Dr. John Doe' } : { createdBy: 'Dr. John Doe' }),
+      };
 
-    if (selectedRecord) {
-      setRecords(records.map(r => r.id === selectedRecord.id ? { ...r, ...formData } : r));
-    } else {
-      const newId = Math.max(...records.map(r => r.id), 0) + 1;
-      setRecords([...records, { id: newId, ...formData }]);
+      const url = selectedRecord 
+        ? `${API_BASE}/procedures/${selectedRecord.id}`
+        : `${API_BASE}/procedures/`;
+      const method = selectedRecord ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || 'Failed to save procedure');
+      }
+
+      await fetchProcedures();
+      setIsFormOpen(false);
+      setSuccessMessage('This record has been updated successfully.');
+      setIsSuccessOpen(true);
+    } catch (err: any) {
+      setErrorMessage(err.message);
+      setIsErrorOpen(true);
+    } finally {
+      setIsSaving(false);
     }
-    setIsFormOpen(false);
   };
 
-  const confirmDelete = () => {
-    if (selectedRecord) {
-      // Soft Delete
-      setRecords(records.filter(r => r.id !== selectedRecord.id));
+  const confirmDelete = async () => {
+    if (!selectedRecord) return;
+    try {
+      const res = await fetch(`${API_BASE}/procedures/${selectedRecord.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete procedure');
+      await fetchProcedures();
       setIsDeleteOpen(false);
+      setSuccessMessage('This record has been deleted successfully.');
+      setIsSuccessOpen(true);
+    } catch (err: any) {
+      setErrorMessage(err.message);
+      setIsErrorOpen(true);
     }
   };
 
@@ -229,9 +295,7 @@ export const ProcedureMaster = () => {
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     >
                       <option value="">All Departments</option>
-                      <option value="General Surgery">General Surgery</option>
-                      <option value="Cardiology">Cardiology</option>
-                      <option value="Physiotherapy">Physiotherapy</option>
+                      {departments.map(d => <option key={d.departmentName} value={d.departmentName}>{d.departmentName}</option>)}
                     </select>
                     <select
                       value={filterType}
@@ -239,7 +303,7 @@ export const ProcedureMaster = () => {
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     >
                       <option value="">All Procedure Types</option>
-                      {procedureTypes.map(type => <option key={type} value={type}>{type}</option>)}
+                      {procedureTypesList.map(type => <option key={type.typeName} value={type.typeName}>{type.typeName}</option>)}
                     </select>
                     <select
                       value={filterStatus}
@@ -349,9 +413,7 @@ export const ProcedureMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Department <span className="text-red-500">*</span></label>
                     <select value={formData.department} onChange={e => setFormData({...formData, department: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.department ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
                       <option value="">Select Department</option>
-                      <option value="General Surgery">General Surgery</option>
-                      <option value="Cardiology">Cardiology</option>
-                      <option value="Physiotherapy">Physiotherapy</option>
+                      {departments.map(d => <option key={d.departmentName} value={d.departmentName}>{d.departmentName}</option>)}
                     </select>
                     {errors.department && <p className="text-red-500 text-xs mt-1">{errors.department}</p>}
                   </div>
@@ -359,7 +421,7 @@ export const ProcedureMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Procedure Type <span className="text-red-500">*</span></label>
                     <select value={formData.procedureType} onChange={e => setFormData({...formData, procedureType: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.procedureType ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
                       <option value="">Select Type</option>
-                      {procedureTypes.map(type => <option key={type} value={type}>{type}</option>)}
+                      {procedureTypesList.map(type => <option key={type.typeName} value={type.typeName}>{type.typeName}</option>)}
                     </select>
                     {errors.procedureType && <p className="text-red-500 text-xs mt-1">{errors.procedureType}</p>}
                   </div>
@@ -453,20 +515,68 @@ export const ProcedureMaster = () => {
         title="Confirm Deletion"
         maxWidth="sm"
       >
-        <div className="p-1">
-          <div className="flex items-center gap-4 mb-6 text-amber-600 bg-amber-50 p-4 rounded-xl">
-            <AlertTriangle className="w-8 h-8 shrink-0" />
-            <p className="text-sm font-medium">
-              Are you sure you want to delete Procedure <strong>{selectedRecord?.procedureName}</strong>? 
-              This action cannot be undone.
-            </p>
+        <div className="flex flex-col items-center text-center py-4">
+          <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mb-4">
+            <AlertTriangle className="w-6 h-6" />
           </div>
-          <div className="flex justify-end gap-3">
-            <Button variant="outline" color="secondary" onClick={() => setIsDeleteOpen(false)}>
+          <h3 className="text-lg font-bold text-slate-800 mb-2">Delete Record</h3>
+          <p className="text-slate-500 text-sm mb-6">
+            Are you sure you want to delete Procedure <span className="font-semibold text-slate-700">{selectedRecord?.procedureName}</span>?
+          </p>
+          <div className="flex items-center gap-3 w-full">
+            <Button variant="outline" color="secondary" className="flex-1" onClick={() => setIsDeleteOpen(false)}>
               Cancel
             </Button>
-            <Button variant="filled" color="danger" onClick={confirmDelete}>
-              Confirm Delete
+            <Button variant="filled" color="danger" className="flex-1" onClick={confirmDelete}>
+              Delete
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Success Modal */}
+      <Modal
+        isOpen={isSuccessOpen}
+        onClose={() => setIsSuccessOpen(false)}
+        title="Success"
+        maxWidth="sm"
+      >
+        <div className="flex flex-col items-center text-center py-4">
+          <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mb-4">
+            <CheckCircle2 className="w-6 h-6" />
+          </div>
+          <h3 className="text-lg font-bold text-slate-800 mb-2">Success</h3>
+          <p className="text-slate-500 text-sm mb-6">
+            {successMessage}
+          </p>
+          
+          <div className="flex items-center justify-center w-full">
+            <Button variant="filled" color="primary" className="w-full" onClick={() => setIsSuccessOpen(false)}>
+              OK
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Error Modal */}
+      <Modal
+        isOpen={isErrorOpen}
+        onClose={() => setIsErrorOpen(false)}
+        title="Error"
+        maxWidth="sm"
+      >
+        <div className="flex flex-col items-center text-center py-4">
+          <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mb-4">
+            <XCircle className="w-6 h-6" />
+          </div>
+          <h3 className="text-lg font-bold text-slate-800 mb-2">Error</h3>
+          <p className="text-slate-500 text-sm mb-6">
+            {errorMessage}
+          </p>
+          
+          <div className="flex items-center justify-center w-full">
+            <Button variant="filled" color="primary" className="w-full" onClick={() => setIsErrorOpen(false)}>
+              OK
             </Button>
           </div>
         </div>

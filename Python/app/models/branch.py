@@ -10,7 +10,7 @@ class MasterBranch(Base):
     BranchCode         = Column(String(50),  unique=True, nullable=False)
     BranchName         = Column(String(255), nullable=False)
     HospitalId         = Column(Integer, ForeignKey("Master_Hospital.HospitalId"), nullable=False)
-    BranchType         = Column(Enum("Main", "Satellite"), nullable=False, default="Main")
+    BranchType         = Column(String(100), nullable=False, default="Main Hospital")
     Address1           = Column(String(500), nullable=False)
     Address2           = Column(String(500), nullable=True)
     Country            = Column(String(100), nullable=False)

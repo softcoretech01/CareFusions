@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle, 
-  Save, RefreshCw
+  Save, RefreshCw, CheckCircle2, XCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
@@ -49,55 +49,40 @@ const emptyData: Omit<TestRecord, 'id'> = {
   remarks: ''
 };
 
-const mockData: TestRecord[] = [
-  {
-    id: 1,
-    testCode: 'TST-001',
-    testName: 'Complete Blood Count (CBC)',
-    testCategory: 'Hematology',
-    department: 'Pathology',
-    sampleType: 'Blood',
-    description: 'Routine blood test',
-    normalRange: 'Varies',
-    unit: 'cells/mcL',
-    testMethod: 'Automated Analyzer',
-    turnaroundTime: '4',
-    testPrice: '450.00',
-    gst: '0',
-    reportTemplate: 'Standard Blood Report',
-    requiresApproval: true,
-    criticalValueAlert: true,
-    status: 'Active',
-    remarks: ''
-  },
-  {
-    id: 2,
-    testCode: 'TST-002',
-    testName: 'Fasting Blood Sugar (FBS)',
-    testCategory: 'Biochemistry',
-    department: 'Pathology',
-    sampleType: 'Blood',
-    description: 'Glucose levels after fasting',
-    normalRange: '70-100',
-    unit: 'mg/dL',
-    testMethod: 'Enzymatic',
-    turnaroundTime: '2',
-    testPrice: '150.00',
-    gst: '0',
-    reportTemplate: 'Standard Glucose Report',
-    requiresApproval: false,
-    criticalValueAlert: true,
-    status: 'Active',
-    remarks: ''
-  }
-];
+const mockData: TestRecord[] = [];
 
-const sampleTypes = ['Blood', 'Urine', 'Stool', 'Saliva', 'Sputum', 'Tissue', 'Swab'];
-const testCategories = ['Hematology', 'Biochemistry', 'Microbiology', 'Immunology', 'Clinical Pathology', 'Serology'];
-const departments = ['Pathology', 'Microbiology', 'Biochemistry'];
+const sampleTypesMock: string[] = [];
+const testCategoriesMock: string[] = [];
+const departmentsMock: string[] = [];
+
+const API_BASE = import.meta.env.VITE_API_URL as string;
+
+const mapApiToRecord = (item: any): TestRecord => ({
+  id:                 item.id,
+  testCode:           item.testCode,
+  testName:           item.testName,
+  testCategory:       item.testCategory,
+  department:         item.department,
+  sampleType:         item.sampleType,
+  description:        item.description || '',
+  normalRange:        item.normalRange || '',
+  unit:               item.unit || '',
+  testMethod:         item.testMethod || '',
+  turnaroundTime:     item.turnaroundTime,
+  testPrice:          item.testPrice.toString(),
+  gst:                item.gst.toString(),
+  reportTemplate:     item.reportTemplate || '',
+  requiresApproval:   item.requiresApproval,
+  criticalValueAlert: item.criticalValueAlert,
+  status:             item.status,
+  remarks:            item.remarks || ''
+});
 
 export const TestMaster = () => {
   const [records, setRecords] = useState<TestRecord[]>(mockData);
+  const [sampleTypes, setSampleTypes] = useState<string[]>(sampleTypesMock);
+  const [testCategories, setTestCategories] = useState<string[]>(testCategoriesMock);
+  const [departments, setDepartments] = useState<string[]>(departmentsMock);
   const [searchTerm, setSearchTerm] = useState('');
   
   // Filter States
@@ -112,6 +97,49 @@ export const TestMaster = () => {
   const [selectedRecord, setSelectedRecord] = useState<TestRecord | null>(null);
   const [formData, setFormData] = useState<Omit<TestRecord, 'id'>>(emptyData);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSuccessOpen, setIsSuccessOpen] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [isErrorOpen, setIsErrorOpen] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const fetchData = async () => {
+    try {
+      setIsLoading(true);
+      const [recRes, catRes, stRes, deptRes] = await Promise.all([
+        fetch(`${API_BASE}/tests/`),
+        fetch(`${API_BASE}/tests/categories`),
+        fetch(`${API_BASE}/tests/sample-types`),
+        fetch(`${API_BASE}/tests/departments`)
+      ]);
+      
+      if (recRes.ok) {
+        const data = await recRes.json();
+        setRecords(data.map(mapApiToRecord));
+      }
+      if (catRes.ok) {
+        const data = await catRes.json();
+        setTestCategories(data.map((i: any) => i.name));
+      }
+      if (stRes.ok) {
+        const data = await stRes.json();
+        setSampleTypes(data.map((i: any) => i.name));
+      }
+      if (deptRes.ok) {
+        const data = await deptRes.json();
+        setDepartments(data.map((i: any) => i.name));
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -141,7 +169,9 @@ export const TestMaster = () => {
 
   const handleCreateNew = () => {
     setSelectedRecord(null);
-    setFormData(emptyData);
+    const nextNum = records.length + 1;
+    const nextCode = `TST-${String(nextNum).padStart(3, '0')}`;
+    setFormData({ ...emptyData, testCode: nextCode });
     setErrors({});
     setIsFormOpen(true);
   };
@@ -158,23 +188,71 @@ export const TestMaster = () => {
     setIsDeleteOpen(true);
   };
 
-  const handleSaveForm = () => {
+  const handleSaveForm = async () => {
     if (!validateForm()) return;
+    setIsSaving(true);
+    try {
+      const payload = {
+        testCode:           formData.testCode,
+        testName:           formData.testName,
+        testCategory:       formData.testCategory,
+        department:         formData.department,
+        sampleType:         formData.sampleType,
+        description:        formData.description || null,
+        normalRange:        formData.normalRange || null,
+        unit:               formData.unit || null,
+        testMethod:         formData.testMethod || null,
+        turnaroundTime:     formData.turnaroundTime,
+        testPrice:          Number(formData.testPrice),
+        gst:                Number(formData.gst) || 0,
+        reportTemplate:     formData.reportTemplate || null,
+        requiresApproval:   formData.requiresApproval,
+        criticalValueAlert: formData.criticalValueAlert,
+        status:             formData.status,
+        remarks:            formData.remarks || null,
+        ...(selectedRecord ? { modifiedBy: 'Dr. John Doe' } : { createdBy: 'Dr. John Doe' })
+      };
 
-    if (selectedRecord) {
-      setRecords(records.map(r => r.id === selectedRecord.id ? { ...r, ...formData } : r));
-    } else {
-      const newId = Math.max(...records.map(r => r.id), 0) + 1;
-      setRecords([...records, { id: newId, ...formData }]);
+      const url = selectedRecord
+        ? `${API_BASE}/tests/${selectedRecord.id}`
+        : `${API_BASE}/tests/`;
+      const method = selectedRecord ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || 'Failed to save test');
+      }
+
+      await fetchData();
+      setIsFormOpen(false);
+      setSuccessMessage('This record has been updated successfully.');
+      setIsSuccessOpen(true);
+    } catch (err: any) {
+      setErrorMessage(err.message);
+      setIsErrorOpen(true);
+    } finally {
+      setIsSaving(false);
     }
-    setIsFormOpen(false);
   };
 
-  const confirmDelete = () => {
-    if (selectedRecord) {
-      // Soft Delete
-      setRecords(records.filter(r => r.id !== selectedRecord.id));
+  const confirmDelete = async () => {
+    if (!selectedRecord) return;
+    try {
+      const res = await fetch(`${API_BASE}/tests/${selectedRecord.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete test');
+      await fetchData();
       setIsDeleteOpen(false);
+      setSuccessMessage('This record has been deleted successfully.');
+      setIsSuccessOpen(true);
+    } catch (err: any) {
+      setErrorMessage(err.message);
+      setIsErrorOpen(true);
     }
   };
 
@@ -363,7 +441,7 @@ export const TestMaster = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Test Code <span className="text-red-500">*</span></label>
-                    <input type="text" value={formData.testCode} onChange={e => setFormData({...formData, testCode: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-transparent transition-all ${errors.testCode ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
+                    <input type="text" value={formData.testCode} readOnly className="w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed" />
                     {errors.testCode && <p className="text-red-500 text-xs mt-1">{errors.testCode}</p>}
                   </div>
                   <div className="lg:col-span-2">
@@ -508,20 +586,68 @@ export const TestMaster = () => {
         title="Confirm Deletion"
         maxWidth="sm"
       >
-        <div className="p-1">
-          <div className="flex items-center gap-4 mb-6 text-amber-600 bg-amber-50 p-4 rounded-xl">
-            <AlertTriangle className="w-8 h-8 shrink-0" />
-            <p className="text-sm font-medium">
-              Are you sure you want to delete Test <strong>{selectedRecord?.testName}</strong>? 
-              This action cannot be undone.
-            </p>
+        <div className="flex flex-col items-center text-center py-4">
+          <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mb-4">
+            <AlertTriangle className="w-6 h-6" />
           </div>
-          <div className="flex justify-end gap-3">
-            <Button variant="outline" color="secondary" onClick={() => setIsDeleteOpen(false)}>
+          <h3 className="text-lg font-bold text-slate-800 mb-2">Delete Record</h3>
+          <p className="text-slate-500 text-sm mb-6">
+            Are you sure you want to delete Test <span className="font-semibold text-slate-700">{selectedRecord?.testName}</span>?
+          </p>
+          <div className="flex items-center gap-3 w-full">
+            <Button variant="outline" color="secondary" className="flex-1" onClick={() => setIsDeleteOpen(false)}>
               Cancel
             </Button>
-            <Button variant="filled" color="danger" onClick={confirmDelete}>
-              Confirm Delete
+            <Button variant="filled" color="danger" className="flex-1" onClick={confirmDelete}>
+              Delete
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Success Modal */}
+      <Modal
+        isOpen={isSuccessOpen}
+        onClose={() => setIsSuccessOpen(false)}
+        title="Success"
+        maxWidth="sm"
+      >
+        <div className="flex flex-col items-center text-center py-4">
+          <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mb-4">
+            <CheckCircle2 className="w-6 h-6" />
+          </div>
+          <h3 className="text-lg font-bold text-slate-800 mb-2">Success</h3>
+          <p className="text-slate-500 text-sm mb-6">
+            {successMessage}
+          </p>
+          
+          <div className="flex items-center justify-center w-full">
+            <Button variant="filled" color="primary" className="w-full" onClick={() => setIsSuccessOpen(false)}>
+              OK
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Error Modal */}
+      <Modal
+        isOpen={isErrorOpen}
+        onClose={() => setIsErrorOpen(false)}
+        title="Error"
+        maxWidth="sm"
+      >
+        <div className="flex flex-col items-center text-center py-4">
+          <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mb-4">
+            <XCircle className="w-6 h-6" />
+          </div>
+          <h3 className="text-lg font-bold text-slate-800 mb-2">Error</h3>
+          <p className="text-slate-500 text-sm mb-6">
+            {errorMessage}
+          </p>
+          
+          <div className="flex items-center justify-center w-full">
+            <Button variant="filled" color="primary" className="w-full" onClick={() => setIsErrorOpen(false)}>
+              OK
             </Button>
           </div>
         </div>
