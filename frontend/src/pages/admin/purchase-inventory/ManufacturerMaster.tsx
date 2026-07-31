@@ -1,12 +1,14 @@
-import { useState, useMemo } from 'react';
-import { 
-  Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle, 
+import { useState, useMemo, useEffect } from 'react';
+import {
+  Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle,
   Save, RefreshCw, ChevronLeft, ChevronRight, Eye, Power
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
 import { exportToExcel } from '../../../utils/exportToExcel';
+
+const API_BASE = import.meta.env.VITE_API_URL as string;
 
 export interface ManufacturerRecord {
   id: number;
@@ -22,33 +24,34 @@ export interface ManufacturerRecord {
   updatedDate?: string;
 }
 
-const emptyData: Omit<ManufacturerRecord, 'id'> = { manufacturerCode: '', manufacturerName: '', contactDetails: '', address: '', country: '', status: 'Active' };
+type ManufacturerForm = { manufacturerName: string; contactDetails: string; address: string; country: string; status: string };
 
-export const mockData: ManufacturerRecord[] = [{"id":1,"manufacturerCode":"MFG-001","manufacturerName":"B Braun India","contactDetails":"info@bbraun.in","address":"Mumbai, India","country":"India","status":"Active","createdBy":"System","createdDate":"2024-01-01"},
-{"id":2,"manufacturerCode":"MFG-002","manufacturerName":"Becton Dickinson India","contactDetails":"contact@bd.in","address":"Gurugram, India","country":"India","status":"Active","createdBy":"System","createdDate":"2024-01-01"},
-{"id":3,"manufacturerCode":"MFG-003","manufacturerName":"Johnson & Johnson Medical","contactDetails":"medical@jnj.in","address":"Pune, India","country":"India","status":"Active","createdBy":"System","createdDate":"2024-01-01"},
-{"id":4,"manufacturerCode":"MFG-004","manufacturerName":"Fresenius Kabi India","contactDetails":"support@fresenius.in","address":"Pune, India","country":"India","status":"Active","createdBy":"System","createdDate":"2024-01-01"},
-{"id":5,"manufacturerCode":"MFG-005","manufacturerName":"GE Healthcare India","contactDetails":"service@ge.com","address":"Bengaluru, India","country":"India","status":"Active","createdBy":"System","createdDate":"2024-01-01"},
-{"id":6,"manufacturerCode":"MFG-006","manufacturerName":"Siemens Healthineers India","contactDetails":"health@siemens.in","address":"Mumbai, India","country":"India","status":"Active","createdBy":"System","createdDate":"2024-01-01"},
-{"id":7,"manufacturerCode":"MFG-007","manufacturerName":"Philips Healthcare India","contactDetails":"care@philips.in","address":"Chennai, India","country":"India","status":"Active","createdBy":"System","createdDate":"2024-01-01"},
-{"id":8,"manufacturerCode":"MFG-008","manufacturerName":"Romsons Scientific","contactDetails":"sales@romsons.in","address":"Agra, India","country":"India","status":"Active","createdBy":"System","createdDate":"2024-01-01"},
-{"id":9,"manufacturerCode":"MFG-009","manufacturerName":"3M India","contactDetails":"healthcare@3m.in","address":"Bengaluru, India","country":"India","status":"Active","createdBy":"System","createdDate":"2024-01-01"},
-{"id":10,"manufacturerCode":"MFG-010","manufacturerName":"Poly Medicure","contactDetails":"info@polymedicure.com","address":"New Delhi, India","country":"India","status":"Active","createdBy":"System","createdDate":"2024-01-01"},
-{"id":11,"manufacturerCode":"MFG-011","manufacturerName":"Cipla Ltd","contactDetails":"contactus@cipla.com","address":"Mumbai, India","country":"India","status":"Active","createdBy":"System","createdDate":"2024-01-01"},
-{"id":12,"manufacturerCode":"MFG-012","manufacturerName":"Sun Pharmaceutical Industries","contactDetails":"info@sunpharma.com","address":"Mumbai, India","country":"India","status":"Active","createdBy":"System","createdDate":"2024-01-01"},
-{"id":13,"manufacturerCode":"MFG-013","manufacturerName":"Dr. Reddy's Laboratories","contactDetails":"mail@drreddys.com","address":"Hyderabad, India","country":"India","status":"Active","createdBy":"System","createdDate":"2024-01-01"},
-{"id":14,"manufacturerCode":"MFG-014","manufacturerName":"Lupin Limited","contactDetails":"info@lupin.com","address":"Mumbai, India","country":"India","status":"Active","createdBy":"System","createdDate":"2024-01-01"},
-{"id":15,"manufacturerCode":"MFG-015","manufacturerName":"Aurobindo Pharma","contactDetails":"info@aurobindo.com","address":"Hyderabad, India","country":"India","status":"Active","createdBy":"System","createdDate":"2024-01-01"},
-{"id":16,"manufacturerCode":"MFG-016","manufacturerName":"Intas Pharmaceuticals","contactDetails":"info@intas.com","address":"Ahmedabad, India","country":"India","status":"Active","createdBy":"System","createdDate":"2024-01-01"},
-{"id":17,"manufacturerCode":"MFG-017","manufacturerName":"Torrent Pharmaceuticals","contactDetails":"contact@torrent.com","address":"Ahmedabad, India","country":"India","status":"Active","createdBy":"System","createdDate":"2024-01-01"},
-{"id":18,"manufacturerCode":"MFG-018","manufacturerName":"Alkem Laboratories","contactDetails":"info@alkem.com","address":"Mumbai, India","country":"India","status":"Active","createdBy":"System","createdDate":"2024-01-01"},
-{"id":19,"manufacturerCode":"MFG-019","manufacturerName":"Biocon","contactDetails":"info@biocon.com","address":"Bengaluru, India","country":"India","status":"Active","createdBy":"System","createdDate":"2024-01-01"},
-{"id":20,"manufacturerCode":"MFG-020","manufacturerName":"Serum Institute of India","contactDetails":"info@seruminstitute.com","address":"Pune, India","country":"India","status":"Active","createdBy":"System","createdDate":"2024-01-01"}];
+const emptyData: ManufacturerForm = { manufacturerName: '', contactDetails: '', address: '', country: '', status: 'Active' };
+
+const LIMITS = { manufacturerName: 150, contactDetails: 150, address: 255, country: 100 };
+
+const mapApiToRecord = (item: Record<string, unknown>): ManufacturerRecord => ({
+  id:               item.id               as number,
+  manufacturerCode: item.manufacturerCode as string,
+  manufacturerName: item.manufacturerName as string,
+  contactDetails:   (item.contactDetails  as string) ?? '',
+  address:          (item.address         as string) ?? '',
+  country:          (item.country         as string) ?? '',
+  status:           item.status           as string,
+  createdBy:        (item.createdBy       as string) ?? undefined,
+  createdDate:      item.createdDate ? String(item.createdDate).split('T')[0] : undefined,
+  updatedBy:        (item.updatedBy       as string) ?? undefined,
+  updatedDate:      item.updatedDate ? String(item.updatedDate).split('T')[0] : undefined,
+});
 
 export const ManufacturerMaster = () => {
-  const [records, setRecords] = useState<ManufacturerRecord[]>(mockData);
+  const [records, setRecords] = useState<ManufacturerRecord[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  
+  const [isLoading, setIsLoading] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [nextCode, setNextCode] = useState('');
+
   // Pagination & Sorting States
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -63,34 +66,73 @@ export const ManufacturerMaster = () => {
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<ManufacturerRecord | null>(null);
-  const [formData, setFormData] = useState<Omit<ManufacturerRecord, 'id'>>(emptyData);
+  const [formData, setFormData] = useState<ManufacturerForm>(emptyData);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // ── Fetch manufacturers ──────────────────────────────────────
+  const fetchManufacturers = async () => {
+    setIsLoading(true);
+    setApiError(null);
+    try {
+      const res = await fetch(`${API_BASE}/manufacturers/`);
+      if (!res.ok) throw new Error(`Server error: ${res.status}`);
+      const data: Record<string, unknown>[] = await res.json();
+      setRecords(data.map(mapApiToRecord));
+    } catch (err: unknown) {
+      setApiError(err instanceof Error ? err.message : 'Failed to load manufacturers');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchManufacturers(); }, []);
+
+  const fetchNextCode = async () => {
+    setNextCode('');
+    try {
+      const res = await fetch(`${API_BASE}/manufacturers/next-code`);
+      if (res.ok) setNextCode((await res.json()).manufacturerCode ?? '');
+    } catch { setNextCode(''); }
+  };
+
   const validateForm = () => {
-    if (!formData.manufacturerCode.trim()) return false;
-    if (!formData.manufacturerName.trim()) return false;
-    return true;
+    const newErrors: Record<string, string> = {};
+    if (!formData.manufacturerName.trim()) newErrors.manufacturerName = 'Manufacturer Name is required';
+    if (records.some(r => r.manufacturerName.toLowerCase() === formData.manufacturerName.trim().toLowerCase() && r.id !== selectedRecord?.id))
+      newErrors.manufacturerName = 'Manufacturer Name cannot be duplicated';
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleCreateNew = () => {
     setSelectedRecord(null);
-    setFormData(emptyData); // Could add auto-generate logic here
+    setFormData(emptyData);
+    setErrors({});
     setIsFormOpen(true);
+    fetchNextCode();
   };
 
   const handleEdit = (record: ManufacturerRecord) => {
     setSelectedRecord(record);
-    setFormData(record);
+    setFormData({ manufacturerName: record.manufacturerName, contactDetails: record.contactDetails, address: record.address, country: record.country, status: record.status });
+    setErrors({});
     setIsFormOpen(true);
   };
-  
+
   const handleView = (record: ManufacturerRecord) => {
     setSelectedRecord(record);
     setIsViewOpen(true);
   };
-  
-  const handleToggleStatus = (record: ManufacturerRecord) => {
-    setRecords(records.map(r => 
-      r.id === record.id ? { ...r, status: r.status === 'Active' ? 'Inactive' : 'Active', updatedBy: 'Admin', updatedDate: new Date().toISOString().split('T')[0] } : r
-    ));
+
+  const handleToggleStatus = async (record: ManufacturerRecord) => {
+    setApiError(null);
+    try {
+      const res = await fetch(`${API_BASE}/manufacturers/${record.id}/toggle-status`, { method: 'PATCH' });
+      if (!res.ok) throw new Error(`Toggle failed: ${res.status}`);
+      await fetchManufacturers();
+    } catch (err: unknown) {
+      setApiError(err instanceof Error ? err.message : 'Toggle failed');
+    }
   };
 
   const handleDelete = (record: ManufacturerRecord) => {
@@ -98,38 +140,74 @@ export const ManufacturerMaster = () => {
     setIsDeleteOpen(true);
   };
 
-  const confirmDelete = () => {
-    if (selectedRecord) {
-      setRecords(records.filter(r => r.id !== selectedRecord.id));
+  const confirmDelete = async () => {
+    if (!selectedRecord) return;
+    setApiError(null);
+    try {
+      const res = await fetch(`${API_BASE}/manufacturers/${selectedRecord.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
+      await fetchManufacturers();
       setIsDeleteOpen(false);
       setSelectedRecord(null);
+    } catch (err: unknown) {
+      setApiError(err instanceof Error ? err.message : 'Delete failed');
+      setIsDeleteOpen(false);
     }
   };
 
-  const handleSave = () => {
-    if (validateForm()) {
+  const handleSave = async () => {
+    if (!validateForm()) return;
+    setIsSaving(true);
+    setApiError(null);
+    try {
+      const body = {
+        manufacturerName: formData.manufacturerName.trim(),
+        contactDetails:   formData.contactDetails || null,
+        address:          formData.address || null,
+        country:          formData.country || null,
+        status:           formData.status,
+      };
+
+      let res: Response;
       if (selectedRecord) {
-        setRecords(records.map(r => r.id === selectedRecord.id ? { ...formData, id: r.id, updatedBy: 'Admin', updatedDate: new Date().toISOString().split('T')[0] } : r));
+        res = await fetch(`${API_BASE}/manufacturers/${selectedRecord.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...body, updatedBy: 'Admin' }),
+        });
       } else {
-        const newId = records.length > 0 ? Math.max(...records.map(r => r.id)) + 1 : 1;
-        setRecords([{ ...formData, id: newId, createdBy: 'Admin', createdDate: new Date().toISOString().split('T')[0] }, ...records]);
+        res = await fetch(`${API_BASE}/manufacturers/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...body, createdBy: 'Admin' }),
+        });
       }
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        const detail = data && typeof data.detail === 'string' ? data.detail : `Save failed: ${res.status}`;
+        throw new Error(detail);
+      }
+
+      await fetchManufacturers();
       setIsFormOpen(false);
+      setSelectedRecord(null);
+    } catch (err: unknown) {
+      setApiError(err instanceof Error ? err.message : 'Save failed');
+    } finally {
+      setIsSaving(false);
     }
   };
-  
+
   const handleSort = (key: keyof ManufacturerRecord) => {
     let direction: 'asc' | 'desc' = 'asc';
-    if (sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc';
-    }
+    if (sortConfig.key === key && sortConfig.direction === 'asc') direction = 'desc';
     setSortConfig({ key, direction });
   };
 
   // Process data (Filter -> Sort -> Paginate)
   const processedData = useMemo(() => {
-    let result = records.filter(record => {
-      const matchesSearch = Object.values(record).some(val => 
+    const result = records.filter(record => {
+      const matchesSearch = Object.values(record).some(val =>
         String(val).toLowerCase().includes(searchTerm.toLowerCase())
       );
       const matchesStatus = filterStatus ? record.status === filterStatus : true;
@@ -139,8 +217,8 @@ export const ManufacturerMaster = () => {
     if (sortConfig.key) {
       const sortKey = sortConfig.key;
       result.sort((a, b) => {
-        const left = a?.[sortKey] as any;
-        const right = b?.[sortKey] as any;
+        const left = a?.[sortKey] as string | number | undefined;
+        const right = b?.[sortKey] as string | number | undefined;
         if (left === undefined || right === undefined) return 0;
         if (left < right) return sortConfig.direction === 'asc' ? -1 : 1;
         if (left > right) return sortConfig.direction === 'asc' ? 1 : -1;
@@ -155,11 +233,19 @@ export const ManufacturerMaster = () => {
   const paginatedData = processedData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       className="h-full flex flex-col"
     >
+      {apiError && (
+        <div className="mb-4 flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          <span className="flex-1">{apiError}</span>
+          <button onClick={() => setApiError(null)} className="text-red-500 hover:text-red-700 font-medium">Dismiss</button>
+        </div>
+      )}
+
       {/* Header & Breadcrumbs */}
       <div className="mb-6">
         <div className="flex items-center text-sm text-slate-500 mb-2">
@@ -172,7 +258,7 @@ export const ManufacturerMaster = () => {
             <h1 className="text-3xl font-bold text-slate-800">Manufacturer Master</h1>
             <p className="text-slate-500 mt-1">Manage Manufacturers</p>
           </div>
-          
+
           <div className="flex items-center gap-3">
             <Button variant="outline" icon={Download} onClick={() => exportToExcel(records, 'ManufacturerMaster')}>Export</Button>
             <Button variant="filled" color="primary" icon={Plus} onClick={handleCreateNew}>
@@ -188,30 +274,30 @@ export const ManufacturerMaster = () => {
           <div className="flex items-center gap-3">
             <div className="relative w-72">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input 
-                type="text" 
+              <input
+                type="text"
                 placeholder="Search..."
                 value={searchTerm}
                 onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
                 className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
               />
             </div>
-            
-            <button 
+
+            <button
               onClick={() => setShowFilters(!showFilters)}
-              className={`p-2 border rounded-lg transition-colors \${showFilters ? 'border-primary bg-primary/5 text-primary' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+              className={`p-2 border rounded-lg transition-colors ${showFilters ? 'border-primary bg-primary/5 text-primary' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
               title="Advanced Filters"
             >
               <Filter className="w-4 h-4" />
             </button>
-            <button className="p-2 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 transition-colors" title="Refresh">
+            <button onClick={fetchManufacturers} className="p-2 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 transition-colors" title="Refresh">
               <RefreshCw className="w-4 h-4" />
             </button>
           </div>
-          
+
           <div className="flex items-center gap-2 text-sm text-slate-500">
             <span>Show</span>
-            <select 
+            <select
               value={itemsPerPage}
               onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
               className="border border-slate-200 rounded-lg px-2 py-1 outline-none"
@@ -226,14 +312,14 @@ export const ManufacturerMaster = () => {
 
         <AnimatePresence>
           {showFilters && (
-            <motion.div 
+            <motion.div
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
               className="border-b border-slate-100 bg-slate-50 overflow-hidden"
             >
               <div className="p-4 flex gap-4">
-                <select 
+                <select
                   value={filterStatus}
                   onChange={(e) => { setFilterStatus(e.target.value); setCurrentPage(1); }}
                   className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
@@ -242,7 +328,6 @@ export const ManufacturerMaster = () => {
                   <option value="Active">Active</option>
                   <option value="Inactive">Inactive</option>
                 </select>
-                {/* Additional advanced filters can go here */}
               </div>
             </motion.div>
           )}
@@ -252,23 +337,27 @@ export const ManufacturerMaster = () => {
           <table className="w-full">
             <thead className="bg-slate-50 sticky top-0 z-10 border-b border-slate-200">
               <tr>
-<th className="text-left py-3 px-4 font-medium text-slate-500 text-sm cursor-pointer" onClick={() => handleSort('manufacturerCode')}>Code</th>
-<th className="text-left py-3 px-4 font-medium text-slate-500 text-sm cursor-pointer" onClick={() => handleSort('manufacturerName')}>Name</th>
-<th className="text-left py-3 px-4 font-medium text-slate-500 text-sm">Contact</th>
-<th className="text-left py-3 px-4 font-medium text-slate-500 text-sm">Status</th>
-<th className="text-right py-3 px-4 font-medium text-slate-500 text-sm w-32">Actions</th>
+                <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm cursor-pointer" onClick={() => handleSort('manufacturerCode')}>Code</th>
+                <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm cursor-pointer" onClick={() => handleSort('manufacturerName')}>Name</th>
+                <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm">Contact</th>
+                <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm">Country</th>
+                <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm">Status</th>
+                <th className="text-right py-3 px-4 font-medium text-slate-500 text-sm w-32">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {paginatedData.length === 0 ? (
-                <tr><td colSpan={10} className="py-8 text-center text-slate-500">No records found</td></tr>
+              {isLoading ? (
+                <tr><td colSpan={6} className="py-8 text-center text-slate-500">Loading manufacturers...</td></tr>
+              ) : paginatedData.length === 0 ? (
+                <tr><td colSpan={6} className="py-8 text-center text-slate-500">No records found</td></tr>
               ) : paginatedData.map((record) => (
                 <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
-<td className="py-3 px-4 text-slate-800 font-medium">{record.manufacturerCode}</td>
-<td className="py-3 px-4 text-slate-800">{record.manufacturerName}</td>
-<td className="py-3 px-4 text-slate-800">{record.contactDetails}</td>
+                  <td className="py-3 px-4 text-slate-800 font-medium">{record.manufacturerCode}</td>
+                  <td className="py-3 px-4 text-slate-800">{record.manufacturerName}</td>
+                  <td className="py-3 px-4 text-slate-600 text-sm">{record.contactDetails}</td>
+                  <td className="py-3 px-4 text-slate-600 text-sm">{record.country}</td>
                   <td className="py-3 px-4">
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium \${
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
                       record.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'
                     }`}>
                       {record.status}
@@ -282,7 +371,7 @@ export const ManufacturerMaster = () => {
                       <button onClick={() => handleEdit(record)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Edit">
                         <Edit2 className="w-4 h-4" />
                       </button>
-                      <button onClick={() => handleToggleStatus(record)} className={`p-1.5 rounded-lg transition-colors \${record.status === 'Active' ? 'text-slate-400 hover:text-orange-500 hover:bg-orange-50' : 'text-slate-400 hover:text-emerald-500 hover:bg-emerald-50'}`} title={record.status === 'Active' ? 'Deactivate' : 'Activate'}>
+                      <button onClick={() => handleToggleStatus(record)} className={`p-1.5 rounded-lg transition-colors ${record.status === 'Active' ? 'text-slate-400 hover:text-orange-500 hover:bg-orange-50' : 'text-slate-400 hover:text-emerald-500 hover:bg-emerald-50'}`} title={record.status === 'Active' ? 'Deactivate' : 'Activate'}>
                         <Power className="w-4 h-4" />
                       </button>
                       <button onClick={() => handleDelete(record)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
@@ -295,26 +384,18 @@ export const ManufacturerMaster = () => {
             </tbody>
           </table>
         </div>
-        
+
         {/* Pagination */}
         <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div className="text-sm text-slate-500">
-            Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, processedData.length)} of {processedData.length} entries
+            Showing {processedData.length === 0 ? 0 : ((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, processedData.length)} of {processedData.length} entries
           </div>
           <div className="flex items-center gap-2">
-            <button 
-              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-              disabled={currentPage === 1}
-              className="p-1 rounded border border-slate-200 text-slate-500 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white"
-            >
+            <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1} className="p-1 rounded border border-slate-200 text-slate-500 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white">
               <ChevronLeft className="w-4 h-4" />
             </button>
             <span className="text-sm text-slate-600 px-2">Page {currentPage} of {totalPages || 1}</span>
-            <button 
-              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-              disabled={currentPage === totalPages || totalPages === 0}
-              className="p-1 rounded border border-slate-200 text-slate-500 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white"
-            >
+            <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages || totalPages === 0} className="p-1 rounded border border-slate-200 text-slate-500 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white">
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
@@ -322,26 +403,48 @@ export const ManufacturerMaster = () => {
       </div>
 
       {/* Form Modal */}
-      <Modal 
-        isOpen={isFormOpen} 
+      <Modal
+        isOpen={isFormOpen}
         onClose={() => setIsFormOpen(false)}
-        title={`\${selectedRecord ? 'Edit' : 'Add'} Manufacturer Master`}
+        title={`${selectedRecord ? 'Edit' : 'Add'} Manufacturer Master`}
         size="3xl"
       >
         <div className="space-y-4 max-h-[70vh] overflow-y-auto px-1">
-<div><label className="block text-sm font-medium text-slate-700 mb-1">Code</label><input type="text" value={formData.manufacturerCode} onChange={(e) => setFormData({...formData, manufacturerCode: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary"/></div>
-<div><label className="block text-sm font-medium text-slate-700 mb-1">Name</label><input type="text" value={formData.manufacturerName} onChange={(e) => setFormData({...formData, manufacturerName: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary"/></div>
-<div><label className="block text-sm font-medium text-slate-700 mb-1">Contact</label><input type="text" value={formData.contactDetails} onChange={(e) => setFormData({...formData, contactDetails: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary"/></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Manufacturer Code</label>
+              <input type="text" value={selectedRecord ? selectedRecord.manufacturerCode : (nextCode || 'Auto-generating…')} disabled readOnly className="w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed outline-none" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Name <span className="text-red-500">*</span></label>
+              <input type="text" maxLength={LIMITS.manufacturerName} value={formData.manufacturerName} onChange={(e) => setFormData({...formData, manufacturerName: e.target.value})} className={`w-full px-4 py-2 border rounded-xl text-sm outline-none focus:ring-2 transition-all ${errors.manufacturerName ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'}`} />
+              {errors.manufacturerName && <p className="text-red-500 text-xs mt-1">{errors.manufacturerName}</p>}
+            </div>
+          </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
-            <select 
-              value={formData.status}
-              onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-              className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
-            >
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
-            </select>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Contact Details</label>
+            <input type="text" maxLength={LIMITS.contactDetails} value={formData.contactDetails} onChange={(e) => setFormData({...formData, contactDetails: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" placeholder="Email or phone" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Address</label>
+            <input type="text" maxLength={LIMITS.address} value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Country</label>
+              <input type="text" maxLength={LIMITS.country} value={formData.country} onChange={(e) => setFormData({...formData, country: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
+              <select
+                value={formData.status}
+                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+              >
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -354,7 +457,7 @@ export const ManufacturerMaster = () => {
 
         <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-slate-100">
           <Button variant="outline" onClick={() => setIsFormOpen(false)}>Cancel</Button>
-          <Button variant="filled" color="primary" onClick={handleSave} icon={Save}>{selectedRecord ? 'Update' : 'Save'}</Button>
+          <Button variant="filled" color="primary" onClick={handleSave} icon={Save} disabled={isSaving}>{isSaving ? 'Saving...' : (selectedRecord ? 'Update' : 'Save')}</Button>
         </div>
       </Modal>
 
@@ -363,13 +466,15 @@ export const ManufacturerMaster = () => {
         {selectedRecord && (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-<div><span className="text-xs text-slate-400 block">Code</span><span className="text-sm font-medium">{selectedRecord.manufacturerCode}</span></div>
-<div><span className="text-xs text-slate-400 block">Name</span><span className="text-sm font-medium">{selectedRecord.manufacturerName}</span></div>
-<div><span className="text-xs text-slate-400 block">Contact</span><span className="text-sm font-medium">{selectedRecord.contactDetails}</span></div>
+              <div><span className="text-xs text-slate-400 block">Code</span><span className="text-sm font-medium">{selectedRecord.manufacturerCode}</span></div>
+              <div><span className="text-xs text-slate-400 block">Name</span><span className="text-sm font-medium">{selectedRecord.manufacturerName}</span></div>
+              <div><span className="text-xs text-slate-400 block">Contact</span><span className="text-sm font-medium">{selectedRecord.contactDetails || '-'}</span></div>
+              <div><span className="text-xs text-slate-400 block">Country</span><span className="text-sm font-medium">{selectedRecord.country || '-'}</span></div>
+              <div className="col-span-2"><span className="text-xs text-slate-400 block">Address</span><span className="text-sm font-medium">{selectedRecord.address || '-'}</span></div>
             </div>
             <div className="pt-4 border-t border-slate-100">
               <span className="text-xs text-slate-400 block mb-1">Status</span>
-              <span className={`px-2.5 py-1 rounded-full text-xs font-medium \${
+              <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
                 selectedRecord.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'
               }`}>
                 {selectedRecord.status}
@@ -386,7 +491,7 @@ export const ManufacturerMaster = () => {
             <AlertTriangle className="w-6 h-6" />
           </div>
           <h3 className="text-lg font-medium text-slate-800 mb-2">Delete Record?</h3>
-          <p className="text-slate-500 mb-6">Are you sure you want to delete this record? This action cannot be undone.</p>
+          <p className="text-slate-500 mb-6">Are you sure you want to delete <strong>{selectedRecord?.manufacturerName}</strong>? This action cannot be undone.</p>
           <div className="flex justify-center gap-3">
             <Button variant="outline" onClick={() => setIsDeleteOpen(false)}>Cancel</Button>
             <Button variant="filled" className="bg-red-500 hover:bg-red-600 text-white border-transparent" onClick={confirmDelete}>Delete</Button>

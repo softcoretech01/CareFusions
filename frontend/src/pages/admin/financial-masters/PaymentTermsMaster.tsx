@@ -1,12 +1,14 @@
-import { useState } from 'react';
-import { 
-  Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle, 
+import { useState, useEffect, type KeyboardEvent } from 'react';
+import {
+  Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle,
   Save, RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
 import { exportToExcel } from '../../../utils/exportToExcel';
+
+const API_BASE = import.meta.env.VITE_API_URL as string;
 
 interface PaymentTermRecord {
   id: number;
@@ -20,21 +22,35 @@ interface PaymentTermRecord {
   updatedDate?: string;
 }
 
-const emptyData: Omit<PaymentTermRecord, 'id'> = {
-  paymentTermName: '',
-  creditDays: 0,
-  description: '',
-  status: 'Active'
+type PaymentTermForm = { paymentTermName: string; creditDays: number; description: string; status: string };
+
+const emptyData: PaymentTermForm = { paymentTermName: '', creditDays: 0, description: '', status: 'Active' };
+
+const LIMITS = { paymentTermName: 100, description: 500, creditMax: 3650 };
+
+const blockIntKeys = (e: KeyboardEvent<HTMLInputElement>) => {
+  if (['e', 'E', '+', '-', '.'].includes(e.key)) e.preventDefault();
 };
 
-const mockData: PaymentTermRecord[] = [
-  { id: 1, paymentTermName: 'Net 30', creditDays: 30, description: 'Payment 30 days after invoice', status: 'Active' }
-];
+const mapApiToRecord = (item: Record<string, unknown>): PaymentTermRecord => ({
+  id:              item.id              as number,
+  paymentTermName: item.paymentTermName as string,
+  creditDays:      Number(item.creditDays ?? 0),
+  description:     (item.description     as string) ?? '',
+  status:          item.status          as string,
+  createdBy:       (item.createdBy      as string) ?? undefined,
+  createdDate:     item.createdDate ? String(item.createdDate).split('T')[0] : undefined,
+  updatedBy:       (item.updatedBy      as string) ?? undefined,
+  updatedDate:     item.updatedDate ? String(item.updatedDate).split('T')[0] : undefined,
+});
 
 export const PaymentTermsMaster = () => {
-  const [records, setRecords] = useState<PaymentTermRecord[]>(mockData);
+  const [records, setRecords] = useState<PaymentTermRecord[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  
+  const [isLoading, setIsLoading] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
   // Filter States
   const [showFilters, setShowFilters] = useState(false);
   const [filterStatus, setFilterStatus] = useState('');
@@ -43,13 +59,34 @@ export const PaymentTermsMaster = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<PaymentTermRecord | null>(null);
-  const [formData, setFormData] = useState<Omit<PaymentTermRecord, 'id'>>(emptyData);
+  const [formData, setFormData] = useState<PaymentTermForm>(emptyData);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // ── Fetch payment terms ──────────────────────────────────────
+  const fetchPaymentTerms = async () => {
+    setIsLoading(true);
+    setApiError(null);
+    try {
+      const res = await fetch(`${API_BASE}/payment-terms/`);
+      if (!res.ok) throw new Error(`Server error: ${res.status}`);
+      const data: Record<string, unknown>[] = await res.json();
+      setRecords(data.map(mapApiToRecord));
+    } catch (err: unknown) {
+      setApiError(err instanceof Error ? err.message : 'Failed to load payment terms');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchPaymentTerms(); }, []);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
     if (!formData.paymentTermName.trim()) newErrors.paymentTermName = 'Payment Term Name is required';
     if (formData.creditDays < 0) newErrors.creditDays = 'Credit Days cannot be negative';
+    else if (formData.creditDays > LIMITS.creditMax) newErrors.creditDays = `Credit Days cannot exceed ${LIMITS.creditMax}`;
+    if (records.some(r => r.paymentTermName.toLowerCase() === formData.paymentTermName.trim().toLowerCase() && r.id !== selectedRecord?.id))
+      newErrors.paymentTermName = 'Payment Term Name must be unique';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -63,7 +100,7 @@ export const PaymentTermsMaster = () => {
 
   const handleEdit = (record: PaymentTermRecord) => {
     setSelectedRecord(record);
-    setFormData(record);
+    setFormData({ paymentTermName: record.paymentTermName, creditDays: record.creditDays, description: record.description, status: record.status });
     setErrors({});
     setIsFormOpen(true);
   };
@@ -73,28 +110,65 @@ export const PaymentTermsMaster = () => {
     setIsDeleteOpen(true);
   };
 
-  const confirmDelete = () => {
-    if (selectedRecord) {
-      setRecords(records.filter(r => r.id !== selectedRecord.id));
+  const confirmDelete = async () => {
+    if (!selectedRecord) return;
+    setApiError(null);
+    try {
+      const res = await fetch(`${API_BASE}/payment-terms/${selectedRecord.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
+      await fetchPaymentTerms();
       setIsDeleteOpen(false);
       setSelectedRecord(null);
+    } catch (err: unknown) {
+      setApiError(err instanceof Error ? err.message : 'Delete failed');
+      setIsDeleteOpen(false);
     }
   };
 
-  const handleSave = () => {
-    if (validateForm()) {
+  const handleSave = async () => {
+    if (!validateForm()) return;
+    setIsSaving(true);
+    setApiError(null);
+    try {
+      const body = {
+        paymentTermName: formData.paymentTermName.trim(),
+        creditDays:      formData.creditDays,
+        description:     formData.description || null,
+        status:         formData.status,
+      };
+
+      let res: Response;
       if (selectedRecord) {
-        setRecords(records.map(r => r.id === selectedRecord.id ? { ...formData, id: r.id, updatedBy: 'Admin', updatedDate: new Date().toISOString().split('T')[0] } : r));
+        res = await fetch(`${API_BASE}/payment-terms/${selectedRecord.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...body, updatedBy: 'Admin' }),
+        });
       } else {
-        const newId = records.length > 0 ? Math.max(...records.map(r => r.id)) + 1 : 1;
-        setRecords([...records, { ...formData, id: newId, createdBy: 'Admin', createdDate: new Date().toISOString().split('T')[0] }]);
+        res = await fetch(`${API_BASE}/payment-terms/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...body, createdBy: 'Admin' }),
+        });
       }
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        const detail = data && typeof data.detail === 'string' ? data.detail : `Save failed: ${res.status}`;
+        throw new Error(detail);
+      }
+
+      await fetchPaymentTerms();
       setIsFormOpen(false);
+      setSelectedRecord(null);
+    } catch (err: unknown) {
+      setApiError(err instanceof Error ? err.message : 'Save failed');
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const filteredRecords = records.filter(record => {
-    const matchesSearch = Object.values(record).some(val => 
+    const matchesSearch = Object.values(record).some(val =>
       String(val).toLowerCase().includes(searchTerm.toLowerCase())
     );
     const matchesStatus = filterStatus ? record.status === filterStatus : true;
@@ -102,18 +176,27 @@ export const PaymentTermsMaster = () => {
   });
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       className="h-full flex flex-col"
     >
+      {apiError && (
+        <div className="mb-4 flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          <span className="flex-1">{apiError}</span>
+          <button onClick={() => setApiError(null)} className="text-red-500 hover:text-red-700 font-medium">Dismiss</button>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-slate-800">Payment Terms Master</h1>
           <p className="text-slate-500 mt-1">Manage Payment Terms</p>
         </div>
-        
+
         <div className="flex items-center gap-3">
+          <Button variant="outline" icon={RefreshCw} onClick={fetchPaymentTerms}>Refresh</Button>
           <Button variant="outline" icon={Download} onClick={() => exportToExcel(records, 'PaymentTermsMaster')}>Export</Button>
           <Button variant="filled" color="primary" icon={Plus} onClick={handleCreateNew}>
             Add New
@@ -125,23 +208,23 @@ export const PaymentTermsMaster = () => {
         <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div className="relative w-72">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input 
-              type="text" 
+            <input
+              type="text"
               placeholder="Search..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
             />
           </div>
-          
+
           <div className="flex items-center gap-2">
-            <button 
+            <button
               onClick={() => setShowFilters(!showFilters)}
               className={`p-2 border rounded-lg transition-colors ${showFilters ? 'border-primary bg-primary/5 text-primary' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
             >
               <Filter className="w-4 h-4" />
             </button>
-            <button className="p-2 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 transition-colors">
+            <button onClick={fetchPaymentTerms} className="p-2 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 transition-colors">
               <RefreshCw className="w-4 h-4" />
             </button>
           </div>
@@ -149,14 +232,14 @@ export const PaymentTermsMaster = () => {
 
         <AnimatePresence>
           {showFilters && (
-            <motion.div 
+            <motion.div
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
               className="border-b border-slate-100 bg-slate-50 overflow-hidden"
             >
               <div className="p-4 flex gap-4">
-                <select 
+                <select
                   value={filterStatus}
                   onChange={(e) => setFilterStatus(e.target.value)}
                   className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
@@ -182,11 +265,15 @@ export const PaymentTermsMaster = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredRecords.map((record) => (
+              {isLoading ? (
+                <tr><td colSpan={5} className="py-8 text-center text-slate-500">Loading payment terms...</td></tr>
+              ) : filteredRecords.length === 0 ? (
+                <tr><td colSpan={5} className="py-8 text-center text-slate-500">No records found</td></tr>
+              ) : filteredRecords.map((record) => (
                 <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="py-4 px-6 text-slate-800">{record.paymentTermName}</td>
                   <td className="py-4 px-6 text-slate-800">{record.creditDays}</td>
-                  <td className="py-4 px-6 text-slate-800">{record.description}</td>
+                  <td className="py-4 px-6 text-slate-600 max-w-xs truncate">{record.description}</td>
                   <td className="py-4 px-6">
                     <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
                       record.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'
@@ -196,16 +283,10 @@ export const PaymentTermsMaster = () => {
                   </td>
                   <td className="py-4 px-6 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <button 
-                        onClick={() => handleEdit(record)}
-                        className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
-                      >
+                      <button onClick={() => handleEdit(record)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors">
                         <Edit2 className="w-4 h-4" />
                       </button>
-                      <button 
-                        onClick={() => handleDelete(record)}
-                        className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                      >
+                      <button onClick={() => handleDelete(record)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -217,17 +298,18 @@ export const PaymentTermsMaster = () => {
         </div>
       </div>
 
-      <Modal 
-        isOpen={isFormOpen} 
+      <Modal
+        isOpen={isFormOpen}
         onClose={() => setIsFormOpen(false)}
         title={`${selectedRecord ? 'Edit' : 'Add'} Payment Term`}
         size="md"
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Payment Term Name</label>
-            <input 
-              type="text" 
+            <label className="block text-sm font-medium text-slate-700 mb-1">Payment Term Name <span className="text-red-500">*</span></label>
+            <input
+              type="text"
+              maxLength={LIMITS.paymentTermName}
               value={formData.paymentTermName}
               onChange={(e) => setFormData({ ...formData, paymentTermName: e.target.value })}
               className={`w-full px-4 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all ${errors.paymentTermName ? 'border-red-500' : 'border-slate-200'}`}
@@ -236,8 +318,12 @@ export const PaymentTermsMaster = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Credit Days</label>
-            <input 
-              type="number" 
+            <input
+              type="number"
+              min="0"
+              max={LIMITS.creditMax}
+              step="1"
+              onKeyDown={blockIntKeys}
               value={formData.creditDays}
               onChange={(e) => setFormData({ ...formData, creditDays: Number(e.target.value) })}
               className={`w-full px-4 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all ${errors.creditDays ? 'border-red-500' : 'border-slate-200'}`}
@@ -246,8 +332,9 @@ export const PaymentTermsMaster = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
-            <textarea 
+            <textarea
               value={formData.description}
+              maxLength={LIMITS.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all resize-none"
               rows={3}
@@ -255,7 +342,7 @@ export const PaymentTermsMaster = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
-            <select 
+            <select
               value={formData.status}
               onChange={(e) => setFormData({ ...formData, status: e.target.value })}
               className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
@@ -283,8 +370,8 @@ export const PaymentTermsMaster = () => {
           <Button variant="outline" onClick={() => setIsFormOpen(false)}>
             Cancel
           </Button>
-          <Button variant="filled" color="primary" onClick={handleSave} icon={Save}>
-            {selectedRecord ? 'Update' : 'Save'} Payment Term
+          <Button variant="filled" color="primary" onClick={handleSave} icon={Save} disabled={isSaving}>
+            {isSaving ? 'Saving...' : `${selectedRecord ? 'Update' : 'Save'} Payment Term`}
           </Button>
         </div>
       </Modal>
@@ -301,15 +388,15 @@ export const PaymentTermsMaster = () => {
           </div>
           <h3 className="text-lg font-medium text-slate-800 mb-2">Delete Payment Term?</h3>
           <p className="text-slate-500 mb-6">
-            Are you sure you want to delete this record? This action cannot be undone.
+            Are you sure you want to delete <strong>{selectedRecord?.paymentTermName}</strong>? This action cannot be undone.
           </p>
           <div className="flex justify-center gap-3">
             <Button variant="outline" onClick={() => setIsDeleteOpen(false)}>
               Cancel
             </Button>
-            <Button 
-              variant="filled" 
-              className="bg-red-500 hover:bg-red-600 text-white border-transparent" 
+            <Button
+              variant="filled"
+              className="bg-red-500 hover:bg-red-600 text-white border-transparent"
               onClick={confirmDelete}
             >
               Delete

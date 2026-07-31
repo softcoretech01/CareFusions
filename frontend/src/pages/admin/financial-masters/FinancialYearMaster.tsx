@@ -1,12 +1,14 @@
-import { useState } from 'react';
-import { 
-  Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle, 
+import { useState, useEffect } from 'react';
+import {
+  Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle,
   Save, RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
 import { exportToExcel } from '../../../utils/exportToExcel';
+
+const API_BASE = import.meta.env.VITE_API_URL as string;
 
 interface FinancialYearRecord {
   id: number;
@@ -18,9 +20,15 @@ interface FinancialYearRecord {
   closingDate: string;
   status: string;
   remarks: string;
+  createdBy?: string;
+  createdDate?: string;
+  updatedBy?: string;
+  updatedDate?: string;
 }
 
-const emptyData: Omit<FinancialYearRecord, 'id'> = {
+type FinancialYearForm = Omit<FinancialYearRecord, 'id' | 'createdBy' | 'createdDate' | 'updatedBy' | 'updatedDate'>;
+
+const emptyData: FinancialYearForm = {
   financialYear: '',
   startDate: '',
   endDate: '',
@@ -31,35 +39,31 @@ const emptyData: Omit<FinancialYearRecord, 'id'> = {
   remarks: ''
 };
 
-const mockData: FinancialYearRecord[] = [
-  {
-    id: 1,
-    financialYear: 'FY 2024-2025',
-    startDate: '2024-04-01',
-    endDate: '2025-03-31',
-    isCurrentFinancialYear: true,
-    allowBackdatedEntry: true,
-    closingDate: '',
-    status: 'Open',
-    remarks: 'Current Active Year'
-  },
-  {
-    id: 2,
-    financialYear: 'FY 2023-2024',
-    startDate: '2023-04-01',
-    endDate: '2024-03-31',
-    isCurrentFinancialYear: false,
-    allowBackdatedEntry: false,
-    closingDate: '2024-04-15',
-    status: 'Closed',
-    remarks: 'Books closed'
-  }
-];
+const LIMITS = { financialYear: 50, remarks: 500 };
+
+const mapApiToRecord = (item: Record<string, unknown>): FinancialYearRecord => ({
+  id:                     item.id                     as number,
+  financialYear:          item.financialYear          as string,
+  startDate:              (item.startDate             as string) ?? '',
+  endDate:                (item.endDate               as string) ?? '',
+  isCurrentFinancialYear: Boolean(item.isCurrentFinancialYear),
+  allowBackdatedEntry:    Boolean(item.allowBackdatedEntry),
+  closingDate:            (item.closingDate           as string) ?? '',
+  status:                 item.status                 as string,
+  remarks:                (item.remarks               as string) ?? '',
+  createdBy:              (item.createdBy             as string) ?? undefined,
+  createdDate:            item.createdDate ? String(item.createdDate).split('T')[0] : undefined,
+  updatedBy:              (item.updatedBy             as string) ?? undefined,
+  updatedDate:            item.updatedDate ? String(item.updatedDate).split('T')[0] : undefined,
+});
 
 export const FinancialYearMaster = () => {
-  const [records, setRecords] = useState<FinancialYearRecord[]>(mockData);
+  const [records, setRecords] = useState<FinancialYearRecord[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  
+  const [isLoading, setIsLoading] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
   // Filter States
   const [showFilters, setShowFilters] = useState(false);
   const [filterStatus, setFilterStatus] = useState('');
@@ -68,8 +72,28 @@ export const FinancialYearMaster = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<FinancialYearRecord | null>(null);
-  const [formData, setFormData] = useState<Omit<FinancialYearRecord, 'id'>>(emptyData);
+  const [formData, setFormData] = useState<FinancialYearForm>(emptyData);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // ── Fetch financial years ────────────────────────────────────
+  const fetchFinancialYears = async () => {
+    setIsLoading(true);
+    setApiError(null);
+    try {
+      const res = await fetch(`${API_BASE}/financial-years/`);
+      if (!res.ok) throw new Error(`Server error: ${res.status}`);
+      const data: Record<string, unknown>[] = await res.json();
+      setRecords(data.map(mapApiToRecord));
+    } catch (err: unknown) {
+      setApiError(err instanceof Error ? err.message : 'Failed to load financial years');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchFinancialYears(); }, []);
+
+  const currentFy = records.find(r => r.isCurrentFinancialYear && r.id !== selectedRecord?.id);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -77,14 +101,13 @@ export const FinancialYearMaster = () => {
     if (!formData.startDate) newErrors.startDate = 'Start Date is required';
     if (!formData.endDate) newErrors.endDate = 'End Date is required';
 
-    if (formData.startDate && formData.endDate && new Date(formData.startDate) >= new Date(formData.endDate)) {
+    if (formData.startDate && formData.endDate && formData.endDate <= formData.startDate)
       newErrors.endDate = 'End Date must be after Start Date';
-    }
+    if (formData.closingDate && formData.endDate && formData.closingDate < formData.endDate)
+      newErrors.closingDate = 'Closing Date cannot be before the End Date';
 
-    // Uniqueness checks
-    if (records.some(r => r.financialYear === formData.financialYear && r.id !== selectedRecord?.id)) {
+    if (records.some(r => r.financialYear.toLowerCase() === formData.financialYear.trim().toLowerCase() && r.id !== selectedRecord?.id))
       newErrors.financialYear = 'Financial Year must be unique';
-    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -92,18 +115,15 @@ export const FinancialYearMaster = () => {
 
   const handleCreateNew = () => {
     setSelectedRecord(null);
-    const nextId = records.length > 0 ? Math.max(...records.map(r => r.id)) + 1 : 1;
-    setFormData({
-      ...emptyData,
-      financialYear: `FY 202${nextId}-202${nextId + 1}` // simple placeholder logic for ID lock simulation
-    });
+    setFormData(emptyData);
     setErrors({});
     setIsFormOpen(true);
   };
 
   const handleEdit = (record: FinancialYearRecord) => {
     setSelectedRecord(record);
-    setFormData(record);
+    const { id, createdBy, createdDate, updatedBy, updatedDate, ...rest } = record;
+    setFormData(rest);
     setErrors({});
     setIsFormOpen(true);
   };
@@ -113,47 +133,87 @@ export const FinancialYearMaster = () => {
     setIsDeleteOpen(true);
   };
 
-  const handleSaveForm = () => {
+  const handleSaveForm = async () => {
     if (!validateForm()) return;
+    setIsSaving(true);
+    setApiError(null);
+    try {
+      const body = {
+        financialYear:          formData.financialYear.trim(),
+        startDate:              formData.startDate,
+        endDate:                formData.endDate,
+        isCurrentFinancialYear: formData.isCurrentFinancialYear,
+        allowBackdatedEntry:    formData.allowBackdatedEntry,
+        closingDate:            formData.closingDate || null,
+        status:                 formData.status,
+        remarks:                formData.remarks || null,
+      };
 
-    // If making this the current year, unset current on others
-    let updatedRecords = [...records];
-    if (formData.isCurrentFinancialYear) {
-      updatedRecords = updatedRecords.map(r => ({ ...r, isCurrentFinancialYear: false }));
-    }
+      let res: Response;
+      if (selectedRecord) {
+        res = await fetch(`${API_BASE}/financial-years/${selectedRecord.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...body, updatedBy: 'Admin' }),
+        });
+      } else {
+        res = await fetch(`${API_BASE}/financial-years/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...body, createdBy: 'Admin' }),
+        });
+      }
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        const detail = data && typeof data.detail === 'string' ? data.detail : `Save failed: ${res.status}`;
+        throw new Error(detail);
+      }
 
-    if (selectedRecord) {
-      setRecords(updatedRecords.map(r => r.id === selectedRecord.id ? { ...r, ...formData } : r));
-    } else {
-      const newId = Math.max(...updatedRecords.map(r => r.id), 0) + 1;
-      setRecords([...updatedRecords, { id: newId, ...formData }]);
+      await fetchFinancialYears();
+      setIsFormOpen(false);
+      setSelectedRecord(null);
+    } catch (err: unknown) {
+      setApiError(err instanceof Error ? err.message : 'Save failed');
+    } finally {
+      setIsSaving(false);
     }
-    setIsFormOpen(false);
   };
 
-  const confirmDelete = () => {
-    if (selectedRecord) {
-      // Soft Delete
-      setRecords(records.filter(r => r.id !== selectedRecord.id));
+  const confirmDelete = async () => {
+    if (!selectedRecord) return;
+    setApiError(null);
+    try {
+      const res = await fetch(`${API_BASE}/financial-years/${selectedRecord.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
+      await fetchFinancialYears();
+      setIsDeleteOpen(false);
+      setSelectedRecord(null);
+    } catch (err: unknown) {
+      setApiError(err instanceof Error ? err.message : 'Delete failed');
       setIsDeleteOpen(false);
     }
   };
 
   const filteredRecords = records.filter(record => {
-    const matchesSearch = 
-      record.financialYear.toLowerCase().includes(searchTerm.toLowerCase());
-    
+    const matchesSearch = record.financialYear.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = !filterStatus || record.status === filterStatus;
-
     return matchesSearch && matchesStatus;
   });
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       className="h-full flex flex-col relative"
     >
+      {apiError && (
+        <div className="mb-4 flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          <span className="flex-1">{apiError}</span>
+          <button onClick={() => setApiError(null)} className="text-red-500 hover:text-red-700 font-medium">Dismiss</button>
+        </div>
+      )}
+
       {!isFormOpen ? (
         <>
           <div className="flex items-center justify-between mb-8">
@@ -162,6 +222,7 @@ export const FinancialYearMaster = () => {
               <p className="text-slate-500 mt-1"></p>
             </div>
             <div className="flex gap-3">
+              <Button variant="outline" icon={RefreshCw} onClick={fetchFinancialYears}>Refresh</Button>
               <Button variant="outline" icon={Download} onClick={() => exportToExcel(records, 'FinancialYearMaster')}>Export</Button>
               <Button variant="filled" color="primary" icon={Plus} onClick={handleCreateNew}>
                 Add Financial Year
@@ -226,7 +287,9 @@ export const FinancialYearMaster = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredRecords.length > 0 ? (
+                  {isLoading ? (
+                    <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-500">Loading financial years...</td></tr>
+                  ) : filteredRecords.length > 0 ? (
                     filteredRecords.map((record) => (
                       <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-4 py-3 font-medium text-slate-800">
@@ -239,29 +302,19 @@ export const FinancialYearMaster = () => {
                         <td className="px-4 py-3 text-slate-600">{record.endDate}</td>
                         <td className="px-4 py-3 text-center">
                           <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                            record.status === 'Open' 
-                              ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' 
-                              : record.status === 'Closed'
-                              ? 'bg-slate-100 text-slate-600 border border-slate-300'
-                              : 'bg-red-50 text-red-600 border border-red-200'
+                            record.status === 'Open'
+                              ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                              : 'bg-slate-100 text-slate-600 border border-slate-300'
                           }`}>
                             {record.status}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-center">
                           <div className="flex items-center justify-center gap-2">
-                            <button 
-                              onClick={() => handleEdit(record)}
-                              className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"
-                              title="Edit"
-                            >
+                            <button onClick={() => handleEdit(record)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors" title="Edit">
                               <Edit2 className="w-4 h-4" />
                             </button>
-                            <button 
-                              onClick={() => handleDeleteRequest(record)}
-                              className="p-1.5 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Delete"
-                            >
+                            <button onClick={() => handleDeleteRequest(record)} className="p-1.5 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
                               <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
@@ -292,15 +345,15 @@ export const FinancialYearMaster = () => {
           </div>
 
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden">
-            <div className="flex-1 overflow-y-auto p-6 space-y-8">
-              
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
+
               {/* Basic Information */}
               <section>
-                <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Basic Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <h3 className="text-base font-bold text-slate-800 mb-3 border-b border-slate-100 pb-1.5">Basic Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Financial Year <span className="text-red-500">*</span></label>
-                    <input type="text" value={formData.financialYear} onChange={e => setFormData({...formData, financialYear: e.target.value})} placeholder="e.g. FY 2024-2025" className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.financialYear ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
+                    <input type="text" maxLength={LIMITS.financialYear} value={formData.financialYear} onChange={e => setFormData({...formData, financialYear: e.target.value})} placeholder="e.g. FY 2024-2025" className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.financialYear ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
                     {errors.financialYear && <p className="text-red-500 text-xs mt-1">{errors.financialYear}</p>}
                   </div>
                   <div>
@@ -310,7 +363,7 @@ export const FinancialYearMaster = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">End Date <span className="text-red-500">*</span></label>
-                    <input type="date" value={formData.endDate} onChange={e => setFormData({...formData, endDate: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.endDate ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
+                    <input type="date" min={formData.startDate || undefined} value={formData.endDate} onChange={e => setFormData({...formData, endDate: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.endDate ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
                     {errors.endDate && <p className="text-red-500 text-xs mt-1">{errors.endDate}</p>}
                   </div>
                 </div>
@@ -318,11 +371,16 @@ export const FinancialYearMaster = () => {
 
               {/* Configuration */}
               <section>
-                <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Configuration</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  <div className="flex items-center gap-3 mt-2">
-                    <input type="checkbox" id="isCurrentFinancialYear" checked={formData.isCurrentFinancialYear} onChange={e => setFormData({...formData, isCurrentFinancialYear: e.target.checked})} className="w-4 h-4 text-primary bg-slate-100 border-slate-300 rounded focus:ring-primary" />
-                    <label htmlFor="isCurrentFinancialYear" className="text-sm font-medium text-slate-700">Is Current Financial Year</label>
+                <h3 className="text-base font-bold text-slate-800 mb-3 border-b border-slate-100 pb-1.5">Configuration</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-3 mt-2">
+                      <input type="checkbox" id="isCurrentFinancialYear" checked={formData.isCurrentFinancialYear} onChange={e => setFormData({...formData, isCurrentFinancialYear: e.target.checked})} className="w-4 h-4 text-primary bg-slate-100 border-slate-300 rounded focus:ring-primary" />
+                      <label htmlFor="isCurrentFinancialYear" className="text-sm font-medium text-slate-700">Is Current Financial Year</label>
+                    </div>
+                    {formData.isCurrentFinancialYear && currentFy && (
+                      <p className="text-amber-600 text-xs">This will replace the current year ({currentFy.financialYear}).</p>
+                    )}
                   </div>
                   <div className="flex items-center gap-3 mt-2">
                     <input type="checkbox" id="allowBackdated" checked={formData.allowBackdatedEntry} onChange={e => setFormData({...formData, allowBackdatedEntry: e.target.checked})} className="w-4 h-4 text-primary bg-slate-100 border-slate-300 rounded focus:ring-primary" />
@@ -330,15 +388,16 @@ export const FinancialYearMaster = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Closing Date</label>
-                    <input type="date" value={formData.closingDate} onChange={e => setFormData({...formData, closingDate: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <input type="date" min={formData.endDate || undefined} value={formData.closingDate} onChange={e => setFormData({...formData, closingDate: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.closingDate ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
+                    {errors.closingDate && <p className="text-red-500 text-xs mt-1">{errors.closingDate}</p>}
                   </div>
                 </div>
               </section>
 
               {/* System Information */}
               <section>
-                <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">System Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <h3 className="text-base font-bold text-slate-800 mb-3 border-b border-slate-100 pb-1.5">System Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Status <span className="text-red-500">*</span></label>
                     <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
@@ -348,7 +407,7 @@ export const FinancialYearMaster = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Remarks</label>
-                    <input type="text" value={formData.remarks} onChange={e => setFormData({...formData, remarks: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <input type="text" maxLength={LIMITS.remarks} value={formData.remarks} onChange={e => setFormData({...formData, remarks: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                 </div>
               </section>
@@ -360,11 +419,11 @@ export const FinancialYearMaster = () => {
                 Reset
               </Button>
               <div className="flex gap-3">
-                <Button variant="outline" color="secondary" onClick={() => setIsFormOpen(false)}>
+                <Button variant="outline" color="secondary" onClick={() => { setIsFormOpen(false); setSelectedRecord(null); }}>
                   Cancel
                 </Button>
-                <Button variant="filled" color="primary" onClick={handleSaveForm} icon={Save}>
-                  {selectedRecord ? 'Update' : 'Save'}
+                <Button variant="filled" color="primary" onClick={handleSaveForm} icon={Save} disabled={isSaving}>
+                  {isSaving ? 'Saving...' : (selectedRecord ? 'Update' : 'Save')}
                 </Button>
               </div>
             </div>
@@ -382,7 +441,8 @@ export const FinancialYearMaster = () => {
           <div className="flex items-center gap-4 mb-6 text-amber-600 bg-amber-50 p-4 rounded-xl">
             <AlertTriangle className="w-8 h-8 shrink-0" />
             <p className="text-sm font-medium">
-              Are you sure you want to delete Financial Year <strong>{selectedRecord?.financialYear}</strong>? 
+              Are you sure you want to delete Financial Year <strong>{selectedRecord?.financialYear}</strong>?
+              This action cannot be undone.
             </p>
           </div>
           <div className="flex justify-end gap-3">
