@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle, 
-  Save, RefreshCw
+  Save, RefreshCw, CheckCircle2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
@@ -23,14 +23,20 @@ const emptyData: Omit<BloodGroupRecord, 'id'> = {
   status: 'Active'
 };
 
-const mockData: BloodGroupRecord[] = [
-  { id: 1, bloodGroup: 'A+', rhFactor: 'Positive', description: 'Blood Group A Positive', status: 'Active' },
-  { id: 2, bloodGroup: 'O-', rhFactor: 'Negative', description: 'Universal Donor', status: 'Active' },
-  { id: 3, bloodGroup: 'B+', rhFactor: 'Positive', description: 'Blood Group B Positive', status: 'Active' }
-];
+const mockData: BloodGroupRecord[] = [];
+
+const API_BASE = import.meta.env.VITE_API_URL as string;
+
+const mapApiToRecord = (item: any): BloodGroupRecord => ({
+  id:          item.id,
+  bloodGroup:  item.bloodGroup,
+  rhFactor:    item.rhFactor,
+  description: item.description || '',
+  status:      item.status
+});
 
 export const BloodGroupMaster = () => {
-  const [records, setRecords] = useState<BloodGroupRecord[]>(mockData);
+  const [records, setRecords] = useState<BloodGroupRecord[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   
   // Filter States
@@ -44,6 +50,46 @@ export const BloodGroupMaster = () => {
   const [selectedRecord, setSelectedRecord] = useState<BloodGroupRecord | null>(null);
   const [formData, setFormData] = useState<Omit<BloodGroupRecord, 'id'>>(emptyData);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSuccessOpen, setIsSuccessOpen] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+
+  // Dynamic dropdowns
+  const [bloodGroupOptions, setBloodGroupOptions] = useState<string[]>([]);
+  const [rhFactorOptions, setRhFactorOptions] = useState<string[]>([]);
+
+  const fetchBloodGroups = async () => {
+    try {
+      setIsLoading(true);
+      const res = await fetch(`${API_BASE}/blood-groups/`);
+      if (!res.ok) throw new Error('Failed to fetch blood groups');
+      const data = await res.json();
+      setRecords(data.map(mapApiToRecord));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchDropdowns = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/blood-groups/options`);
+      if (res.ok) {
+        const data = await res.json();
+        setBloodGroupOptions(data.bloodGroups || []);
+        setRhFactorOptions(data.rhFactors || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch blood group options:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchBloodGroups();
+    fetchDropdowns();
+  }, []);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -78,23 +124,56 @@ export const BloodGroupMaster = () => {
     setIsDeleteOpen(true);
   };
 
-  const handleSaveForm = () => {
+  const handleSaveForm = async () => {
     if (!validateForm()) return;
+    setIsSaving(true);
+    try {
+      const payload = {
+        bloodGroup:  formData.bloodGroup,
+        rhFactor:    formData.rhFactor,
+        description: formData.description || null,
+        status:      formData.status,
+        ...(selectedRecord ? { modifiedBy: 'Dr. John Doe' } : { createdBy: 'Dr. John Doe' }),
+      };
 
-    if (selectedRecord) {
-      setRecords(records.map(r => r.id === selectedRecord.id ? { ...r, ...formData } : r));
-    } else {
-      const newId = Math.max(...records.map(r => r.id), 0) + 1;
-      setRecords([...records, { id: newId, ...formData }]);
+      const url = selectedRecord 
+        ? `${API_BASE}/blood-groups/${selectedRecord.id}`
+        : `${API_BASE}/blood-groups/`;
+      const method = selectedRecord ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || 'Failed to save blood group');
+      }
+
+      await fetchBloodGroups();
+      setIsFormOpen(false);
+      setSuccessMessage('This record has been updated successfully.');
+      setIsSuccessOpen(true);
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setIsSaving(false);
     }
-    setIsFormOpen(false);
   };
 
-  const confirmDelete = () => {
-    if (selectedRecord) {
-      // Soft Delete
-      setRecords(records.filter(r => r.id !== selectedRecord.id));
+  const confirmDelete = async () => {
+    if (!selectedRecord) return;
+    try {
+      const res = await fetch(`${API_BASE}/blood-groups/${selectedRecord.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete blood group');
+      await fetchBloodGroups();
       setIsDeleteOpen(false);
+      setSuccessMessage('This record has been deleted successfully.');
+      setIsSuccessOpen(true);
+    } catch (err: any) {
+      alert(err.message);
     }
   };
 
@@ -164,8 +243,9 @@ export const BloodGroupMaster = () => {
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     >
                       <option value="">All RH Factors</option>
-                      <option value="Positive">Positive</option>
-                      <option value="Negative">Negative</option>
+                      {rhFactorOptions.map(rh => (
+                        <option key={rh} value={rh}>{rh}</option>
+                      ))}
                     </select>
                     <select
                       value={filterStatus}
@@ -260,22 +340,20 @@ export const BloodGroupMaster = () => {
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Blood Group <span className="text-red-500">*</span></label>
                     <select value={formData.bloodGroup} onChange={e => setFormData({...formData, bloodGroup: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.bloodGroup ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
-                      <option value="A+">A+</option>
-                      <option value="A-">A-</option>
-                      <option value="B+">B+</option>
-                      <option value="B-">B-</option>
-                      <option value="AB+">AB+</option>
-                      <option value="AB-">AB-</option>
-                      <option value="O+">O+</option>
-                      <option value="O-">O-</option>
+                      <option value="">Select Blood Group</option>
+                      {bloodGroupOptions.map(bg => (
+                        <option key={bg} value={bg}>{bg}</option>
+                      ))}
                     </select>
                     {errors.bloodGroup && <p className="text-red-500 text-xs mt-1">{errors.bloodGroup}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">RH Factor <span className="text-red-500">*</span></label>
                     <select value={formData.rhFactor} onChange={e => setFormData({...formData, rhFactor: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.rhFactor ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
-                      <option value="Positive">Positive</option>
-                      <option value="Negative">Negative</option>
+                      <option value="">Select RH Factor</option>
+                      {rhFactorOptions.map(rh => (
+                        <option key={rh} value={rh}>{rh}</option>
+                      ))}
                     </select>
                     {errors.rhFactor && <p className="text-red-500 text-xs mt-1">{errors.rhFactor}</p>}
                   </div>
@@ -324,20 +402,44 @@ export const BloodGroupMaster = () => {
         title="Confirm Deletion"
         maxWidth="sm"
       >
-        <div className="p-1">
-          <div className="flex items-center gap-4 mb-6 text-amber-600 bg-amber-50 p-4 rounded-xl">
-            <AlertTriangle className="w-8 h-8 shrink-0" />
-            <p className="text-sm font-medium">
-              Are you sure you want to delete Blood Group <strong>{selectedRecord?.bloodGroup}</strong>? 
-              This action cannot be undone.
-            </p>
+        <div className="flex flex-col items-center text-center py-4">
+          <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mb-4">
+            <AlertTriangle className="w-6 h-6" />
           </div>
-          <div className="flex justify-end gap-3">
-            <Button variant="outline" color="secondary" onClick={() => setIsDeleteOpen(false)}>
+          <h3 className="text-lg font-bold text-slate-800 mb-2">Delete Record</h3>
+          <p className="text-slate-500 text-sm mb-6">
+            Are you sure you want to delete Blood Group <span className="font-semibold text-slate-700">{selectedRecord?.bloodGroup}</span>?
+          </p>
+          <div className="flex items-center gap-3 w-full">
+            <Button variant="outline" color="secondary" className="flex-1" onClick={() => setIsDeleteOpen(false)}>
               Cancel
             </Button>
-            <Button variant="filled" color="danger" onClick={confirmDelete}>
-              Confirm Delete
+            <Button variant="filled" color="danger" className="flex-1" onClick={confirmDelete}>
+              Delete
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Success Modal */}
+      <Modal
+        isOpen={isSuccessOpen}
+        onClose={() => setIsSuccessOpen(false)}
+        title="Success"
+        maxWidth="sm"
+      >
+        <div className="flex flex-col items-center text-center py-4">
+          <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mb-4">
+            <CheckCircle2 className="w-6 h-6" />
+          </div>
+          <h3 className="text-lg font-bold text-slate-800 mb-2">Success</h3>
+          <p className="text-slate-500 text-sm mb-6">
+            {successMessage}
+          </p>
+          
+          <div className="flex items-center justify-center w-full">
+            <Button variant="filled" color="primary" className="w-full" onClick={() => setIsSuccessOpen(false)}>
+              OK
             </Button>
           </div>
         </div>

@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
-import { 
-  Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle, 
-  Save, RefreshCw, ChevronLeft, ChevronRight, Eye, Power
+import {
+  Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle,
+  Save, RefreshCw, ChevronLeft, ChevronRight, Eye, Power, CheckCircle2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
@@ -34,17 +34,17 @@ const emptyData: Omit<DepartmentRecord, 'id' | 'departmentCode'> = {
 
 // Map API response → DepartmentRecord
 const mapApiToRecord = (item: Record<string, unknown>): DepartmentRecord => ({
-  id:             item.id             as number,
+  id: item.id as number,
   departmentCode: item.departmentCode as string,
   departmentName: item.departmentName as string,
   departmentType: item.departmentType as string,
-  description:    (item.description   as string) ?? '',
+  description: (item.description as string) ?? '',
   departmentHead: (item.departmentHead as string) ?? '',
-  status:         item.status         as string,
-  createdBy:      (item.createdBy     as string) ?? undefined,
-  createdDate:    item.createdDate ? String(item.createdDate).split('T')[0] : undefined,
-  updatedBy:      (item.updatedBy     as string) ?? undefined,
-  updatedDate:    item.updatedDate ? String(item.updatedDate).split('T')[0] : undefined,
+  status: item.status as string,
+  createdBy: (item.createdBy as string) ?? undefined,
+  createdDate: item.createdDate ? String(item.createdDate).split('T')[0] : undefined,
+  updatedBy: (item.updatedBy as string) ?? undefined,
+  updatedDate: item.updatedDate ? String(item.updatedDate).split('T')[0] : undefined,
 });
 
 // Exported for backward-compatibility — other screens import this shape.
@@ -53,27 +53,29 @@ export const mockData: DepartmentRecord[] = [];
 
 export const DepartmentMaster = () => {
 
-  const [records, setRecords]       = useState<DepartmentRecord[]>([]);
+  const [records, setRecords] = useState<DepartmentRecord[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [isLoading, setIsLoading]   = useState(false);
-  const [apiError, setApiError]     = useState<string | null>(null);
-  const [isSaving, setIsSaving]     = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Pagination & Sorting States
-  const [currentPage, setCurrentPage]   = useState(1);
+  const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  const [sortConfig, setSortConfig]     = useState<{key: keyof DepartmentRecord | null, direction: 'asc'|'desc'}>({ key: null, direction: 'asc' });
+  const [sortConfig, setSortConfig] = useState<{ key: keyof DepartmentRecord | null, direction: 'asc' | 'desc' }>({ key: null, direction: 'asc' });
 
   // Filter States
   const [showFilters, setShowFilters] = useState(false);
   const [filterStatus, setFilterStatus] = useState('');
 
   // Form States
-  const [isFormOpen, setIsFormOpen]         = useState(false);
-  const [isViewOpen, setIsViewOpen]         = useState(false);
-  const [isDeleteOpen, setIsDeleteOpen]     = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isViewOpen, setIsViewOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isSuccessOpen, setIsSuccessOpen] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
   const [selectedRecord, setSelectedRecord] = useState<DepartmentRecord | null>(null);
-  const [formData, setFormData]             = useState<Omit<DepartmentRecord, 'id' | 'departmentCode'>>(emptyData);
+  const [formData, setFormData] = useState<Omit<DepartmentRecord, 'id' | 'departmentCode'>>(emptyData);
 
   // ── Fetch departments ────────────────────────────────────────
   const fetchDepartments = async () => {
@@ -110,12 +112,12 @@ export const DepartmentMaster = () => {
     setFormData(rest);
     setIsFormOpen(true);
   };
-  
+
   const handleView = (record: DepartmentRecord) => {
     setSelectedRecord(record);
     setIsViewOpen(true);
   };
-  
+
   const handleToggleStatus = async (record: DepartmentRecord) => {
     try {
       const res = await fetch(`${API_BASE}/departments/${record.id}/toggle-status`, { method: 'PATCH' });
@@ -152,9 +154,9 @@ export const DepartmentMaster = () => {
       const body = {
         departmentName: formData.departmentName,
         departmentType: formData.departmentType,
-        description:    formData.description    || null,
+        description: formData.description || null,
         departmentHead: formData.departmentHead || null,
-        status:         formData.status,
+        status: formData.status,
       };
 
       if (selectedRecord) {
@@ -174,6 +176,9 @@ export const DepartmentMaster = () => {
       }
 
       await fetchDepartments();
+
+      setSuccessMessage(selectedRecord ? 'This record has been updated successfully.' : 'This record has been created successfully.');
+      setIsSuccessOpen(true);
       setIsFormOpen(false);
     } catch (err: unknown) {
       setApiError(err instanceof Error ? err.message : 'Save failed');
@@ -181,7 +186,7 @@ export const DepartmentMaster = () => {
       setIsSaving(false);
     }
   };
-  
+
   const handleSort = (key: keyof DepartmentRecord) => {
     let direction: 'asc' | 'desc' = 'asc';
     if (sortConfig.key === key && sortConfig.direction === 'asc') {
@@ -193,7 +198,7 @@ export const DepartmentMaster = () => {
   // Process data (Filter -> Sort -> Paginate)
   const processedData = useMemo(() => {
     let result = records.filter(record => {
-      const matchesSearch = Object.values(record).some(val => 
+      const matchesSearch = Object.values(record).some(val =>
         String(val).toLowerCase().includes(searchTerm.toLowerCase())
       );
       const matchesStatus = filterStatus ? record.status === filterStatus : true;
@@ -219,7 +224,7 @@ export const DepartmentMaster = () => {
   const paginatedData = processedData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       className="h-full flex flex-col"
@@ -236,7 +241,7 @@ export const DepartmentMaster = () => {
             <h1 className="text-3xl font-bold text-slate-800">Department Master</h1>
             <p className="text-slate-500 mt-1">Manage Hospital Departments</p>
           </div>
-          
+
           <div className="flex items-center gap-3">
             <Button variant="outline" icon={Download} onClick={() => exportToExcel(records, 'DepartmentMaster')}>Export</Button>
             <Button variant="filled" color="primary" icon={Plus} onClick={handleCreateNew}>
@@ -252,16 +257,16 @@ export const DepartmentMaster = () => {
           <div className="flex items-center gap-3">
             <div className="relative w-72">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input 
-                type="text" 
+              <input
+                type="text"
                 placeholder="Search..."
                 value={searchTerm}
                 onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
                 className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
               />
             </div>
-            
-            <button 
+
+            <button
               onClick={() => setShowFilters(!showFilters)}
               className={`p-2 border rounded-lg transition-colors \${showFilters ? 'border-primary bg-primary/5 text-primary' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
               title="Advanced Filters"
@@ -272,10 +277,10 @@ export const DepartmentMaster = () => {
               <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
             </button>
           </div>
-          
+
           <div className="flex items-center gap-2 text-sm text-slate-500">
             <span>Show</span>
-            <select 
+            <select
               value={itemsPerPage}
               onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
               className="border border-slate-200 rounded-lg px-2 py-1 outline-none"
@@ -290,14 +295,14 @@ export const DepartmentMaster = () => {
 
         <AnimatePresence>
           {showFilters && (
-            <motion.div 
+            <motion.div
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
               className="border-b border-slate-100 bg-slate-50 overflow-hidden"
             >
               <div className="p-4 flex gap-4">
-                <select 
+                <select
                   value={filterStatus}
                   onChange={(e) => { setFilterStatus(e.target.value); setCurrentPage(1); }}
                   className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
@@ -316,12 +321,12 @@ export const DepartmentMaster = () => {
           <table className="w-full">
             <thead className="bg-slate-50 sticky top-0 z-10 border-b border-slate-200">
               <tr>
-<th className="text-left py-3 px-4 font-medium text-slate-500 text-sm cursor-pointer hover:bg-slate-100" onClick={() => handleSort('departmentCode')}>Code</th>
-<th className="text-left py-3 px-4 font-medium text-slate-500 text-sm cursor-pointer hover:bg-slate-100" onClick={() => handleSort('departmentName')}>Name</th>
-<th className="text-left py-3 px-4 font-medium text-slate-500 text-sm cursor-pointer hover:bg-slate-100" onClick={() => handleSort('departmentType')}>Type</th>
-<th className="text-left py-3 px-4 font-medium text-slate-500 text-sm">Head</th>
-<th className="text-left py-3 px-4 font-medium text-slate-500 text-sm">Status</th>
-<th className="text-right py-3 px-4 font-medium text-slate-500 text-sm w-32">Actions</th>
+                <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm cursor-pointer hover:bg-slate-100" onClick={() => handleSort('departmentCode')}>Code</th>
+                <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm cursor-pointer hover:bg-slate-100" onClick={() => handleSort('departmentName')}>Name</th>
+                <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm cursor-pointer hover:bg-slate-100" onClick={() => handleSort('departmentType')}>Type</th>
+                <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm">Head</th>
+                <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm">Status</th>
+                <th className="text-right py-3 px-4 font-medium text-slate-500 text-sm w-32">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -333,14 +338,13 @@ export const DepartmentMaster = () => {
                 <tr><td colSpan={6} className="py-8 text-center text-slate-500">No records found</td></tr>
               ) : paginatedData.map((record) => (
                 <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
-<td className="py-3 px-4 text-slate-800 font-medium">{record.departmentCode}</td>
-<td className="py-3 px-4 text-slate-800">{record.departmentName}</td>
-<td className="py-3 px-4 text-slate-800"><span className={`px-2 py-1 rounded text-xs ${record.departmentType === 'Clinical' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-600'}`}>{record.departmentType}</span></td>
-<td className="py-3 px-4 text-slate-800">{record.departmentHead || '-'}</td>
+                  <td className="py-3 px-4 text-slate-800 font-medium">{record.departmentCode}</td>
+                  <td className="py-3 px-4 text-slate-800">{record.departmentName}</td>
+                  <td className="py-3 px-4 text-slate-800"><span className={`px-2 py-1 rounded text-xs ${record.departmentType === 'Clinical' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-600'}`}>{record.departmentType}</span></td>
+                  <td className="py-3 px-4 text-slate-800">{record.departmentHead || '-'}</td>
                   <td className="py-3 px-4">
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                      record.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'
-                    }`}>
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${record.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'
+                      }`}>
                       {record.status}
                     </span>
                   </td>
@@ -365,14 +369,14 @@ export const DepartmentMaster = () => {
             </tbody>
           </table>
         </div>
-        
+
         {/* Pagination */}
         <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div className="text-sm text-slate-500">
             Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, processedData.length)} of {processedData.length} entries
           </div>
           <div className="flex items-center gap-2">
-            <button 
+            <button
               onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
               disabled={currentPage === 1}
               className="p-1 rounded border border-slate-200 text-slate-500 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white"
@@ -380,7 +384,7 @@ export const DepartmentMaster = () => {
               <ChevronLeft className="w-4 h-4" />
             </button>
             <span className="text-sm text-slate-600 px-2">Page {currentPage} of {totalPages || 1}</span>
-            <button 
+            <button
               onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
               disabled={currentPage === totalPages || totalPages === 0}
               className="p-1 rounded border border-slate-200 text-slate-500 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white"
@@ -392,8 +396,8 @@ export const DepartmentMaster = () => {
       </div>
 
       {/* Form Modal */}
-      <Modal 
-        isOpen={isFormOpen} 
+      <Modal
+        isOpen={isFormOpen}
         onClose={() => setIsFormOpen(false)}
         title={`\${selectedRecord ? 'Edit' : 'Add'} Department Master`}
         size="3xl"
@@ -401,14 +405,14 @@ export const DepartmentMaster = () => {
         <div className="space-y-4 max-h-[70vh] overflow-y-auto px-1">
           {/* DepartmentCode: hidden on Create, read-only on Edit */}
           {selectedRecord && (
-            <div><label className="block text-sm font-medium text-slate-700 mb-1">Department Code</label><input type="text" value={selectedRecord.departmentCode} disabled className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm bg-slate-100 opacity-60 cursor-not-allowed"/></div>
+            <div><label className="block text-sm font-medium text-slate-700 mb-1">Department Code</label><input type="text" value={selectedRecord.departmentCode} disabled className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm bg-slate-100 opacity-60 cursor-not-allowed" /></div>
           )}
-<div><label className="block text-sm font-medium text-slate-700 mb-1">Name <span className="text-red-500">*</span></label><input type="text" value={formData.departmentName} onChange={(e) => setFormData({...formData, departmentName: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary"/></div>
-<div><label className="block text-sm font-medium text-slate-700 mb-1">Type</label><select value={formData.departmentType} onChange={(e) => setFormData({...formData, departmentType: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary"><option value="Clinical">Clinical</option><option value="Non-Clinical">Non-Clinical</option></select></div>
-<div><label className="block text-sm font-medium text-slate-700 mb-1">Head</label><input type="text" value={formData.departmentHead} onChange={(e) => setFormData({...formData, departmentHead: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary"/></div>
+          <div><label className="block text-sm font-medium text-slate-700 mb-1">Name <span className="text-red-500">*</span></label><input type="text" value={formData.departmentName} onChange={(e) => setFormData({ ...formData, departmentName: e.target.value })} className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary" /></div>
+          <div><label className="block text-sm font-medium text-slate-700 mb-1">Type</label><select value={formData.departmentType} onChange={(e) => setFormData({ ...formData, departmentType: e.target.value })} className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary"><option value="Clinical">Clinical</option><option value="Non-Clinical">Non-Clinical</option></select></div>
+          <div><label className="block text-sm font-medium text-slate-700 mb-1">Head</label><input type="text" value={formData.departmentHead} onChange={(e) => setFormData({ ...formData, departmentHead: e.target.value })} className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary" /></div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
-            <select 
+            <select
               value={formData.status}
               onChange={(e) => setFormData({ ...formData, status: e.target.value })}
               className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
@@ -437,10 +441,10 @@ export const DepartmentMaster = () => {
         {selectedRecord && (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-<div><span className="text-xs text-slate-400 block">Code</span><span className="text-sm font-medium">{selectedRecord.departmentCode}</span></div>
-<div><span className="text-xs text-slate-400 block">Name</span><span className="text-sm font-medium">{selectedRecord.departmentName}</span></div>
-<div><span className="text-xs text-slate-400 block">Type</span><span className="text-sm font-medium">{selectedRecord.departmentType}</span></div>
-<div><span className="text-xs text-slate-400 block">Head</span><span className="text-sm font-medium">{selectedRecord.departmentHead}</span></div>
+              <div><span className="text-xs text-slate-400 block">Code</span><span className="text-sm font-medium">{selectedRecord.departmentCode}</span></div>
+              <div><span className="text-xs text-slate-400 block">Name</span><span className="text-sm font-medium">{selectedRecord.departmentName}</span></div>
+              <div><span className="text-xs text-slate-400 block">Type</span><span className="text-sm font-medium">{selectedRecord.departmentType}</span></div>
+              <div><span className="text-xs text-slate-400 block">Head</span><span className="text-sm font-medium">{selectedRecord.departmentHead}</span></div>
             </div>
             <div className="pt-4 border-t border-slate-100">
               <span className="text-xs text-slate-400 block mb-1">Status</span>
@@ -461,10 +465,34 @@ export const DepartmentMaster = () => {
             <AlertTriangle className="w-6 h-6" />
           </div>
           <h3 className="text-lg font-medium text-slate-800 mb-2">Delete Record?</h3>
-          <p className="text-slate-500 mb-6">Are you sure you want to delete this record? This action cannot be undone.</p>
+          <p className="text-slate-500 mb-6">Are you sure you want to delete this record?</p>
           <div className="flex justify-center gap-3">
             <Button variant="outline" onClick={() => setIsDeleteOpen(false)}>Cancel</Button>
             <Button variant="filled" className="bg-red-500 hover:bg-red-600 text-white border-transparent" onClick={confirmDelete}>Delete</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Success Modal */}
+      <Modal
+        isOpen={isSuccessOpen}
+        onClose={() => setIsSuccessOpen(false)}
+        title="Success"
+        size="sm"
+      >
+        <div className="flex flex-col items-center text-center py-4">
+          <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-4">
+            <CheckCircle2 className="w-6 h-6" />
+          </div>
+          <h3 className="text-lg font-bold text-slate-800 mb-2">Success</h3>
+          <p className="text-slate-500 text-sm mb-6">
+            {successMessage}
+          </p>
+
+          <div className="flex items-center justify-center w-full">
+            <Button variant="filled" color="primary" className="w-full" onClick={() => setIsSuccessOpen(false)}>
+              OK
+            </Button>
           </div>
         </div>
       </Modal>

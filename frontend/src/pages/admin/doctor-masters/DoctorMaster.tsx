@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle, Save, RefreshCw, Upload } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle, Save, RefreshCw, Upload, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
@@ -49,8 +49,16 @@ interface DoctorRecord {
   slotDuration: string;
   availableEmergency: boolean;
   availableTele: boolean;
+  doctorPhoto: string;
+  signatureImage: string;
+  digitalSignature: string;
+  registrationCertificate: string;
   status: string;
   remarks: string;
+  createdBy: string;
+  createdDate: string;
+  modifiedBy: string;
+  modifiedDate: string;
 }
 
 const emptyDoctorData: Omit<DoctorRecord, 'id'> = {
@@ -96,63 +104,121 @@ const emptyDoctorData: Omit<DoctorRecord, 'id'> = {
   slotDuration: '',
   availableEmergency: false,
   availableTele: false,
+  doctorPhoto: '',
+  signatureImage: '',
+  digitalSignature: '',
+  registrationCertificate: '',
   status: 'Active',
-  remarks: ''
+  remarks: '',
+  createdBy: '',
+  createdDate: '',
+  modifiedBy: '',
+  modifiedDate: ''
 };
 
-const mockDoctors: DoctorRecord[] = [
-  {
-    id: 1,
-    doctorId: 'DOC-001',
-    registrationNumber: 'MED-12345',
-    name: 'Dr. Sarah Jenkins',
-    gender: 'Female',
-    dob: '1980-05-15',
-    qualification: 'MD, DM',
-    specialization: 'Cardiology',
-    department: 'Cardiology',
-    designation: 'Senior Consultant',
-    hospital: 'City General Hospital',
-    branch: 'Main Campus',
-    mobile: '9876543210',
-    alternateMobile: '',
-    email: 'sarah.jenkins@hospital.com',
-    address1: '123 Medical Way',
-    address2: '',
-    city: 'New York',
-    state: 'NY',
-    country: 'USA',
-    postalCode: '10001',
-    medicalCouncil: 'National Medical Board',
-    experience: '15',
-    languages: 'English, Spanish',
-    doctorType: 'Full-time',
-    consultationType: 'OP/IP',
-    joiningDate: '2015-01-10',
-    licenseExpiryDate: '2028-12-31',
-    consultationFee: '150',
-    followUpFee: '100',
-    emergencyFee: '250',
-    teleConsultationFee: '120',
-    opDuration: '20',
-    maxPatients: '30',
-    allowOnlineBooking: true,
-    availableDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
-    fromTime: '09:00',
-    toTime: '17:00',
-    breakFrom: '13:00',
-    breakTo: '14:00',
-    slotDuration: '20',
-    availableEmergency: true,
-    availableTele: true,
-    status: 'Active',
-    remarks: ''
-  }
-];
+const API_BASE = import.meta.env.VITE_API_URL as string;
+
+const mapApiToRecord = (item: Record<string, any>): DoctorRecord => ({
+  id:                 item.id as number,
+  doctorId:           item.doctorId as string,
+  registrationNumber: item.registrationNumber as string,
+  name:               item.name as string,
+  gender:             item.gender as string,
+  dob:                item.dob ? String(item.dob) : '',
+  qualification:      item.qualification as string,
+  specialization:     item.specialization as string,
+  department:         item.department as string,
+  designation:        item.designation as string,
+  hospital:           item.hospital as string,
+  branch:             item.branch as string,
+  mobile:             item.mobile as string,
+  alternateMobile:    item.alternateMobile as string || '',
+  email:              item.email as string,
+  address1:           item.address1 as string || '',
+  address2:           item.address2 as string || '',
+  city:               item.city as string || '',
+  state:              item.state as string || '',
+  country:            item.country as string || '',
+  postalCode:         item.postalCode as string || '',
+  medicalCouncil:     item.medicalCouncil as string || '',
+  experience:         item.experience != null ? String(item.experience) : '',
+  languages:          item.languages as string || '',
+  doctorType:         item.doctorType as string || '',
+  consultationType:   item.consultationType as string || '',
+  joiningDate:        item.joiningDate ? String(item.joiningDate) : '',
+  licenseExpiryDate:  item.licenseExpiryDate ? String(item.licenseExpiryDate) : '',
+  consultationFee:    item.consultationFee != null ? String(item.consultationFee) : '',
+  followUpFee:        item.followUpFee != null ? String(item.followUpFee) : '',
+  emergencyFee:       item.emergencyFee != null ? String(item.emergencyFee) : '',
+  teleConsultationFee:item.teleConsultationFee != null ? String(item.teleConsultationFee) : '',
+  opDuration:         item.opDuration != null ? String(item.opDuration) : '',
+  maxPatients:        item.maxPatients != null ? String(item.maxPatients) : '',
+  allowOnlineBooking: Boolean(item.allowOnlineBooking),
+  availableDays:      item.availableDays ? String(item.availableDays).split(',') : [],
+  fromTime:           item.fromTime ? String(item.fromTime) : '',
+  toTime:             item.toTime ? String(item.toTime) : '',
+  breakFrom:          item.breakFrom ? String(item.breakFrom) : '',
+  breakTo:            item.breakTo ? String(item.breakTo) : '',
+  slotDuration:       item.slotDuration != null ? String(item.slotDuration) : '',
+  availableEmergency: Boolean(item.availableEmergency),
+  availableTele:      Boolean(item.availableTele),
+  doctorPhoto:        item.doctorPhoto as string || '',
+  signatureImage:     item.signatureImage as string || '',
+  digitalSignature:   item.digitalSignature as string || '',
+  registrationCertificate: item.registrationCertificate as string || '',
+  status:             item.status as string,
+  remarks:            item.remarks as string || '',
+  createdBy:          item.createdBy as string || '',
+  createdDate:        item.createdDate ? String(item.createdDate) : '',
+  modifiedBy:         item.modifiedBy as string || '',
+  modifiedDate:       item.modifiedDate ? String(item.modifiedDate) : ''
+});
 
 export const DoctorMaster = () => {
-  const [records, setRecords] = useState<DoctorRecord[]>(mockDoctors);
+  const [records, setRecords] = useState<DoctorRecord[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  const [isLoading, setIsLoading] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  
+  // Dropdowns
+  const [hospitals, setHospitals] = useState<{name: string}[]>([]);
+  const [branches, setBranches] = useState<{name: string}[]>([]);
+  const [departments, setDepartments] = useState<{departmentName: string}[]>([]);
+  
+  const fetchDoctors = async () => {
+    setIsLoading(true);
+    setApiError(null);
+    try {
+      const res = await fetch(`${API_BASE}/doctors/`);
+      if (!res.ok) throw new Error(`Server error: ${res.status}`);
+      const data = await res.json();
+      setRecords(data.map(mapApiToRecord));
+    } catch (err: any) {
+      setApiError(err.message || 'Failed to load doctors');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchDropdowns = async () => {
+    try {
+      const [hRes, bRes, dRes] = await Promise.all([
+        fetch(`${API_BASE}/hospitals/`),
+        fetch(`${API_BASE}/branches/`),
+        fetch(`${API_BASE}/departments/`)
+      ]);
+      if (hRes.ok) setHospitals(await hRes.json());
+      if (bRes.ok) setBranches(await bRes.json());
+      if (dRes.ok) setDepartments(await dRes.json());
+    } catch {}
+  };
+
+  useEffect(() => {
+    fetchDoctors();
+    fetchDropdowns();
+  }, []);
   
   // Filter States
   const [showFilters, setShowFilters] = useState(false);
@@ -165,6 +231,8 @@ export const DoctorMaster = () => {
   // Modal States
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isSuccessOpen, setIsSuccessOpen] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
   const [selectedRecord, setSelectedRecord] = useState<DoctorRecord | null>(null);
   const [formData, setFormData] = useState<Omit<DoctorRecord, 'id'>>(emptyDoctorData);
   const [activeTab, setActiveTab] = useState('general');
@@ -181,65 +249,90 @@ export const DoctorMaster = () => {
 
   const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-    if (!formData.doctorId.trim()) newErrors.doctorId = 'Doctor ID is required';
-    if (!formData.registrationNumber.trim()) newErrors.registrationNumber = 'Registration Number is required';
-    if (!formData.name.trim()) newErrors.name = 'Name is required';
-    if (!formData.gender) newErrors.gender = 'Gender is required';
-    if (!formData.qualification.trim()) newErrors.qualification = 'Qualification is required';
-    if (!formData.specialization.trim()) newErrors.specialization = 'Specialization is required';
-    if (!formData.department) newErrors.department = 'Department is required';
-    if (!formData.designation.trim()) newErrors.designation = 'Designation is required';
-    if (!formData.hospital) newErrors.hospital = 'Hospital is required';
-    if (!formData.branch) newErrors.branch = 'Branch is required';
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, fieldName: keyof DoctorRecord) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const form = new FormData();
+    form.append('file', file);
+
+    try {
+      const res = await fetch(`${API_BASE}/upload/`, {
+        method: 'POST',
+        body: form
+      });
+      if (!res.ok) throw new Error('Upload failed');
+      const data = await res.json();
+      setFormData(prev => ({ ...prev, [fieldName]: data.url }));
+    } catch (err) {
+      alert('Failed to upload file');
+    }
+  };
+
+  const validateForm = (tabId?: string) => {
+    const newErrors: Record<string, string> = tabId ? { ...errors } : {};
+    let isValid = true;
     
-    if (!formData.mobile.trim()) {
-      newErrors.mobile = 'Mobile is required';
-    } else if (!/^\d{10}$/.test(formData.mobile.replace(/\D/g, ''))) {
-      newErrors.mobile = 'Enter a valid 10-digit mobile number';
+    if (!tabId || tabId === 'general') {
+      ['registrationNumber', 'name', 'gender', 'mobile', 'email'].forEach(k => delete newErrors[k]);
+      if (!formData.registrationNumber.trim()) { newErrors.registrationNumber = 'Registration Number is required'; isValid = false; }
+      else if (records.some(r => r.registrationNumber === formData.registrationNumber && r.id !== selectedRecord?.id)) {
+        newErrors.registrationNumber = 'Registration Number must be unique'; isValid = false;
+      }
+      if (!formData.name.trim()) { newErrors.name = 'Name is required'; isValid = false; }
+      if (!formData.gender) { newErrors.gender = 'Gender is required'; isValid = false; }
+      if (!formData.mobile.trim()) {
+        newErrors.mobile = 'Mobile is required'; isValid = false;
+      } else if (!/^\d{10}$/.test(formData.mobile.replace(/\D/g, ''))) {
+        newErrors.mobile = 'Enter a valid 10-digit mobile number'; isValid = false;
+      }
+      if (!formData.email.trim()) {
+        newErrors.email = 'Email is required'; isValid = false;
+      } else if (!/^\S+@\S+\.\S+$/.test(formData.email)) {
+        newErrors.email = 'Enter a valid email'; isValid = false;
+      }
     }
-
-    if (!formData.email.trim()) {
-      newErrors.email = 'Email is required';
-    } else if (!/^\S+@\S+\.\S+$/.test(formData.email)) {
-      newErrors.email = 'Enter a valid email';
-    }
-
-    if (!formData.consultationFee) {
-      newErrors.consultationFee = 'Fee is required';
-    } else if (Number(formData.consultationFee) < 0) {
-      newErrors.consultationFee = 'Fee must be >= 0';
-    }
-
-    if (!formData.opDuration) {
-      newErrors.opDuration = 'Duration is required';
-    } else if (Number(formData.opDuration) <= 0) {
-      newErrors.opDuration = 'Duration must be > 0';
-    }
-
-    if (formData.availableDays.length === 0) newErrors.availableDays = 'Select at least one day';
-    if (!formData.fromTime) newErrors.fromTime = 'From Time is required';
-    if (!formData.toTime) newErrors.toTime = 'To Time is required';
     
-    if (formData.fromTime && formData.toTime && formData.fromTime >= formData.toTime) {
-      newErrors.toTime = 'To Time must be after From Time';
+    if (!tabId || tabId === 'professional') {
+      ['qualification', 'specialization', 'department', 'designation', 'hospital', 'branch'].forEach(k => delete newErrors[k]);
+      if (!formData.qualification.trim()) { newErrors.qualification = 'Qualification is required'; isValid = false; }
+      if (!formData.specialization.trim()) { newErrors.specialization = 'Specialization is required'; isValid = false; }
+      if (!formData.department) { newErrors.department = 'Department is required'; isValid = false; }
+      if (!formData.designation.trim()) { newErrors.designation = 'Designation is required'; isValid = false; }
+      if (!formData.hospital) { newErrors.hospital = 'Hospital is required'; isValid = false; }
+      if (!formData.branch) { newErrors.branch = 'Branch is required'; isValid = false; }
     }
-
-    if (!formData.slotDuration) newErrors.slotDuration = 'Slot Duration is required';
-    if (formData.opDuration && formData.slotDuration && (Number(formData.opDuration) % Number(formData.slotDuration) !== 0)) {
-      newErrors.slotDuration = 'Slot must divide consultation duration';
+    
+    if (!tabId || tabId === 'consultation') {
+      delete newErrors.consultationFee;
+      if (!formData.consultationFee) {
+        newErrors.consultationFee = 'Fee is required'; isValid = false;
+      } else if (Number(formData.consultationFee) < 0) {
+        newErrors.consultationFee = 'Fee must be >= 0'; isValid = false;
+      }
     }
-
-    // Check Uniqueness
-    const isIdDuplicate = records.some(r => r.doctorId === formData.doctorId && r.id !== selectedRecord?.id);
-    if (isIdDuplicate) newErrors.doctorId = 'Doctor ID must be unique';
-
-    const isRegDuplicate = records.some(r => r.registrationNumber === formData.registrationNumber && r.id !== selectedRecord?.id);
-    if (isRegDuplicate) newErrors.registrationNumber = 'Registration Number must be unique';
+    
+    if (!tabId || tabId === 'schedule') {
+      ['opDuration', 'availableDays', 'fromTime', 'toTime', 'slotDuration'].forEach(k => delete newErrors[k]);
+      if (!formData.opDuration) {
+        newErrors.opDuration = 'Duration is required'; isValid = false;
+      } else if (Number(formData.opDuration) <= 0) {
+        newErrors.opDuration = 'Duration must be > 0'; isValid = false;
+      }
+      if (formData.availableDays.length === 0) { newErrors.availableDays = 'Select at least one day'; isValid = false; }
+      if (!formData.fromTime) { newErrors.fromTime = 'From Time is required'; isValid = false; }
+      if (!formData.toTime) { newErrors.toTime = 'To Time is required'; isValid = false; }
+      if (formData.fromTime && formData.toTime && formData.fromTime >= formData.toTime) {
+        newErrors.toTime = 'To Time must be after From Time'; isValid = false;
+      }
+      if (!formData.slotDuration) { newErrors.slotDuration = 'Slot Duration is required'; isValid = false; }
+      if (formData.opDuration && formData.slotDuration && (Number(formData.opDuration) % Number(formData.slotDuration) !== 0)) {
+        newErrors.slotDuration = 'Slot must divide consultation duration'; isValid = false;
+      }
+    }
 
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return isValid;
   };
 
   const handleCreateNew = () => {
@@ -267,23 +360,119 @@ export const DoctorMaster = () => {
     setIsDeleteOpen(true);
   };
 
-  const handleSaveForm = () => {
-    if (!validateForm()) {
+  const handleSaveForm = async () => {
+    const tabIndex = tabs.findIndex(t => t.id === activeTab);
+    
+    if (tabIndex < tabs.length - 1) {
+      if (validateForm(activeTab)) {
+        setActiveTab(tabs[tabIndex + 1].id);
+      }
       return;
     }
 
-    if (selectedRecord) {
-      setRecords(records.map(r => r.id === selectedRecord.id ? { ...r, ...formData } : r));
-    } else {
-      const newId = Math.max(...records.map(r => r.id), 0) + 1;
-      setRecords([...records, { id: newId, ...formData }]);
+    if (!validateForm()) return;
+    
+    setIsSaving(true);
+    setErrors({});
+    
+    try {
+      const payload = {
+        registrationNumber: formData.registrationNumber,
+        name: formData.name,
+        gender: formData.gender,
+        dob: formData.dob || null,
+        mobile: formData.mobile,
+        alternateMobile: formData.alternateMobile || null,
+        email: formData.email,
+        address1: formData.address1 || null,
+        address2: formData.address2 || null,
+        city: formData.city || null,
+        state: formData.state || null,
+        country: formData.country || null,
+        postalCode: formData.postalCode || null,
+
+        qualification: formData.qualification,
+        specialization: formData.specialization,
+        hospital: formData.hospital,
+        branch: formData.branch,
+        department: formData.department,
+        designation: formData.designation,
+        medicalCouncil: formData.medicalCouncil || null,
+        experience: formData.experience ? Number(formData.experience) : null,
+        languages: formData.languages || null,
+        doctorType: formData.doctorType || null,
+        consultationType: formData.consultationType || null,
+        joiningDate: formData.joiningDate || null,
+        licenseExpiryDate: formData.licenseExpiryDate || null,
+
+        consultationFee: Number(formData.consultationFee),
+        followUpFee: formData.followUpFee ? Number(formData.followUpFee) : null,
+        emergencyFee: formData.emergencyFee ? Number(formData.emergencyFee) : null,
+        teleConsultationFee: formData.teleConsultationFee ? Number(formData.teleConsultationFee) : null,
+        opDuration: Number(formData.opDuration),
+        maxPatients: formData.maxPatients ? Number(formData.maxPatients) : null,
+        allowOnlineBooking: formData.allowOnlineBooking,
+
+        availableDays: formData.availableDays.join(','),
+        fromTime: formData.fromTime,
+        toTime: formData.toTime,
+        breakFrom: formData.breakFrom || null,
+        breakTo: formData.breakTo || null,
+        slotDuration: Number(formData.slotDuration),
+        availableEmergency: formData.availableEmergency,
+        availableTele: formData.availableTele,
+
+        doctorPhoto: formData.doctorPhoto || null,
+        signatureImage: formData.signatureImage || null,
+        digitalSignature: formData.digitalSignature || null,
+        registrationCertificate: formData.registrationCertificate || null,
+
+        status: formData.status,
+        remarks: formData.remarks || null,
+        
+        // Audit
+        ...(selectedRecord ? { modifiedBy: 'Dr. John Doe' } : { createdBy: 'Dr. John Doe' })
+      };
+
+      const url = selectedRecord ? `${API_BASE}/doctors/${selectedRecord.id}` : `${API_BASE}/doctors/`;
+      const method = selectedRecord ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || `Server error: ${res.status}`);
+      }
+
+      await fetchDoctors();
+      
+      setSuccessMessage(selectedRecord ? 'This record has been updated successfully.' : 'This record has been created successfully.');
+      setIsSuccessOpen(true);
+      setIsFormOpen(false);
+    } catch (err: any) {
+      setErrors({ _api: err.message || 'Failed to save record' });
+    } finally {
+      setIsSaving(false);
     }
-    setIsFormOpen(false);
   };
 
-  const confirmDelete = () => {
-    if (selectedRecord) {
-      setRecords(records.filter(r => r.id !== selectedRecord.id));
+  const confirmDelete = async () => {
+    if (!selectedRecord) return;
+    try {
+      const res = await fetch(`${API_BASE}/doctors/${selectedRecord.id}`, {
+        method: 'DELETE'
+      });
+      if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
+      
+      await fetchDoctors();
+      setIsDeleteOpen(false);
+      setSelectedRecord(null);
+    } catch (err: any) {
+      setApiError(err.message || 'Failed to delete record');
       setIsDeleteOpen(false);
     }
   };
@@ -715,7 +904,9 @@ export const DoctorMaster = () => {
                       }`}
                     >
                       <option value="">Select Hospital</option>
-                      <option value="City General Hospital">City General Hospital</option>
+                      {hospitals.map((h, i) => (
+                        <option key={i} value={h.name}>{h.name}</option>
+                      ))}
                     </select>
                     {errors.hospital && <p className="text-red-500 text-xs mt-1">{errors.hospital}</p>}
                   </div>
@@ -731,7 +922,9 @@ export const DoctorMaster = () => {
                       }`}
                     >
                       <option value="">Select Branch</option>
-                      <option value="Main Campus">Main Campus</option>
+                      {branches.map((b, i) => (
+                        <option key={i} value={b.name}>{b.name}</option>
+                      ))}
                     </select>
                     {errors.branch && <p className="text-red-500 text-xs mt-1">{errors.branch}</p>}
                   </div>
@@ -747,8 +940,9 @@ export const DoctorMaster = () => {
                       }`}
                     >
                       <option value="">Select Department</option>
-                      <option value="Cardiology">Cardiology</option>
-                      <option value="Neurology">Neurology</option>
+                      {departments.map((d, i) => (
+                        <option key={i} value={d.departmentName}>{d.departmentName}</option>
+                      ))}
                     </select>
                     {errors.department && <p className="text-red-500 text-xs mt-1">{errors.department}</p>}
                   </div>
@@ -1031,20 +1225,42 @@ export const DoctorMaster = () => {
               {activeTab === 'documents' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {[
-                    { label: 'Doctor Photo', note: 'Display Image' },
-                    { label: 'Signature Image', note: 'Prescription print' },
-                    { label: 'Digital Signature', note: 'E-prescription' },
-                    { label: 'Registration Certificate', note: 'Compliance' },
-                    { label: 'Qualification Certificate', note: 'Verification' },
-                    { label: 'ID Proof', note: 'Records' },
+                    { label: 'Doctor Photo', note: 'Display Image', field: 'doctorPhoto' },
+                    { label: 'Signature Image', note: 'Prescription print', field: 'signatureImage' },
+                    { label: 'Digital Signature', note: 'E-prescription', field: 'digitalSignature' },
+                    { label: 'Registration Certificate', note: 'Compliance', field: 'registrationCertificate' },
                   ].map((doc, idx) => (
-                    <div key={idx} className="border border-slate-200 rounded-xl p-4 flex flex-col gap-2">
+                    <div key={idx} className="border border-slate-200 rounded-xl p-4 flex flex-col gap-2 relative">
                       <label className="block text-sm font-medium text-slate-700">{doc.label}</label>
                       <span className="text-xs text-slate-500 mb-2">{doc.note}</span>
-                      <div className="border-2 border-dashed border-slate-200 rounded-lg p-6 flex flex-col items-center justify-center text-center hover:bg-slate-50 transition-colors cursor-pointer">
-                        <Upload className="w-6 h-6 text-slate-400 mb-2" />
-                        <p className="text-sm text-primary font-medium">Click to upload</p>
-                        <p className="text-xs text-slate-500 mt-1">or drag and drop</p>
+                      
+                      <div className="border-2 border-dashed border-slate-200 rounded-lg p-6 flex flex-col items-center justify-center text-center hover:bg-slate-50 transition-colors relative overflow-hidden group h-32">
+                        {formData[doc.field as keyof typeof formData] ? (
+                          <div className="flex flex-col items-center gap-2">
+                            <span className="text-sm font-medium text-emerald-600">File Uploaded</span>
+                            <img 
+                              src={`http://localhost:8000${formData[doc.field as keyof typeof formData]}`} 
+                              alt="preview" 
+                              className="h-16 object-contain" 
+                              onError={(e) => { e.currentTarget.style.display = 'none'; }} 
+                            />
+                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                              <span className="text-white text-xs font-medium">Click to change</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <Upload className="w-6 h-6 text-slate-400 mb-2" />
+                            <p className="text-sm text-primary font-medium">Click to upload</p>
+                            <p className="text-xs text-slate-500 mt-1">or drag and drop</p>
+                          </>
+                        )}
+                        <input 
+                          type="file" 
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                          onChange={(e) => handleFileUpload(e, doc.field as keyof DoctorRecord)}
+                          accept="image/*,.pdf"
+                        />
                       </div>
                     </div>
                   ))}
@@ -1083,19 +1299,19 @@ export const DoctorMaster = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
                             <label className="block text-xs font-medium text-slate-500">Created By</label>
-                            <p className="text-sm text-slate-700 mt-1">Admin User</p>
+                            <p className="text-sm text-slate-700 mt-1">{selectedRecord.createdBy || 'System'}</p>
                           </div>
                           <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
                             <label className="block text-xs font-medium text-slate-500">Created Date</label>
-                            <p className="text-sm text-slate-700 mt-1">2023-10-15 10:30 AM</p>
+                            <p className="text-sm text-slate-700 mt-1">{selectedRecord.createdDate ? new Date(selectedRecord.createdDate + 'Z').toLocaleString() : 'N/A'}</p>
                           </div>
                           <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
                             <label className="block text-xs font-medium text-slate-500">Modified By</label>
-                            <p className="text-sm text-slate-700 mt-1">System Admin</p>
+                            <p className="text-sm text-slate-700 mt-1">{selectedRecord.modifiedBy || 'N/A'}</p>
                           </div>
                           <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
                             <label className="block text-xs font-medium text-slate-500">Modified Date</label>
-                            <p className="text-sm text-slate-700 mt-1">2023-10-18 02:45 PM</p>
+                            <p className="text-sm text-slate-700 mt-1">{selectedRecord.modifiedDate ? new Date(selectedRecord.modifiedDate + 'Z').toLocaleString() : 'N/A'}</p>
                           </div>
                         </div>
                       </div>
@@ -1129,20 +1345,44 @@ export const DoctorMaster = () => {
         title="Confirm Deletion"
         maxWidth="sm"
       >
-        <div className="p-1">
-          <div className="flex items-center gap-4 mb-6 text-amber-600 bg-amber-50 p-4 rounded-xl">
-            <AlertTriangle className="w-8 h-8 shrink-0" />
-            <p className="text-sm font-medium">
-              Are you sure you want to delete Doctor <strong>{selectedRecord?.name}</strong>? 
-              This action cannot be undone.
-            </p>
+        <div className="flex flex-col items-center text-center">
+          <div className="w-12 h-12 rounded-full bg-danger/10 text-danger flex items-center justify-center mb-4">
+            <AlertTriangle className="w-6 h-6" />
           </div>
-          <div className="flex justify-end gap-3">
-            <Button variant="outline" color="secondary" onClick={() => setIsDeleteOpen(false)}>
+          <h3 className="text-lg font-bold text-slate-800 mb-2">Delete Record</h3>
+          <p className="text-slate-500 text-sm mb-6">
+            Are you sure you want to delete <span className="font-semibold text-slate-700">{selectedRecord?.name}</span>?
+          </p>
+          <div className="flex items-center gap-3 w-full">
+            <Button variant="outline" color="secondary" className="flex-1" onClick={() => setIsDeleteOpen(false)}>
               Cancel
             </Button>
-            <Button variant="filled" color="danger" onClick={confirmDelete}>
-              Confirm Delete
+            <Button variant="filled" color="danger" className="flex-1" onClick={confirmDelete}>
+              Delete
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Success Modal */}
+      <Modal
+        isOpen={isSuccessOpen}
+        onClose={() => setIsSuccessOpen(false)}
+        title="Success"
+        maxWidth="sm"
+      >
+        <div className="flex flex-col items-center text-center">
+          <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-4">
+            <CheckCircle2 className="w-6 h-6" />
+          </div>
+          <h3 className="text-lg font-bold text-slate-800 mb-2">Success</h3>
+          <p className="text-slate-500 text-sm mb-6">
+            {successMessage}
+          </p>
+          
+          <div className="flex items-center justify-center w-full">
+            <Button variant="filled" color="primary" className="w-full" onClick={() => setIsSuccessOpen(false)}>
+              OK
             </Button>
           </div>
         </div>

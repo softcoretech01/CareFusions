@@ -99,6 +99,19 @@ def get_hospitals(search: Optional[str] = None, db: Session = Depends(get_db)):
                             detail="Failed to fetch hospitals")
 
 
+# ── GET /hospitals/options ─────────────────────────────────
+@router.get("/options", response_model=dict)
+def get_hospital_options():
+    """Fetch configuration options for the hospital master form."""
+    from app.schemas.hospital import CurrencyEnum, StatusEnum, FinancialYearEnum, TimeZoneEnum
+    return {
+        "currencies": [c.value for c in CurrencyEnum],
+        "financialYears": [f.value for f in FinancialYearEnum],
+        "timeZones": [t.value for t in TimeZoneEnum],
+        "statuses": [s.value for s in StatusEnum]
+    }
+
+
 # ── GET /hospitals/{id} ────────────────────────────────────
 @router.get("/{hospital_id}", response_model=HospitalResponse)
 def get_hospital_by_id(hospital_id: int, db: Session = Depends(get_db)):
@@ -142,8 +155,8 @@ def create_hospital(payload: HospitalCreate, db: Session = Depends(get_db)):
             city=payload.city,
             postal_code=payload.postalCode,
             currency=payload.currency.value,
-            financial_year=payload.financialYear,
-            time_zone=payload.timeZone,
+            financial_year=payload.financialYear.value,
+            time_zone=payload.timeZone.value,
             status=payload.status.value,
             remarks=payload.remarks,
         )
@@ -188,8 +201,8 @@ def update_hospital(hospital_id: int, payload: HospitalUpdate, db: Session = Dep
             city=payload.city,
             postal_code=payload.postalCode,
             currency=payload.currency.value,
-            financial_year=payload.financialYear,
-            time_zone=payload.timeZone,
+            financial_year=payload.financialYear.value,
+            time_zone=payload.timeZone.value,
             status=payload.status.value,
             remarks=payload.remarks,
         )

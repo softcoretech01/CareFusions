@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle, 
-  Save, RefreshCw
+  Save, RefreshCw, CheckCircle2, XCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
@@ -25,15 +25,18 @@ const emptyData: Omit<MedicineCategoryRecord, 'id'> = {
   remarks: ''
 };
 
-const mockData: MedicineCategoryRecord[] = [
-  { id: 1, categoryCode: 'CAT-001', categoryName: 'Tablets', description: 'Oral solid dosage form', status: 'Active', remarks: '' },
-  { id: 2, categoryCode: 'CAT-002', categoryName: 'Capsules', description: 'Solid enclosing drug', status: 'Active', remarks: '' },
-  { id: 3, categoryCode: 'CAT-003', categoryName: 'Syrups', description: 'Liquid oral medication', status: 'Active', remarks: '' },
-  { id: 4, categoryCode: 'CAT-004', categoryName: 'Injections', description: 'Injectable solutions', status: 'Active', remarks: '' },
-  { id: 5, categoryCode: 'CAT-005', categoryName: 'Ointments', description: 'Topical skin application', status: 'Active', remarks: '' },
-  { id: 6, categoryCode: 'CAT-006', categoryName: 'Drops', description: 'Eye, ear, or nasal drops', status: 'Active', remarks: '' },
-  { id: 7, categoryCode: 'CAT-007', categoryName: 'Vaccines', description: 'Immunizations', status: 'Active', remarks: '' }
-];
+const mockData: MedicineCategoryRecord[] = [];
+
+const API_BASE = import.meta.env.VITE_API_URL as string;
+
+const mapApiToRecord = (item: any): MedicineCategoryRecord => ({
+  id:           item.id,
+  categoryCode: item.categoryCode,
+  categoryName: item.categoryName,
+  description:  item.description || '',
+  status:       item.status,
+  remarks:      item.remarks || ''
+});
 
 export const MedicineCategoryMaster = () => {
   const [records, setRecords] = useState<MedicineCategoryRecord[]>(mockData);
@@ -49,6 +52,30 @@ export const MedicineCategoryMaster = () => {
   const [selectedRecord, setSelectedRecord] = useState<MedicineCategoryRecord | null>(null);
   const [formData, setFormData] = useState<Omit<MedicineCategoryRecord, 'id'>>(emptyData);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSuccessOpen, setIsSuccessOpen] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [isErrorOpen, setIsErrorOpen] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const fetchCategories = async () => {
+    try {
+      setIsLoading(true);
+      const res = await fetch(`${API_BASE}/medicine-categories/`);
+      if (!res.ok) throw new Error('Failed to fetch medicine categories');
+      const data = await res.json();
+      setRecords(data.map(mapApiToRecord));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCategories();
+  }, []);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -69,7 +96,10 @@ export const MedicineCategoryMaster = () => {
 
   const handleCreateNew = () => {
     setSelectedRecord(null);
-    setFormData(emptyData);
+    // Auto-generate next CAT-XXX code
+    const nextNum = records.length + 1;
+    const nextCode = `CAT-${String(nextNum).padStart(3, '0')}`;
+    setFormData({ ...emptyData, categoryCode: nextCode });
     setErrors({});
     setIsFormOpen(true);
   };
@@ -86,23 +116,59 @@ export const MedicineCategoryMaster = () => {
     setIsDeleteOpen(true);
   };
 
-  const handleSaveForm = () => {
+  const handleSaveForm = async () => {
     if (!validateForm()) return;
+    setIsSaving(true);
+    try {
+      const payload = {
+        categoryCode: formData.categoryCode,
+        categoryName: formData.categoryName,
+        description:  formData.description || null,
+        status:       formData.status,
+        remarks:      formData.remarks || null,
+        ...(selectedRecord ? { modifiedBy: 'Dr. John Doe' } : { createdBy: 'Dr. John Doe' }),
+      };
 
-    if (selectedRecord) {
-      setRecords(records.map(r => r.id === selectedRecord.id ? { ...r, ...formData } : r));
-    } else {
-      const newId = Math.max(...records.map(r => r.id), 0) + 1;
-      setRecords([...records, { id: newId, ...formData }]);
+      const url = selectedRecord
+        ? `${API_BASE}/medicine-categories/${selectedRecord.id}`
+        : `${API_BASE}/medicine-categories/`;
+      const method = selectedRecord ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || 'Failed to save medicine category');
+      }
+
+      await fetchCategories();
+      setIsFormOpen(false);
+      setSuccessMessage('This record has been updated successfully.');
+      setIsSuccessOpen(true);
+    } catch (err: any) {
+      setErrorMessage(err.message);
+      setIsErrorOpen(true);
+    } finally {
+      setIsSaving(false);
     }
-    setIsFormOpen(false);
   };
 
-  const confirmDelete = () => {
-    if (selectedRecord) {
-      // Soft Delete
-      setRecords(records.filter(r => r.id !== selectedRecord.id));
+  const confirmDelete = async () => {
+    if (!selectedRecord) return;
+    try {
+      const res = await fetch(`${API_BASE}/medicine-categories/${selectedRecord.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete medicine category');
+      await fetchCategories();
       setIsDeleteOpen(false);
+      setSuccessMessage('This record has been deleted successfully.');
+      setIsSuccessOpen(true);
+    } catch (err: any) {
+      setErrorMessage(err.message);
+      setIsErrorOpen(true);
     }
   };
 
@@ -260,7 +326,7 @@ export const MedicineCategoryMaster = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Category Code <span className="text-red-500">*</span></label>
-                    <input type="text" value={formData.categoryCode} onChange={e => setFormData({...formData, categoryCode: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-transparent transition-all ${errors.categoryCode ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
+                    <input type="text" value={formData.categoryCode} readOnly className="w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed" />
                     {errors.categoryCode && <p className="text-red-500 text-xs mt-1">{errors.categoryCode}</p>}
                   </div>
                   <div>
@@ -317,20 +383,68 @@ export const MedicineCategoryMaster = () => {
         title="Confirm Deletion"
         maxWidth="sm"
       >
-        <div className="p-1">
-          <div className="flex items-center gap-4 mb-6 text-amber-600 bg-amber-50 p-4 rounded-xl">
-            <AlertTriangle className="w-8 h-8 shrink-0" />
-            <p className="text-sm font-medium">
-              Are you sure you want to delete Category <strong>{selectedRecord?.categoryName}</strong>? 
-              This action cannot be undone.
-            </p>
+        <div className="flex flex-col items-center text-center py-4">
+          <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mb-4">
+            <AlertTriangle className="w-6 h-6" />
           </div>
-          <div className="flex justify-end gap-3">
-            <Button variant="outline" color="secondary" onClick={() => setIsDeleteOpen(false)}>
+          <h3 className="text-lg font-bold text-slate-800 mb-2">Delete Record</h3>
+          <p className="text-slate-500 text-sm mb-6">
+            Are you sure you want to delete Category <span className="font-semibold text-slate-700">{selectedRecord?.categoryName}</span>?
+          </p>
+          <div className="flex items-center gap-3 w-full">
+            <Button variant="outline" color="secondary" className="flex-1" onClick={() => setIsDeleteOpen(false)}>
               Cancel
             </Button>
-            <Button variant="filled" color="danger" onClick={confirmDelete}>
-              Confirm Delete
+            <Button variant="filled" color="danger" className="flex-1" onClick={confirmDelete}>
+              Delete
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Success Modal */}
+      <Modal
+        isOpen={isSuccessOpen}
+        onClose={() => setIsSuccessOpen(false)}
+        title="Success"
+        maxWidth="sm"
+      >
+        <div className="flex flex-col items-center text-center py-4">
+          <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mb-4">
+            <CheckCircle2 className="w-6 h-6" />
+          </div>
+          <h3 className="text-lg font-bold text-slate-800 mb-2">Success</h3>
+          <p className="text-slate-500 text-sm mb-6">
+            {successMessage}
+          </p>
+          
+          <div className="flex items-center justify-center w-full">
+            <Button variant="filled" color="primary" className="w-full" onClick={() => setIsSuccessOpen(false)}>
+              OK
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Error Modal */}
+      <Modal
+        isOpen={isErrorOpen}
+        onClose={() => setIsErrorOpen(false)}
+        title="Error"
+        maxWidth="sm"
+      >
+        <div className="flex flex-col items-center text-center py-4">
+          <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mb-4">
+            <XCircle className="w-6 h-6" />
+          </div>
+          <h3 className="text-lg font-bold text-slate-800 mb-2">Error</h3>
+          <p className="text-slate-500 text-sm mb-6">
+            {errorMessage}
+          </p>
+          
+          <div className="flex items-center justify-center w-full">
+            <Button variant="filled" color="primary" className="w-full" onClick={() => setIsErrorOpen(false)}>
+              OK
             </Button>
           </div>
         </div>
