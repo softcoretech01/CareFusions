@@ -1,11 +1,14 @@
-import { useState } from 'react';
-import { 
+import { useState, useEffect } from 'react';
+import {
   Search, Filter, Download, FileText, Eye, ShieldAlert,
-  Clock, User, Laptop, Info, CheckCircle2, XCircle
+  Clock, User, Laptop, Info, CheckCircle2, XCircle, RefreshCw, AlertTriangle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
+import { exportToExcel } from '../../../utils/exportToExcel';
+
+const API_BASE = import.meta.env.VITE_API_URL as string;
 
 interface AuditLogRecord {
   id: number;
@@ -32,84 +35,41 @@ interface AuditLogRecord {
   failureReason: string;
 }
 
-const mockData: AuditLogRecord[] = [
-  {
-    id: 1,
-    auditId: 'ADT-20231024-001',
-    timestamp: '2023-10-24 09:15:22',
-    userName: 'johndoe',
-    employeeName: 'John Doe',
-    role: 'System Administrator',
-    department: 'IT',
-    module: 'Security',
-    screenName: 'Login Screen',
-    action: 'Login',
-    recordId: 'USR-042',
-    transactionNumber: '-',
-    ipAddress: '192.168.1.45',
-    device: 'Desktop',
-    browser: 'Chrome 118.0',
-    operatingSystem: 'Windows 11',
-    sessionId: 'sess_9f8e7d6c5b',
-    oldValues: '-',
-    newValues: '-',
-    changeSummary: 'User logged into the system successfully.',
-    status: 'Success',
-    failureReason: ''
-  },
-  {
-    id: 2,
-    auditId: 'ADT-20231024-002',
-    timestamp: '2023-10-24 10:05:11',
-    userName: 'drsmith',
-    employeeName: 'Dr. Sarah Smith',
-    role: 'Doctor',
-    department: 'Cardiology',
-    module: 'Appointment',
-    screenName: 'Appointment Booking',
-    action: 'Create',
-    recordId: 'APT-9092',
-    transactionNumber: 'TXN-4492',
-    ipAddress: '10.0.4.11',
-    device: 'Mobile',
-    browser: 'Safari 16.5',
-    operatingSystem: 'iOS 16.5',
-    sessionId: 'sess_1a2b3c4d5e',
-    oldValues: 'None',
-    newValues: '{"patientId": "PAT-1002", "date": "2023-10-25"}',
-    changeSummary: 'New appointment created for patient PAT-1002.',
-    status: 'Success',
-    failureReason: ''
-  },
-  {
-    id: 3,
-    auditId: 'ADT-20231024-003',
-    timestamp: '2023-10-24 11:30:45',
-    userName: 'nurse_j',
-    employeeName: 'Jane Williams',
-    role: 'Nurse',
-    department: 'Emergency',
-    module: 'Pharmacy',
-    screenName: 'Medicine Issue',
-    action: 'Delete',
-    recordId: 'ISS-404',
-    transactionNumber: '-',
-    ipAddress: '192.168.2.12',
-    device: 'Tablet',
-    browser: 'Edge 117.0',
-    operatingSystem: 'Windows 10',
-    sessionId: 'sess_5e4d3c2b1a',
-    oldValues: '{"status": "Pending"}',
-    newValues: 'Deleted',
-    changeSummary: 'Attempted to delete a medicine issue record.',
-    status: 'Failed',
-    failureReason: 'Insufficient permissions to delete records in Pharmacy module.'
-  }
-];
+const s = (v: unknown): string => (v == null ? '' : String(v));
+
+const mapApiToRecord = (item: Record<string, unknown>): AuditLogRecord => ({
+  id:                item.id as number,
+  auditId:           s(item.auditId),
+  timestamp:         item.timestamp ? String(item.timestamp).replace('T', ' ').slice(0, 19) : '',
+  userName:          s(item.userName),
+  employeeName:      s(item.employeeName),
+  role:              s(item.role),
+  department:        s(item.department),
+  module:            s(item.module),
+  screenName:        s(item.screenName),
+  action:            s(item.action),
+  recordId:          s(item.recordId),
+  transactionNumber: s(item.transactionNumber),
+  ipAddress:         s(item.ipAddress),
+  device:            s(item.device),
+  browser:           s(item.browser),
+  operatingSystem:   s(item.operatingSystem),
+  sessionId:         s(item.sessionId),
+  oldValues:         s(item.oldValues),
+  newValues:         s(item.newValues),
+  changeSummary:     s(item.changeSummary),
+  status:            s(item.status),
+  failureReason:     s(item.failureReason),
+});
+
+const PAGE_CAP = 500; // matches the backend MAX_LIMIT
 
 export const AuditLogMaster = () => {
-  const [records] = useState<AuditLogRecord[]>(mockData); // Read-only state
-  
+  const [records, setRecords] = useState<AuditLogRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [capHit, setCapHit] = useState(false);
+
   // Search & Filter States
   const [showFilters, setShowFilters] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -120,15 +80,6 @@ export const AuditLogMaster = () => {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
 
-  // Applied Filter States
-  const [appliedSearchTerm, setAppliedSearchTerm] = useState('');
-  const [appliedFilterModule, setAppliedFilterModule] = useState('');
-  const [appliedFilterAction, setAppliedFilterAction] = useState('');
-  const [appliedFilterStatus, setAppliedFilterStatus] = useState('');
-  const [appliedFilterRole, setAppliedFilterRole] = useState('');
-  const [appliedFromDate, setAppliedFromDate] = useState('');
-  const [appliedToDate, setAppliedToDate] = useState('');
-
   // Modal State
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<AuditLogRecord | null>(null);
@@ -138,56 +89,56 @@ export const AuditLogMaster = () => {
     setIsViewOpen(true);
   };
 
-  const filteredRecords = records.filter(record => {
-    const matchesSearch = 
-      record.auditId.toLowerCase().includes(appliedSearchTerm.toLowerCase()) ||
-      record.userName.toLowerCase().includes(appliedSearchTerm.toLowerCase()) ||
-      record.ipAddress.includes(appliedSearchTerm) ||
-      record.recordId.toLowerCase().includes(appliedSearchTerm.toLowerCase());
-    
-    const matchesModule = !appliedFilterModule || record.module === appliedFilterModule;
-    const matchesAction = !appliedFilterAction || record.action === appliedFilterAction;
-    const matchesStatus = !appliedFilterStatus || record.status === appliedFilterStatus;
-    const matchesRole = !appliedFilterRole || record.role === appliedFilterRole;
+  // ── Fetch logs (server-side search + filters) ────────────────
+  const fetchLogs = async (f?: {
+    search?: string; module?: string; action?: string; status?: string;
+    role?: string; from?: string; to?: string;
+  }) => {
+    setIsLoading(true);
+    setApiError(null);
+    try {
+      const p = new URLSearchParams();
+      if (f?.search) p.set('search', f.search);
+      if (f?.module) p.set('module_filter', f.module);
+      if (f?.action) p.set('action_filter', f.action);
+      if (f?.status) p.set('status_filter', f.status);
+      if (f?.role) p.set('role_filter', f.role);
+      if (f?.from) p.set('from_date', f.from);
+      if (f?.to) p.set('to_date', f.to);
+      const res = await fetch(`${API_BASE}/audit-logs/?${p.toString()}`);
+      if (!res.ok) throw new Error(`Server error: ${res.status}`);
+      const data: Record<string, unknown>[] = await res.json();
+      setRecords(data.map(mapApiToRecord));
+      setCapHit(data.length >= PAGE_CAP);
+    } catch (err: unknown) {
+      setApiError(err instanceof Error ? err.message : 'Failed to load audit logs');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-    // Date logic (simplified for mockup, just string compare)
-    const matchesDate = (!appliedFromDate || record.timestamp >= appliedFromDate) && 
-                        (!appliedToDate || record.timestamp <= appliedToDate + ' 23:59:59');
-
-    return matchesSearch && matchesModule && matchesAction && matchesStatus && matchesRole && matchesDate;
-  });
+  useEffect(() => { fetchLogs(); }, []);
 
   const handleSearch = () => {
-    setAppliedSearchTerm(searchTerm);
-    setAppliedFilterModule(filterModule);
-    setAppliedFilterAction(filterAction);
-    setAppliedFilterStatus(filterStatus);
-    setAppliedFilterRole(filterRole);
-    setAppliedFromDate(fromDate);
-    setAppliedToDate(toDate);
+    fetchLogs({
+      search: searchTerm, module: filterModule, action: filterAction,
+      status: filterStatus, role: filterRole, from: fromDate, to: toDate,
+    });
   };
 
   const handleReset = () => {
-    setSearchTerm('');
-    setFilterModule('');
-    setFilterAction('');
-    setFilterStatus('');
-    setFilterRole('');
-    setFromDate('');
-    setToDate('');
-
-    setAppliedSearchTerm('');
-    setAppliedFilterModule('');
-    setAppliedFilterAction('');
-    setAppliedFilterStatus('');
-    setAppliedFilterRole('');
-    setAppliedFromDate('');
-    setAppliedToDate('');
+    setSearchTerm(''); setFilterModule(''); setFilterAction('');
+    setFilterStatus(''); setFilterRole(''); setFromDate(''); setToDate('');
+    fetchLogs();
   };
 
-  const uniqueModules = Array.from(new Set(records.map(r => r.module)));
-  const uniqueActions = Array.from(new Set(records.map(r => r.action)));
-  const uniqueRoles = Array.from(new Set(records.map(r => r.role)));
+  const handleExportPdf = () => window.print();
+
+  const filteredRecords = records; // server already applied search + filters
+
+  const uniqueModules = Array.from(new Set(records.map(r => r.module).filter(Boolean)));
+  const uniqueActions = Array.from(new Set(records.map(r => r.action).filter(Boolean)));
+  const uniqueRoles = Array.from(new Set(records.map(r => r.role).filter(Boolean)));
 
   return (
     <motion.div 
@@ -195,15 +146,25 @@ export const AuditLogMaster = () => {
       animate={{ opacity: 1, y: 0 }}
       className="h-full flex flex-col relative"
     >
+      {apiError && (
+        <div className="mb-4 flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          <span className="flex-1">{apiError}</span>
+          <button onClick={() => setApiError(null)} className="text-red-500 hover:text-red-700 font-medium">Dismiss</button>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-slate-800">Audit Log Master</h1>
+          <p className="text-slate-500 text-sm mt-1">Read-only, tamper-evident trail — entries cannot be edited or deleted.</p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline" icon={FileText} className="text-blue-600 border-blue-200 hover:bg-blue-50">
+          <Button variant="outline" icon={RefreshCw} onClick={() => fetchLogs()}>Refresh</Button>
+          <Button variant="outline" icon={FileText} onClick={handleExportPdf} className="text-blue-600 border-blue-200 hover:bg-blue-50">
             Export PDF
           </Button>
-          <Button variant="outline" icon={Download} className="text-emerald-600 border-emerald-200 hover:bg-emerald-50">
+          <Button variant="outline" icon={Download} onClick={() => exportToExcel(records, 'AuditLogMaster')} className="text-emerald-600 border-emerald-200 hover:bg-emerald-50">
             Export Excel
           </Button>
         </div>
@@ -307,7 +268,9 @@ export const AuditLogMaster = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredRecords.length > 0 ? (
+              {isLoading ? (
+                <tr><td colSpan={10} className="px-4 py-8 text-center text-slate-500">Loading audit logs…</td></tr>
+              ) : filteredRecords.length > 0 ? (
                 filteredRecords.map((record) => (
                   <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-4 py-3 font-mono text-xs text-slate-500">{record.auditId}</td>
@@ -361,6 +324,12 @@ export const AuditLogMaster = () => {
             </tbody>
           </table>
         </div>
+        {capHit && (
+          <div className="px-4 py-2 border-t border-amber-100 bg-amber-50 text-amber-700 text-xs flex items-center gap-2">
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+            Showing the most recent {PAGE_CAP} entries. Narrow the date range or filters to see older records.
+          </div>
+        )}
       </div>
 
       {/* View Details Modal */}
@@ -371,7 +340,7 @@ export const AuditLogMaster = () => {
         maxWidth="4xl"
       >
         {selectedRecord && (
-          <div className="p-2 space-y-6 max-h-[70vh] overflow-y-auto">
+          <div className="p-2 space-y-6">
             
             {/* Header / Status Banner */}
             <div className={`p-4 rounded-xl border flex items-center justify-between ${
@@ -446,7 +415,7 @@ export const AuditLogMaster = () => {
                   </div>
                   <div className="sm:col-span-2">
                     <dt className="text-slate-500 text-xs">Transaction Number</dt>
-                    <dd className="font-mono text-slate-800">{selectedRecord.transactionNumber}</dd>
+                    <dd className="font-mono text-slate-800">{selectedRecord.transactionNumber || '—'}</dd>
                   </div>
                 </dl>
               </div>
@@ -503,7 +472,7 @@ export const AuditLogMaster = () => {
                         Old Values
                       </h5>
                       <pre className="text-xs font-mono text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-100 overflow-x-auto whitespace-pre-wrap min-h-[80px]">
-                        {selectedRecord.oldValues}
+                        {selectedRecord.oldValues || '—'}
                       </pre>
                     </div>
                     <div>
@@ -512,7 +481,7 @@ export const AuditLogMaster = () => {
                         New Values
                       </h5>
                       <pre className="text-xs font-mono text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-100 overflow-x-auto whitespace-pre-wrap min-h-[80px]">
-                        {selectedRecord.newValues}
+                        {selectedRecord.newValues || '—'}
                       </pre>
                     </div>
                   </div>
@@ -523,7 +492,7 @@ export const AuditLogMaster = () => {
           </div>
         )}
         
-        <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex justify-end shrink-0 mt-4">
+        <div className="sticky bottom-0 -mx-6 -mb-6 mt-6 px-6 py-4 border-t border-slate-100 bg-white flex justify-end rounded-b-2xl">
           <Button variant="outline" color="secondary" onClick={() => setIsViewOpen(false)}>
             Close Details
           </Button>

@@ -1,12 +1,14 @@
-import { useState, useMemo } from 'react';
-import { 
-  Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle, 
+import { useState, useMemo, useEffect } from 'react';
+import {
+  Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle,
   Save, RefreshCw, ChevronLeft, ChevronRight, Eye, Power
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
 import { exportToExcel } from '../../../utils/exportToExcel';
+
+const API_BASE = import.meta.env.VITE_API_URL as string;
 
 export interface SubCategoryRecord {
   id: number;
@@ -21,30 +23,34 @@ export interface SubCategoryRecord {
   updatedDate?: string;
 }
 
-const emptyData: Omit<SubCategoryRecord, 'id'> = { subCategoryCode: '', category: 'Medicines', subCategoryName: '', description: '', status: 'Active' };
+type SubCategoryForm = { category: string; subCategoryName: string; description: string; status: string };
 
-export const mockData: SubCategoryRecord[] = [{"id":1,"subCategoryCode":"SUB-001","category":"Medicines","subCategoryName":"Antibiotics","description":"Anti-bacterial drugs","status":"Active","createdBy":"System","createdDate":"2024-01-01"},
-{"id":2,"subCategoryCode":"SUB-002","category":"Medicines","subCategoryName":"Analgesics","description":"Pain killers","status":"Active","createdBy":"System","createdDate":"2024-01-01"},
-{"id":3,"subCategoryCode":"SUB-003","category":"Medicines","subCategoryName":"Antipyretics","description":"Fever reducers","status":"Active","createdBy":"System","createdDate":"2024-01-01"},
-{"id":4,"subCategoryCode":"SUB-004","category":"Medicines","subCategoryName":"IV Fluids","description":"Intravenous fluids","status":"Active","createdBy":"System","createdDate":"2024-01-01"},
-{"id":5,"subCategoryCode":"SUB-005","category":"Medicines","subCategoryName":"Vaccines","description":"Immunization","status":"Active","createdBy":"System","createdDate":"2024-01-01"},
-{"id":6,"subCategoryCode":"SUB-006","category":"Medical Consumables","subCategoryName":"Syringes","description":"Disposable syringes","status":"Active","createdBy":"System","createdDate":"2024-01-01"},
-{"id":7,"subCategoryCode":"SUB-007","category":"Medical Consumables","subCategoryName":"IV Cannulas","description":"IV access","status":"Active","createdBy":"System","createdDate":"2024-01-01"},
-{"id":8,"subCategoryCode":"SUB-008","category":"Medical Consumables","subCategoryName":"Gloves","description":"Exam and surgical gloves","status":"Active","createdBy":"System","createdDate":"2024-01-01"},
-{"id":9,"subCategoryCode":"SUB-009","category":"Medical Consumables","subCategoryName":"Face Masks","description":"N95 and surgical masks","status":"Active","createdBy":"System","createdDate":"2024-01-01"},
-{"id":10,"subCategoryCode":"SUB-010","category":"Medical Consumables","subCategoryName":"Cotton & Gauze","description":"Dressing materials","status":"Active","createdBy":"System","createdDate":"2024-01-01"},
-{"id":11,"subCategoryCode":"SUB-011","category":"Laboratory Supplies","subCategoryName":"Reagents","description":"Chemical reagents","status":"Active","createdBy":"System","createdDate":"2024-01-01"},
-{"id":12,"subCategoryCode":"SUB-012","category":"Laboratory Supplies","subCategoryName":"Test Kits","description":"Rapid test kits","status":"Active","createdBy":"System","createdDate":"2024-01-01"},
-{"id":13,"subCategoryCode":"SUB-013","category":"Laboratory Supplies","subCategoryName":"Blood Collection Tubes","description":"Vacutainers","status":"Active","createdBy":"System","createdDate":"2024-01-01"},
-{"id":14,"subCategoryCode":"SUB-014","category":"Medical Equipment","subCategoryName":"Patient Monitors","description":"Vitals monitoring","status":"Active","createdBy":"System","createdDate":"2024-01-01"},
-{"id":15,"subCategoryCode":"SUB-015","category":"Medical Equipment","subCategoryName":"ECG Machines","description":"Cardiology equipment","status":"Active","createdBy":"System","createdDate":"2024-01-01"},
-{"id":16,"subCategoryCode":"SUB-016","category":"Medical Equipment","subCategoryName":"Ventilators","description":"Respiratory support","status":"Active","createdBy":"System","createdDate":"2024-01-01"},
-{"id":17,"subCategoryCode":"SUB-017","category":"Medical Equipment","subCategoryName":"Defibrillators","description":"Emergency resuscitation","status":"Active","createdBy":"System","createdDate":"2024-01-01"}];
+const emptyData: SubCategoryForm = { category: '', subCategoryName: '', description: '', status: 'Active' };
+
+const LIMITS = { subCategoryName: 100, description: 500 };
+
+const mapApiToRecord = (item: Record<string, unknown>): SubCategoryRecord => ({
+  id:              item.id              as number,
+  subCategoryCode: item.subCategoryCode as string,
+  category:        item.category        as string,
+  subCategoryName: item.subCategoryName as string,
+  description:     (item.description    as string) ?? '',
+  status:          item.status          as string,
+  createdBy:       (item.createdBy      as string) ?? undefined,
+  createdDate:     item.createdDate ? String(item.createdDate).split('T')[0] : undefined,
+  updatedBy:       (item.updatedBy      as string) ?? undefined,
+  updatedDate:     item.updatedDate ? String(item.updatedDate).split('T')[0] : undefined,
+});
 
 export const SubCategoryMaster = () => {
-  const [records, setRecords] = useState<SubCategoryRecord[]>(mockData);
+  const [records, setRecords] = useState<SubCategoryRecord[]>([]);
+  const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  
+  const [isLoading, setIsLoading] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [nextCode, setNextCode] = useState('');
+
   // Pagination & Sorting States
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -52,6 +58,7 @@ export const SubCategoryMaster = () => {
 
   // Filter States
   const [showFilters, setShowFilters] = useState(false);
+  const [filterCategory, setFilterCategory] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
 
   // Form States
@@ -59,34 +66,94 @@ export const SubCategoryMaster = () => {
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<SubCategoryRecord | null>(null);
-  const [formData, setFormData] = useState<Omit<SubCategoryRecord, 'id'>>(emptyData);
+  const [formData, setFormData] = useState<SubCategoryForm>(emptyData);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // ── Fetch sub-categories ─────────────────────────────────────
+  const fetchSubCategories = async () => {
+    setIsLoading(true);
+    setApiError(null);
+    try {
+      const res = await fetch(`${API_BASE}/sub-categories/`);
+      if (!res.ok) throw new Error(`Server error: ${res.status}`);
+      const data: Record<string, unknown>[] = await res.json();
+      setRecords(data.map(mapApiToRecord));
+    } catch (err: unknown) {
+      setApiError(err instanceof Error ? err.message : 'Failed to load sub-categories');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Parent categories come from the live Category Master (active only)
+  const fetchCategoryOptions = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/categories/?status_filter=Active`);
+      if (res.ok) {
+        const data: Record<string, unknown>[] = await res.json();
+        setCategoryOptions(data.map(c => c.categoryName as string));
+      }
+    } catch {
+      setCategoryOptions([]);
+    }
+  };
+
+  useEffect(() => { fetchSubCategories(); fetchCategoryOptions(); }, []);
+
+  const fetchNextCode = async () => {
+    setNextCode('');
+    try {
+      const res = await fetch(`${API_BASE}/sub-categories/next-code`);
+      if (res.ok) {
+        const data = await res.json();
+        setNextCode(data.subCategoryCode ?? '');
+      }
+    } catch {
+      setNextCode('');
+    }
+  };
+
   const validateForm = () => {
-    if (!formData.subCategoryCode.trim()) return false;
-    if (!formData.subCategoryName.trim()) return false;
-    return true;
+    const newErrors: Record<string, string> = {};
+    if (!formData.category.trim()) newErrors.category = 'Category is required';
+    if (!formData.subCategoryName.trim()) newErrors.subCategoryName = 'Sub Category Name is required';
+    if (records.some(r => r.category === formData.category && r.subCategoryName.toLowerCase() === formData.subCategoryName.trim().toLowerCase() && r.id !== selectedRecord?.id))
+      newErrors.subCategoryName = 'This sub-category already exists under the selected category';
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleCreateNew = () => {
     setSelectedRecord(null);
-    setFormData(emptyData); // Could add auto-generate logic here
+    setFormData(emptyData);
+    setErrors({});
     setIsFormOpen(true);
+    fetchNextCode();
+    fetchCategoryOptions();
   };
 
   const handleEdit = (record: SubCategoryRecord) => {
     setSelectedRecord(record);
-    setFormData(record);
+    setFormData({ category: record.category, subCategoryName: record.subCategoryName, description: record.description, status: record.status });
+    setErrors({});
     setIsFormOpen(true);
+    fetchCategoryOptions();
   };
-  
+
   const handleView = (record: SubCategoryRecord) => {
     setSelectedRecord(record);
     setIsViewOpen(true);
   };
-  
-  const handleToggleStatus = (record: SubCategoryRecord) => {
-    setRecords(records.map(r => 
-      r.id === record.id ? { ...r, status: r.status === 'Active' ? 'Inactive' : 'Active', updatedBy: 'Admin', updatedDate: new Date().toISOString().split('T')[0] } : r
-    ));
+
+  const handleToggleStatus = async (record: SubCategoryRecord) => {
+    setApiError(null);
+    try {
+      const res = await fetch(`${API_BASE}/sub-categories/${record.id}/toggle-status`, { method: 'PATCH' });
+      if (!res.ok) throw new Error(`Toggle failed: ${res.status}`);
+      await fetchSubCategories();
+    } catch (err: unknown) {
+      setApiError(err instanceof Error ? err.message : 'Toggle failed');
+    }
   };
 
   const handleDelete = (record: SubCategoryRecord) => {
@@ -94,26 +161,63 @@ export const SubCategoryMaster = () => {
     setIsDeleteOpen(true);
   };
 
-  const confirmDelete = () => {
-    if (selectedRecord) {
-      setRecords(records.filter(r => r.id !== selectedRecord.id));
+  const confirmDelete = async () => {
+    if (!selectedRecord) return;
+    setApiError(null);
+    try {
+      const res = await fetch(`${API_BASE}/sub-categories/${selectedRecord.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
+      await fetchSubCategories();
       setIsDeleteOpen(false);
       setSelectedRecord(null);
+    } catch (err: unknown) {
+      setApiError(err instanceof Error ? err.message : 'Delete failed');
+      setIsDeleteOpen(false);
     }
   };
 
-  const handleSave = () => {
-    if (validateForm()) {
+  const handleSave = async () => {
+    if (!validateForm()) return;
+    setIsSaving(true);
+    setApiError(null);
+    try {
+      const body = {
+        category:        formData.category,
+        subCategoryName: formData.subCategoryName.trim(),
+        description:     formData.description || null,
+        status:          formData.status,
+      };
+
+      let res: Response;
       if (selectedRecord) {
-        setRecords(records.map(r => r.id === selectedRecord.id ? { ...formData, id: r.id, updatedBy: 'Admin', updatedDate: new Date().toISOString().split('T')[0] } : r));
+        res = await fetch(`${API_BASE}/sub-categories/${selectedRecord.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...body, updatedBy: 'Admin' }),
+        });
       } else {
-        const newId = records.length > 0 ? Math.max(...records.map(r => r.id)) + 1 : 1;
-        setRecords([{ ...formData, id: newId, createdBy: 'Admin', createdDate: new Date().toISOString().split('T')[0] }, ...records]);
+        res = await fetch(`${API_BASE}/sub-categories/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...body, createdBy: 'Admin' }),
+        });
       }
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        const detail = data && typeof data.detail === 'string' ? data.detail : `Save failed: ${res.status}`;
+        throw new Error(detail);
+      }
+
+      await fetchSubCategories();
       setIsFormOpen(false);
+      setSelectedRecord(null);
+    } catch (err: unknown) {
+      setApiError(err instanceof Error ? err.message : 'Save failed');
+    } finally {
+      setIsSaving(false);
     }
   };
-  
+
   const handleSort = (key: keyof SubCategoryRecord) => {
     let direction: 'asc' | 'desc' = 'asc';
     if (sortConfig.key === key && sortConfig.direction === 'asc') {
@@ -122,21 +226,28 @@ export const SubCategoryMaster = () => {
     setSortConfig({ key, direction });
   };
 
+  // Category options for filter/form (union of live categories + any used in records)
+  const allCategories = useMemo(
+    () => Array.from(new Set([...categoryOptions, ...records.map(r => r.category)])).sort(),
+    [categoryOptions, records]
+  );
+
   // Process data (Filter -> Sort -> Paginate)
   const processedData = useMemo(() => {
-    let result = records.filter(record => {
-      const matchesSearch = Object.values(record).some(val => 
+    const result = records.filter(record => {
+      const matchesSearch = Object.values(record).some(val =>
         String(val).toLowerCase().includes(searchTerm.toLowerCase())
       );
+      const matchesCategory = filterCategory ? record.category === filterCategory : true;
       const matchesStatus = filterStatus ? record.status === filterStatus : true;
-      return matchesSearch && matchesStatus;
+      return matchesSearch && matchesCategory && matchesStatus;
     });
 
     if (sortConfig.key) {
       const sortKey = sortConfig.key;
       result.sort((a, b) => {
-        const left = a?.[sortKey] as any;
-        const right = b?.[sortKey] as any;
+        const left = a?.[sortKey] as string | number | undefined;
+        const right = b?.[sortKey] as string | number | undefined;
         if (left === undefined || right === undefined) return 0;
         if (left < right) return sortConfig.direction === 'asc' ? -1 : 1;
         if (left > right) return sortConfig.direction === 'asc' ? 1 : -1;
@@ -145,17 +256,25 @@ export const SubCategoryMaster = () => {
     }
 
     return result;
-  }, [records, searchTerm, filterStatus, sortConfig]);
+  }, [records, searchTerm, filterCategory, filterStatus, sortConfig]);
 
   const totalPages = Math.ceil(processedData.length / itemsPerPage);
   const paginatedData = processedData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       className="h-full flex flex-col"
     >
+      {apiError && (
+        <div className="mb-4 flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          <span className="flex-1">{apiError}</span>
+          <button onClick={() => setApiError(null)} className="text-red-500 hover:text-red-700 font-medium">Dismiss</button>
+        </div>
+      )}
+
       {/* Header & Breadcrumbs */}
       <div className="mb-6">
         <div className="flex items-center text-sm text-slate-500 mb-2">
@@ -168,7 +287,7 @@ export const SubCategoryMaster = () => {
             <h1 className="text-3xl font-bold text-slate-800">Sub Category Master</h1>
             <p className="text-slate-500 mt-1">Manage Sub Categories</p>
           </div>
-          
+
           <div className="flex items-center gap-3">
             <Button variant="outline" icon={Download} onClick={() => exportToExcel(records, 'SubCategoryMaster')}>Export</Button>
             <Button variant="filled" color="primary" icon={Plus} onClick={handleCreateNew}>
@@ -184,30 +303,30 @@ export const SubCategoryMaster = () => {
           <div className="flex items-center gap-3">
             <div className="relative w-72">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input 
-                type="text" 
+              <input
+                type="text"
                 placeholder="Search..."
                 value={searchTerm}
                 onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
                 className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
               />
             </div>
-            
-            <button 
+
+            <button
               onClick={() => setShowFilters(!showFilters)}
-              className={`p-2 border rounded-lg transition-colors \${showFilters ? 'border-primary bg-primary/5 text-primary' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+              className={`p-2 border rounded-lg transition-colors ${showFilters ? 'border-primary bg-primary/5 text-primary' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
               title="Advanced Filters"
             >
               <Filter className="w-4 h-4" />
             </button>
-            <button className="p-2 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 transition-colors" title="Refresh">
+            <button onClick={() => { fetchSubCategories(); fetchCategoryOptions(); }} className="p-2 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 transition-colors" title="Refresh">
               <RefreshCw className="w-4 h-4" />
             </button>
           </div>
-          
+
           <div className="flex items-center gap-2 text-sm text-slate-500">
             <span>Show</span>
-            <select 
+            <select
               value={itemsPerPage}
               onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
               className="border border-slate-200 rounded-lg px-2 py-1 outline-none"
@@ -222,14 +341,22 @@ export const SubCategoryMaster = () => {
 
         <AnimatePresence>
           {showFilters && (
-            <motion.div 
+            <motion.div
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
               className="border-b border-slate-100 bg-slate-50 overflow-hidden"
             >
               <div className="p-4 flex gap-4">
-                <select 
+                <select
+                  value={filterCategory}
+                  onChange={(e) => { setFilterCategory(e.target.value); setCurrentPage(1); }}
+                  className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                >
+                  <option value="">All Categories</option>
+                  {allCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                </select>
+                <select
                   value={filterStatus}
                   onChange={(e) => { setFilterStatus(e.target.value); setCurrentPage(1); }}
                   className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
@@ -238,7 +365,6 @@ export const SubCategoryMaster = () => {
                   <option value="Active">Active</option>
                   <option value="Inactive">Inactive</option>
                 </select>
-                {/* Additional advanced filters can go here */}
               </div>
             </motion.div>
           )}
@@ -248,23 +374,25 @@ export const SubCategoryMaster = () => {
           <table className="w-full">
             <thead className="bg-slate-50 sticky top-0 z-10 border-b border-slate-200">
               <tr>
-<th className="text-left py-3 px-4 font-medium text-slate-500 text-sm cursor-pointer" onClick={() => handleSort('subCategoryCode')}>Code</th>
-<th className="text-left py-3 px-4 font-medium text-slate-500 text-sm cursor-pointer" onClick={() => handleSort('category')}>Category</th>
-<th className="text-left py-3 px-4 font-medium text-slate-500 text-sm cursor-pointer" onClick={() => handleSort('subCategoryName')}>Sub Category</th>
-<th className="text-left py-3 px-4 font-medium text-slate-500 text-sm">Status</th>
-<th className="text-right py-3 px-4 font-medium text-slate-500 text-sm w-32">Actions</th>
+                <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm cursor-pointer" onClick={() => handleSort('subCategoryCode')}>Code</th>
+                <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm cursor-pointer" onClick={() => handleSort('category')}>Category</th>
+                <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm cursor-pointer" onClick={() => handleSort('subCategoryName')}>Sub Category</th>
+                <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm">Status</th>
+                <th className="text-right py-3 px-4 font-medium text-slate-500 text-sm w-32">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {paginatedData.length === 0 ? (
-                <tr><td colSpan={10} className="py-8 text-center text-slate-500">No records found</td></tr>
+              {isLoading ? (
+                <tr><td colSpan={5} className="py-8 text-center text-slate-500">Loading sub-categories...</td></tr>
+              ) : paginatedData.length === 0 ? (
+                <tr><td colSpan={5} className="py-8 text-center text-slate-500">No records found</td></tr>
               ) : paginatedData.map((record) => (
                 <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
-<td className="py-3 px-4 text-slate-800 font-medium">{record.subCategoryCode}</td>
-<td className="py-3 px-4 text-slate-800">{record.category}</td>
-<td className="py-3 px-4 text-slate-800">{record.subCategoryName}</td>
+                  <td className="py-3 px-4 text-slate-800 font-medium">{record.subCategoryCode}</td>
+                  <td className="py-3 px-4 text-slate-800">{record.category}</td>
+                  <td className="py-3 px-4 text-slate-800">{record.subCategoryName}</td>
                   <td className="py-3 px-4">
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium \${
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
                       record.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'
                     }`}>
                       {record.status}
@@ -278,7 +406,7 @@ export const SubCategoryMaster = () => {
                       <button onClick={() => handleEdit(record)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Edit">
                         <Edit2 className="w-4 h-4" />
                       </button>
-                      <button onClick={() => handleToggleStatus(record)} className={`p-1.5 rounded-lg transition-colors \${record.status === 'Active' ? 'text-slate-400 hover:text-orange-500 hover:bg-orange-50' : 'text-slate-400 hover:text-emerald-500 hover:bg-emerald-50'}`} title={record.status === 'Active' ? 'Deactivate' : 'Activate'}>
+                      <button onClick={() => handleToggleStatus(record)} className={`p-1.5 rounded-lg transition-colors ${record.status === 'Active' ? 'text-slate-400 hover:text-orange-500 hover:bg-orange-50' : 'text-slate-400 hover:text-emerald-500 hover:bg-emerald-50'}`} title={record.status === 'Active' ? 'Deactivate' : 'Activate'}>
                         <Power className="w-4 h-4" />
                       </button>
                       <button onClick={() => handleDelete(record)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
@@ -291,14 +419,14 @@ export const SubCategoryMaster = () => {
             </tbody>
           </table>
         </div>
-        
+
         {/* Pagination */}
         <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div className="text-sm text-slate-500">
-            Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, processedData.length)} of {processedData.length} entries
+            Showing {processedData.length === 0 ? 0 : ((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, processedData.length)} of {processedData.length} entries
           </div>
           <div className="flex items-center gap-2">
-            <button 
+            <button
               onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
               disabled={currentPage === 1}
               className="p-1 rounded border border-slate-200 text-slate-500 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white"
@@ -306,7 +434,7 @@ export const SubCategoryMaster = () => {
               <ChevronLeft className="w-4 h-4" />
             </button>
             <span className="text-sm text-slate-600 px-2">Page {currentPage} of {totalPages || 1}</span>
-            <button 
+            <button
               onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
               disabled={currentPage === totalPages || totalPages === 0}
               className="p-1 rounded border border-slate-200 text-slate-500 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white"
@@ -318,19 +446,39 @@ export const SubCategoryMaster = () => {
       </div>
 
       {/* Form Modal */}
-      <Modal 
-        isOpen={isFormOpen} 
+      <Modal
+        isOpen={isFormOpen}
         onClose={() => setIsFormOpen(false)}
-        title={`\${selectedRecord ? 'Edit' : 'Add'} Sub Category Master`}
+        title={`${selectedRecord ? 'Edit' : 'Add'} Sub Category Master`}
         size="3xl"
       >
         <div className="space-y-4 max-h-[70vh] overflow-y-auto px-1">
-<div><label className="block text-sm font-medium text-slate-700 mb-1">Code</label><input type="text" value={formData.subCategoryCode} onChange={(e) => setFormData({...formData, subCategoryCode: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary"/></div>
-<div><label className="block text-sm font-medium text-slate-700 mb-1">Category</label><select value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary"><option value="Medicines">Medicines</option><option value="Medical Consumables">Medical Consumables</option><option value="Laboratory Supplies">Laboratory Supplies</option><option value="Medical Equipment">Medical Equipment</option></select></div>
-<div><label className="block text-sm font-medium text-slate-700 mb-1">Name</label><input type="text" value={formData.subCategoryName} onChange={(e) => setFormData({...formData, subCategoryName: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary"/></div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Sub Category Code</label>
+            <input type="text" value={selectedRecord ? selectedRecord.subCategoryCode : (nextCode || 'Auto-generating…')} disabled readOnly className="w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed outline-none" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Category <span className="text-red-500">*</span></label>
+            <select value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value})} className={`w-full px-4 py-2 border rounded-xl text-sm outline-none focus:ring-2 transition-all ${errors.category ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'}`}>
+              <option value="">Select Category</option>
+              {allCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+            </select>
+            {errors.category && <p className="text-red-500 text-xs mt-1">{errors.category}</p>}
+            {allCategories.length === 0 && <p className="text-amber-600 text-xs mt-1">No categories found — add one in Category Master first.</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Name <span className="text-red-500">*</span></label>
+            <input type="text" maxLength={LIMITS.subCategoryName} value={formData.subCategoryName} onChange={(e) => setFormData({...formData, subCategoryName: e.target.value})} className={`w-full px-4 py-2 border rounded-xl text-sm outline-none focus:ring-2 transition-all ${errors.subCategoryName ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'}`} />
+            {errors.subCategoryName && <p className="text-red-500 text-xs mt-1">{errors.subCategoryName}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
+            <textarea value={formData.description} maxLength={LIMITS.description} onChange={(e) => setFormData({...formData, description: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" rows={2}/>
+            <p className="text-slate-400 text-xs mt-1 text-right">{formData.description.length}/{LIMITS.description}</p>
+          </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
-            <select 
+            <select
               value={formData.status}
               onChange={(e) => setFormData({ ...formData, status: e.target.value })}
               className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
@@ -350,7 +498,7 @@ export const SubCategoryMaster = () => {
 
         <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-slate-100">
           <Button variant="outline" onClick={() => setIsFormOpen(false)}>Cancel</Button>
-          <Button variant="filled" color="primary" onClick={handleSave} icon={Save}>{selectedRecord ? 'Update' : 'Save'}</Button>
+          <Button variant="filled" color="primary" onClick={handleSave} icon={Save} disabled={isSaving}>{isSaving ? 'Saving...' : (selectedRecord ? 'Update' : 'Save')}</Button>
         </div>
       </Modal>
 
@@ -359,13 +507,14 @@ export const SubCategoryMaster = () => {
         {selectedRecord && (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-<div><span className="text-xs text-slate-400 block">Code</span><span className="text-sm font-medium">{selectedRecord.subCategoryCode}</span></div>
-<div><span className="text-xs text-slate-400 block">Category</span><span className="text-sm font-medium">{selectedRecord.category}</span></div>
-<div className="col-span-2"><span className="text-xs text-slate-400 block">Name</span><span className="text-sm font-medium">{selectedRecord.subCategoryName}</span></div>
+              <div><span className="text-xs text-slate-400 block">Code</span><span className="text-sm font-medium">{selectedRecord.subCategoryCode}</span></div>
+              <div><span className="text-xs text-slate-400 block">Category</span><span className="text-sm font-medium">{selectedRecord.category}</span></div>
+              <div className="col-span-2"><span className="text-xs text-slate-400 block">Name</span><span className="text-sm font-medium">{selectedRecord.subCategoryName}</span></div>
+              <div className="col-span-2"><span className="text-xs text-slate-400 block">Description</span><span className="text-sm font-medium">{selectedRecord.description || '-'}</span></div>
             </div>
             <div className="pt-4 border-t border-slate-100">
               <span className="text-xs text-slate-400 block mb-1">Status</span>
-              <span className={`px-2.5 py-1 rounded-full text-xs font-medium \${
+              <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
                 selectedRecord.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'
               }`}>
                 {selectedRecord.status}
@@ -382,7 +531,7 @@ export const SubCategoryMaster = () => {
             <AlertTriangle className="w-6 h-6" />
           </div>
           <h3 className="text-lg font-medium text-slate-800 mb-2">Delete Record?</h3>
-          <p className="text-slate-500 mb-6">Are you sure you want to delete this record? This action cannot be undone.</p>
+          <p className="text-slate-500 mb-6">Are you sure you want to delete <strong>{selectedRecord?.subCategoryName}</strong>? This action cannot be undone.</p>
           <div className="flex justify-center gap-3">
             <Button variant="outline" onClick={() => setIsDeleteOpen(false)}>Cancel</Button>
             <Button variant="filled" className="bg-red-500 hover:bg-red-600 text-white border-transparent" onClick={confirmDelete}>Delete</Button>

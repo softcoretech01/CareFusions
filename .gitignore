@@ -1,0 +1,29 @@
+# ── Python ──
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# ── Node / frontend ──
+node_modules/
+dist/
+dist-ssr/
+*.local
+.vite/
+
+# ── Env / secrets ──
+.env
+.env.*
+!.env.example
+
+# ── Generated reports / scratch ──
+CareFusions_Masters_Status.xlsx
+India_Company_Contacts_2000.xlsx
+
+# ── OS / editor ──
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
