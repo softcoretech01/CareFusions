@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle, 
-  Save, RefreshCw
+  Save, RefreshCw, CheckCircle2, XCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
@@ -29,31 +29,22 @@ const emptyData: Omit<AllergyRecord, 'id'> = {
   remarks: ''
 };
 
-const mockData: AllergyRecord[] = [
-  {
-    id: 1,
-    allergyCode: 'ALG-001',
-    allergyName: 'Penicillin',
-    allergyType: 'Drug',
-    severity: 'High',
-    description: 'Allergic reaction to penicillin antibiotics',
-    status: 'Active',
-    remarks: ''
-  },
-  {
-    id: 2,
-    allergyCode: 'ALG-002',
-    allergyName: 'Peanut',
-    allergyType: 'Food',
-    severity: 'Critical',
-    description: 'Severe peanut allergy (anaphylaxis risk)',
-    status: 'Active',
-    remarks: ''
-  }
-];
+const mockData: AllergyRecord[] = [];
 
-const allergyTypes = ['Drug', 'Food', 'Environmental', 'Chemical', 'Latex', 'Dust', 'Pollen'];
-const severities = ['Low', 'Medium', 'High', 'Critical'];
+const API_BASE = import.meta.env.VITE_API_URL as string;
+
+const mapApiToRecord = (item: any): AllergyRecord => ({
+  id:           item.id,
+  allergyCode:  item.allergyCode,
+  allergyName:  item.allergyName,
+  allergyType:  item.allergyType,
+  severity:     item.severity,
+  description:  item.description || '',
+  status:       item.status,
+  remarks:      item.remarks || ''
+});
+
+
 
 export const AllergyMaster = () => {
   const [records, setRecords] = useState<AllergyRecord[]>(mockData);
@@ -71,6 +62,56 @@ export const AllergyMaster = () => {
   const [selectedRecord, setSelectedRecord] = useState<AllergyRecord | null>(null);
   const [formData, setFormData] = useState<Omit<AllergyRecord, 'id'>>(emptyData);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSuccessOpen, setIsSuccessOpen] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [isErrorOpen, setIsErrorOpen] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  // Dynamic lookup lists
+  const [allergyTypesList, setAllergyTypesList] = useState<string[]>([]);
+  const [severitiesList, setSeveritiesList] = useState<string[]>([]);
+
+  const fetchAllergies = async () => {
+    try {
+      setIsLoading(true);
+      const res = await fetch(`${API_BASE}/allergies/`);
+      if (!res.ok) throw new Error('Failed to fetch allergy records');
+      const data = await res.json();
+      setRecords(data.map(mapApiToRecord));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchLookups = async () => {
+    try {
+      const [typesRes, severitiesRes] = await Promise.all([
+        fetch(`${API_BASE}/allergies/types`),
+        fetch(`${API_BASE}/allergies/severities`)
+      ]);
+      
+      if (typesRes.ok) {
+        const typesData = await typesRes.json();
+        setAllergyTypesList(typesData.map((t: any) => t.typeName));
+      }
+      
+      if (severitiesRes.ok) {
+        const severitiesData = await severitiesRes.json();
+        setSeveritiesList(severitiesData || []);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    fetchAllergies();
+    fetchLookups();
+  }, []);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -88,9 +129,20 @@ export const AllergyMaster = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleCreateNew = () => {
+  const handleCreateNew = async () => {
     setSelectedRecord(null);
-    setFormData(emptyData);
+    try {
+      const res = await fetch(`${API_BASE}/allergies/next-code`);
+      if (res.ok) {
+        const data = await res.json();
+        setFormData({ ...emptyData, allergyCode: data.nextCode });
+      } else {
+        setFormData({ ...emptyData, allergyCode: 'ALG-ERR' });
+      }
+    } catch (err) {
+      console.error(err);
+      setFormData({ ...emptyData, allergyCode: 'ALG-ERR' });
+    }
     setErrors({});
     setIsFormOpen(true);
   };
@@ -107,23 +159,61 @@ export const AllergyMaster = () => {
     setIsDeleteOpen(true);
   };
 
-  const handleSaveForm = () => {
+  const handleSaveForm = async () => {
     if (!validateForm()) return;
+    setIsSaving(true);
+    try {
+      const payload = {
+        allergyCode:  formData.allergyCode,
+        allergyName:  formData.allergyName,
+        allergyType:  formData.allergyType,
+        severity:     formData.severity,
+        description:  formData.description || null,
+        status:       formData.status,
+        remarks:      formData.remarks || null,
+        ...(selectedRecord ? { modifiedBy: 'Dr. John Doe' } : { createdBy: 'Dr. John Doe' }),
+      };
 
-    if (selectedRecord) {
-      setRecords(records.map(r => r.id === selectedRecord.id ? { ...r, ...formData } : r));
-    } else {
-      const newId = Math.max(...records.map(r => r.id), 0) + 1;
-      setRecords([...records, { id: newId, ...formData }]);
+      const url = selectedRecord
+        ? `${API_BASE}/allergies/${selectedRecord.id}`
+        : `${API_BASE}/allergies/`;
+      const method = selectedRecord ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || 'Failed to save allergy');
+      }
+
+      await fetchAllergies();
+      setIsFormOpen(false);
+      setSuccessMessage('This record has been updated successfully.');
+      setIsSuccessOpen(true);
+    } catch (err: any) {
+      setErrorMessage(err.message);
+      setIsErrorOpen(true);
+    } finally {
+      setIsSaving(false);
     }
-    setIsFormOpen(false);
   };
 
-  const confirmDelete = () => {
-    if (selectedRecord) {
-      // Soft Delete
-      setRecords(records.filter(r => r.id !== selectedRecord.id));
+  const confirmDelete = async () => {
+    if (!selectedRecord) return;
+    try {
+      const res = await fetch(`${API_BASE}/allergies/${selectedRecord.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete allergy');
+      await fetchAllergies();
       setIsDeleteOpen(false);
+      setSuccessMessage('This record has been deleted successfully.');
+      setIsSuccessOpen(true);
+    } catch (err: any) {
+      setErrorMessage(err.message);
+      setIsErrorOpen(true);
     }
   };
 
@@ -197,7 +287,7 @@ export const AllergyMaster = () => {
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     >
                       <option value="">All Types</option>
-                      {allergyTypes.map(type => <option key={type} value={type}>{type}</option>)}
+                      {allergyTypesList.map(type => <option key={type} value={type}>{type}</option>)}
                     </select>
                     <select
                       value={filterSeverity}
@@ -205,7 +295,7 @@ export const AllergyMaster = () => {
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     >
                       <option value="">All Severities</option>
-                      {severities.map(sev => <option key={sev} value={sev}>{sev}</option>)}
+                      {severitiesList.map(sev => <option key={sev} value={sev}>{sev}</option>)}
                     </select>
                     <select
                       value={filterStatus}
@@ -310,7 +400,7 @@ export const AllergyMaster = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Allergy Code <span className="text-red-500">*</span></label>
-                    <input type="text" value={formData.allergyCode} onChange={e => setFormData({...formData, allergyCode: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-transparent transition-all ${errors.allergyCode ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
+                    <input type="text" value={formData.allergyCode} readOnly className="w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed" />
                     {errors.allergyCode && <p className="text-red-500 text-xs mt-1">{errors.allergyCode}</p>}
                   </div>
                   <div>
@@ -322,7 +412,7 @@ export const AllergyMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Allergy Type <span className="text-red-500">*</span></label>
                     <select value={formData.allergyType} onChange={e => setFormData({...formData, allergyType: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.allergyType ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
                       <option value="">Select Type</option>
-                      {allergyTypes.map(type => <option key={type} value={type}>{type}</option>)}
+                      {allergyTypesList.map(type => <option key={type} value={type}>{type}</option>)}
                     </select>
                     {errors.allergyType && <p className="text-red-500 text-xs mt-1">{errors.allergyType}</p>}
                   </div>
@@ -330,7 +420,7 @@ export const AllergyMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Severity <span className="text-red-500">*</span></label>
                     <select value={formData.severity} onChange={e => setFormData({...formData, severity: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.severity ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
                       <option value="">Select Severity</option>
-                      {severities.map(sev => <option key={sev} value={sev}>{sev}</option>)}
+                      {severitiesList.map(sev => <option key={sev} value={sev}>{sev}</option>)}
                     </select>
                     {errors.severity && <p className="text-red-500 text-xs mt-1">{errors.severity}</p>}
                   </div>
@@ -383,20 +473,68 @@ export const AllergyMaster = () => {
         title="Confirm Deletion"
         maxWidth="sm"
       >
-        <div className="p-1">
-          <div className="flex items-center gap-4 mb-6 text-amber-600 bg-amber-50 p-4 rounded-xl">
-            <AlertTriangle className="w-8 h-8 shrink-0" />
-            <p className="text-sm font-medium">
-              Are you sure you want to delete Allergy <strong>{selectedRecord?.allergyName}</strong>? 
-              This action cannot be undone.
-            </p>
+        <div className="flex flex-col items-center text-center py-4">
+          <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mb-4">
+            <AlertTriangle className="w-6 h-6" />
           </div>
-          <div className="flex justify-end gap-3">
-            <Button variant="outline" color="secondary" onClick={() => setIsDeleteOpen(false)}>
+          <h3 className="text-lg font-bold text-slate-800 mb-2">Delete Record</h3>
+          <p className="text-slate-500 text-sm mb-6">
+            Are you sure you want to delete Allergy <span className="font-semibold text-slate-700">{selectedRecord?.allergyName}</span>?
+          </p>
+          <div className="flex items-center gap-3 w-full">
+            <Button variant="outline" color="secondary" className="flex-1" onClick={() => setIsDeleteOpen(false)}>
               Cancel
             </Button>
-            <Button variant="filled" color="danger" onClick={confirmDelete}>
-              Confirm Delete
+            <Button variant="filled" color="danger" className="flex-1" onClick={confirmDelete}>
+              Delete
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Success Modal */}
+      <Modal
+        isOpen={isSuccessOpen}
+        onClose={() => setIsSuccessOpen(false)}
+        title="Success"
+        maxWidth="sm"
+      >
+        <div className="flex flex-col items-center text-center py-4">
+          <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mb-4">
+            <CheckCircle2 className="w-6 h-6" />
+          </div>
+          <h3 className="text-lg font-bold text-slate-800 mb-2">Success</h3>
+          <p className="text-slate-500 text-sm mb-6">
+            {successMessage}
+          </p>
+          
+          <div className="flex items-center justify-center w-full">
+            <Button variant="filled" color="primary" className="w-full" onClick={() => setIsSuccessOpen(false)}>
+              OK
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Error Modal */}
+      <Modal
+        isOpen={isErrorOpen}
+        onClose={() => setIsErrorOpen(false)}
+        title="Error"
+        maxWidth="sm"
+      >
+        <div className="flex flex-col items-center text-center py-4">
+          <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mb-4">
+            <XCircle className="w-6 h-6" />
+          </div>
+          <h3 className="text-lg font-bold text-slate-800 mb-2">Error</h3>
+          <p className="text-slate-500 text-sm mb-6">
+            {errorMessage}
+          </p>
+          
+          <div className="flex items-center justify-center w-full">
+            <Button variant="filled" color="primary" className="w-full" onClick={() => setIsErrorOpen(false)}>
+              OK
             </Button>
           </div>
         </div>

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle, Save, RefreshCw, Upload } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle, Save, RefreshCw, Upload, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
@@ -33,6 +33,10 @@ interface NurseRecord {
   experience: string;
   status: string;
   remarks: string;
+  profilePhoto: string;
+  nursingLicense: string;
+  qualificationCertificate: string;
+  idProof: string;
 }
 
 const emptyData: Omit<NurseRecord, 'id'> = {
@@ -61,40 +65,50 @@ const emptyData: Omit<NurseRecord, 'id'> = {
   employmentType: '',
   experience: '',
   status: 'Active',
-  remarks: ''
+  remarks: '',
+  profilePhoto: '',
+  nursingLicense: '',
+  qualificationCertificate: '',
+  idProof: ''
 };
 
-const mockData: NurseRecord[] = [
-  {
-    id: 1,
-    nurseId: 'NUR-001',
-    employeeCode: 'EMP-101',
-    name: 'Nurse Mary',
-    gender: 'Female',
-    dob: '1990-05-15',
-    qualification: 'B.Sc Nursing',
-    registrationNumber: 'REG-N-12345',
-    department: 'Emergency',
-    designation: 'Senior Staff Nurse',
-    hospital: 'City General Hospital',
-    branch: 'Main Campus',
-    mobile: '9876543210',
-    alternateMobile: '',
-    email: 'mary@hospital.com',
-    address: '123 Medical Way',
-    city: 'New York',
-    state: 'NY',
-    country: 'USA',
-    postalCode: '10001',
-    joiningDate: '2018-01-10',
-    shift: 'Morning',
-    manager: 'Head Nurse Sarah',
-    employmentType: 'Permanent',
-    experience: '8',
-    status: 'Active',
-    remarks: ''
-  }
-];
+const mockData: NurseRecord[] = [];
+
+const API_BASE = import.meta.env.VITE_API_URL as string;
+
+const mapApiToRecord = (item: any): NurseRecord => ({
+  id:                 item.id,
+  nurseId:            item.nurseId as string,
+  employeeCode:       item.employeeCode as string,
+  name:               item.name as string,
+  gender:             item.gender as string,
+  dob:                item.dob ? String(item.dob) : '',
+  qualification:      item.qualification as string,
+  registrationNumber: item.registrationNumber as string,
+  department:         item.department as string,
+  designation:        item.designation as string,
+  hospital:           item.hospital as string,
+  branch:             item.branch as string,
+  mobile:             item.mobile as string,
+  alternateMobile:    item.alternateMobile as string || '',
+  email:              item.email as string || '',
+  address:            item.address as string || '',
+  city:               item.city as string || '',
+  state:              item.state as string || '',
+  country:            item.country as string || '',
+  postalCode:         item.postalCode as string || '',
+  joiningDate:        item.joiningDate ? String(item.joiningDate) : '',
+  shift:              item.shift as string,
+  manager:            item.manager as string || '',
+  employmentType:     item.employmentType as string || '',
+  experience:         item.experience != null ? String(item.experience) : '',
+  status:             item.status as string,
+  remarks:            item.remarks as string || '',
+  profilePhoto:       item.profilePhoto as string || '',
+  nursingLicense:     item.nursingLicense as string || '',
+  qualificationCertificate: item.qualificationCertificate as string || '',
+  idProof:            item.idProof as string || '',
+});
 
 export const NurseMaster = () => {
   const [records, setRecords] = useState<NurseRecord[]>(mockData);
@@ -114,6 +128,50 @@ export const NurseMaster = () => {
   const [selectedRecord, setSelectedRecord] = useState<NurseRecord | null>(null);
   const [formData, setFormData] = useState<Omit<NurseRecord, 'id'>>(emptyData);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  
+  const [isLoading, setIsLoading] = useState(true);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSuccessOpen, setIsSuccessOpen] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  
+  // Dropdowns
+  const [hospitals, setHospitals] = useState<{name: string}[]>([]);
+  const [branches, setBranches] = useState<{name: string}[]>([]);
+  const [departments, setDepartments] = useState<{departmentName: string}[]>([]);
+
+  const fetchNurses = async () => {
+    setIsLoading(true);
+    setApiError(null);
+    try {
+      const res = await fetch(`${API_BASE}/nurses/`);
+      if (!res.ok) throw new Error(`Server error: ${res.status}`);
+      const data = await res.json();
+      setRecords(data.map(mapApiToRecord));
+    } catch (err: any) {
+      setApiError(err.message || 'Failed to load nurses');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchDropdowns = async () => {
+    try {
+      const [hRes, bRes, dRes] = await Promise.all([
+        fetch(`${API_BASE}/hospitals/`),
+        fetch(`${API_BASE}/branches/`),
+        fetch(`${API_BASE}/departments/`)
+      ]);
+      if (hRes.ok) setHospitals(await hRes.json());
+      if (bRes.ok) setBranches(await bRes.json());
+      if (dRes.ok) setDepartments(await dRes.json());
+    } catch {}
+  };
+
+  useEffect(() => {
+    fetchNurses();
+    fetchDropdowns();
+  }, []);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -159,22 +217,104 @@ export const NurseMaster = () => {
     setIsDeleteOpen(true);
   };
 
-  const handleSaveForm = () => {
+  const handleSaveForm = async () => {
     if (!validateForm()) return;
+    setIsSaving(true);
 
-    if (selectedRecord) {
-      setRecords(records.map(r => r.id === selectedRecord.id ? { ...r, ...formData } : r));
-    } else {
-      const newId = Math.max(...records.map(r => r.id), 0) + 1;
-      setRecords([...records, { id: newId, ...formData }]);
+    try {
+      const payload = {
+        employeeCode: formData.employeeCode,
+        name: formData.name,
+        gender: formData.gender || null,
+        dob: formData.dob || null,
+        qualification: formData.qualification,
+        registrationNumber: formData.registrationNumber,
+        department: formData.department,
+        designation: formData.designation,
+        hospital: formData.hospital,
+        branch: formData.branch,
+        mobile: formData.mobile,
+        alternateMobile: formData.alternateMobile || null,
+        email: formData.email || null,
+        address: formData.address || null,
+        city: formData.city || null,
+        state: formData.state || null,
+        country: formData.country || null,
+        postalCode: formData.postalCode || null,
+        joiningDate: formData.joiningDate,
+        shift: formData.shift,
+        manager: formData.manager || null,
+        employmentType: formData.employmentType || null,
+        experience: formData.experience ? Number(formData.experience) : null,
+        
+        profilePhoto: formData.profilePhoto || null,
+        nursingLicense: formData.nursingLicense || null,
+        qualificationCertificate: formData.qualificationCertificate || null,
+        idProof: formData.idProof || null,
+
+        status: formData.status,
+        remarks: formData.remarks || null,
+        ...(selectedRecord ? { modifiedBy: 'Dr. John Doe' } : { createdBy: 'Dr. John Doe' })
+      };
+
+      const url = selectedRecord ? `${API_BASE}/nurses/${selectedRecord.id}` : `${API_BASE}/nurses/`;
+      const method = selectedRecord ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) throw new Error('Failed to save nurse');
+      const savedNurse = await res.json();
+
+      if (selectedRecord) {
+        setRecords(records.map(r => r.id === savedNurse.id ? mapApiToRecord(savedNurse) : r));
+      } else {
+        setRecords([mapApiToRecord(savedNurse), ...records]);
+      }
+      setIsFormOpen(false);
+      setSuccessMessage('This record has been updated successfully.');
+      setIsSuccessOpen(true);
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setIsSaving(false);
     }
-    setIsFormOpen(false);
   };
 
-  const confirmDelete = () => {
-    if (selectedRecord) {
+  const confirmDelete = async () => {
+    if (!selectedRecord) return;
+    try {
+      const res = await fetch(`${API_BASE}/nurses/${selectedRecord.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete nurse');
       setRecords(records.filter(r => r.id !== selectedRecord.id));
       setIsDeleteOpen(false);
+      setSuccessMessage('This record has been deleted successfully.');
+      setIsSuccessOpen(true);
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, fieldName: keyof NurseRecord) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const form = new FormData();
+    form.append('file', file);
+
+    try {
+      const res = await fetch(`${API_BASE}/upload/`, {
+        method: 'POST',
+        body: form
+      });
+      if (!res.ok) throw new Error('Upload failed');
+      const data = await res.json();
+      setFormData(prev => ({ ...prev, [fieldName]: data.url }));
+    } catch (err) {
+      alert('Failed to upload file');
     }
   };
 
@@ -250,9 +390,9 @@ export const NurseMaster = () => {
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     >
                       <option value="">All Departments</option>
-                      <option value="Emergency">Emergency</option>
-                      <option value="ICU">ICU</option>
-                      <option value="OPD">OPD</option>
+                      {departments.map((d, i) => (
+                        <option key={i} value={d.departmentName}>{d.departmentName}</option>
+                      ))}
                     </select>
                     <select
                       value={filterShift}
@@ -270,7 +410,9 @@ export const NurseMaster = () => {
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     >
                       <option value="">All Hospitals</option>
-                      <option value="City General Hospital">City General Hospital</option>
+                      {hospitals.map((h, i) => (
+                        <option key={i} value={h.name}>{h.name}</option>
+                      ))}
                     </select>
                     <select
                       value={filterBranch}
@@ -278,7 +420,9 @@ export const NurseMaster = () => {
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     >
                       <option value="">All Branches</option>
-                      <option value="Main Campus">Main Campus</option>
+                      {branches.map((b, i) => (
+                        <option key={i} value={b.name}>{b.name}</option>
+                      ))}
                     </select>
                     <select
                       value={filterStatus}
@@ -419,10 +563,9 @@ export const NurseMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Department <span className="text-red-500">*</span></label>
                     <select value={formData.department} onChange={e => setFormData({...formData, department: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.department ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
                       <option value="">Select Department</option>
-                      <option value="Emergency">Emergency</option>
-                      <option value="ICU">ICU</option>
-                      <option value="OPD">OPD</option>
-                      <option value="Ward">Ward</option>
+                      {departments.map((d, i) => (
+                        <option key={i} value={d.departmentName}>{d.departmentName}</option>
+                      ))}
                     </select>
                     {errors.department && <p className="text-red-500 text-xs mt-1">{errors.department}</p>}
                   </div>
@@ -435,7 +578,9 @@ export const NurseMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Hospital <span className="text-red-500">*</span></label>
                     <select value={formData.hospital} onChange={e => setFormData({...formData, hospital: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.hospital ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
                       <option value="">Select Hospital</option>
-                      <option value="City General Hospital">City General Hospital</option>
+                      {hospitals.map((h, i) => (
+                        <option key={i} value={h.name}>{h.name}</option>
+                      ))}
                     </select>
                     {errors.hospital && <p className="text-red-500 text-xs mt-1">{errors.hospital}</p>}
                   </div>
@@ -443,7 +588,9 @@ export const NurseMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Branch <span className="text-red-500">*</span></label>
                     <select value={formData.branch} onChange={e => setFormData({...formData, branch: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.branch ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
                       <option value="">Select Branch</option>
-                      <option value="Main Campus">Main Campus</option>
+                      {branches.map((b, i) => (
+                        <option key={i} value={b.name}>{b.name}</option>
+                      ))}
                     </select>
                     {errors.branch && <p className="text-red-500 text-xs mt-1">{errors.branch}</p>}
                   </div>
@@ -528,12 +675,40 @@ export const NurseMaster = () => {
               <section>
                 <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Documents</h3>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                  {['Profile Photo', 'Nursing License', 'Qualification Certificate', 'ID Proof'].map((doc, i) => (
-                    <div key={i} className="border border-slate-200 rounded-xl p-4 flex flex-col gap-2">
-                      <label className="block text-sm font-medium text-slate-700">{doc}</label>
-                      <div className="border-2 border-dashed border-slate-200 rounded-lg p-6 flex flex-col items-center justify-center text-center hover:bg-slate-50 transition-colors cursor-pointer">
-                        <Upload className="w-6 h-6 text-slate-400 mb-2" />
-                        <p className="text-sm text-primary font-medium">Click to upload</p>
+                  {[
+                    { label: 'Profile Photo', field: 'profilePhoto' }, 
+                    { label: 'Nursing License', field: 'nursingLicense' }, 
+                    { label: 'Qualification Certificate', field: 'qualificationCertificate' }, 
+                    { label: 'ID Proof', field: 'idProof' }
+                  ].map((doc, i) => (
+                    <div key={i} className="border border-slate-200 rounded-xl p-4 flex flex-col gap-2 relative">
+                      <label className="block text-sm font-medium text-slate-700">{doc.label}</label>
+                      <div className="border-2 border-dashed border-slate-200 rounded-lg p-6 flex flex-col items-center justify-center text-center hover:bg-slate-50 transition-colors relative overflow-hidden group h-32">
+                        {formData[doc.field as keyof typeof formData] ? (
+                          <div className="flex flex-col items-center gap-2">
+                            <span className="text-sm font-medium text-emerald-600">File Uploaded</span>
+                            <img 
+                              src={`http://localhost:8000${formData[doc.field as keyof typeof formData]}`} 
+                              alt="preview" 
+                              className="h-16 object-contain" 
+                              onError={(e) => { e.currentTarget.style.display = 'none'; }} 
+                            />
+                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                              <span className="text-white text-xs font-medium">Click to change</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <Upload className="w-6 h-6 text-slate-400 mb-2" />
+                            <p className="text-sm text-primary font-medium">Click to upload</p>
+                          </>
+                        )}
+                        <input 
+                          type="file" 
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                          onChange={(e) => handleFileUpload(e, doc.field as keyof NurseRecord)}
+                          accept="image/*,.pdf"
+                        />
                       </div>
                     </div>
                   ))}
@@ -582,20 +757,44 @@ export const NurseMaster = () => {
         title="Confirm Deletion"
         maxWidth="sm"
       >
-        <div className="p-1">
-          <div className="flex items-center gap-4 mb-6 text-amber-600 bg-amber-50 p-4 rounded-xl">
-            <AlertTriangle className="w-8 h-8 shrink-0" />
-            <p className="text-sm font-medium">
-              Are you sure you want to delete <strong>{selectedRecord?.name}</strong>? 
-              This action cannot be undone.
-            </p>
+        <div className="flex flex-col items-center text-center py-4">
+          <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mb-4">
+            <AlertTriangle className="w-6 h-6" />
           </div>
-          <div className="flex justify-end gap-3">
-            <Button variant="outline" color="secondary" onClick={() => setIsDeleteOpen(false)}>
+          <h3 className="text-lg font-bold text-slate-800 mb-2">Delete Record</h3>
+          <p className="text-slate-500 text-sm mb-6">
+            Are you sure you want to delete <span className="font-semibold text-slate-700">{selectedRecord?.name}</span>?
+          </p>
+          <div className="flex items-center gap-3 w-full">
+            <Button variant="outline" color="secondary" className="flex-1" onClick={() => setIsDeleteOpen(false)}>
               Cancel
             </Button>
-            <Button variant="filled" color="danger" onClick={confirmDelete}>
-              Confirm Delete
+            <Button variant="filled" color="danger" className="flex-1" onClick={confirmDelete}>
+              Delete
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Success Modal */}
+      <Modal
+        isOpen={isSuccessOpen}
+        onClose={() => setIsSuccessOpen(false)}
+        title="Success"
+        maxWidth="sm"
+      >
+        <div className="flex flex-col items-center text-center py-4">
+          <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mb-4">
+            <CheckCircle2 className="w-6 h-6" />
+          </div>
+          <h3 className="text-lg font-bold text-slate-800 mb-2">Success</h3>
+          <p className="text-slate-500 text-sm mb-6">
+            {successMessage}
+          </p>
+          
+          <div className="flex items-center justify-center w-full">
+            <Button variant="filled" color="primary" className="w-full" onClick={() => setIsSuccessOpen(false)}>
+              OK
             </Button>
           </div>
         </div>

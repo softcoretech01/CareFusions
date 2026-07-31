@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle, 
-  Save, RefreshCw
+  Save, RefreshCw, CheckCircle2, XCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
@@ -51,52 +51,31 @@ const emptyData: Omit<MedicineRecord, 'id'> = {
   remarks: ''
 };
 
-const mockData: MedicineRecord[] = [
-  {
-    id: 1,
-    medicineCode: 'MED-001',
-    genericName: 'Paracetamol',
-    brandName: 'Dolo 650',
-    category: 'Tablets',
-    manufacturer: 'Micro Labs Ltd',
-    strength: '650mg',
-    dosageForm: 'Tablet',
-    unit: 'Strip',
-    batchTracking: true,
-    expiryRequired: true,
-    controlledDrug: false,
-    reorderLevel: '50',
-    purchasePrice: '25.00',
-    sellingPrice: '30.00',
-    gst: '12',
-    barcode: '8901111222333',
-    status: 'Active',
-    remarks: ''
-  },
-  {
-    id: 2,
-    medicineCode: 'MED-002',
-    genericName: 'Amoxicillin',
-    brandName: 'Amoxil',
-    category: 'Capsules',
-    manufacturer: 'GSK',
-    strength: '500mg',
-    dosageForm: 'Capsule',
-    unit: 'Strip',
-    batchTracking: true,
-    expiryRequired: true,
-    controlledDrug: true,
-    reorderLevel: '20',
-    purchasePrice: '100.00',
-    sellingPrice: '125.00',
-    gst: '12',
-    barcode: '8904444555666',
-    status: 'Active',
-    remarks: ''
-  }
-];
+const mockData: MedicineRecord[] = [];
 
-const categories = ['Tablets', 'Capsules', 'Syrups', 'Injections', 'Ointments', 'Drops', 'Vaccines'];
+const API_BASE = import.meta.env.VITE_API_URL as string;
+
+const mapApiToRecord = (item: any): MedicineRecord => ({
+  id:             item.id,
+  medicineCode:   item.medicineCode,
+  genericName:    item.genericName,
+  brandName:      item.brandName,
+  category:       item.category,
+  manufacturer:   item.manufacturer,
+  strength:       item.strength,
+  dosageForm:     item.dosageForm,
+  unit:           item.unit,
+  batchTracking:  Boolean(item.batchTracking),
+  expiryRequired: Boolean(item.expiryRequired),
+  controlledDrug: Boolean(item.controlledDrug),
+  reorderLevel:   item.reorderLevel != null ? String(item.reorderLevel) : '10',
+  barcode:        item.barcode || '',
+  purchasePrice:  item.purchasePrice != null ? String(item.purchasePrice) : '',
+  sellingPrice:   item.sellingPrice != null ? String(item.sellingPrice) : '',
+  gst:            item.gst != null ? String(item.gst) : '12',
+  status:         item.status,
+  remarks:        item.remarks || ''
+});
 
 export const MedicineMaster = () => {
   const [records, setRecords] = useState<MedicineRecord[]>(mockData);
@@ -113,6 +92,46 @@ export const MedicineMaster = () => {
   const [selectedRecord, setSelectedRecord] = useState<MedicineRecord | null>(null);
   const [formData, setFormData] = useState<Omit<MedicineRecord, 'id'>>(emptyData);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSuccessOpen, setIsSuccessOpen] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [isErrorOpen, setIsErrorOpen] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  // Dynamic lookup
+  const [categoriesList, setCategoriesList] = useState<string[]>([]);
+
+  const fetchMedicines = async () => {
+    try {
+      setIsLoading(true);
+      const res = await fetch(`${API_BASE}/medicines/`);
+      if (!res.ok) throw new Error('Failed to fetch medicines');
+      const data = await res.json();
+      setRecords(data.map(mapApiToRecord));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchLookups = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/medicines/categories`);
+      if (res.ok) {
+        const data = await res.json();
+        setCategoriesList(data.map((c: any) => c.categoryName));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    fetchMedicines();
+    fetchLookups();
+  }, []);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -156,7 +175,10 @@ export const MedicineMaster = () => {
 
   const handleCreateNew = () => {
     setSelectedRecord(null);
-    setFormData(emptyData);
+    // Auto-generate next MED-XXX code
+    const nextNum = records.length + 1;
+    const nextCode = `MED-${String(nextNum).padStart(3, '0')}`;
+    setFormData({ ...emptyData, medicineCode: nextCode });
     setErrors({});
     setIsFormOpen(true);
   };
@@ -173,23 +195,72 @@ export const MedicineMaster = () => {
     setIsDeleteOpen(true);
   };
 
-  const handleSaveForm = () => {
+  const handleSaveForm = async () => {
     if (!validateForm()) return;
+    setIsSaving(true);
+    try {
+      const payload = {
+        medicineCode:   formData.medicineCode,
+        genericName:    formData.genericName,
+        brandName:      formData.brandName,
+        category:       formData.category,
+        manufacturer:   formData.manufacturer,
+        strength:       formData.strength,
+        dosageForm:     formData.dosageForm,
+        unit:           formData.unit,
+        batchTracking:  formData.batchTracking,
+        expiryRequired: formData.expiryRequired,
+        controlledDrug: formData.controlledDrug,
+        reorderLevel:   formData.reorderLevel,
+        barcode:        formData.barcode || null,
+        purchasePrice:  formData.purchasePrice,
+        sellingPrice:   formData.sellingPrice,
+        gst:            formData.gst,
+        status:         formData.status,
+        remarks:        formData.remarks || null,
+        ...(selectedRecord ? { modifiedBy: 'Dr. John Doe' } : { createdBy: 'Dr. John Doe' }),
+      };
 
-    if (selectedRecord) {
-      setRecords(records.map(r => r.id === selectedRecord.id ? { ...r, ...formData } : r));
-    } else {
-      const newId = Math.max(...records.map(r => r.id), 0) + 1;
-      setRecords([...records, { id: newId, ...formData }]);
+      const url = selectedRecord
+        ? `${API_BASE}/medicines/${selectedRecord.id}`
+        : `${API_BASE}/medicines/`;
+      const method = selectedRecord ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || 'Failed to save medicine');
+      }
+
+      await fetchMedicines();
+      setIsFormOpen(false);
+      setSuccessMessage('This record has been updated successfully.');
+      setIsSuccessOpen(true);
+    } catch (err: any) {
+      setErrorMessage(err.message);
+      setIsErrorOpen(true);
+    } finally {
+      setIsSaving(false);
     }
-    setIsFormOpen(false);
   };
 
-  const confirmDelete = () => {
-    if (selectedRecord) {
-      // Soft Delete
-      setRecords(records.filter(r => r.id !== selectedRecord.id));
+  const confirmDelete = async () => {
+    if (!selectedRecord) return;
+    try {
+      const res = await fetch(`${API_BASE}/medicines/${selectedRecord.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete medicine');
+      await fetchMedicines();
       setIsDeleteOpen(false);
+      setSuccessMessage('This record has been deleted successfully.');
+      setIsSuccessOpen(true);
+    } catch (err: any) {
+      setErrorMessage(err.message);
+      setIsErrorOpen(true);
     }
   };
 
@@ -264,7 +335,7 @@ export const MedicineMaster = () => {
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     >
                       <option value="">All Categories</option>
-                      {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                      {categoriesList.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                     <select
                       value={filterStatus}
@@ -367,7 +438,7 @@ export const MedicineMaster = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Medicine Code <span className="text-red-500">*</span></label>
-                    <input type="text" value={formData.medicineCode} onChange={e => setFormData({...formData, medicineCode: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-transparent transition-all ${errors.medicineCode ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
+                    <input type="text" value={formData.medicineCode} readOnly className="w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed" />
                     {errors.medicineCode && <p className="text-red-500 text-xs mt-1">{errors.medicineCode}</p>}
                   </div>
                   <div className="lg:col-span-2">
@@ -384,7 +455,7 @@ export const MedicineMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Medicine Category <span className="text-red-500">*</span></label>
                     <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.category ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
                       <option value="">Select Category</option>
-                      {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                      {categoriesList.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                     {errors.category && <p className="text-red-500 text-xs mt-1">{errors.category}</p>}
                   </div>
@@ -505,20 +576,68 @@ export const MedicineMaster = () => {
         title="Confirm Deletion"
         maxWidth="sm"
       >
-        <div className="p-1">
-          <div className="flex items-center gap-4 mb-6 text-amber-600 bg-amber-50 p-4 rounded-xl">
-            <AlertTriangle className="w-8 h-8 shrink-0" />
-            <p className="text-sm font-medium">
-              Are you sure you want to delete Medicine <strong>{selectedRecord?.brandName}</strong>? 
-              This action cannot be undone.
-            </p>
+        <div className="flex flex-col items-center text-center py-4">
+          <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mb-4">
+            <AlertTriangle className="w-6 h-6" />
           </div>
-          <div className="flex justify-end gap-3">
-            <Button variant="outline" color="secondary" onClick={() => setIsDeleteOpen(false)}>
+          <h3 className="text-lg font-bold text-slate-800 mb-2">Delete Record</h3>
+          <p className="text-slate-500 text-sm mb-6">
+            Are you sure you want to delete Medicine <span className="font-semibold text-slate-700">{selectedRecord?.brandName}</span>?
+          </p>
+          <div className="flex items-center gap-3 w-full">
+            <Button variant="outline" color="secondary" className="flex-1" onClick={() => setIsDeleteOpen(false)}>
               Cancel
             </Button>
-            <Button variant="filled" color="danger" onClick={confirmDelete}>
-              Confirm Delete
+            <Button variant="filled" color="danger" className="flex-1" onClick={confirmDelete}>
+              Delete
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Success Modal */}
+      <Modal
+        isOpen={isSuccessOpen}
+        onClose={() => setIsSuccessOpen(false)}
+        title="Success"
+        maxWidth="sm"
+      >
+        <div className="flex flex-col items-center text-center py-4">
+          <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mb-4">
+            <CheckCircle2 className="w-6 h-6" />
+          </div>
+          <h3 className="text-lg font-bold text-slate-800 mb-2">Success</h3>
+          <p className="text-slate-500 text-sm mb-6">
+            {successMessage}
+          </p>
+          
+          <div className="flex items-center justify-center w-full">
+            <Button variant="filled" color="primary" className="w-full" onClick={() => setIsSuccessOpen(false)}>
+              OK
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Error Modal */}
+      <Modal
+        isOpen={isErrorOpen}
+        onClose={() => setIsErrorOpen(false)}
+        title="Error"
+        maxWidth="sm"
+      >
+        <div className="flex flex-col items-center text-center py-4">
+          <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mb-4">
+            <XCircle className="w-6 h-6" />
+          </div>
+          <h3 className="text-lg font-bold text-slate-800 mb-2">Error</h3>
+          <p className="text-slate-500 text-sm mb-6">
+            {errorMessage}
+          </p>
+          
+          <div className="flex items-center justify-center w-full">
+            <Button variant="filled" color="primary" className="w-full" onClick={() => setIsErrorOpen(false)}>
+              OK
             </Button>
           </div>
         </div>

@@ -4,11 +4,6 @@ from datetime import datetime
 from enum import Enum
 
 
-class BranchTypeEnum(str, Enum):
-    Main      = "Main"
-    Satellite = "Satellite"
-
-
 class EmergencyEnum(str, Enum):
     Yes = "Yes"
     No  = "No"
@@ -23,7 +18,7 @@ class StatusEnum(str, Enum):
 class BranchCreate(BaseModel):
     name:               str
     hospitalId:         int
-    branchType:         BranchTypeEnum      = BranchTypeEnum.Main
+    branchType:         str                 = "Main Hospital"
     address1:           str
     address2:           Optional[str]       = None
     country:            str
@@ -53,7 +48,7 @@ class BranchCreate(BaseModel):
 class BranchUpdate(BaseModel):
     name:               str
     hospitalId:         int
-    branchType:         BranchTypeEnum      = BranchTypeEnum.Main
+    branchType:         str                 = "Main Hospital"
     address1:           str
     address2:           Optional[str]       = None
     country:            str

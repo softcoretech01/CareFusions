@@ -1,12 +1,19 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle, 
-  Save, RefreshCw, Upload
+  Save, RefreshCw, Upload, CheckCircle2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
 import { exportToExcel } from '../../../utils/exportToExcel';
+
+export enum LaboratoryEnum {
+  MAIN_LAB = 'Main Lab',
+  PATHOLOGY_LAB = 'Pathology Lab',
+  MICROBIOLOGY_LAB = 'Microbiology Lab',
+  BIOCHEMISTRY_LAB = 'Biochemistry Lab',
+}
 
 interface LabTechnicianRecord {
   id: number;
@@ -49,31 +56,36 @@ const emptyData: Omit<LabTechnicianRecord, 'id'> = {
   remarks: ''
 };
 
-const mockData: LabTechnicianRecord[] = [
-  {
-    id: 1,
-    technicianId: 'LAB-001',
-    employeeCode: 'EMP-301',
-    name: 'Emily Chen',
-    qualification: 'B.Sc MLT',
-    department: 'Pathology',
-    laboratory: 'Main Lab',
-    hospital: 'City General Hospital',
-    branch: 'Main Campus',
-    mobile: '9876543210',
-    email: 'emily.chen@hospital.com',
-    address: '789 Medical Way',
-    joiningDate: '2021-06-01',
-    experience: '3',
-    shift: 'Evening',
-    manager: 'Dr. Smith',
-    status: 'Active',
-    remarks: ''
-  }
-];
+const mockData: LabTechnicianRecord[] = [];
+
+const API_BASE = import.meta.env.VITE_API_URL as string;
+
+const mapApiToRecord = (item: any): LabTechnicianRecord => ({
+  id:                 item.id,
+  technicianId:       item.technicianId as string,
+  employeeCode:       item.employeeCode as string,
+  name:               item.name as string,
+  qualification:      item.qualification as string,
+  department:         item.department as string,
+  laboratory:         item.laboratory as string,
+  hospital:           item.hospital as string || '',
+  branch:             item.branch as string || '',
+  mobile:             item.mobile as string,
+  email:              item.email as string || '',
+  address:            item.address as string || '',
+  joiningDate:        item.joiningDate ? String(item.joiningDate) : '',
+  experience:         item.experience != null ? String(item.experience) : '',
+  shift:              item.shift as string,
+  manager:            item.manager as string || '',
+  status:             item.status as string,
+  remarks:            item.remarks as string || '',
+  profilePhoto:       item.profilePhoto as string || '',
+  qualificationCertificate: item.qualificationCertificate as string || '',
+  idProof:            item.idProof as string || '',
+});
 
 export const LabTechnicianMaster = () => {
-  const [records, setRecords] = useState<LabTechnicianRecord[]>(mockData);
+  const [records, setRecords] = useState<LabTechnicianRecord[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   
   // Filter States
@@ -86,8 +98,62 @@ export const LabTechnicianMaster = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<LabTechnicianRecord | null>(null);
-  const [formData, setFormData] = useState<Omit<LabTechnicianRecord, 'id'>>(emptyData);
+  const [formData, setFormData] = useState<Omit<LabTechnicianRecord, 'id'> & { profilePhoto?: string, qualificationCertificate?: string, idProof?: string }>(emptyData);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSuccessOpen, setIsSuccessOpen] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+
+  // Dropdowns
+  const [hospitals, setHospitals] = useState<{name: string}[]>([]);
+  const [branches, setBranches] = useState<{name: string}[]>([]);
+  const [departments, setDepartments] = useState<{departmentName: string}[]>([]);
+
+  const fetchTechnicians = async () => {
+    try {
+      setIsLoading(true);
+      const res = await fetch(`${API_BASE}/lab-technicians/`);
+      if (!res.ok) throw new Error('Failed to fetch lab technicians');
+      const data = await res.json();
+      setRecords(data.map(mapApiToRecord));
+    } catch (err: any) {
+      setApiError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchDropdowns = async () => {
+    try {
+      const [hRes, bRes, dRes] = await Promise.all([
+        fetch(`${API_BASE}/hospitals/`),
+        fetch(`${API_BASE}/branches/`),
+        fetch(`${API_BASE}/departments/`)
+      ]);
+      if (hRes.ok) {
+        const hData = await hRes.json();
+        setHospitals(hData);
+      }
+      if (bRes.ok) {
+        const bData = await bRes.json();
+        setBranches(bData);
+      }
+      if (dRes.ok) {
+        const dData = await dRes.json();
+        setDepartments(dData);
+      }
+    } catch (err) {
+      console.error('Failed to fetch dropdowns:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchTechnicians();
+    fetchDropdowns();
+  }, []);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -130,22 +196,98 @@ export const LabTechnicianMaster = () => {
     setIsDeleteOpen(true);
   };
 
-  const handleSaveForm = () => {
+  const handleSaveForm = async () => {
     if (!validateForm()) return;
+    setIsSaving(true);
 
-    if (selectedRecord) {
-      setRecords(records.map(r => r.id === selectedRecord.id ? { ...r, ...formData } : r));
-    } else {
-      const newId = Math.max(...records.map(r => r.id), 0) + 1;
-      setRecords([...records, { id: newId, ...formData }]);
+    try {
+      const payload = {
+        employeeCode: formData.employeeCode,
+        name: formData.name,
+        qualification: formData.qualification,
+        department: formData.department,
+        laboratory: formData.laboratory,
+        hospital: formData.hospital || null,
+        branch: formData.branch || null,
+        mobile: formData.mobile,
+        email: formData.email || null,
+        address: formData.address || null,
+        joiningDate: formData.joiningDate || null,
+        experience: formData.experience ? Number(formData.experience) : null,
+        shift: formData.shift,
+        manager: formData.manager || null,
+        
+        profilePhoto: formData.profilePhoto || null,
+        qualificationCertificate: formData.qualificationCertificate || null,
+        idProof: formData.idProof || null,
+
+        status: formData.status,
+        remarks: formData.remarks || null,
+        ...(selectedRecord ? { modifiedBy: 'Dr. John Doe' } : { createdBy: 'Dr. John Doe' })
+      };
+
+      const url = selectedRecord 
+        ? `${API_BASE}/lab-technicians/${selectedRecord.id}`
+        : `${API_BASE}/lab-technicians/`;
+      const method = selectedRecord ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || 'Failed to save lab technician');
+      }
+
+      await fetchTechnicians();
+      setIsFormOpen(false);
+      setSuccessMessage('This record has been updated successfully.');
+      setIsSuccessOpen(true);
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setIsSaving(false);
     }
-    setIsFormOpen(false);
   };
 
-  const confirmDelete = () => {
-    if (selectedRecord) {
-      setRecords(records.filter(r => r.id !== selectedRecord.id));
+  const confirmDelete = async () => {
+    if (!selectedRecord) return;
+    
+    try {
+      const res = await fetch(`${API_BASE}/lab-technicians/${selectedRecord.id}`, {
+        method: 'DELETE'
+      });
+      
+      if (!res.ok) throw new Error('Failed to delete lab technician');
+      
+      await fetchTechnicians();
       setIsDeleteOpen(false);
+      setSuccessMessage('This record has been deleted successfully.');
+      setIsSuccessOpen(true);
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, fieldName: string) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+      const res = await fetch(`${API_BASE}/upload/`, {
+        method: 'POST',
+        body: fd
+      });
+      if (!res.ok) throw new Error('Upload failed');
+      const data = await res.json();
+      setFormData(prev => ({ ...prev, [fieldName]: data.url }));
+    } catch (err) {
+      alert('Failed to upload file');
     }
   };
 
@@ -219,8 +361,9 @@ export const LabTechnicianMaster = () => {
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     >
                       <option value="">All Laboratories</option>
-                      <option value="Main Lab">Main Lab</option>
-                      <option value="Pathology Lab">Pathology Lab</option>
+                      {Object.values(LaboratoryEnum).map((lab) => (
+                        <option key={lab} value={lab}>{lab}</option>
+                      ))}
                     </select>
                     <select
                       value={filterShift}
@@ -350,9 +493,9 @@ export const LabTechnicianMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Department <span className="text-red-500">*</span></label>
                     <select value={formData.department} onChange={e => setFormData({...formData, department: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.department ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
                       <option value="">Select Department</option>
-                      <option value="Pathology">Pathology</option>
-                      <option value="Microbiology">Microbiology</option>
-                      <option value="Biochemistry">Biochemistry</option>
+                      {departments.map((d, i) => (
+                        <option key={i} value={d.departmentName}>{d.departmentName}</option>
+                      ))}
                     </select>
                     {errors.department && <p className="text-red-500 text-xs mt-1">{errors.department}</p>}
                   </div>
@@ -360,8 +503,9 @@ export const LabTechnicianMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Laboratory <span className="text-red-500">*</span></label>
                     <select value={formData.laboratory} onChange={e => setFormData({...formData, laboratory: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.laboratory ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
                       <option value="">Select Laboratory</option>
-                      <option value="Main Lab">Main Lab</option>
-                      <option value="Pathology Lab">Pathology Lab</option>
+                      {Object.values(LaboratoryEnum).map((lab) => (
+                        <option key={lab} value={lab}>{lab}</option>
+                      ))}
                     </select>
                     {errors.laboratory && <p className="text-red-500 text-xs mt-1">{errors.laboratory}</p>}
                   </div>
@@ -369,7 +513,9 @@ export const LabTechnicianMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Hospital <span className="text-red-500">*</span></label>
                     <select value={formData.hospital} onChange={e => setFormData({...formData, hospital: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.hospital ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
                       <option value="">Select Hospital</option>
-                      <option value="City General Hospital">City General Hospital</option>
+                      {hospitals.map((h, i) => (
+                        <option key={i} value={h.name}>{h.name}</option>
+                      ))}
                     </select>
                     {errors.hospital && <p className="text-red-500 text-xs mt-1">{errors.hospital}</p>}
                   </div>
@@ -377,7 +523,9 @@ export const LabTechnicianMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Branch <span className="text-red-500">*</span></label>
                     <select value={formData.branch} onChange={e => setFormData({...formData, branch: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.branch ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
                       <option value="">Select Branch</option>
-                      <option value="Main Campus">Main Campus</option>
+                      {branches.map((b, i) => (
+                        <option key={i} value={b.name}>{b.name}</option>
+                      ))}
                     </select>
                     {errors.branch && <p className="text-red-500 text-xs mt-1">{errors.branch}</p>}
                   </div>
@@ -437,12 +585,42 @@ export const LabTechnicianMaster = () => {
               <section>
                 <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Documents</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {['Profile Photo', 'Qualification Certificate', 'ID Proof'].map((doc, i) => (
-                    <div key={i} className="border border-slate-200 rounded-xl p-4 flex flex-col gap-2">
-                      <label className="block text-sm font-medium text-slate-700">{doc}</label>
-                      <div className="border-2 border-dashed border-slate-200 rounded-lg p-6 flex flex-col items-center justify-center text-center hover:bg-slate-50 transition-colors cursor-pointer">
-                        <Upload className="w-6 h-6 text-slate-400 mb-2" />
-                        <p className="text-sm text-primary font-medium">Click to upload</p>
+                  {[
+                    { label: 'Profile Photo', field: 'profilePhoto' }, 
+                    { label: 'Qualification Certificate', field: 'qualificationCertificate' }, 
+                    { label: 'ID Proof', field: 'idProof' }
+                  ].map((doc, i) => (
+                    <div key={i} className="border border-slate-200 rounded-xl p-4 flex flex-col gap-2 relative">
+                      <label className="block text-sm font-medium text-slate-700">{doc.label}</label>
+                      <div className="border-2 border-dashed border-slate-200 rounded-lg p-6 flex flex-col items-center justify-center text-center hover:bg-slate-50 transition-colors relative overflow-hidden group h-32">
+                        {formData[doc.field as keyof typeof formData] ? (
+                          <div className="flex flex-col items-center gap-2">
+                            <span className="text-sm font-medium text-emerald-600">File Uploaded</span>
+                            <img 
+                              src={`${API_BASE.replace('/api/v1', '')}${formData[doc.field as keyof typeof formData]}`} 
+                              alt={doc.label}
+                              className="h-16 object-contain"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = 'none';
+                                (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+                              }}
+                            />
+                            <div className="hidden text-slate-500 text-xs truncate max-w-full">
+                              {formData[doc.field as keyof typeof formData]?.split('/').pop()}
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <Upload className="w-6 h-6 text-slate-400 mb-2 group-hover:text-primary transition-colors" />
+                            <p className="text-sm text-slate-500">Click to upload</p>
+                          </>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*,.pdf"
+                          onChange={(e) => handleFileUpload(e, doc.field)}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        />
                       </div>
                     </div>
                   ))}
@@ -491,20 +669,44 @@ export const LabTechnicianMaster = () => {
         title="Confirm Deletion"
         maxWidth="sm"
       >
-        <div className="p-1">
-          <div className="flex items-center gap-4 mb-6 text-amber-600 bg-amber-50 p-4 rounded-xl">
-            <AlertTriangle className="w-8 h-8 shrink-0" />
-            <p className="text-sm font-medium">
-              Are you sure you want to delete <strong>{selectedRecord?.name}</strong>? 
-              This action cannot be undone.
-            </p>
+        <div className="flex flex-col items-center text-center py-4">
+          <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mb-4">
+            <AlertTriangle className="w-6 h-6" />
           </div>
-          <div className="flex justify-end gap-3">
-            <Button variant="outline" color="secondary" onClick={() => setIsDeleteOpen(false)}>
+          <h3 className="text-lg font-bold text-slate-800 mb-2">Delete Record</h3>
+          <p className="text-slate-500 text-sm mb-6">
+            Are you sure you want to delete <span className="font-semibold text-slate-700">{selectedRecord?.name}</span>?
+          </p>
+          <div className="flex items-center gap-3 w-full">
+            <Button variant="outline" color="secondary" className="flex-1" onClick={() => setIsDeleteOpen(false)}>
               Cancel
             </Button>
-            <Button variant="filled" color="danger" onClick={confirmDelete}>
-              Confirm Delete
+            <Button variant="filled" color="danger" className="flex-1" onClick={confirmDelete}>
+              Delete
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Success Modal */}
+      <Modal
+        isOpen={isSuccessOpen}
+        onClose={() => setIsSuccessOpen(false)}
+        title="Success"
+        maxWidth="sm"
+      >
+        <div className="flex flex-col items-center text-center py-4">
+          <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mb-4">
+            <CheckCircle2 className="w-6 h-6" />
+          </div>
+          <h3 className="text-lg font-bold text-slate-800 mb-2">Success</h3>
+          <p className="text-slate-500 text-sm mb-6">
+            {successMessage}
+          </p>
+          
+          <div className="flex items-center justify-center w-full">
+            <Button variant="filled" color="primary" className="w-full" onClick={() => setIsSuccessOpen(false)}>
+              OK
             </Button>
           </div>
         </div>
