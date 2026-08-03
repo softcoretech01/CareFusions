@@ -81,15 +81,17 @@ class DoctorUpdate(DoctorCreate):
     modifiedBy:         Optional[str]       = "System"
 
 class DoctorResponse(BaseModel):
+    # Read-only output model: tolerant of NULL columns so a partially-filled
+    # doctor row still serializes instead of raising ResponseValidationError.
     id:                 int
     doctorId:           str
     registrationNumber: str
     name:               str
-    gender:             GenderEnum
+    gender:             Optional[GenderEnum] = None
     dob:                Optional[date]      = None
     mobile:             str
     alternateMobile:    Optional[str]       = None
-    email:              EmailStr
+    email:              Optional[EmailStr]  = None
     address1:           Optional[str]       = None
     address2:           Optional[str]       = None
     city:               Optional[str]       = None
@@ -117,7 +119,7 @@ class DoctorResponse(BaseModel):
     teleConsultationFee:Optional[float]     = None
     opDuration:         Optional[int]       = None
     maxPatients:        Optional[int]       = None
-    allowOnlineBooking: bool                = False
+    allowOnlineBooking: Optional[bool]      = False
 
     availableDays:      Optional[str]       = None
     fromTime:           Optional[time]      = None
@@ -125,15 +127,15 @@ class DoctorResponse(BaseModel):
     breakFrom:          Optional[time]      = None
     breakTo:            Optional[time]      = None
     slotDuration:       Optional[int]       = None
-    availableEmergency: bool                = False
-    availableTele:      bool                = False
+    availableEmergency: Optional[bool]      = False
+    availableTele:      Optional[bool]      = False
 
     doctorPhoto:        Optional[str]       = None
     signatureImage:     Optional[str]       = None
     digitalSignature:   Optional[str]       = None
     registrationCertificate: Optional[str]  = None
 
-    status:             str
+    status:             Optional[str]       = None
     remarks:            Optional[str]       = None
     
     createdBy:          Optional[str]       = None

@@ -1,7 +1,7 @@
 import { useState, useEffect, type KeyboardEvent } from 'react';
 import {
   Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle,
-  Save, RefreshCw
+  Save, RefreshCw, X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
@@ -84,8 +84,6 @@ const mapApiToRecord = (item: Record<string, unknown>): RadiologyServiceRecord =
 });
 
 const serviceCategories = ['X-Ray', 'CT Scan', 'MRI', 'Ultrasound', 'Mammogram', 'ECG', 'Echo', 'PET Scan'];
-const departments = ['Radiology', 'Cardiology', 'Nuclear Medicine'];
-
 // Field limits (aligned with DB column sizes / sensible ranges)
 const LIMITS = {
   serviceName: 150,     // DB VARCHAR(255)
@@ -107,7 +105,10 @@ const blockDecimalKeys = (e: KeyboardEvent<HTMLInputElement>) => {
 
 export const RadiologyServiceMaster = () => {
   const [records, setRecords] = useState<RadiologyServiceRecord[]>([]);
+  const [departments, setDepartments] = useState<{id: number, departmentName: string}[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -142,7 +143,23 @@ export const RadiologyServiceMaster = () => {
     }
   };
 
-  useEffect(() => { fetchRadiologyServices(); }, []);
+  // ── Fetch departments ────────────────────────────────────────
+  const fetchDepartments = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/departments/`);
+      if (res.ok) {
+        const data = await res.json();
+        setDepartments(data.filter((d: any) => d.status === 'Active'));
+      }
+    } catch (err) {
+      console.error('Failed to fetch departments', err);
+    }
+  };
+
+  useEffect(() => { 
+    fetchRadiologyServices(); 
+    fetchDepartments();
+  }, []);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -287,6 +304,10 @@ export const RadiologyServiceMaster = () => {
     return matchesSearch && matchesDepartment && matchesCategory && matchesStatus;
   });
 
+  const _totalPages = Math.max(1, Math.ceil(filteredRecords.length / itemsPerPage));
+  const _page = Math.min(currentPage, _totalPages);
+  const pagedRecords = filteredRecords.slice((_page - 1) * itemsPerPage, _page * itemsPerPage);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -309,8 +330,6 @@ export const RadiologyServiceMaster = () => {
               <p className="text-slate-500 mt-1"></p>
             </div>
             <div className="flex gap-3">
-              <Button variant="outline" icon={RefreshCw} onClick={fetchRadiologyServices}>Refresh</Button>
-              <Button variant="outline" icon={Download} onClick={() => exportToExcel(records, 'RadiologyServiceMaster')}>Export</Button>
               <Button variant="filled" color="primary" icon={Plus} onClick={handleCreateNew}>
                 Add Service
               </Button>
@@ -329,14 +348,17 @@ export const RadiologyServiceMaster = () => {
                   className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm"
                 />
               </div>
-              <Button
-                variant={showFilters ? "filled" : "outline"}
-                color="secondary"
-                icon={Filter}
-                onClick={() => setShowFilters(!showFilters)}
-              >
-                Filters
-              </Button>
+              <div className="flex items-center gap-2">
+              <button onClick={() => setShowFilters(!showFilters)} title="Filters" className={showFilters ? "p-2 border rounded-lg transition-colors border-primary bg-primary/5 text-primary" : "p-2 border rounded-lg transition-colors border-slate-200 text-slate-500 hover:bg-slate-50"}>
+                <Filter className="w-4 h-4" />
+              </button>
+              <button onClick={() => { setSearchTerm(''); setFilterCategory(''); setFilterDepartment(''); setFilterStatus(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+              <button onClick={() => exportToExcel(records, 'RadiologyServiceMaster')} title="Export to Excel" className="p-2 border border-emerald-200 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 transition-colors">
+                <Download className="w-4 h-4" />
+              </button>
+            </div>
             </div>
 
             <AnimatePresence>
@@ -354,7 +376,7 @@ export const RadiologyServiceMaster = () => {
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     >
                       <option value="">All Departments</option>
-                      {departments.map(d => <option key={d} value={d}>{d}</option>)}
+                      {departments.map(d => <option key={d.id} value={d.departmentName}>{d.departmentName}</option>)}
                     </select>
                     <select
                       value={filterCategory}
@@ -399,7 +421,7 @@ export const RadiologyServiceMaster = () => {
                       </td>
                     </tr>
                   ) : filteredRecords.length > 0 ? (
-                    filteredRecords.map((record) => (
+                    pagedRecords.map((record) => (
                       <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-4 py-3 font-medium text-slate-800">{record.serviceCode}</td>
                         <td className="px-4 py-3">
@@ -449,6 +471,26 @@ export const RadiologyServiceMaster = () => {
                 </tbody>
               </table>
             </div>
+            <div className="flex flex-wrap items-center justify-between gap-3 p-4 border-t border-slate-100 text-sm text-slate-500">
+              <div className="flex items-center gap-2">
+                <span>Show</span>
+                <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+                <span>entries</span>
+                <span className="text-slate-400">· {filteredRecords.length} total</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span>Page {_page} of {_totalPages}</span>
+                <div className="flex gap-1">
+                  <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={_page <= 1} className="px-3 py-1 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed">Prev</button>
+                  <button onClick={() => setCurrentPage(p => Math.min(_totalPages, p + 1))} disabled={_page >= _totalPages} className="px-3 py-1 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed">Next</button>
+                </div>
+              </div>
+            </div>
           </div>
         </>
       ) : (
@@ -484,7 +526,7 @@ export const RadiologyServiceMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Department <span className="text-red-500">*</span></label>
                     <select value={formData.department} onChange={e => setFormData({...formData, department: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.department ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
                       <option value="">Select Department</option>
-                      {departments.map(d => <option key={d} value={d}>{d}</option>)}
+                      {departments.map(d => <option key={d.id} value={d.departmentName}>{d.departmentName}</option>)}
                     </select>
                     {errors.department && <p className="text-red-500 text-xs mt-1">{errors.department}</p>}
                   </div>

@@ -1,111 +1,114 @@
 import { useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Building2, Users, UserCog, CalendarClock, Pill, Microscope, ActivitySquare, Receipt, ShieldCheck, PackageSearch, Landmark, Lock, BellRing, Sparkles, History, ChevronRight, ChevronDown, Stethoscope } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { usePermissions } from '../hooks/usePermissions';
+import { useAppDispatch } from '../hooks/redux';
+import { logout } from '../redux/slices/authSlice';
 
 const navigation = [
   { name: 'Dashboard', to: '/admin', icon: LayoutDashboard },
 
   {
-    name: 'Organization Masters', icon: Building2, children: [
-      { name: 'Hospital Master', to: '/admin/masters/hospital' },
-      { name: 'Branch Master', to: '/admin/masters/branch' },
-      { name: 'Department Master', to: '/admin/masters/department' },
+    name: 'Organization', icon: Building2, children: [
+      { name: 'Hospital', to: '/admin/masters/hospital' },
+      { name: 'Branch', to: '/admin/masters/branch' },
+      { name: 'Department', to: '/admin/masters/department' },
     ]
   },
   {
-    name: 'Doctor Masters', icon: Stethoscope, children: [
-      { name: 'Doctor Master', to: '/admin/masters/doctor' },
+    name: 'Doctor', icon: Stethoscope, children: [
+      { name: 'Doctor', to: '/admin/masters/doctor' },
     ]
   },
   {
-    name: 'Employee Masters', icon: UserCog, children: [
-      { name: 'Nurse Master', to: '/admin/masters/nurse' },
-      { name: 'Pharmacist Master', to: '/admin/masters/pharmacist' },
-      { name: 'Lab Technician Master', to: '/admin/masters/lab-technician' },
-      { name: 'Receptionist Master', to: '/admin/masters/receptionist' },
+    name: 'Employee', icon: UserCog, children: [
+      { name: 'Nurse', to: '/admin/masters/nurse' },
+      { name: 'Pharmacist', to: '/admin/masters/pharmacist' },
+      { name: 'Lab Technician', to: '/admin/masters/lab-technician' },
+      { name: 'Receptionist', to: '/admin/masters/receptionist' },
       { name: 'Facility Management', to: '/admin/masters/facility-management' },
     ]
   },
   {
-    name: 'Patient Masters', icon: Users, children: [
+    name: 'Patient', icon: Users, children: [
       { name: 'Patient Category', to: '/admin/masters/patient-category' },
       { name: 'Blood Group', to: '/admin/masters/blood-group' },
-      { name: 'Allergy Master', to: '/admin/masters/allergy' },
-      { name: 'Diagnosis Master', to: '/admin/masters/diagnosis' },
-      { name: 'Procedure Master', to: '/admin/masters/procedure' },
+      { name: 'Allergy', to: '/admin/masters/allergy' },
+      { name: 'Diagnosis', to: '/admin/masters/diagnosis' },
+      { name: 'Procedure', to: '/admin/masters/procedure' },
     ]
   },
   {
-    name: 'Appointment Masters', icon: CalendarClock, children: [
+    name: 'Appointment', icon: CalendarClock, children: [
       { name: 'Consultation Type', to: '/admin/masters/consultation-type' },
       { name: 'Appointment Status', to: '/admin/masters/appointment-status' },
     ]
   },
   {
-    name: 'Pharmacy Masters', icon: Pill, children: [
-      { name: 'Medicine Master', to: '/admin/masters/medicine' },
+    name: 'Pharmacy', icon: Pill, children: [
+      { name: 'Medicine', to: '/admin/masters/medicine' },
       { name: 'Medicine Category', to: '/admin/masters/medicine-category' },
     ]
   },
   {
-    name: 'Laboratory Masters', icon: Microscope, children: [
-      { name: 'Test Master', to: '/admin/masters/test' },
+    name: 'Laboratory', icon: Microscope, children: [
+      { name: 'Test', to: '/admin/masters/test' },
       { name: 'Sample Types', to: '/admin/masters/sample-type' },
     ]
   },
   {
-    name: 'Radiology Masters', icon: ActivitySquare, children: [
+    name: 'Radiology', icon: ActivitySquare, children: [
       { name: 'Radiology Services', to: '/admin/masters/radiology-service' },
-      { name: 'Equipment Master', to: '/admin/masters/equipment' },
+      { name: 'Equipment', to: '/admin/masters/equipment' },
     ]
   },
   {
-    name: 'Billing Masters', icon: Receipt, children: [
-      { name: 'Service Master', to: '/admin/masters/service' },
-      { name: 'Tax Master', to: '/admin/masters/tax' },
+    name: 'Billing', icon: Receipt, children: [
+      { name: 'Service', to: '/admin/masters/service' },
+      { name: 'Tax', to: '/admin/masters/tax' },
       { name: 'Payment Mode', to: '/admin/masters/payment-mode' },
     ]
   },
   {
-    name: 'Insurance Masters', icon: ShieldCheck, children: [
+    name: 'Insurance', icon: ShieldCheck, children: [
       { name: 'Insurance Provider', to: '/admin/masters/insurance-provider' },
-      { name: 'TPA Master', to: '/admin/masters/tpa' },
+      { name: 'TPA', to: '/admin/masters/tpa' },
     ]
   },
   {
     name: 'Purchase & Inventory', icon: PackageSearch, children: [
-      { name: 'Vendor Master', to: '/admin/masters/vendor' },
-      { name: 'Category Master', to: '/admin/masters/category' },
-      { name: 'Sub Category Master', to: '/admin/masters/sub-category' },
-      { name: 'UOM Master', to: '/admin/masters/uom' },
-      { name: 'Item Master', to: '/admin/masters/item' },
-      { name: 'Brand Master', to: '/admin/masters/brand' },
-      { name: 'Manufacturer Master', to: '/admin/masters/manufacturer' },
-      { name: 'Warehouse Master', to: '/admin/masters/warehouse' },
+      { name: 'Vendor', to: '/admin/masters/vendor' },
+      { name: 'Category', to: '/admin/masters/category' },
+      { name: 'Sub Category', to: '/admin/masters/sub-category' },
+      { name: 'UOM', to: '/admin/masters/uom' },
+      { name: 'Item', to: '/admin/masters/item' },
+      { name: 'Brand', to: '/admin/masters/brand' },
+      { name: 'Manufacturer', to: '/admin/masters/manufacturer' },
+      { name: 'Warehouse', to: '/admin/masters/warehouse' },
     ]
   },
   {
-    name: 'Financial Masters', icon: Landmark, children: [
+    name: 'Financial', icon: Landmark, children: [
       { name: 'Chart of Accounts', to: '/admin/masters/coa' },
       { name: 'Cost Centers', to: '/admin/masters/cost-center' },
       { name: 'Profit Centers', to: '/admin/masters/profit-center' },
       { name: 'Payment Terms', to: '/admin/masters/payment-terms' },
       { name: 'Currency', to: '/admin/masters/currency' },
       { name: 'Financial Year', to: '/admin/masters/financial-year' },
-      { name: 'Bank Master', to: '/admin/masters/bank' },
+      { name: 'Bank', to: '/admin/masters/bank' },
       { name: 'Cash Counter', to: '/admin/masters/cash-counter' },
     ]
   },
   {
-    name: 'Security Masters', icon: Lock, children: [
+    name: 'Security', icon: Lock, children: [
       { name: 'Users', to: '/admin/masters/users' },
       { name: 'Roles', to: '/admin/masters/roles' },
       { name: 'Permissions', to: '/admin/masters/permissions' },
     ]
   },
   {
-    name: 'Notification Masters', icon: BellRing, children: [
+    name: 'Notification', icon: BellRing, children: [
       { name: 'SMS Templates', to: '/admin/masters/sms' },
       { name: 'Email Templates', to: '/admin/masters/email' },
       { name: 'WhatsApp Templates', to: '/admin/masters/whatsapp' },
@@ -114,7 +117,7 @@ const navigation = [
     ]
   },
   {
-    name: 'AI Config Masters', icon: Sparkles, children: [
+    name: 'AI Config', icon: Sparkles, children: [
       { name: 'Prompt Templates', to: '/admin/masters/prompts' },
       { name: 'Clinical Rules', to: '/admin/masters/clinical-rules' },
     ]
@@ -124,12 +127,26 @@ const navigation = [
 
 export const Sidebar = () => {
   const [openMenus, setOpenMenus] = useState<string[]>([]);
+  const { permissions, canView } = usePermissions();
+  const dispatch = useAppDispatch();
+  const navigate = useNavigate();
+
+  const handleSignOut = () => {
+    dispatch(logout());
+    navigate('/login', { replace: true });
+  };
 
   const toggleMenu = (name: string) => {
     setOpenMenus(prev =>
       prev.includes(name) ? prev.filter(m => m !== name) : [...prev, name]
     );
   };
+
+  // Role-based menu: show a section only if the role may view it.
+  // Fallback: if no permissions are loaded (e.g. legacy session), show everything.
+  const visibleNavigation = permissions.length === 0
+    ? navigation
+    : navigation.filter(item => canView(item.name));
 
   return (
     <motion.aside
@@ -157,7 +174,7 @@ export const Sidebar = () => {
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar px-3 py-6 space-y-1">
-        {navigation.map((item) => {
+        {visibleNavigation.map((item) => {
           const Icon = item.icon;
           const hasChildren = item.children && item.children.length > 0;
           const isOpen = openMenus.includes(item.name);
@@ -230,10 +247,10 @@ export const Sidebar = () => {
 
       <div className="p-4 border-t border-white/5 bg-sidebar">
         <button
-          onClick={() => { window.location.href = '/login'; }}
-          className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm text-danger hover:bg-danger/10 font-semibold transition-colors group"
+          onClick={handleSignOut}
+          className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm text-white/80 bg-white/5 hover:bg-danger hover:text-white font-semibold transition-colors group"
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-danger group-hover:scale-110 transition-transform">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 group-hover:scale-110 transition-transform">
             <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
             <line x1="12" y1="2" x2="12" y2="12"></line>
           </svg>

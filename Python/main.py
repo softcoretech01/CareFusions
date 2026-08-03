@@ -15,6 +15,7 @@ from app.routers import (
     doctor, upload, nurse, pharmacist, lab_technician, receptionist, facility_management,
     patient_category, blood_group, diagnosis, procedure, procedure_type, consultation_type,
     appointment_status, allergy, medicine, medicine_category, lab_test, sample_type,
+    appointment, permission, auth,
 )
 
 # ── Logging ──────────────────────────────────────────────────
@@ -102,6 +103,9 @@ app.include_router(medicine.router,              prefix="/api/v1")
 app.include_router(medicine_category.router,     prefix="/api/v1")
 app.include_router(lab_test.router,              prefix="/api/v1")
 app.include_router(sample_type.router,           prefix="/api/v1")
+app.include_router(appointment.router,           prefix="/api/v1")
+app.include_router(permission.router,            prefix="/api/v1")
+app.include_router(auth.router,                  prefix="/api/v1")
 
 
 @app.get("/", tags=["Health"])

@@ -59,6 +59,8 @@ const departments = ['Pathology', 'Microbiology', 'Biochemistry'];
 export const ProfileMaster = () => {
   const [records, setRecords] = useState<ProfileRecord[]>(mockData);
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   
   // Form States
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -134,6 +136,10 @@ export const ProfileMaster = () => {
     record.profileCode.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const _totalPages = Math.max(1, Math.ceil(filteredRecords.length / itemsPerPage));
+  const _page = Math.min(currentPage, _totalPages);
+  const pagedRecords = filteredRecords.slice((_page - 1) * itemsPerPage, _page * itemsPerPage);
+
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="h-full flex flex-col relative">
       {!isFormOpen ? (
@@ -141,10 +147,9 @@ export const ProfileMaster = () => {
           <div className="flex items-center justify-between mb-8">
             <div>
               <h1 className="text-3xl font-bold text-slate-800">Test Profile Master</h1>
-              <p className="text-slate-500 mt-1">Manage grouped laboratory tests (panels/profiles)</p>
+              <p className="text-slate-500 mt-1"></p>
             </div>
             <div className="flex gap-3">
-              <Button variant="outline" icon={Download} onClick={() => exportToExcel(records, 'ProfileMaster')}>Export</Button>
               <Button variant="filled" color="primary" icon={Plus} onClick={handleCreateNew}>
                 Add Profile
               </Button>
@@ -163,6 +168,14 @@ export const ProfileMaster = () => {
                   className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm"
                 />
               </div>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setSearchTerm('')} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+                <button onClick={() => exportToExcel(records, 'ProfileMaster')} title="Export to Excel" className="p-2 border border-emerald-200 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 transition-colors">
+                  <Download className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
             <div className="flex-1 overflow-x-auto">
@@ -180,7 +193,7 @@ export const ProfileMaster = () => {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {filteredRecords.length > 0 ? (
-                    filteredRecords.map((record) => (
+                    pagedRecords.map((record) => (
                       <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-4 py-3 font-medium text-slate-800">{record.profileCode}</td>
                         <td className="px-4 py-3 font-bold text-slate-700">{record.profileName}</td>
@@ -226,6 +239,26 @@ export const ProfileMaster = () => {
                   )}
                 </tbody>
               </table>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-3 p-4 border-t border-slate-100 text-sm text-slate-500">
+              <div className="flex items-center gap-2">
+                <span>Show</span>
+                <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+                <span>entries</span>
+                <span className="text-slate-400">· {filteredRecords.length} total</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span>Page {_page} of {_totalPages}</span>
+                <div className="flex gap-1">
+                  <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={_page <= 1} className="px-3 py-1 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed">Prev</button>
+                  <button onClick={() => setCurrentPage(p => Math.min(_totalPages, p + 1))} disabled={_page >= _totalPages} className="px-3 py-1 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed">Next</button>
+                </div>
+              </div>
             </div>
           </div>
         </>
