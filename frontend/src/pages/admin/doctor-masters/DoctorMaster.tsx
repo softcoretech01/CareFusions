@@ -735,7 +735,7 @@ export const DoctorMaster = () => {
                       type="text"
                       value={formData.doctorId}
                       readOnly
-                      className="w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed focus:outline-none"
+                      maxLength={50} className="w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed focus:outline-none"
                     />
                     {errors.doctorId && <p className="text-red-500 text-xs mt-1">{errors.doctorId}</p>}
                   </div>
@@ -745,7 +745,7 @@ export const DoctorMaster = () => {
                     </label>
                     <input
                       type="text"
-                      value={formData.registrationNumber}
+                      value={formData.registrationNumber} maxLength={50}
                       onChange={e => setFormData({...formData, registrationNumber: e.target.value})}
                       className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${
                         errors.registrationNumber ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
@@ -759,7 +759,7 @@ export const DoctorMaster = () => {
                     </label>
                     <input
                       type="text"
-                      value={formData.name}
+                      value={formData.name} maxLength={50}
                       onChange={e => setFormData({...formData, name: e.target.value})}
                       className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${
                         errors.name ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
@@ -800,7 +800,7 @@ export const DoctorMaster = () => {
                     </label>
                     <input
                       type="tel"
-                      value={formData.mobile}
+                      value={formData.mobile} maxLength={10}
                       onChange={e => setFormData({...formData, mobile: e.target.value})}
                       className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${
                         errors.mobile ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
@@ -812,7 +812,7 @@ export const DoctorMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Alternate Mobile</label>
                     <input
                       type="tel"
-                      value={formData.alternateMobile}
+                      value={formData.alternateMobile} maxLength={10}
                       onChange={e => setFormData({...formData, alternateMobile: e.target.value})}
                       className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     />
@@ -823,7 +823,7 @@ export const DoctorMaster = () => {
                     </label>
                     <input
                       type="email"
-                      value={formData.email}
+                      value={formData.email} maxLength={50}
                       onChange={e => setFormData({...formData, email: e.target.value})}
                       className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${
                         errors.email ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
@@ -836,7 +836,7 @@ export const DoctorMaster = () => {
                       <label className="block text-sm font-medium text-slate-700 mb-1">Address Line 1</label>
                       <input
                         type="text"
-                        value={formData.address1}
+                        value={formData.address1} maxLength={250}
                         onChange={e => setFormData({...formData, address1: e.target.value})}
                         className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                       />
@@ -845,7 +845,7 @@ export const DoctorMaster = () => {
                       <label className="block text-sm font-medium text-slate-700 mb-1">Address Line 2</label>
                       <input
                         type="text"
-                        value={formData.address2}
+                        value={formData.address2} maxLength={250}
                         onChange={e => setFormData({...formData, address2: e.target.value})}
                         className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                       />
@@ -854,7 +854,7 @@ export const DoctorMaster = () => {
                       <label className="block text-sm font-medium text-slate-700 mb-1">City</label>
                       <input
                         type="text"
-                        value={formData.city}
+                        value={formData.city} maxLength={50}
                         onChange={e => setFormData({...formData, city: e.target.value})}
                         className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                       />
@@ -863,7 +863,7 @@ export const DoctorMaster = () => {
                       <label className="block text-sm font-medium text-slate-700 mb-1">State</label>
                       <input
                         type="text"
-                        value={formData.state}
+                        value={formData.state} maxLength={50}
                         onChange={e => setFormData({...formData, state: e.target.value})}
                         className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                       />
@@ -872,7 +872,7 @@ export const DoctorMaster = () => {
                       <label className="block text-sm font-medium text-slate-700 mb-1">Country</label>
                       <input
                         type="text"
-                        value={formData.country}
+                        value={formData.country} maxLength={50}
                         onChange={e => setFormData({...formData, country: e.target.value})}
                         className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                       />
@@ -881,7 +881,7 @@ export const DoctorMaster = () => {
                       <label className="block text-sm font-medium text-slate-700 mb-1">Postal Code</label>
                       <input
                         type="text"
-                        value={formData.postalCode}
+                        value={formData.postalCode} maxLength={10}
                         onChange={e => setFormData({...formData, postalCode: e.target.value})}
                         className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                       />
@@ -898,7 +898,7 @@ export const DoctorMaster = () => {
                     </label>
                     <input
                       type="text"
-                      value={formData.qualification}
+                      value={formData.qualification} maxLength={50}
                       onChange={e => setFormData({...formData, qualification: e.target.value})}
                       placeholder="e.g., MBBS, MD"
                       className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${
@@ -913,7 +913,7 @@ export const DoctorMaster = () => {
                     </label>
                     <input
                       type="text"
-                      value={formData.specialization}
+                      value={formData.specialization} maxLength={50}
                       onChange={e => setFormData({...formData, specialization: e.target.value})}
                       className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${
                         errors.specialization ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
@@ -981,7 +981,7 @@ export const DoctorMaster = () => {
                     </label>
                     <input
                       type="text"
-                      value={formData.designation}
+                      value={formData.designation} maxLength={50}
                       onChange={e => setFormData({...formData, designation: e.target.value})}
                       className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${
                         errors.designation ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
@@ -993,7 +993,7 @@ export const DoctorMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Medical Council</label>
                     <input
                       type="text"
-                      value={formData.medicalCouncil}
+                      value={formData.medicalCouncil} maxLength={50}
                       onChange={e => setFormData({...formData, medicalCouncil: e.target.value})}
                       className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     />
@@ -1002,7 +1002,7 @@ export const DoctorMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Experience (Years)</label>
                     <input
                       type="number"
-                      value={formData.experience}
+                      value={formData.experience} maxLength={50}
                       onChange={e => setFormData({...formData, experience: e.target.value})}
                       className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     />
@@ -1011,7 +1011,7 @@ export const DoctorMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Languages Known</label>
                     <input
                       type="text"
-                      value={formData.languages}
+                      value={formData.languages} maxLength={50}
                       onChange={e => setFormData({...formData, languages: e.target.value})}
                       className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     />
@@ -1061,7 +1061,7 @@ export const DoctorMaster = () => {
                     <input
                       type="number"
                       min="0"
-                      value={formData.consultationFee}
+                      value={formData.consultationFee} maxLength={50}
                       onChange={e => setFormData({...formData, consultationFee: e.target.value})}
                       className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${
                         errors.consultationFee ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
@@ -1074,7 +1074,7 @@ export const DoctorMaster = () => {
                     <input
                       type="number"
                       min="0"
-                      value={formData.followUpFee}
+                      value={formData.followUpFee} maxLength={50}
                       onChange={e => setFormData({...formData, followUpFee: e.target.value})}
                       className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     />
@@ -1084,7 +1084,7 @@ export const DoctorMaster = () => {
                     <input
                       type="number"
                       min="0"
-                      value={formData.emergencyFee}
+                      value={formData.emergencyFee} maxLength={50}
                       onChange={e => setFormData({...formData, emergencyFee: e.target.value})}
                       className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     />
@@ -1094,7 +1094,7 @@ export const DoctorMaster = () => {
                     <input
                       type="number"
                       min="0"
-                      value={formData.teleConsultationFee}
+                      value={formData.teleConsultationFee} maxLength={50}
                       onChange={e => setFormData({...formData, teleConsultationFee: e.target.value})}
                       className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     />
@@ -1106,7 +1106,7 @@ export const DoctorMaster = () => {
                     <input
                       type="number"
                       min="1"
-                      value={formData.opDuration}
+                      value={formData.opDuration} maxLength={50}
                       onChange={e => setFormData({...formData, opDuration: e.target.value})}
                       className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${
                         errors.opDuration ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
@@ -1119,7 +1119,7 @@ export const DoctorMaster = () => {
                     <input
                       type="number"
                       min="1"
-                      value={formData.maxPatients}
+                      value={formData.maxPatients} maxLength={50}
                       onChange={e => setFormData({...formData, maxPatients: e.target.value})}
                       className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     />
@@ -1216,7 +1216,7 @@ export const DoctorMaster = () => {
                       <input
                         type="number"
                         min="1"
-                        value={formData.slotDuration}
+                        value={formData.slotDuration} maxLength={50}
                         onChange={e => setFormData({...formData, slotDuration: e.target.value})}
                         className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${
                           errors.slotDuration ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
@@ -1315,7 +1315,7 @@ export const DoctorMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Remarks</label>
                     <input
                       type="text"
-                      value={formData.remarks}
+                      value={formData.remarks} maxLength={250}
                       onChange={e => setFormData({...formData, remarks: e.target.value})}
                       className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     />

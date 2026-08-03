@@ -228,7 +228,7 @@ export const HousekeepingMaster = () => {
             <label className="block text-sm font-medium text-slate-700 mb-1">Name</label>
             <input
               type="text"
-              value={formData.name}
+              value={formData.name} maxLength={50}
               onChange={(e) => setFormData({...formData, name: e.target.value})}
               className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
               placeholder="Enter name"
@@ -238,7 +238,7 @@ export const HousekeepingMaster = () => {
             <label className="block text-sm font-medium text-slate-700 mb-1">Code</label>
             <input
               type="text"
-              value={formData.code}
+              value={formData.code} maxLength={10}
               onChange={(e) => setFormData({...formData, code: e.target.value})}
               className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
               placeholder="Enter code"

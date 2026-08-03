@@ -279,11 +279,11 @@ export const ProfileMaster = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Profile Code <span className="text-red-500">*</span></label>
-                    <input type="text" value={formData.profileCode} onChange={e => setFormData({...formData, profileCode: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm ${errors.profileCode ? 'border-red-300' : 'border-slate-200'}`} />
+                    <input type="text" value={formData.profileCode} onChange={e => setFormData({...formData, profileCode: e.target.value})} maxLength={10} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm ${errors.profileCode ? 'border-red-300' : 'border-slate-200'}`} />
                   </div>
                   <div className="lg:col-span-2">
                     <label className="block text-sm font-medium text-slate-700 mb-1">Profile Name <span className="text-red-500">*</span></label>
-                    <input type="text" value={formData.profileName} onChange={e => setFormData({...formData, profileName: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm ${errors.profileName ? 'border-red-300' : 'border-slate-200'}`} />
+                    <input type="text" value={formData.profileName} onChange={e => setFormData({...formData, profileName: e.target.value})} maxLength={50} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm ${errors.profileName ? 'border-red-300' : 'border-slate-200'}`} />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Department <span className="text-red-500">*</span></label>
@@ -294,7 +294,7 @@ export const ProfileMaster = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Price (₹) <span className="text-red-500">*</span></label>
-                    <input type="number" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm ${errors.price ? 'border-red-300' : 'border-slate-200'}`} />
+                    <input type="number" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} maxLength={50} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm ${errors.price ? 'border-red-300' : 'border-slate-200'}`} />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>

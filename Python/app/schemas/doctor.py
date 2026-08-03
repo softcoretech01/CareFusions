@@ -108,8 +108,8 @@ class DoctorResponse(BaseModel):
     medicalCouncil:     Optional[str]       = None
     experience:         Optional[int]       = None
     languages:          Optional[str]       = None
-    doctorType:         Optional[DoctorTypeEnum] = None
-    consultationType:   Optional[ConsultationTypeEnum] = None
+    doctorType:         Optional[str]       = None
+    consultationType:   Optional[str]       = None
     joiningDate:        Optional[date]      = None
     licenseExpiryDate:  Optional[date]      = None
 

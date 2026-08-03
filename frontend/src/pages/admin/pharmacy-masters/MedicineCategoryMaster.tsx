@@ -96,11 +96,18 @@ export const MedicineCategoryMaster = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleCreateNew = () => {
+  const handleCreateNew = async () => {
+    let nextCode = '';
+    try {
+      const res = await fetch(`${API_BASE}/medicine-categories/next-code`);
+      if (res.ok) {
+        const data = await res.json();
+        nextCode = data.nextCode;
+      }
+    } catch (err) {
+      console.error("Failed to fetch next code", err);
+    }
     setSelectedRecord(null);
-    // Auto-generate next CAT-XXX code
-    const nextNum = records.length + 1;
-    const nextCode = `CAT-${String(nextNum).padStart(3, '0')}`;
     setFormData({ ...emptyData, categoryCode: nextCode });
     setErrors({});
     setIsFormOpen(true);
@@ -354,17 +361,17 @@ export const MedicineCategoryMaster = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Category Code <span className="text-red-500">*</span></label>
-                    <input type="text" value={formData.categoryCode} readOnly className="w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed" />
+                    <input type="text" value={formData.categoryCode} readOnly maxLength={10} className="w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed" />
                     {errors.categoryCode && <p className="text-red-500 text-xs mt-1">{errors.categoryCode}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Category Name <span className="text-red-500">*</span></label>
-                    <input type="text" value={formData.categoryName} onChange={e => setFormData({...formData, categoryName: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.categoryName ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
+                    <input type="text" value={formData.categoryName} onChange={e => setFormData({...formData, categoryName: e.target.value})} maxLength={50} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.categoryName ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
                     {errors.categoryName && <p className="text-red-500 text-xs mt-1">{errors.categoryName}</p>}
                   </div>
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
-                    <input type="text" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <input type="text" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} maxLength={250} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                 </div>
               </section>
@@ -382,7 +389,7 @@ export const MedicineCategoryMaster = () => {
                   </div>
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-slate-700 mb-1">Remarks</label>
-                    <input type="text" value={formData.remarks} onChange={e => setFormData({...formData, remarks: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <input type="text" value={formData.remarks} onChange={e => setFormData({...formData, remarks: e.target.value})} maxLength={250} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                 </div>
               </section>
