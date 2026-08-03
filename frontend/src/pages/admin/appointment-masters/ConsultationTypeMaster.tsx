@@ -99,9 +99,19 @@ export const ConsultationTypeMaster = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleCreateNew = () => {
+  const handleCreateNew = async () => {
+    let nextCode = '';
+    try {
+      const res = await fetch(`${API_BASE}/consultation-types/next-code`);
+      if (res.ok) {
+        const data = await res.json();
+        nextCode = data.nextCode;
+      }
+    } catch (err) {
+      console.error("Failed to fetch next code", err);
+    }
     setSelectedRecord(null);
-    setFormData(emptyData);
+    setFormData({ ...emptyData, consultationCode: nextCode });
     setErrors({});
     setIsFormOpen(true);
   };
@@ -329,17 +339,21 @@ export const ConsultationTypeMaster = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Consultation Code <span className="text-red-500">*</span></label>
-                    <input type="text" value={formData.consultationCode} onChange={e => setFormData({...formData, consultationCode: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-transparent transition-all ${errors.consultationCode ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
-                    {errors.consultationCode && <p className="text-red-500 text-xs mt-1">{errors.consultationCode}</p>}
+                    <input
+                      type="text"
+                      value={formData.consultationCode}
+                      readOnly
+                      maxLength={10} className="w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed focus:outline-none"
+                    />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Consultation Type <span className="text-red-500">*</span></label>
-                    <input type="text" value={formData.consultationType} onChange={e => setFormData({...formData, consultationType: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.consultationType ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
+                    <input type="text" value={formData.consultationType} onChange={e => setFormData({...formData, consultationType: e.target.value})} maxLength={50} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.consultationType ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
                     {errors.consultationType && <p className="text-red-500 text-xs mt-1">{errors.consultationType}</p>}
                   </div>
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
-                    <input type="text" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <input type="text" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} maxLength={250} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                 </div>
               </section>
@@ -350,7 +364,7 @@ export const ConsultationTypeMaster = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Duration (Minutes) <span className="text-red-500">*</span></label>
-                    <input type="number" min="1" value={formData.duration} onChange={e => setFormData({...formData, duration: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.duration ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
+                    <input type="number" min="1" value={formData.duration} onChange={e => setFormData({...formData, duration: e.target.value})} maxLength={50} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.duration ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
                     {errors.duration && <p className="text-red-500 text-xs mt-1">{errors.duration}</p>}
                   </div>
                 </div>
@@ -369,7 +383,7 @@ export const ConsultationTypeMaster = () => {
                   </div>
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-slate-700 mb-1">Remarks</label>
-                    <input type="text" value={formData.remarks} onChange={e => setFormData({...formData, remarks: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <input type="text" value={formData.remarks} onChange={e => setFormData({...formData, remarks: e.target.value})} maxLength={250} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                 </div>
               </section>

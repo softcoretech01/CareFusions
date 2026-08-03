@@ -441,12 +441,12 @@ export const TestMaster = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Test Code <span className="text-red-500">*</span></label>
-                    <input type="text" value={formData.testCode} readOnly className="w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed" />
+                    <input type="text" value={formData.testCode} readOnly maxLength={10} className="w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed" />
                     {errors.testCode && <p className="text-red-500 text-xs mt-1">{errors.testCode}</p>}
                   </div>
                   <div className="lg:col-span-2">
                     <label className="block text-sm font-medium text-slate-700 mb-1">Test Name <span className="text-red-500">*</span></label>
-                    <input type="text" value={formData.testName} onChange={e => setFormData({...formData, testName: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.testName ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
+                    <input type="text" value={formData.testName} onChange={e => setFormData({...formData, testName: e.target.value})} maxLength={50} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.testName ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
                     {errors.testName && <p className="text-red-500 text-xs mt-1">{errors.testName}</p>}
                   </div>
                   <div>
@@ -475,7 +475,7 @@ export const TestMaster = () => {
                   </div>
                   <div className="md:col-span-2 lg:col-span-3">
                     <label className="block text-sm font-medium text-slate-700 mb-1">Description (Optional)</label>
-                    <input type="text" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <input type="text" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} maxLength={250} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                 </div>
               </section>
@@ -486,19 +486,19 @@ export const TestMaster = () => {
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Normal Range (Optional)</label>
-                    <input type="text" placeholder="e.g. 70-100" value={formData.normalRange} onChange={e => setFormData({...formData, normalRange: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <input type="text" placeholder="e.g. 70-100" value={formData.normalRange} onChange={e => setFormData({...formData, normalRange: e.target.value})} maxLength={50} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Unit (Optional)</label>
-                    <input type="text" placeholder="e.g. mg/dL" value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <input type="text" placeholder="e.g. mg/dL" value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value})} maxLength={50} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Test Method (Optional)</label>
-                    <input type="text" value={formData.testMethod} onChange={e => setFormData({...formData, testMethod: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <input type="text" value={formData.testMethod} onChange={e => setFormData({...formData, testMethod: e.target.value})} maxLength={50} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Turnaround Time (Hours) <span className="text-red-500">*</span></label>
-                    <input type="number" min="1" value={formData.turnaroundTime} onChange={e => setFormData({...formData, turnaroundTime: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.turnaroundTime ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
+                    <input type="number" min="1" value={formData.turnaroundTime} onChange={e => setFormData({...formData, turnaroundTime: e.target.value})} maxLength={50} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.turnaroundTime ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
                     {errors.turnaroundTime && <p className="text-red-500 text-xs mt-1">{errors.turnaroundTime}</p>}
                   </div>
                 </div>
@@ -510,12 +510,12 @@ export const TestMaster = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Test Price (₹) <span className="text-red-500">*</span></label>
-                    <input type="number" min="0" step="0.01" value={formData.testPrice} onChange={e => setFormData({...formData, testPrice: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.testPrice ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
+                    <input type="number" min="0" step="0.01" value={formData.testPrice} onChange={e => setFormData({...formData, testPrice: e.target.value})} maxLength={50} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.testPrice ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
                     {errors.testPrice && <p className="text-red-500 text-xs mt-1">{errors.testPrice}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">GST/Tax (%) (Optional)</label>
-                    <input type="number" min="0" max="100" value={formData.gst} onChange={e => setFormData({...formData, gst: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <input type="number" min="0" max="100" value={formData.gst} onChange={e => setFormData({...formData, gst: e.target.value})} maxLength={50} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                 </div>
               </section>
@@ -526,7 +526,7 @@ export const TestMaster = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Report Template (Optional)</label>
-                    <input type="text" value={formData.reportTemplate} onChange={e => setFormData({...formData, reportTemplate: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <input type="text" value={formData.reportTemplate} onChange={e => setFormData({...formData, reportTemplate: e.target.value})} maxLength={50} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                   <div className="flex flex-col gap-3 justify-center">
                     <div className="flex items-center gap-2">
@@ -557,7 +557,7 @@ export const TestMaster = () => {
                   </div>
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-slate-700 mb-1">Remarks (Optional)</label>
-                    <input type="text" value={formData.remarks} onChange={e => setFormData({...formData, remarks: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <input type="text" value={formData.remarks} onChange={e => setFormData({...formData, remarks: e.target.value})} maxLength={250} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                 </div>
               </section>

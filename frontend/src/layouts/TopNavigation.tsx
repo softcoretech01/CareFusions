@@ -1,4 +1,4 @@
-import { Search, CalendarDays } from 'lucide-react';
+import { CalendarDays } from 'lucide-react';
 
 import { useState } from 'react';
 import { LiveClock } from '../components/ui/LiveClock';
@@ -22,14 +22,7 @@ export const TopNavigation = () => {
         <LiveClock />
       </div>
 
-      <div className="flex-1 max-w-2xl relative">
-        <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input
-          type="text"
-          placeholder="Search patient, visit, invoice..."
-          className="w-full bg-slate-50 border border-slate-200 rounded-full py-2.5 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm placeholder:text-slate-400"
-        />
-      </div>
+
 
       <div className="flex items-center gap-4 ml-8">
 

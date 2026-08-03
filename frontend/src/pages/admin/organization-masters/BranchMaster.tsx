@@ -133,9 +133,19 @@ export const BranchMaster = () => {
   }, []);
 
   // Handlers
-  const handleCreateNew = () => {
+  const handleCreateNew = async () => {
+    let nextCode = '';
+    try {
+      const res = await fetch(`${API_BASE}/branches/next-code`);
+      if (res.ok) {
+        const data = await res.json();
+        nextCode = data.nextCode;
+      }
+    } catch (err) {
+      console.error("Failed to fetch next code", err);
+    }
     setSelectedRecord(null);
-    setFormData({ ...emptyFormData });
+    setFormData({ ...emptyFormData, code: nextCode });
     setFormErrors({});
     setIsFormOpen(true);
   };
@@ -393,23 +403,20 @@ export const BranchMaster = () => {
               <div className="mb-8">
                 <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Basic Information</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* BranchCode: hidden on Create, read-only on Edit */}
-                  {selectedRecord && (
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Branch Code</label>
-                      <input
-                        type="text"
-                        value={selectedRecord.code}
-                        disabled
-                        className="w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm opacity-60 cursor-not-allowed"
-                      />
-                    </div>
-                  )}
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Branch Code</label>
+                    <input
+                      type="text"
+                      value={formData.code}
+                      readOnly
+                      maxLength={10} className="w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed focus:outline-none"
+                    />
+                  </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Branch Name <span className="text-danger">*</span></label>
                     <input
                       type="text"
-                      value={formData.name}
+                      value={formData.name} maxLength={50}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.name ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
                     />
@@ -469,7 +476,7 @@ export const BranchMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Address Line 1 <span className="text-danger">*</span></label>
                     <input
                       type="text"
-                      value={formData.address1}
+                      value={formData.address1} maxLength={250}
                       onChange={(e) => setFormData({ ...formData, address1: e.target.value })}
                       className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.address1 ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
                     />
@@ -479,7 +486,7 @@ export const BranchMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Address Line 2</label>
                     <input
                       type="text"
-                      value={formData.address2}
+                      value={formData.address2} maxLength={250}
                       onChange={(e) => setFormData({ ...formData, address2: e.target.value })}
                       className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                     />
@@ -488,7 +495,7 @@ export const BranchMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Country <span className="text-danger">*</span></label>
                     <input
                       type="text"
-                      value={formData.country}
+                      value={formData.country} maxLength={50}
                       onChange={(e) => setFormData({ ...formData, country: e.target.value })}
                       className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.country ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
                     />
@@ -498,7 +505,7 @@ export const BranchMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">State <span className="text-danger">*</span></label>
                     <input
                       type="text"
-                      value={formData.state}
+                      value={formData.state} maxLength={50}
                       onChange={(e) => setFormData({ ...formData, state: e.target.value })}
                       className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.state ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
                     />
@@ -508,7 +515,7 @@ export const BranchMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">City <span className="text-danger">*</span></label>
                     <input
                       type="text"
-                      value={formData.city}
+                      value={formData.city} maxLength={50}
                       onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                       className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.city ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
                     />
@@ -518,7 +525,7 @@ export const BranchMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Postal Code <span className="text-danger">*</span></label>
                     <input
                       type="text"
-                      value={formData.postalCode}
+                      value={formData.postalCode} maxLength={10}
                       onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
                       className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.postalCode ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
                     />
@@ -535,7 +542,7 @@ export const BranchMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Contact Number <span className="text-danger">*</span></label>
                     <input
                       type="text"
-                      value={formData.contactNumber}
+                      value={formData.contactNumber} maxLength={10}
                       onChange={(e) => setFormData({ ...formData, contactNumber: e.target.value })}
                       className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.contactNumber ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
                     />
@@ -545,7 +552,7 @@ export const BranchMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
                     <input
                       type="email"
-                      value={formData.email}
+                      value={formData.email} maxLength={50}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                       className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.email ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
                     />
@@ -555,7 +562,7 @@ export const BranchMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Branch Manager</label>
                     <input
                       type="text"
-                      value={formData.branchManager}
+                      value={formData.branchManager} maxLength={50}
                       onChange={(e) => setFormData({ ...formData, branchManager: e.target.value })}
                       className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                     />
@@ -571,7 +578,7 @@ export const BranchMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Working Hours <span className="text-danger">*</span></label>
                     <input
                       type="text"
-                      value={formData.workingHours}
+                      value={formData.workingHours} maxLength={50}
                       placeholder="e.g. 24/7 or 08:00 AM - 08:00 PM"
                       onChange={(e) => setFormData({ ...formData, workingHours: e.target.value })}
                       className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.workingHours ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
@@ -594,7 +601,7 @@ export const BranchMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Number of Floors</label>
                     <input
                       type="number"
-                      value={formData.numberOfFloors}
+                      value={formData.numberOfFloors} maxLength={50}
                       onChange={(e) => setFormData({ ...formData, numberOfFloors: e.target.value })}
                       className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                     />
@@ -603,7 +610,7 @@ export const BranchMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Number of Beds</label>
                     <input
                       type="number"
-                      value={formData.numberOfBeds}
+                      value={formData.numberOfBeds} maxLength={50}
                       onChange={(e) => setFormData({ ...formData, numberOfBeds: e.target.value })}
                       className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                     />
@@ -631,7 +638,7 @@ export const BranchMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Remarks</label>
                     <input
                       type="text"
-                      value={formData.remarks}
+                      value={formData.remarks} maxLength={250}
                       onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
                       className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                     />
@@ -641,7 +648,7 @@ export const BranchMaster = () => {
             </div>
 
             <div className="mt-6 flex items-center justify-between pt-6 border-t border-slate-100">
-              <Button variant="outline" color="secondary" onClick={() => setFormData(emptyFormData)} icon={RefreshCw}>
+              <Button variant="outline" color="secondary" onClick={() => setFormData(selectedRecord ? selectedRecord : { ...emptyFormData, code: formData.code })} icon={RefreshCw}>
                 Reset
               </Button>
               <div className="flex items-center gap-3">
