@@ -43,6 +43,8 @@ export const AppointmentDashboard = () => {
   const [appliedDateFrom, setAppliedDateFrom] = useState(today);
   const [appliedDateTo, setAppliedDateTo] = useState(today);
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   const dateFilteredAppointments = appointments.filter(a => 
     (!appliedDateFrom || a.date >= appliedDateFrom) && (!appliedDateTo || a.date <= appliedDateTo)
@@ -63,6 +65,11 @@ export const AppointmentDashboard = () => {
 
     return matchStatus;
   });
+
+  const _sortedAppointments = [...tableAppointments].sort((a, b) => a.timeSlot.localeCompare(b.timeSlot));
+  const _totalPages = Math.max(1, Math.ceil(_sortedAppointments.length / itemsPerPage));
+  const _page = Math.min(currentPage, _totalPages);
+  const _pagedAppointments = _sortedAppointments.slice((_page - 1) * itemsPerPage, _page * itemsPerPage);
 
   const handleSearch = () => {
     setAppliedDateFrom(dateFrom);
@@ -188,7 +195,7 @@ export const AppointmentDashboard = () => {
                   </td>
                 </tr>
               ) : (
-                tableAppointments.sort((a, b) => a.timeSlot.localeCompare(b.timeSlot)).map((appt) => (
+                _pagedAppointments.map((appt) => (
                   <tr key={appt.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4 font-medium text-slate-800">{appt.timeSlot} <span className="text-xs text-slate-400 block">{appt.date}</span></td>
                     <td className="px-6 py-4">
@@ -214,6 +221,26 @@ export const AppointmentDashboard = () => {
               )}
             </tbody>
           </table>
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-3 p-4 border-t border-slate-100 text-sm text-slate-500">
+          <div className="flex items-center gap-2">
+            <span>Show</span>
+            <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+            <span>entries</span>
+            <span className="text-slate-400">· {tableAppointments.length} total</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span>Page {_page} of {_totalPages}</span>
+            <div className="flex gap-1">
+              <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={_page <= 1} className="px-3 py-1 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed">Prev</button>
+              <button onClick={() => setCurrentPage(p => Math.min(_totalPages, p + 1))} disabled={_page >= _totalPages} className="px-3 py-1 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed">Next</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
