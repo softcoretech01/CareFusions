@@ -24,6 +24,24 @@ const roles = [
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
 
+// Landing page for each selected portal role.
+const ROLE_ROUTES: Record<string, string> = {
+  admin: '/admin',
+  executive: '/executive',
+  registration: '/registration',
+  appointments: '/appointments',
+  opd: '/opd',
+  ipd: '/ipd',
+  emr: '/emr',
+  pharmacy: '/pharmacy',
+  billing: '/billing',
+  lab: '/lab',
+  radiology: '/radiology',
+  insurance: '/insurance',
+  procurement: '/procurement',
+  inventory: '/inventory',
+};
+
 export const Login = () => {
   const [selectedRole, setSelectedRole] = useState('admin');
   const [showPassword, setShowPassword] = useState(false);
@@ -72,7 +90,7 @@ export const Login = () => {
         permissions: data.permissions,
         rememberMe,
       }));
-      navigate('/admin');
+      navigate(ROLE_ROUTES[selectedRole] || '/admin');
     } catch {
       setError('Cannot reach the server. Please ensure the API is running.');
     } finally {

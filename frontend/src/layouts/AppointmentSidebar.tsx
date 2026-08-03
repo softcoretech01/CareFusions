@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, CalendarPlus, Stethoscope, Globe, ListOrdered, CalendarClock, ChevronRight, ChevronDown } from 'lucide-react';
+import { LayoutDashboard, CalendarPlus, Stethoscope, Globe, ListOrdered, CalendarClock, ChevronRight, ChevronDown, LogOut } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useAppDispatch } from '../hooks/redux';
+import { logout } from '../redux/slices/authSlice';
 
 const navigation = [
   { name: 'Dashboard', to: '/appointments', icon: LayoutDashboard },
@@ -15,6 +17,12 @@ const navigation = [
 export const AppointmentSidebar = () => {
   const [openMenus, setOpenMenus] = useState<string[]>([]);
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+
+  const handleSignOut = () => {
+    dispatch(logout());
+    navigate('/login', { replace: true });
+  };
 
   const toggleMenu = (name: string) => {
     setOpenMenus(prev =>
@@ -95,13 +103,10 @@ export const AppointmentSidebar = () => {
 
       <div className="p-4 border-t border-white/5 bg-sidebar">
         <button
-          onClick={() => { navigate('/login'); }}
-          className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm text-danger hover:bg-danger/10 font-semibold transition-colors group"
+          onClick={handleSignOut}
+          className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold text-white bg-white/10 hover:bg-danger hover:text-white transition-colors group"
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-danger group-hover:scale-110 transition-transform">
-            <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
-            <line x1="12" y1="2" x2="12" y2="12"></line>
-          </svg>
+          <LogOut className="w-4 h-4 group-hover:scale-110 transition-transform" />
           Sign Out
         </button>
         <div className="text-left pl-3 text-white/40 text-xs mt-2">
