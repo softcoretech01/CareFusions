@@ -103,10 +103,18 @@ export const SampleTypeMaster = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleCreateNew = () => {
+  const handleCreateNew = async () => {
+    let nextCode = '';
+    try {
+      const res = await fetch(`${API_BASE}/sample-types/next-code`);
+      if (res.ok) {
+        const data = await res.json();
+        nextCode = data.nextCode;
+      }
+    } catch (err) {
+      console.error("Failed to fetch next code", err);
+    }
     setSelectedRecord(null);
-    const nextNum = records.length + 1;
-    const nextCode = `SMP-${String(nextNum).padStart(3, '0')}`;
     setFormData({ ...emptyData, sampleCode: nextCode });
     setErrors({});
     setIsFormOpen(true);
@@ -337,17 +345,21 @@ export const SampleTypeMaster = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Sample Code <span className="text-red-500">*</span></label>
-                    <input type="text" value={formData.sampleCode} readOnly className="w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed" />
-                    {errors.sampleCode && <p className="text-red-500 text-xs mt-1">{errors.sampleCode}</p>}
+                    <input
+                      type="text"
+                      value={formData.sampleCode}
+                      readOnly
+                      maxLength={10} className="w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed focus:outline-none"
+                    />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Sample Type <span className="text-red-500">*</span></label>
-                    <input type="text" value={formData.sampleType} onChange={e => setFormData({...formData, sampleType: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.sampleType ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
+                    <input type="text" value={formData.sampleType} onChange={e => setFormData({...formData, sampleType: e.target.value})} maxLength={50} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.sampleType ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
                     {errors.sampleType && <p className="text-red-500 text-xs mt-1">{errors.sampleType}</p>}
                   </div>
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
-                    <input type="text" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <input type="text" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} maxLength={250} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                 </div>
               </section>
@@ -358,15 +370,15 @@ export const SampleTypeMaster = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Collection Method (Optional)</label>
-                    <input type="text" value={formData.collectionMethod} onChange={e => setFormData({...formData, collectionMethod: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <input type="text" value={formData.collectionMethod} onChange={e => setFormData({...formData, collectionMethod: e.target.value})} maxLength={50} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Storage Temperature (Optional)</label>
-                    <input type="text" placeholder="e.g. 2-8°C, Room Temp" value={formData.storageTemperature} onChange={e => setFormData({...formData, storageTemperature: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <input type="text" placeholder="e.g. 2-8°C, Room Temp" value={formData.storageTemperature} onChange={e => setFormData({...formData, storageTemperature: e.target.value})} maxLength={50} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Maximum Storage Time (Optional)</label>
-                    <input type="text" placeholder="e.g. 24 Hours" value={formData.maxStorageTime} onChange={e => setFormData({...formData, maxStorageTime: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <input type="text" placeholder="e.g. 24 Hours" value={formData.maxStorageTime} onChange={e => setFormData({...formData, maxStorageTime: e.target.value})} maxLength={50} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                 </div>
               </section>
@@ -384,14 +396,14 @@ export const SampleTypeMaster = () => {
                   </div>
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-slate-700 mb-1">Remarks</label>
-                    <input type="text" value={formData.remarks} onChange={e => setFormData({...formData, remarks: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <input type="text" value={formData.remarks} onChange={e => setFormData({...formData, remarks: e.target.value})} maxLength={250} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                 </div>
               </section>
             </div>
 
-            <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex justify-between items-center shrink-0">
-              <Button variant="outline" color="secondary" onClick={() => setFormData(emptyData)} icon={RefreshCw}>
+            <div className="mt-6 flex items-center justify-between pt-6 border-t border-slate-100">
+              <Button variant="outline" color="secondary" onClick={() => setFormData(selectedRecord ? selectedRecord : { ...emptyData, sampleCode: formData.sampleCode })} icon={RefreshCw}>
                 Reset
               </Button>
               <div className="flex gap-3">

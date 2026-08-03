@@ -119,11 +119,18 @@ BEGIN
         ORDER BY FacilityStaffId DESC;
 
     -- ==================================================================
+    -- GETNEXTCODE
+    -- ==================================================================
+    ELSEIF p_Opt = 'GETNEXTCODE' THEN
+        SELECT CONCAT('FAC-', LPAD(COALESCE(MAX(CAST(SUBSTRING(EmployeeCode_FM, 5) AS UNSIGNED)), 0) + 1, 3, '0')) AS NextCode
+        FROM Master_FacilityManagement;
+
+    -- ==================================================================
     -- INSERT
     -- ==================================================================
     ELSEIF p_Opt = 'INSERT' THEN
-        SELECT IFNULL(MAX(FacilityStaffId), 0) + 1 INTO v_NextId FROM Master_FacilityManagement;
-        SET v_FMCode = CONCAT('FM-', LPAD(v_NextId, 3, '0'));
+        SELECT COALESCE(MAX(CAST(SUBSTRING(EmployeeCode_FM, 5) AS UNSIGNED)), 0) + 1 INTO v_NextId FROM Master_FacilityManagement;
+        SET v_FMCode = CONCAT('FAC-', LPAD(v_NextId, 3, '0'));
 
         INSERT INTO Master_FacilityManagement (
             EmployeeCode_FM, EmployeeCode, StaffName, StaffCategory,

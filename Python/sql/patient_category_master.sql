@@ -94,15 +94,25 @@ BEGIN
         ORDER BY PatientCategoryId DESC;
 
     -- ==================================================================
+    -- GETNEXTCODE
+    -- ==================================================================
+    ELSEIF p_Opt = 'GETNEXTCODE' THEN
+        SELECT CONCAT('PCAT-', LPAD(COALESCE(MAX(PatientCategoryId), 0) + 1, 3, '0')) AS NextCode
+        FROM Master_PatientCategory;
+
+    -- ==================================================================
     -- INSERT
     -- ==================================================================
     ELSEIF p_Opt = 'INSERT' THEN
+        SELECT COALESCE(MAX(PatientCategoryId), 0) + 1 INTO @v_NextId FROM Master_PatientCategory;
+        SET @v_CatCode = CONCAT('PCAT-', LPAD(@v_NextId, 3, '0'));
+
         INSERT INTO Master_PatientCategory (
             CategoryCode, CategoryName, Description, BillingType, DefaultDiscount,
             CreditLimit, ApprovalRequired, InsuranceApplicable, CorporateApplicable,
             Status, Remarks, CreatedBy, CreatedDate, IsDeleted
         ) VALUES (
-            p_CategoryCode, p_CategoryName, p_Description, p_BillingType, p_DefaultDiscount,
+            @v_CatCode, p_CategoryName, p_Description, p_BillingType, p_DefaultDiscount,
             p_CreditLimit, p_ApprovalRequired, p_InsuranceApplicable, p_CorporateApplicable,
             p_Status, p_Remarks, p_CreatedBy, CURRENT_TIMESTAMP, 0
         );

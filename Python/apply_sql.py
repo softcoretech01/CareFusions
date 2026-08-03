@@ -1,56 +1,32 @@
--- ==============================================================================
--- Appointment Status Master Schema & Stored Procedure
--- ==============================================================================
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
--- 1. Master_AppointmentStatus Table
-CREATE TABLE IF NOT EXISTS Master_AppointmentStatus (
-    StatusId            INT AUTO_INCREMENT PRIMARY KEY,
-    StatusCode          VARCHAR(50) NOT NULL UNIQUE,
-    StatusName          VARCHAR(100) NOT NULL,
-    DisplayOrder        INT NOT NULL UNIQUE,
-    Description         TEXT,
-    
-    IsDefault           TINYINT(1) DEFAULT 0,
-    IsFinal             TINYINT(1) DEFAULT 0,
-    AllowReschedule     TINYINT(1) DEFAULT 0,
-    AllowCancellation   TINYINT(1) DEFAULT 0,
-    
-    Status              VARCHAR(20) DEFAULT 'Active',
-    Remarks             TEXT,
-    
-    CreatedBy           VARCHAR(100),
-    CreatedDate         DATETIME DEFAULT CURRENT_TIMESTAMP,
-    ModifiedBy          VARCHAR(100),
-    ModifiedDate        DATETIME,
-    IsDeleted           TINYINT(1) DEFAULT 0
-);
+from app.database import engine
+from sqlalchemy import text
 
--- 2. SpMasterAppointmentStatus Stored Procedure
-DELIMITER //
-
-DROP PROCEDURE IF EXISTS SpMasterAppointmentStatus //
-
+with engine.connect() as con:
+    sp_drop = "DROP PROCEDURE IF EXISTS SpMasterAppointmentStatus"
+    sp_create = """
 CREATE PROCEDURE SpMasterAppointmentStatus (
-    IN p_Opt                VARCHAR(20),
-    IN p_StatusId           INT,
+    IN p_Opt                    VARCHAR(20),
+    IN p_StatusId               INT,
 
-    IN p_StatusCode         VARCHAR(50),
-    IN p_StatusName         VARCHAR(100),
-    IN p_DisplayOrder       INT,
-    IN p_Description        TEXT,
-    
-    IN p_IsDefault          TINYINT(1),
-    IN p_IsFinal            TINYINT(1),
-    IN p_AllowReschedule    TINYINT(1),
-    IN p_AllowCancellation  TINYINT(1),
+    IN p_StatusCode             VARCHAR(50),
+    IN p_StatusName             VARCHAR(100),
+    IN p_DisplayOrder           INT,
+    IN p_Description            VARCHAR(255),
+    IN p_IsDefault              TINYINT(1),
+    IN p_IsFinal                TINYINT(1),
+    IN p_AllowReschedule        TINYINT(1),
+    IN p_AllowCancellation      TINYINT(1),
 
-    IN p_Status             VARCHAR(20),
-    IN p_Remarks            TEXT,
-    
-    IN p_CreatedBy          VARCHAR(100),
-    IN p_ModifiedBy         VARCHAR(100),
+    IN p_Status                 VARCHAR(20),
+    IN p_Remarks                TEXT,
+    IN p_CreatedBy              VARCHAR(100),
+    IN p_ModifiedBy             VARCHAR(100),
 
-    IN p_Search             VARCHAR(255)
+    IN p_Search                 VARCHAR(255)
 )
 BEGIN
     -- ==================================================================
@@ -154,6 +130,10 @@ BEGIN
 
     END IF;
 
-END //
-
-DELIMITER ;
+END
+    """
+    con.execute(text(sp_drop))
+    con.execute(text(sp_create))
+    
+    con.commit()
+    print("SP Updated!")

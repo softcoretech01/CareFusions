@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle, Save, RefreshCw } from 'lucide-react';
+import { Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle, Save, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
@@ -106,6 +106,8 @@ export const HospitalMaster = () => {
   // Modal States
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isSuccessOpen, setIsSuccessOpen] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
   const [selectedRecord, setSelectedRecord] = useState<HospitalRecord | null>(null);
   const [formData, setFormData] = useState<Omit<HospitalRecord, 'id'>>(emptyFormData);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -139,7 +141,7 @@ export const HospitalMaster = () => {
   useEffect(() => { fetchHospitals(); }, []);
 
   // Handlers
-  const handleCreateNew = () => {
+  const handleCreateNew = async () => {
     // Calculate current financial year (April to March)
     const today = new Date();
     const currentMonth = today.getMonth(); // 0-11
@@ -147,9 +149,21 @@ export const HospitalMaster = () => {
     const startYear = currentMonth >= 3 ? currentYear : currentYear - 1;
     const currentFinancialYear = `${startYear}-${startYear + 1}`;
 
+    let nextCode = '';
+    try {
+      const res = await fetch(`${API_BASE}/hospitals/next-code`);
+      if (res.ok) {
+        const data = await res.json();
+        nextCode = data.nextCode;
+      }
+    } catch (err) {
+      console.error("Failed to fetch next code", err);
+    }
+
     setSelectedRecord(null);
     setFormData({
       ...emptyFormData,
+      code: nextCode,
       currency: options.currencies.includes('INR') ? 'INR' : (options.currencies[0] || ''),
       financialYear: options.financialYears.includes(currentFinancialYear) ? currentFinancialYear : (options.financialYears[0] || ''),
       timeZone: options.timeZones.includes('IST') ? 'IST' : (options.timeZones[0] || ''),
@@ -257,7 +271,8 @@ export const HospitalMaster = () => {
 
       await fetchHospitals();
 
-      toast.success(selectedRecord ? 'Hospital record updated successfully!' : 'Hospital record created successfully!');
+      setSuccessMessage(selectedRecord ? 'This record has been updated successfully.' : 'This record has been created successfully.');
+      setIsSuccessOpen(true);
 
       if (saveAndNew) {
         handleCreateNew();
@@ -278,6 +293,8 @@ export const HospitalMaster = () => {
       if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
       await fetchHospitals();
       setIsDeleteOpen(false);
+      setSuccessMessage('This record has been deleted successfully.');
+      setIsSuccessOpen(true);
     } catch (err: unknown) {
       setApiError(err instanceof Error ? err.message : 'Delete failed');
       setIsDeleteOpen(false);
@@ -435,9 +452,8 @@ export const HospitalMaster = () => {
                     <input
                       type="text"
                       value={formData.code}
-                      disabled={!!selectedRecord}
-                      onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                      className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.code ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all disabled:opacity-50`}
+                      readOnly
+                      maxLength={10} className="w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm cursor-not-allowed text-slate-500 focus:outline-none"
                     />
                     {formErrors.code && <p className="text-xs text-danger mt-1">{formErrors.code}</p>}
                   </div>
@@ -445,7 +461,7 @@ export const HospitalMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Hospital Name <span className="text-danger">*</span></label>
                     <input
                       type="text"
-                      value={formData.name}
+                      value={formData.name} maxLength={50}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.name ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
                     />
@@ -455,7 +471,7 @@ export const HospitalMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Legal Name <span className="text-danger">*</span></label>
                     <input
                       type="text"
-                      value={formData.legalName}
+                      value={formData.legalName} maxLength={50}
                       onChange={(e) => setFormData({ ...formData, legalName: e.target.value })}
                       className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.legalName ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
                     />
@@ -465,7 +481,7 @@ export const HospitalMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Registration Number <span className="text-danger">*</span></label>
                     <input
                       type="text"
-                      value={formData.registrationNo}
+                      value={formData.registrationNo} maxLength={50}
                       onChange={(e) => setFormData({ ...formData, registrationNo: e.target.value })}
                       className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.registrationNo ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
                     />
@@ -475,7 +491,7 @@ export const HospitalMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">GST/VAT Number</label>
                     <input
                       type="text"
-                      value={formData.gstVatNo}
+                      value={formData.gstVatNo} maxLength={50}
                       onChange={(e) => setFormData({ ...formData, gstVatNo: e.target.value })}
                       className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                     />
@@ -484,7 +500,7 @@ export const HospitalMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">PAN/TIN Number</label>
                     <input
                       type="text"
-                      value={formData.panTinNo}
+                      value={formData.panTinNo} maxLength={50}
                       onChange={(e) => setFormData({ ...formData, panTinNo: e.target.value })}
                       className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                     />
@@ -500,7 +516,7 @@ export const HospitalMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Contact Number <span className="text-danger">*</span></label>
                     <input
                       type="text"
-                      value={formData.contactNumber}
+                      value={formData.contactNumber} maxLength={10}
                       onChange={(e) => setFormData({ ...formData, contactNumber: e.target.value })}
                       className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.contactNumber ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
                     />
@@ -510,7 +526,7 @@ export const HospitalMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Alternate Number</label>
                     <input
                       type="text"
-                      value={formData.alternateNumber}
+                      value={formData.alternateNumber} maxLength={10}
                       onChange={(e) => setFormData({ ...formData, alternateNumber: e.target.value })}
                       className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                     />
@@ -519,7 +535,7 @@ export const HospitalMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Email <span className="text-danger">*</span></label>
                     <input
                       type="email"
-                      value={formData.email}
+                      value={formData.email} maxLength={50}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                       className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.email ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
                     />
@@ -529,7 +545,7 @@ export const HospitalMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Website</label>
                     <input
                       type="text"
-                      value={formData.website}
+                      value={formData.website} maxLength={50}
                       onChange={(e) => setFormData({ ...formData, website: e.target.value })}
                       className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                     />
@@ -545,7 +561,7 @@ export const HospitalMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Address Line 1 <span className="text-danger">*</span></label>
                     <input
                       type="text"
-                      value={formData.address1}
+                      value={formData.address1} maxLength={250}
                       onChange={(e) => setFormData({ ...formData, address1: e.target.value })}
                       className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.address1 ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
                     />
@@ -555,7 +571,7 @@ export const HospitalMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Address Line 2</label>
                     <input
                       type="text"
-                      value={formData.address2}
+                      value={formData.address2} maxLength={250}
                       onChange={(e) => setFormData({ ...formData, address2: e.target.value })}
                       className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                     />
@@ -564,7 +580,7 @@ export const HospitalMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Country <span className="text-danger">*</span></label>
                     <input
                       type="text"
-                      value={formData.country}
+                      value={formData.country} maxLength={50}
                       onChange={(e) => setFormData({ ...formData, country: e.target.value })}
                       className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.country ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
                     />
@@ -574,7 +590,7 @@ export const HospitalMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">State <span className="text-danger">*</span></label>
                     <input
                       type="text"
-                      value={formData.state}
+                      value={formData.state} maxLength={50}
                       onChange={(e) => setFormData({ ...formData, state: e.target.value })}
                       className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.state ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
                     />
@@ -584,7 +600,7 @@ export const HospitalMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">City <span className="text-danger">*</span></label>
                     <input
                       type="text"
-                      value={formData.city}
+                      value={formData.city} maxLength={50}
                       onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                       className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.city ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
                     />
@@ -594,7 +610,7 @@ export const HospitalMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Postal Code <span className="text-danger">*</span></label>
                     <input
                       type="text"
-                      value={formData.postalCode}
+                      value={formData.postalCode} maxLength={10}
                       onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
                       className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.postalCode ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
                     />
@@ -659,7 +675,7 @@ export const HospitalMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Remarks</label>
                     <input
                       type="text"
-                      value={formData.remarks}
+                      value={formData.remarks} maxLength={250}
                       onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
                       className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                     />
@@ -669,7 +685,7 @@ export const HospitalMaster = () => {
             </div>
 
             <div className="mt-6 flex items-center justify-between pt-6 border-t border-slate-100">
-              <Button variant="outline" color="secondary" onClick={() => setFormData(emptyFormData)} icon={RefreshCw}>
+              <Button variant="outline" color="secondary" onClick={() => setFormData(selectedRecord ? selectedRecord : { ...emptyFormData, code: formData.code })} icon={RefreshCw}>
                 Reset
               </Button>
               <div className="flex items-center gap-3">
@@ -711,6 +727,30 @@ export const HospitalMaster = () => {
             </Button>
             <Button variant="filled" color="danger" className="flex-1" onClick={confirmDelete}>
               Delete
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Success Modal */}
+      <Modal
+        isOpen={isSuccessOpen}
+        onClose={() => setIsSuccessOpen(false)}
+        title="Success"
+        size="sm"
+      >
+        <div className="flex flex-col items-center text-center py-4">
+          <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-4">
+            <CheckCircle2 className="w-6 h-6" />
+          </div>
+          <h3 className="text-lg font-bold text-slate-800 mb-2">Success</h3>
+          <p className="text-slate-500 text-sm mb-6">
+            {successMessage}
+          </p>
+
+          <div className="flex items-center justify-center w-full">
+            <Button variant="filled" color="primary" className="w-full" onClick={() => setIsSuccessOpen(false)}>
+              OK
             </Button>
           </div>
         </div>

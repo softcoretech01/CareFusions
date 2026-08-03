@@ -17,6 +17,22 @@ logger = logging.getLogger(__name__)
 SP_NAME = "SpMasterMedicineCategory"
 
 
+# ── GET /next-code ─────────────────────────────────────────
+@router.get("/next-code")
+def get_next_code(db: Session = Depends(get_db)):
+    """Fetch the next auto-generated code from the backend."""
+    try:
+        result = _call_sp(db, "GETNEXTCODE")
+        row = result.fetchone()
+        if not row:
+            raise HTTPException(status_code=500, detail="Failed to generate next code")
+        return {"nextCode": row[0]}
+    except Exception as e:
+        logger.error(f"[GET /next-code] Error: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                            detail="Failed to fetch next code")
+
+
 def safe_value(val):
     if val == "" or val is None:
         return None

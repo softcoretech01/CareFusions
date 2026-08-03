@@ -97,34 +97,34 @@ class DoctorResponse(BaseModel):
     country:            Optional[str]       = None
     postalCode:         Optional[str]       = None
 
-    qualification:      str
-    specialization:     str
-    hospital:           str
-    branch:             str
-    department:         str
-    designation:        str
+    qualification:      Optional[str]       = None
+    specialization:     Optional[str]       = None
+    hospital:           Optional[str]       = None
+    branch:             Optional[str]       = None
+    department:         Optional[str]       = None
+    designation:        Optional[str]       = None
     medicalCouncil:     Optional[str]       = None
     experience:         Optional[int]       = None
     languages:          Optional[str]       = None
-    doctorType:         Optional[DoctorTypeEnum] = None
-    consultationType:   Optional[ConsultationTypeEnum] = None
+    doctorType:         Optional[str]       = None
+    consultationType:   Optional[str]       = None
     joiningDate:        Optional[date]      = None
     licenseExpiryDate:  Optional[date]      = None
 
-    consultationFee:    float
+    consultationFee:    Optional[float]     = None
     followUpFee:        Optional[float]     = None
     emergencyFee:       Optional[float]     = None
     teleConsultationFee:Optional[float]     = None
-    opDuration:         int
+    opDuration:         Optional[int]       = None
     maxPatients:        Optional[int]       = None
     allowOnlineBooking: bool                = False
 
-    availableDays:      str
-    fromTime:           time
-    toTime:             time
+    availableDays:      Optional[str]       = None
+    fromTime:           Optional[time]      = None
+    toTime:             Optional[time]      = None
     breakFrom:          Optional[time]      = None
     breakTo:            Optional[time]      = None
-    slotDuration:       int
+    slotDuration:       Optional[int]       = None
     availableEmergency: bool                = False
     availableTele:      bool                = False
 
