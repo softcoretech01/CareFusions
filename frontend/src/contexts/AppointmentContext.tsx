@@ -1,4 +1,6 @@
-import { createContext, useContext, useState, useCallback, useRef, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useRef, useEffect, type ReactNode } from 'react';
+
+const API_BASE = import.meta.env.VITE_API_URL as string;
 
 export interface AppointmentRecord {
   id: number;
@@ -166,10 +168,62 @@ function buildToken(department: string, existingTokens: (string | undefined)[]):
   return `${prefix}-${String(next).padStart(3, '0')}`;
 }
 
+/** Map an API appointment object to the frontend AppointmentRecord shape. */
+function mapApi(x: Record<string, unknown>): AppointmentRecord {
+  return {
+    id:                x.id as number,
+    appointmentNumber: x.appointmentNumber as string,
+    uhid:              x.uhid as string,
+    patientName:       x.patientName as string,
+    mobileNumber:      (x.mobileNumber as string) ?? '',
+    department:        x.department as string,
+    doctor:            (x.doctor as string) ?? '',
+    date:              x.date ? String(x.date).split('T')[0] : '',
+    timeSlot:          (x.timeSlot as string) ?? '',
+    durationMinutes:   (x.durationMinutes as number) ?? 15,
+    type:              (x.type as AppointmentRecord['type']) ?? 'Standard',
+    priority:          (x.priority as AppointmentRecord['priority']) ?? 'Normal',
+    status:            (x.status as AppointmentRecord['status']) ?? 'Scheduled',
+    queueToken:        (x.queueToken as string) ?? undefined,
+    notes:             (x.notes as string) ?? undefined,
+  };
+}
+
+/** Build the request body the appointments API expects from a record. */
+function toBody(a: Partial<AppointmentRecord>) {
+  return {
+    uhid:            a.uhid,
+    patientName:     a.patientName,
+    mobileNumber:    a.mobileNumber || null,
+    department:      a.department,
+    doctor:          a.doctor || null,
+    date:            a.date,
+    timeSlot:        a.timeSlot || null,
+    durationMinutes: a.durationMinutes || 15,
+    type:            a.type || 'Standard',
+    priority:        a.priority || 'Normal',
+    status:          a.status || 'Scheduled',
+    notes:           a.notes || null,
+  };
+}
+
 export const AppointmentProvider = ({ children }: { children: ReactNode }) => {
-  const [appointments, setAppointments] = useState<AppointmentRecord[]>(DUMMY_APPOINTMENTS);
+  const [appointments, setAppointments] = useState<AppointmentRecord[]>([]);
   // Use a ref so generateAppointmentNumber never has a stale counter value
   const counterRef = useRef<number>(initCounter());
+
+  // Load appointments from the API on mount (falls back to empty if unreachable)
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/appointments/`);
+        if (res.ok) {
+          const data = await res.json();
+          setAppointments((Array.isArray(data) ? data : []).map(mapApi));
+        }
+      } catch { /* API unreachable — keep current state */ }
+    })();
+  }, []);
 
   /**
    * Generates the next appointment number in format APT-YYYYMMNNN.
@@ -185,23 +239,65 @@ export const AppointmentProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const addAppointment = (appointment: AppointmentRecord) => {
-    setAppointments(prev => {
-      // Auto-generate department-based queue token at booking time
-      const token = buildToken(appointment.department, prev.map(a => a.queueToken));
-      return [{ ...appointment, queueToken: token }, ...prev];
-    });
+    // Optimistic insert with a temporary (negative) id + provisional token.
+    const tempId = -Date.now();
+    const token = buildToken(appointment.department, appointments.map(a => a.queueToken));
+    setAppointments(prev => [{ ...appointment, id: tempId, queueToken: token }, ...prev]);
+    // Persist — the server owns the real AppointmentNumber + QueueToken.
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/appointments/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(toBody(appointment)),
+        });
+        if (res.ok) {
+          const saved = mapApi(await res.json());
+          setAppointments(prev => prev.map(a => a.id === tempId ? saved : a));
+        }
+      } catch { /* keep the optimistic copy */ }
+    })();
   };
 
   const updateAppointmentStatus = (id: number, status: AppointmentRecord['status']) => {
     setAppointments(prev => prev.map(app => app.id === id ? { ...app, status } : app));
+    if (id <= 0) return; // temp record not yet persisted
+    (async () => {
+      try {
+        await fetch(`${API_BASE}/appointments/${id}/status`, {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status }),
+        });
+      } catch { /* ignore */ }
+    })();
   };
 
   const updateAppointment = (id: number, updates: Partial<AppointmentRecord>) => {
+    const current = appointments.find(a => a.id === id);
     setAppointments(prev => prev.map(app => app.id === id ? { ...app, ...updates } : app));
+    if (id <= 0 || !current) return;
+    const merged = { ...current, ...updates };
+    (async () => {
+      try {
+        await fetch(`${API_BASE}/appointments/${id}`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(toBody(merged)),
+        });
+      } catch { /* ignore */ }
+    })();
   };
 
   const setQueueToken = (id: number, token: string) => {
     setAppointments(prev => prev.map(app => app.id === id ? { ...app, queueToken: token } : app));
+    if (id <= 0) return;
+    (async () => {
+      try {
+        await fetch(`${API_BASE}/appointments/${id}/token`, {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ queueToken: token }),
+        });
+      } catch { /* ignore */ }
+    })();
   };
 
   return (

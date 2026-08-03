@@ -60,6 +60,26 @@ _SEGMENT_INFO = {
     "financial-years":     ("Finance",       "Financial Year Master"),
     "banks":               ("Finance",       "Bank Master"),
     "cash-counters":       ("Finance",       "Cash Counter Master"),
+    # ── Clinical / staff masters ──
+    "doctors":             ("Doctor",        "Doctor Master"),
+    "nurses":              ("Employee",      "Nurse Master"),
+    "pharmacists":         ("Employee",      "Pharmacist Master"),
+    "lab-technicians":     ("Employee",      "Lab Technician Master"),
+    "receptionists":       ("Employee",      "Receptionist Master"),
+    "facility-management": ("Employee",      "Facility Management Master"),
+    "patient-categories":  ("Patient",       "Patient Category Master"),
+    "blood-groups":        ("Patient",       "Blood Group Master"),
+    "allergies":           ("Patient",       "Allergy Master"),
+    "diagnosis":           ("Patient",       "Diagnosis Master"),
+    "procedures":          ("Patient",       "Procedure Master"),
+    "procedure-types":     ("Patient",       "Procedure Type Master"),
+    "consultation-types":  ("Appointment",   "Consultation Type Master"),
+    "appointment-status":  ("Appointment",   "Appointment Status Master"),
+    "medicines":           ("Pharmacy",      "Medicine Master"),
+    "medicine-categories": ("Pharmacy",      "Medicine Category Master"),
+    "tests":               ("Laboratory",    "Test Master"),
+    "sample-types":        ("Laboratory",    "Sample Type Master"),
+    "upload":              ("System",        "File Upload"),
 }
 
 # segments we never audit (the audit trail itself, health, etc.)

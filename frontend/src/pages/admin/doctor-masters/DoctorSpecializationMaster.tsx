@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Search, Download, Edit2, Trash2, AlertTriangle } from 'lucide-react';
+import { Plus, Search, Download, Edit2, Trash2, AlertTriangle, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
@@ -123,10 +123,9 @@ export const DoctorSpecializationMaster = () => {
           <div className="flex justify-between items-center mb-6">
             <div>
               <h1 className="text-2xl font-bold text-slate-800">Doctor Specialization Master</h1>
-              <p className="text-slate-500 text-sm">Manage doctor specializations</p>
+              <p className="text-slate-500 text-sm"></p>
             </div>
             <div className="flex gap-3">
-              <Button variant="outline" icon={Download} onClick={() => exportToExcel(records, 'DoctorSpecializationMaster')}>Export</Button>
               <Button variant="filled" color="primary" icon={Plus} onClick={handleCreateNew}>
                 Add Specialization
               </Button>
@@ -144,6 +143,14 @@ export const DoctorSpecializationMaster = () => {
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm"
                 />
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setSearchTerm('')} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+                <button onClick={() => exportToExcel(records, 'DoctorSpecializationMaster')} title="Export to Excel" className="p-2 border border-emerald-200 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 transition-colors">
+                  <Download className="w-4 h-4" />
+                </button>
               </div>
             </div>
 

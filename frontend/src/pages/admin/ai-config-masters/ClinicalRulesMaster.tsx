@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle } from 'lucide-react';
+import { Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle, X
+} from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
@@ -122,7 +123,7 @@ export const ClinicalRulesMaster = () => {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-slate-800">Clinical Rules</h1>
-          <p className="text-slate-500 mt-1">Manage and configure your clinical rules settings.</p>
+          <p className="text-slate-500 mt-1"></p>
         </div>
         
         <Button variant="filled" color="primary" icon={Plus} onClick={handleCreateNew}>
@@ -144,14 +145,16 @@ export const ClinicalRulesMaster = () => {
             />
           </div>
           <div className="flex items-center gap-2">
-            <button className="p-2.5 text-slate-500 hover:bg-slate-50 rounded-xl transition-colors border border-slate-200">
-              <Filter className="w-5 h-5" />
-            </button>
-            <button className="p-2.5 text-slate-500 hover:bg-slate-50 rounded-xl transition-colors border border-slate-200" onClick={() => exportToExcel(records, 'ClinicalRulesMaster')}>
-                  <Download className="w-5 h-5" />
-                  Export
+                <button className="p-2 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 transition-colors" title="Filters">
+                  <Filter className="w-4 h-4" />
                 </button>
-          </div>
+                <button onClick={() => { setSearchTerm(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+                <button onClick={() => exportToExcel(records, 'ClinicalRulesMaster')} title="Export to Excel" className="p-2 border border-emerald-200 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 transition-colors">
+                  <Download className="w-4 h-4" />
+                </button>
+              </div>
         </div>
 
         {/* Table */}
