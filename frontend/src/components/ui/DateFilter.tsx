@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 
 interface DateFilterProps {
   dateFrom: string;
@@ -17,7 +17,7 @@ export const DateFilter = ({
   onDateFromChange,
   onDateToChange,
   onSearch,
-  onReset
+  onReset,
 }: DateFilterProps) => {
   // Format local date manually to avoid UTC offset issues
   const formatYYYYMMDD = (d: Date) => {
@@ -32,67 +32,44 @@ export const DateFilter = ({
   const defaultFrom = formatYYYYMMDD(firstDay);
   const defaultTo = formatYYYYMMDD(today);
 
-  const [localFrom, setLocalFrom] = useState(defaultFrom);
-  const [localTo, setLocalTo] = useState(defaultTo);
-
-  // Force parent to adopt our defaults on mount
+  // Seed a default range (this month → today) ONLY if the parent hasn't set
+  // one. This is a controlled component: the inputs reflect the parent's
+  // dateFrom/dateTo directly, and every change is pushed up immediately.
   useEffect(() => {
-    onDateFromChange(defaultFrom);
-    onDateToChange(defaultTo);
+    if (!dateFrom) onDateFromChange(defaultFrom);
+    if (!dateTo) onDateToChange(defaultTo);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // Sync if props change externally
-  useEffect(() => {
-    if (dateFrom !== undefined && dateFrom !== localFrom) {
-      setLocalFrom(dateFrom || defaultFrom);
-    }
-    if (dateTo !== undefined && dateTo !== localTo) {
-      setLocalTo(dateTo || defaultTo);
-    }
-  }, [dateFrom, dateTo]);
-
-  const handleSearch = () => {
-    onDateFromChange(localFrom);
-    onDateToChange(localTo);
-    if (onSearch) onSearch();
-  };
-
-  const handleReset = () => {
-    setLocalFrom(defaultFrom);
-    setLocalTo(defaultTo);
-    onDateFromChange(defaultFrom);
-    onDateToChange(defaultTo);
-    if (onReset) onReset();
-  };
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-1.5 flex flex-wrap items-center gap-2 shadow-sm w-fit">
       <span className="text-slate-400 text-sm font-medium mx-1">From :</span>
       <input
         type="date"
-        value={localFrom}
-        onChange={(e) => setLocalFrom(e.target.value)}
+        value={dateFrom}
+        max={dateTo || undefined}
+        onChange={(e) => onDateFromChange(e.target.value)}
         className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm"
       />
       <span className="text-slate-400 text-sm font-medium mx-1">to :</span>
       <input
         type="date"
-        value={localTo}
-        onChange={(e) => setLocalTo(e.target.value)}
+        value={dateTo}
+        min={dateFrom || undefined}
+        onChange={(e) => onDateToChange(e.target.value)}
         className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm"
       />
-      
+
       <div className="w-px h-6 bg-slate-200 mx-1"></div>
-      
+
       <button
-        onClick={handleSearch}
+        onClick={() => onSearch?.()}
         className="px-4 py-1.5 bg-[#00705a] text-white rounded-lg hover:bg-[#005c4a] transition-colors font-medium text-sm"
       >
         Search
       </button>
       <button
-        onClick={handleReset}
+        onClick={() => { onDateFromChange(defaultFrom); onDateToChange(defaultTo); onReset?.(); }}
         className="px-4 py-1.5 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors font-medium text-sm"
       >
         Cancel

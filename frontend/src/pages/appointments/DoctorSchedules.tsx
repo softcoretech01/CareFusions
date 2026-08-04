@@ -1,32 +1,59 @@
-import { useState } from 'react';
-import { Search, Save, Calendar, Plus, Trash2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, Save, Calendar, Plus, Trash2, AlertTriangle } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { useDoctorSchedules } from '../../contexts/DoctorScheduleContext';
 import type { DoctorScheduleRecord } from '../../contexts/DoctorScheduleContext';
 
-const DEPT_OPTIONS = ['All Departments', 'Cardiology', 'General Medicine', 'Orthopedics', 'Pediatrics', 'Dermatology', 'Neurology'];
+
+// Ensure the two sessions are sensible: each start before its end, and the
+// evening session starts after the morning session ends (no overlap).
+const toMin = (t: string) => {
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + m;
+};
+function validateSessions(doc: DoctorScheduleRecord): string | null {
+  const { session1: s1, session2: s2 } = doc;
+  if (s1.start && s1.end && toMin(s1.start) >= toMin(s1.end))
+    return 'Morning session end time must be after its start time.';
+  if (s2.start && s2.end && toMin(s2.start) >= toMin(s2.end))
+    return 'Evening session end time must be after its start time.';
+  if (s1.end && s2.start && s2.end && toMin(s2.start) < toMin(s1.end))
+    return 'Evening session must start after the morning session ends.';
+  return null;
+}
 
 export const DoctorSchedules = () => {
-  const { doctorSchedules, updateDoctorSchedule, getDoctorsForDept } = useDoctorSchedules();
+  const {
+    doctorSchedules, isLoading, apiError, clearError,
+    updateDoctorSchedule, saveDoctorSchedule, getDoctorsForDept,
+  } = useDoctorSchedules();
 
   const [selectedDept, setSelectedDept] = useState('All Departments');
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedDoctor, setSelectedDoctor] = useState<DoctorScheduleRecord>(doctorSchedules[0]);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [newLeaveDate, setNewLeaveDate] = useState('');
   const [newLeaveReason, setNewLeaveReason] = useState('');
   const [savedMsg, setSavedMsg] = useState(false);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
 
   const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-  // Always read from context for the currently selected doctor
-  const currentDoc = doctorSchedules.find(d => d.name === selectedDoctor.name) ?? selectedDoctor;
+  // Selected doctor (by id); auto-select the first once data loads.
+  const currentDoc = doctorSchedules.find(d => d.id === selectedId) ?? null;
+
+  useEffect(() => {
+    if (selectedId === null && doctorSchedules.length > 0) {
+      setSelectedId(doctorSchedules[0].id);
+    }
+  }, [doctorSchedules, selectedId]);
 
   const update = (updates: Partial<DoctorScheduleRecord>) => {
-    updateDoctorSchedule(currentDoc.name, updates);
+    if (currentDoc) updateDoctorSchedule(currentDoc.id, updates);
   };
 
   const toggleDay = (day: string) => {
+    if (!currentDoc) return;
     const wd = currentDoc.workingDays.includes(day)
       ? currentDoc.workingDays.filter(d => d !== day)
       : [...currentDoc.workingDays, day];
@@ -34,7 +61,7 @@ export const DoctorSchedules = () => {
   };
 
   const handleAddLeave = () => {
-    if (newLeaveDate) {
+    if (currentDoc && newLeaveDate) {
       update({
         exceptions: [...currentDoc.exceptions, { date: newLeaveDate, reason: newLeaveReason || 'Leave' }],
       });
@@ -45,15 +72,30 @@ export const DoctorSchedules = () => {
   };
 
   const removeLeave = (index: number) => {
+    if (!currentDoc) return;
     const newExceptions = [...currentDoc.exceptions];
     newExceptions.splice(index, 1);
     update({ exceptions: newExceptions });
   };
 
-  const handleSave = () => {
-    setSavedMsg(true);
-    setTimeout(() => setSavedMsg(false), 2000);
+  const handleSave = async () => {
+    if (!currentDoc) return;
+    const err = validateSessions(currentDoc);
+    if (err) {
+      setScheduleError(err);
+      return;
+    }
+    setScheduleError(null);
+    const ok = await saveDoctorSchedule(currentDoc.id);
+    if (ok) {
+      setSavedMsg(true);
+      setTimeout(() => setSavedMsg(false), 2000);
+    }
   };
+
+  // Department options come from the real doctors (loaded from the backend),
+  // so actual departments like "test" appear and empty ones don't.
+  const deptOptions = ['All Departments', ...Array.from(new Set(doctorSchedules.map(d => d.dept).filter(Boolean))).sort()];
 
   const filteredDoctors = getDoctorsForDept(selectedDept).filter(doc =>
     doc.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -61,31 +103,39 @@ export const DoctorSchedules = () => {
 
   return (
     <div className="h-[calc(100vh-2rem)] flex flex-col relative">
-      <div className="flex items-center justify-between mb-8">
+      {(apiError || scheduleError) && (
+        <div className="mb-4 flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          <span className="flex-1">{scheduleError || apiError}</span>
+          <button onClick={() => { setScheduleError(null); clearError(); }} className="text-red-500 hover:text-red-700 font-medium">Dismiss</button>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between mb-5">
         <div>
           <h1 className="text-3xl font-bold text-slate-800">Doctor Schedules</h1>
         </div>
-        <Button variant="filled" color="primary" icon={Save} onClick={handleSave}>
+        <Button variant="filled" color="primary" icon={Save} onClick={handleSave} disabled={!currentDoc}>
           {savedMsg ? '✓ Saved!' : 'Save Schedule'}
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 flex-1 overflow-hidden">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-5 flex-1 overflow-hidden">
 
         {/* Doctor List */}
-        <div className="lg:col-span-1 bg-white border border-slate-100 rounded-3xl p-6 shadow-sm flex flex-col">
+        <div className="lg:col-span-1 bg-white border border-slate-100 rounded-3xl p-4 shadow-sm flex flex-col">
           <div className="mb-4">
             <select
               value={selectedDept}
               onChange={e => setSelectedDept(e.target.value)}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-4 focus:outline-none focus:border-primary text-sm font-medium"
             >
-              {DEPT_OPTIONS.map(dept => (
+              {deptOptions.map(dept => (
                 <option key={dept} value={dept}>{dept}</option>
               ))}
             </select>
           </div>
-          <div className="relative mb-6">
+          <div className="relative mb-4">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
@@ -96,21 +146,23 @@ export const DoctorSchedules = () => {
             />
           </div>
           <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-2">
-            {filteredDoctors.length === 0 ? (
+            {isLoading ? (
+              <p className="text-sm text-slate-500 text-center py-4">Loading doctors…</p>
+            ) : filteredDoctors.length === 0 ? (
               <p className="text-sm text-slate-500 text-center py-4">No doctors found.</p>
             ) : (
               filteredDoctors.map(doc => (
                 <div
-                  key={doc.name}
-                  onClick={() => setSelectedDoctor(doc)}
+                  key={doc.id}
+                  onClick={() => setSelectedId(doc.id)}
                   className={`px-4 py-3 rounded-xl cursor-pointer transition-colors ${
-                    selectedDoctor.name === doc.name
+                    selectedId === doc.id
                       ? 'bg-primary/5 border border-primary/20 text-primary font-bold'
                       : 'hover:bg-slate-50 border border-transparent text-slate-700 font-medium'
                   }`}
                 >
                   <div>{doc.name}</div>
-                  <div className={`text-xs mt-0.5 ${selectedDoctor.name === doc.name ? 'text-primary/70' : 'text-slate-400 font-normal'}`}>
+                  <div className={`text-xs mt-0.5 ${selectedId === doc.id ? 'text-primary/70' : 'text-slate-400 font-normal'}`}>
                     {doc.dept}
                   </div>
                 </div>
@@ -121,6 +173,13 @@ export const DoctorSchedules = () => {
 
         {/* Schedule Config */}
         <div className="lg:col-span-3 bg-white border border-slate-100 rounded-3xl shadow-sm flex flex-col overflow-y-auto custom-scrollbar relative">
+
+          {!currentDoc ? (
+            <div className="flex-1 flex items-center justify-center p-5 text-center text-slate-400 font-medium">
+              {isLoading ? 'Loading doctors…' : 'No active doctors found. Add doctors in Doctor Master first.'}
+            </div>
+          ) : (
+          <>
 
           {showLeaveModal && (
             <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-10 flex items-center justify-center p-6">
@@ -144,9 +203,9 @@ export const DoctorSchedules = () => {
             </div>
           )}
 
-          <div className="p-8 border-b border-slate-100 flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-primary/10 rounded-full flex items-center justify-center text-xl font-bold text-primary">
+          <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center text-lg font-bold text-primary">
                 {currentDoc.name.split(' ')[1]?.[0] ?? '?'}
               </div>
               <div>
@@ -156,11 +215,11 @@ export const DoctorSchedules = () => {
             </div>
           </div>
 
-          <div className="p-8 space-y-8">
+          <div className="p-5 space-y-4">
 
             {/* Working Days */}
             <div>
-              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4">Working Days</h3>
+              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-3">Working Days</h3>
               <div className="flex gap-3">
                 {days.map(day => (
                   <button
@@ -182,10 +241,10 @@ export const DoctorSchedules = () => {
 
             {/* Timings */}
             <div>
-              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4">Standard Timings</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
-                  <h4 className="font-bold text-slate-700 mb-4 flex items-center gap-2"><SunIcon /> Morning Session</h4>
+              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-3">Standard Timings</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                  <h4 className="font-bold text-slate-700 mb-3 flex items-center gap-2"><SunIcon /> Morning Session</h4>
                   <div className="flex items-center gap-4">
                     <div>
                       <label className="block text-xs font-semibold text-slate-500 mb-1">Start Time</label>
@@ -209,8 +268,8 @@ export const DoctorSchedules = () => {
                   </div>
                 </div>
 
-                <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
-                  <h4 className="font-bold text-slate-700 mb-4 flex items-center gap-2"><MoonIcon /> Evening Session</h4>
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                  <h4 className="font-bold text-slate-700 mb-3 flex items-center gap-2"><MoonIcon /> Evening Session</h4>
                   <div className="flex items-center gap-4">
                     <div>
                       <label className="block text-xs font-semibold text-slate-500 mb-1">Start Time</label>
@@ -240,8 +299,8 @@ export const DoctorSchedules = () => {
 
             {/* Capacity */}
             <div>
-              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-4">Capacity &amp; Slots</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-lg">
+              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-3">Capacity &amp; Slots</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-lg">
                 <div>
                   <label className="block text-sm font-semibold text-slate-600 mb-2">Slot Duration (Minutes)</label>
                   <select
@@ -278,7 +337,7 @@ export const DoctorSchedules = () => {
               </div>
 
               {currentDoc.exceptions.length === 0 ? (
-                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-8 text-center flex flex-col items-center">
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 text-center flex flex-col items-center">
                   <Calendar className="w-8 h-8 text-slate-300 mb-2" />
                   <p className="text-slate-500 font-medium">No upcoming leaves scheduled.</p>
                 </div>
@@ -301,6 +360,9 @@ export const DoctorSchedules = () => {
             </div>
 
           </div>
+
+          </>
+          )}
         </div>
       </div>
     </div>

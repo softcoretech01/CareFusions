@@ -20,6 +20,16 @@ export interface AppointmentRecord {
   notes?: string;
 }
 
+export interface AppointmentQuery {
+  search?: string;
+  department?: string;
+  status?: string;
+  type?: string;
+  excludeType?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}
+
 interface AppointmentContextType {
   appointments: AppointmentRecord[];
   addAppointment: (appointment: AppointmentRecord) => void;
@@ -27,6 +37,9 @@ interface AppointmentContextType {
   updateAppointment: (id: number, updates: Partial<AppointmentRecord>) => void;
   setQueueToken: (id: number, token: string) => void;
   generateAppointmentNumber: () => string;
+  queryAppointments: (params: AppointmentQuery) => Promise<AppointmentRecord[]>;
+  apiError: string | null;
+  clearError: () => void;
 }
 
 const AppointmentContext = createContext<AppointmentContextType | undefined>(undefined);
@@ -189,6 +202,17 @@ function mapApi(x: Record<string, unknown>): AppointmentRecord {
   };
 }
 
+/** Pull a human-readable message out of a failed API response. */
+async function extractError(res: Response): Promise<string> {
+  try {
+    const data = await res.json();
+    const d = (data as { detail?: unknown })?.detail;
+    if (Array.isArray(d)) return (d[0] as { msg?: string })?.msg ?? 'Request failed';
+    if (typeof d === 'string') return d;
+  } catch { /* body not JSON */ }
+  return `Request failed (${res.status})`;
+}
+
 /** Build the request body the appointments API expects from a record. */
 function toBody(a: Partial<AppointmentRecord>) {
   return {
@@ -209,20 +233,49 @@ function toBody(a: Partial<AppointmentRecord>) {
 
 export const AppointmentProvider = ({ children }: { children: ReactNode }) => {
   const [appointments, setAppointments] = useState<AppointmentRecord[]>([]);
+  const [apiError, setApiError] = useState<string | null>(null);
   // Use a ref so generateAppointmentNumber never has a stale counter value
   const counterRef = useRef<number>(initCounter());
 
-  // Load appointments from the API on mount (falls back to empty if unreachable)
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch(`${API_BASE}/appointments/`);
-        if (res.ok) {
-          const data = await res.json();
-          setAppointments((Array.isArray(data) ? data : []).map(mapApi));
-        }
-      } catch { /* API unreachable — keep current state */ }
-    })();
+  const clearError = useCallback(() => setApiError(null), []);
+
+  // Re-fetch the authoritative list from the server (used on mount and to
+  // re-sync the UI whenever an optimistic update fails).
+  const loadAppointments = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/appointments/`);
+      if (res.ok) {
+        const data = await res.json();
+        setAppointments((Array.isArray(data) ? data : []).map(mapApi));
+      }
+    } catch { /* API unreachable — keep current state */ }
+  }, []);
+
+  useEffect(() => { loadAppointments(); }, [loadAppointments]);
+
+  // Server-side filtered fetch — returns matching rows WITHOUT touching the
+  // shared `appointments` array (which stays complete for the booking wizards).
+  const queryAppointments = useCallback(async (params: AppointmentQuery): Promise<AppointmentRecord[]> => {
+    const qs = new URLSearchParams();
+    if (params.search)      qs.set('search', params.search);
+    if (params.department)  qs.set('dept_filter', params.department);
+    if (params.status)      qs.set('status_filter', params.status);
+    if (params.type)        qs.set('type_filter', params.type);
+    if (params.excludeType) qs.set('exclude_type', params.excludeType);
+    if (params.dateFrom)    qs.set('date_from', params.dateFrom);
+    if (params.dateTo)      qs.set('date_to', params.dateTo);
+    try {
+      const res = await fetch(`${API_BASE}/appointments/?${qs.toString()}`);
+      if (res.ok) {
+        const data = await res.json();
+        return (Array.isArray(data) ? data : []).map(mapApi);
+      }
+      setApiError(`Failed to load appointments (${res.status}).`);
+      return [];
+    } catch {
+      setApiError('Could not load appointments: the server is unreachable.');
+      return [];
+    }
   }, []);
 
   /**
@@ -254,8 +307,16 @@ export const AppointmentProvider = ({ children }: { children: ReactNode }) => {
         if (res.ok) {
           const saved = mapApi(await res.json());
           setAppointments(prev => prev.map(a => a.id === tempId ? saved : a));
+        } else {
+          // Drop the optimistic row so the UI reflects reality, then report.
+          const msg = await extractError(res);
+          setAppointments(prev => prev.filter(a => a.id !== tempId));
+          setApiError(`Could not save appointment: ${msg}`);
         }
-      } catch { /* keep the optimistic copy */ }
+      } catch {
+        setAppointments(prev => prev.filter(a => a.id !== tempId));
+        setApiError('Could not save appointment: the server is unreachable.');
+      }
     })();
   };
 
@@ -264,11 +325,18 @@ export const AppointmentProvider = ({ children }: { children: ReactNode }) => {
     if (id <= 0) return; // temp record not yet persisted
     (async () => {
       try {
-        await fetch(`${API_BASE}/appointments/${id}/status`, {
+        const res = await fetch(`${API_BASE}/appointments/${id}/status`, {
           method: 'PATCH', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status }),
         });
-      } catch { /* ignore */ }
+        if (!res.ok) {
+          setApiError(`Could not update status: ${await extractError(res)}`);
+          await loadAppointments();
+        }
+      } catch {
+        setApiError('Could not update status: the server is unreachable.');
+        await loadAppointments();
+      }
     })();
   };
 
@@ -279,11 +347,18 @@ export const AppointmentProvider = ({ children }: { children: ReactNode }) => {
     const merged = { ...current, ...updates };
     (async () => {
       try {
-        await fetch(`${API_BASE}/appointments/${id}`, {
+        const res = await fetch(`${API_BASE}/appointments/${id}`, {
           method: 'PUT', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(toBody(merged)),
         });
-      } catch { /* ignore */ }
+        if (!res.ok) {
+          setApiError(`Could not update appointment: ${await extractError(res)}`);
+          await loadAppointments();
+        }
+      } catch {
+        setApiError('Could not update appointment: the server is unreachable.');
+        await loadAppointments();
+      }
     })();
   };
 
@@ -292,11 +367,18 @@ export const AppointmentProvider = ({ children }: { children: ReactNode }) => {
     if (id <= 0) return;
     (async () => {
       try {
-        await fetch(`${API_BASE}/appointments/${id}/token`, {
+        const res = await fetch(`${API_BASE}/appointments/${id}/token`, {
           method: 'PATCH', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ queueToken: token }),
         });
-      } catch { /* ignore */ }
+        if (!res.ok) {
+          setApiError(`Could not set queue token: ${await extractError(res)}`);
+          await loadAppointments();
+        }
+      } catch {
+        setApiError('Could not set queue token: the server is unreachable.');
+        await loadAppointments();
+      }
     })();
   };
 
@@ -309,6 +391,9 @@ export const AppointmentProvider = ({ children }: { children: ReactNode }) => {
         updateAppointment,
         setQueueToken,
         generateAppointmentNumber,
+        queryAppointments,
+        apiError,
+        clearError,
       }}
     >
       {children}

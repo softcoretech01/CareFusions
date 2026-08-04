@@ -70,6 +70,16 @@ class _ApptFields(BaseModel):
         v = v.strip()
         return v or None
 
+    @field_validator("mobileNumber")
+    @classmethod
+    def valid_mobile(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        digits = "".join(ch for ch in v if ch.isdigit())
+        if len(digits) < 6 or len(digits) > 15:
+            raise ValueError("Mobile number must be 6–15 digits")
+        return v
+
     @field_validator("durationMinutes")
     @classmethod
     def duration_range(cls, v: int) -> int:
