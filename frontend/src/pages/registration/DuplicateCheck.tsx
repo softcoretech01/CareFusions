@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Search, CopyX, AlertCircle, Users } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
-import { usePatients } from '../../contexts/PatientContext';
+const API_BASE = import.meta.env.VITE_API_URL as string;
 import type { GlobalPatientRecord } from '../../contexts/PatientContext';
 
 interface DuplicateGroup {
@@ -11,7 +11,33 @@ interface DuplicateGroup {
 }
 
 export const DuplicateCheck = () => {
-  const { patients } = usePatients();
+
+  const [patients, setPatients] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchPatients = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/patients/`);
+        if (res.ok) {
+          const data = await res.json();
+          setPatients(data.map((d: any) => ({
+            id: d.PatientId,
+            uhid: d.Uhid,
+            patientName: d.PatientName,
+            firstName: d.PatientName,
+            lastName: '',
+            mobileNumber: d.MobileNumber,
+            registrationDate: d.RegistrationDate,
+            status: d.Status || 'Active'
+          })));
+        }
+      } catch (e) {
+        console.error('Failed to fetch patients', e);
+      }
+    };
+    fetchPatients();
+  }, []);
+
   const [duplicateGroups, setDuplicateGroups] = useState<DuplicateGroup[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   

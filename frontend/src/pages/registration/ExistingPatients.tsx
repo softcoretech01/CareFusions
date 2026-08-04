@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Filter, Edit2, Eye, Printer, Users, User, Download, FlaskConical, ScanLine } from 'lucide-react';
+import { Search, Filter, Edit2, Eye, Printer, Users, User, Download, FlaskConical, ScanLine, X } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { useNavigate } from 'react-router-dom';
-import { usePatients } from '../../contexts/PatientContext';
+import { useEffect } from 'react';
+
+const API_BASE = import.meta.env.VITE_API_URL as string;
 import { useInvestigations } from '../../contexts/InvestigationContext';
 import { ResultViewer } from '../../components/investigations/ResultViewer';
 import { exportToExcel } from '../../utils/exportToExcel';
@@ -11,7 +13,37 @@ import { DateFilter } from '../../components/ui/DateFilter';
 
 export const ExistingPatients = () => {
   const navigate = useNavigate();
-  const { patients } = usePatients();
+
+  const [patients, setPatients] = useState<any[]>([]);
+  
+  const fetchPatients = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/patients/`);
+      if (res.ok) {
+        const data = await res.json();
+        const mappedData = data.map((d: any) => ({
+          id: d.PatientRegistrationId,
+          uhid: d.Uhid,
+          patientName: d.PatientName,
+          gender: d.Gender,
+          age: d.Age,
+          mobileNumber: d.MobileNumber,
+          nationalId: d.NationalId,
+          patientCategory: d.PatientCategory,
+          registrationDate: d.RegistrationDate,
+          status: d.Status
+        }));
+        setPatients(mappedData);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  useEffect(() => {
+    fetchPatients();
+  }, []);
+
   const { getOrdersByPatient } = useInvestigations();
   
   const [activeViewer, setActiveViewer] = useState<{ patientId: string; category: 'Lab' | 'Radiology' } | null>(null);
@@ -22,17 +54,106 @@ export const ExistingPatients = () => {
   const [filterCategory, setFilterCategory] = useState('');
   const [filterGender, setFilterGender] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
-  const today = new Date().toISOString().split('T')[0];
-  const [dateFrom, setDateFrom] = useState(today);
-  const [dateTo, setDateTo] = useState(today);
+  // Format local date manually to avoid UTC offset issues
+  const formatYYYYMMDD = (d: Date) => {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  };
+  
+  const dToday = new Date();
+  const dFirstDay = new Date(dToday.getFullYear(), dToday.getMonth(), 1);
+  
+  const todayStr = formatYYYYMMDD(dToday);
+  const firstDayStr = formatYYYYMMDD(dFirstDay);
+
+  const [dateFrom, setDateFrom] = useState(firstDayStr);
+  const [dateTo, setDateTo] = useState(todayStr);
 
   const [appliedSearchTerm, setAppliedSearchTerm] = useState('');
-  const [appliedDateFrom, setAppliedDateFrom] = useState(today);
-  const [appliedDateTo, setAppliedDateTo] = useState(today);
+  const [appliedDateFrom, setAppliedDateFrom] = useState(firstDayStr);
+  const [appliedDateTo, setAppliedDateTo] = useState(todayStr);
 
-  const handleEditProfile = () => {
-    // Navigate to full registration screen with this record's ID
-    navigate('/registration/new');
+  const [viewModalRecord, setViewModalRecord] = useState<any | null>(null);
+
+  const handleEditProfile = (record: any) => {
+    // Navigate to full registration screen with this record's UHID
+    navigate('/registration/new', { state: { uhid: record.uhid } });
+  };
+
+  const handlePrint = (record: any) => {
+    const printContent = `
+      <html>
+        <head>
+          <title>Patient Registration Card - ${record.uhid}</title>
+          <style>
+            body { font-family: system-ui, -apple-system, sans-serif; padding: 40px; color: #1e293b; }
+            .card { border: 2px solid #e2e8f0; padding: 30px; border-radius: 16px; max-width: 600px; margin: 0 auto; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+            .header { text-align: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 20px; }
+            .header h2 { margin: 0; color: #0f172a; font-size: 24px; font-weight: 700; }
+            .header h3 { margin: 8px 0 0; color: #64748b; font-size: 16px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
+            .details { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+            .field { margin-bottom: 15px; }
+            .label { color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; margin-bottom: 4px; }
+            .value { color: #0f172a; font-size: 16px; font-weight: 500; }
+            .barcode { margin-top: 30px; text-align: center; padding-top: 20px; border-top: 2px dashed #f1f5f9; }
+            .barcode-placeholder { width: 80%; height: 60px; background: repeating-linear-gradient(90deg, #0f172a, #0f172a 2px, transparent 2px, transparent 4px, #0f172a 4px, #0f172a 8px, transparent 8px, transparent 10px); margin: 0 auto; }
+            @media print {
+              body { padding: 0; }
+              .card { border: none; box-shadow: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <div class="header">
+              <h2>CareFusions Hospital</h2>
+              <h3>Patient Registration Card</h3>
+            </div>
+            <div class="details">
+              <div class="field">
+                <div class="label">Patient Name</div>
+                <div class="value">${record.patientName || ''}</div>
+              </div>
+              <div class="field">
+                <div class="label">UHID</div>
+                <div class="value">${record.uhid}</div>
+              </div>
+              <div class="field">
+                <div class="label">Gender / Age</div>
+                <div class="value">${record.gender} / ${record.age || 0} Yrs</div>
+              </div>
+              <div class="field">
+                <div class="label">Mobile Number</div>
+                <div class="value">${record.mobileNumber}</div>
+              </div>
+              <div class="field">
+                <div class="label">Registration Date</div>
+                <div class="value">${record.registrationDate}</div>
+              </div>
+              <div class="field">
+                <div class="label">Patient Category</div>
+                <div class="value">${record.patientCategory || 'General'}</div>
+              </div>
+            </div>
+            <div class="barcode">
+              <div class="barcode-placeholder"></div>
+              <p style="margin-top: 10px; font-family: monospace; letter-spacing: 2px;">${record.uhid}</p>
+            </div>
+          </div>
+          <script>
+            window.onload = () => window.print();
+          </script>
+        </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+    }
   };
 
   const filteredRecords = patients.filter(record => {
@@ -47,7 +168,7 @@ export const ExistingPatients = () => {
     const matchesGender = !filterGender || record.gender === filterGender;
     
     // Fallback to today if registrationDate is missing for mock data
-    const regDate = record.registrationDate ? record.registrationDate.split('T')[0] : today;
+    const regDate = record.registrationDate ? record.registrationDate.split('T')[0] : todayStr;
     const matchesDate = (!appliedDateFrom || regDate >= appliedDateFrom) && (!appliedDateTo || regDate <= appliedDateTo);
 
     return matchesSearch && matchesCategory && matchesStatus && matchesGender && matchesDate;
@@ -207,14 +328,22 @@ export const ExistingPatients = () => {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-2">
-                        <button className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="View Details">
+                        <button 
+                          onClick={() => setViewModalRecord(record)}
+                          className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" 
+                          title="View Details"
+                        >
                           <Eye className="w-4 h-4" />
                         </button>
-                        <button className="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="Print Card">
+                        <button 
+                          onClick={() => handlePrint(record)}
+                          className="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors" 
+                          title="Print Card"
+                        >
                           <Printer className="w-4 h-4" />
                         </button>
                         <button 
-                          onClick={() => handleEditProfile()}
+                          onClick={() => handleEditProfile(record)}
                           className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
                           title="Edit Profile"
                         >
@@ -273,6 +402,88 @@ export const ExistingPatients = () => {
           onClose={() => setActiveViewer(null)} 
         />
       )}
+
+      {/* View Details Modal */}
+      <AnimatePresence>
+        {viewModalRecord && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] border border-slate-100"
+            >
+              <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-white">
+                <div className="flex items-center gap-4">
+                  <div className="bg-primary/10 text-primary p-3 rounded-2xl">
+                    <User className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold text-slate-800 tracking-tight">Patient Details</h3>
+                    <p className="text-sm font-medium text-slate-500 mt-1">{viewModalRecord.uhid}</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setViewModalRecord(null)}
+                  className="p-2.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <div className="p-8 overflow-y-auto bg-slate-50/50">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                  <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Patient Name</p>
+                    <p className="text-base font-semibold text-slate-800">{viewModalRecord.patientName || '-'}</p>
+                  </div>
+                  <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Gender / Age</p>
+                    <p className="text-base font-semibold text-slate-800">{viewModalRecord.gender} / {viewModalRecord.age || 0} Yrs</p>
+                  </div>
+                  <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Mobile Number</p>
+                    <p className="text-base font-semibold text-slate-800">{viewModalRecord.mobileNumber || '-'}</p>
+                  </div>
+                  <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">National ID</p>
+                    <p className="text-base font-semibold text-slate-800">{viewModalRecord.nationalId || '-'}</p>
+                  </div>
+                  <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Patient Category</p>
+                    <p className="text-base font-semibold text-slate-800">
+                      <span className="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-700">
+                        {viewModalRecord.patientCategory || 'General'}
+                      </span>
+                    </p>
+                  </div>
+                  <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Status</p>
+                    <p className="text-base font-semibold text-slate-800">
+                      <span className={`inline-flex px-3 py-1.5 rounded-lg text-xs font-bold ${
+                        viewModalRecord.status === 'Active' 
+                          ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' 
+                          : 'bg-red-50 text-red-600 border border-red-100'
+                      }`}>
+                        {viewModalRecord.status || 'Unknown'}
+                      </span>
+                    </p>
+                  </div>
+                  <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm md:col-span-2">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Registration Date</p>
+                    <p className="text-base font-semibold text-slate-800">{viewModalRecord.registrationDate || '-'}</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="px-8 py-5 border-t border-slate-100 bg-white flex justify-end">
+                <Button variant="outline" onClick={() => setViewModalRecord(null)}>Close Details</Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 };

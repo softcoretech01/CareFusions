@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 
 interface DateFilterProps {
   dateFrom: string;
@@ -32,38 +32,24 @@ export const DateFilter = ({
   const defaultFrom = formatYYYYMMDD(firstDay);
   const defaultTo = formatYYYYMMDD(today);
 
-  const [localFrom, setLocalFrom] = useState(defaultFrom);
-  const [localTo, setLocalTo] = useState(defaultTo);
-
-  // Force parent to adopt our defaults on mount
+  // Force parent to adopt our defaults on mount if they are empty
   useEffect(() => {
-    onDateFromChange(defaultFrom);
-    onDateToChange(defaultTo);
+    if (!dateFrom) onDateFromChange(defaultFrom);
+    if (!dateTo) onDateToChange(defaultTo);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Sync if props change externally
-  useEffect(() => {
-    if (dateFrom !== undefined && dateFrom !== localFrom) {
-      setLocalFrom(dateFrom || defaultFrom);
-    }
-    if (dateTo !== undefined && dateTo !== localTo) {
-      setLocalTo(dateTo || defaultTo);
-    }
-  }, [dateFrom, dateTo]);
-
   const handleSearch = () => {
-    onDateFromChange(localFrom);
-    onDateToChange(localTo);
     if (onSearch) onSearch();
   };
 
   const handleReset = () => {
-    setLocalFrom(defaultFrom);
-    setLocalTo(defaultTo);
     onDateFromChange(defaultFrom);
     onDateToChange(defaultTo);
-    if (onReset) onReset();
+    // Execute reset in parent asynchronously to allow state to update
+    setTimeout(() => {
+        if (onReset) onReset();
+    }, 0);
   };
 
   return (
@@ -71,15 +57,15 @@ export const DateFilter = ({
       <span className="text-slate-400 text-sm font-medium mx-1">From :</span>
       <input
         type="date"
-        value={localFrom}
-        onChange={(e) => setLocalFrom(e.target.value)}
+        value={dateFrom}
+        onChange={(e) => onDateFromChange(e.target.value)}
         className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm"
       />
       <span className="text-slate-400 text-sm font-medium mx-1">to :</span>
       <input
         type="date"
-        value={localTo}
-        onChange={(e) => setLocalTo(e.target.value)}
+        value={dateTo}
+        onChange={(e) => onDateToChange(e.target.value)}
         className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm"
       />
       
