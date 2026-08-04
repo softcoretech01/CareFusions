@@ -16,7 +16,7 @@ from app.routers import (
     patient_category, blood_group, diagnosis, procedure, procedure_type, consultation_type,
     appointment_status, allergy, medicine, medicine_category, lab_test, sample_type,
     patient_registration, quick_registration, emergency_registration, patient_documents,
-    patient_visit
+    patient_visit,
     appointment, permission, auth,
 )
 
