@@ -1,11 +1,16 @@
 import { useState } from 'react';
 import { Search, Merge, ArrowRight, ShieldAlert, CheckCircle2 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
-import { usePatients } from '../../contexts/PatientContext';
+import { useEffect } from 'react';
+
+const API_BASE = import.meta.env.VITE_API_URL as string;
 import type { GlobalPatientRecord } from '../../contexts/PatientContext';
 
 export const PatientMerge = () => {
-  const { patients, updatePatient } = usePatients();
+
+  const [patients, setPatients] = useState<any[]>([]);
+
+
   
   const [primaryUhid, setPrimaryUhid] = useState('');
   const [secondaryUhid, setSecondaryUhid] = useState('');
@@ -15,6 +20,34 @@ export const PatientMerge = () => {
   
   const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
   const [mergeSuccess, setMergeSuccess] = useState(false);
+
+  useEffect(() => {
+    const fetchPatients = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/patients/`);
+        if (res.ok) {
+          const data = await res.json();
+          setPatients(data.map((d: any) => ({
+            id: d.PatientId,
+            uhid: d.Uhid,
+            patientName: d.PatientName,
+            firstName: d.PatientName,
+            lastName: '',
+            gender: d.Gender,
+            age: d.Age,
+            mobileNumber: d.MobileNumber,
+            registrationDate: d.RegistrationDate,
+            status: d.Status || 'Active',
+            _originalData: d // Keep the full payload for the PUT request
+          })));
+        }
+      } catch (e) {
+        console.error('Failed to fetch patients', e);
+      }
+    };
+    fetchPatients();
+  }, [mergeSuccess]); // Re-fetch when a merge completes
+
 
   const handleSearchPrimary = () => {
     const p = patients.find(p => p.uhid.toLowerCase() === primaryUhid.toLowerCase());
@@ -26,25 +59,43 @@ export const PatientMerge = () => {
     setSecondaryPatient(p || null);
   };
 
-  const handleMerge = () => {
+
+  const handleMerge = async () => {
     if (primaryPatient && secondaryPatient) {
-      // In a real app, you would reassign all encounters, bills, and history from secondary to primary.
-      // Here, we just deactivate the secondary patient and update remarks.
-      updatePatient(secondaryPatient.id, { 
-        status: 'Inactive', 
-        remarks: `Merged into ${primaryPatient.uhid}` 
-      });
-      setIsMergeModalOpen(false);
-      setMergeSuccess(true);
-      setTimeout(() => setMergeSuccess(false), 5000);
-      
-      // Clear forms
-      setPrimaryUhid('');
-      setSecondaryUhid('');
-      setPrimaryPatient(null);
-      setSecondaryPatient(null);
+      try {
+        // Construct the full update payload using the secondary patient's original data
+        const updatePayload = {
+          ...secondaryPatient._originalData,
+          Status: 'Inactive',
+          Remarks: `Merged into ${primaryPatient.uhid}`
+        };
+
+        const res = await fetch(`${API_BASE}/patients/${secondaryPatient.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatePayload)
+        });
+
+        if (res.ok) {
+          setIsMergeModalOpen(false);
+          setMergeSuccess(true);
+          setTimeout(() => setMergeSuccess(false), 5000);
+          
+          // Clear forms
+          setPrimaryUhid('');
+          setSecondaryUhid('');
+          setPrimaryPatient(null);
+          setSecondaryPatient(null);
+        } else {
+          alert('Merge failed - Database error');
+        }
+      } catch (e) {
+        console.error('Merge failed', e);
+        alert('Merge failed - Network error');
+      }
     }
   };
+
 
   return (
     <div className="h-[calc(100vh-2rem)] flex flex-col relative">

@@ -1,15 +1,43 @@
-import { useState } from 'react';
-import { Search, Users, CalendarDays, Activity, Zap, Eye, Edit2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Search, Users, CalendarDays, Activity, Zap, Eye, Edit2, X, User } from 'lucide-react';
+import { Button } from '../../components/ui/Button';
 import { useNavigate } from 'react-router-dom';
-import { usePatients } from '../../contexts/PatientContext';
+
+const API_BASE = import.meta.env.VITE_API_URL as string;
 
 export const TodayRegistrations = () => {
   const navigate = useNavigate();
-  const { patients } = usePatients();
+
+  const [records, setRecords] = useState<any[]>([]);
+  const [viewModalRecord, setViewModalRecord] = useState<any | null>(null);
   
-  // Get today's date in YYYY-MM-DD
-  const todayDate = new Date().toISOString().split('T')[0];
-  const records = patients.filter(p => p.registrationDate === todayDate);
+  const fetchTodayRegistrations = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/patients/today`);
+      if (res.ok) {
+        const data = await res.json();
+        const mappedData = data.map((d: any, idx: number) => ({
+          id: idx, // or use Uhid
+          uhid: d.Uhid,
+          patientName: d.PatientName,
+          registrationType: d.RegistrationType,
+          department: d.Department,
+          doctor: d.Doctor,
+          registrationTime: d.RegistrationTime,
+          status: d.Status
+        }));
+        setRecords(mappedData);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  useEffect(() => {
+    fetchTodayRegistrations();
+  }, []);
+
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('');
@@ -146,11 +174,15 @@ export const TodayRegistrations = () => {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-2">
-                        <button className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="View Profile">
+                        <button 
+                          onClick={() => setViewModalRecord(record)}
+                          className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" 
+                          title="View Profile"
+                        >
                           <Eye className="w-4 h-4" />
                         </button>
                         <button 
-                          onClick={() => navigate('/registration/new')}
+                          onClick={() => navigate('/registration/new', { state: { uhid: record.uhid } })}
                           className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
                           title="Edit"
                         >
@@ -174,6 +206,84 @@ export const TodayRegistrations = () => {
           </table>
         </div>
       </div>
+
+      {/* View Details Modal */}
+      <AnimatePresence>
+        {viewModalRecord && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] border border-slate-100"
+            >
+              <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between bg-white">
+                <div className="flex items-center gap-4">
+                  <div className="bg-primary/10 text-primary p-3 rounded-2xl">
+                    <User className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold text-slate-800 tracking-tight">Patient Details</h3>
+                    <p className="text-sm font-medium text-slate-500 mt-1">{viewModalRecord.uhid}</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setViewModalRecord(null)}
+                  className="p-2.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <div className="p-8 overflow-y-auto bg-slate-50/50">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                  <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Patient Name</p>
+                    <p className="text-base font-semibold text-slate-800">{viewModalRecord.patientName || '-'}</p>
+                  </div>
+                  <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Registration Type</p>
+                    <p className="text-base font-semibold text-slate-800">
+                      <span className="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-700">
+                        {viewModalRecord.registrationType || '-'}
+                      </span>
+                    </p>
+                  </div>
+                  <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Department</p>
+                    <p className="text-base font-semibold text-slate-800">{viewModalRecord.department || '-'}</p>
+                  </div>
+                  <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Doctor</p>
+                    <p className="text-base font-semibold text-slate-800">{viewModalRecord.doctor || '-'}</p>
+                  </div>
+                  <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Status</p>
+                    <p className="text-base font-semibold text-slate-800">
+                      <span className={`inline-flex px-3 py-1.5 rounded-lg text-xs font-bold ${
+                        viewModalRecord.status === 'Completed' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 
+                        viewModalRecord.status === 'Checked-In' ? 'bg-blue-50 text-blue-600 border border-blue-100' :
+                        viewModalRecord.status === 'Active' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
+                        'bg-slate-50 text-slate-600 border border-slate-100'
+                      }`}>
+                        {viewModalRecord.status || 'Unknown'}
+                      </span>
+                    </p>
+                  </div>
+                  <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Registration Time</p>
+                    <p className="text-base font-semibold text-slate-800">{viewModalRecord.registrationTime || '-'}</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="px-8 py-5 border-t border-slate-100 bg-white flex justify-end">
+                <Button variant="outline" onClick={() => setViewModalRecord(null)}>Close Details</Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

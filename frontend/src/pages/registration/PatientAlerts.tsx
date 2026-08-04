@@ -1,9 +1,35 @@
 import { useState } from 'react';
 import { Search, BellRing, AlertTriangle, ShieldAlert, HeartPulse } from 'lucide-react';
-import { usePatients } from '../../contexts/PatientContext';
+import { useEffect } from 'react';
+
+const API_BASE = import.meta.env.VITE_API_URL as string;
 
 export const PatientAlerts = () => {
-  const { patients } = usePatients();
+
+  const [patients, setPatients] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchPatients = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/patients/`);
+        if (res.ok) {
+          const data = await res.json();
+          setPatients(data.map((d: any) => ({
+            id: d.PatientId,
+            uhid: d.Uhid,
+            patientName: d.PatientName,
+            allergies: d.Allergies || 'none',
+            chronicDiseases: d.ChronicDiseases || 'none',
+            patientCategory: d.PatientType || 'General'
+          })));
+        }
+      } catch (e) {
+        console.error('Failed to fetch patients', e);
+      }
+    };
+    fetchPatients();
+  }, []);
+
   
   // Find patients that have some sort of alert criteria
   const alertPatients = patients.filter(p => 

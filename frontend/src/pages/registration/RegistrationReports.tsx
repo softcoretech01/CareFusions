@@ -1,25 +1,47 @@
 import { useState } from 'react';
 import { LineChart, PieChart, Users, FileText, Download, Activity, Heart, Shield } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
-import { usePatients } from '../../contexts/PatientContext';
+import { useEffect } from 'react';
 import { exportToExcel } from '../../utils/exportToExcel';
 import ReactApexChart from 'react-apexcharts';
 import { DateFilter } from '../../components/ui/DateFilter';
 
 export const RegistrationReports = () => {
-  const { patients } = usePatients();
+const todayDate = new Date();
+  const today = todayDate.toISOString().split('T')[0];
   
-  const today = new Date().toISOString().split('T')[0];
-  const [dateFrom, setDateFrom] = useState(today);
+  const lastWeekDate = new Date();
+  lastWeekDate.setDate(todayDate.getDate() - 7);
+  const lastWeek = lastWeekDate.toISOString().split('T')[0];
+
+  const [dateFrom, setDateFrom] = useState(lastWeek);
   const [dateTo, setDateTo] = useState(today);
 
-  const [appliedDateFrom, setAppliedDateFrom] = useState(today);
+  const [appliedDateFrom, setAppliedDateFrom] = useState(lastWeek);
   const [appliedDateTo, setAppliedDateTo] = useState(today);
+  
+  const [reportData, setReportData] = useState<any>(null);
+  
+  const API_BASE = import.meta.env.VITE_API_URL as string;
 
-  const filteredPatients = patients.filter(p => {
-    const regDate = p.registrationDate ? p.registrationDate.split('T')[0] : today;
-    return (!appliedDateFrom || regDate >= appliedDateFrom) && (!appliedDateTo || regDate <= appliedDateTo);
-  });
+  useEffect(() => {
+    const fetchReports = async () => {
+      try {
+        let url = `${API_BASE}/patients/reports?`;
+        if (appliedDateFrom) url += `start_date=${appliedDateFrom}&`;
+        if (appliedDateTo) url += `end_date=${appliedDateTo}`;
+        
+        const res = await fetch(url);
+        if (res.ok) {
+          const data = await res.json();
+          setReportData(data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch reports", err);
+      }
+    };
+    fetchReports();
+  }, [appliedDateFrom, appliedDateTo, API_BASE]);
 
   const handleSearch = () => {
     setAppliedDateFrom(dateFrom);
@@ -33,32 +55,42 @@ export const RegistrationReports = () => {
     setAppliedDateTo('');
   };
 
-  // Basic stats based on filtered
-  const totalPatients = filteredPatients.length;
-  const opPatients = filteredPatients.filter(p => p.patientType === 'OP' || p.patientType === 'Walk-In').length;
-  const emergencyPatients = filteredPatients.filter(p => p.patientType === 'Emergency').length;
-  const ipPatients = filteredPatients.filter(p => p.patientType === 'IP').length;
+  const totalPatients = reportData?.kpis?.totalRegistrations || 0;
+  const opPatients = reportData?.kpis?.opPatients || 0;
+  const emergencyPatients = reportData?.kpis?.emergencyPatients || 0;
+  const ipPatients = reportData?.kpis?.ipPatients || 0;
 
+const trendLabels = reportData?.trends?.map((t: any) => {
+    if (!t.date) return '';
+    const d = new Date(t.date);
+    return d.toLocaleDateString('en-US', { weekday: 'short' });
+  }) || [];
+  const trendValues = reportData?.trends?.map((t: any) => t.count) || [];
+  
   const trendOptions: any = {
     chart: { type: 'area', toolbar: { show: false }, zoom: { enabled: false }, fontFamily: 'inherit' },
     colors: ['#0ea5e9'],
     dataLabels: { enabled: false },
     stroke: { curve: 'smooth', width: 2 },
-    xaxis: { categories: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], tooltip: { enabled: false } },
+    xaxis: { categories: trendLabels, tooltip: { enabled: false } },
     yaxis: { labels: { formatter: (val: number) => val.toFixed(0) } },
     fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.05, stops: [0, 90, 100] } }
   };
-  const trendSeries = [{ name: 'Registrations', data: [12, 18, 15, 25, 22, 30, 28] }];
+  
+  const trendSeries = [{ name: 'Registrations', data: trendValues }];
+
+  const demoLabels = reportData?.demographics ? Object.keys(reportData.demographics) : [];
+  const demoValues = reportData?.demographics ? Object.values(reportData.demographics) : [];
 
   const demoOptions: any = {
     chart: { type: 'donut', fontFamily: 'inherit' },
-    labels: ['OPD', 'Walk-In', 'Emergency', 'IPD'],
-    colors: ['#3b82f6', '#8b5cf6', '#ef4444', '#10b981'],
+    labels: demoLabels,
+    colors: ['#3b82f6', '#8b5cf6', '#ef4444', '#10b981', '#f59e0b'],
     plotOptions: { donut: { size: '70%' } },
     dataLabels: { enabled: false },
     legend: { position: 'bottom' }
   };
-  const demoSeries = [45, 25, 15, 15];
+  const demoSeries = demoValues.length > 0 ? demoValues : [];
 
   return (
     <div className="h-[calc(100vh-2rem)] flex flex-col relative">
@@ -131,7 +163,7 @@ export const RegistrationReports = () => {
               <LineChart className="w-5 h-5 text-slate-400" />
             </div>
             <div className="flex-1 mt-4">
-              <ReactApexChart options={trendOptions} series={trendSeries} type="area" height="100%" />
+              {reportData ? <ReactApexChart options={trendOptions} series={trendSeries} type="area" height="100%" /> : <div className="animate-pulse bg-slate-100 w-full h-full rounded-xl"></div>}
             </div>
           </div>
 
@@ -141,7 +173,7 @@ export const RegistrationReports = () => {
               <PieChart className="w-5 h-5 text-slate-400" />
             </div>
             <div className="flex-1 flex items-center justify-center mt-4">
-              <ReactApexChart options={demoOptions} series={demoSeries} type="donut" height="100%" />
+              {reportData ? <ReactApexChart options={demoOptions} series={demoSeries} type="donut" height="100%" /> : <div className="animate-pulse bg-slate-100 w-full h-full rounded-full"></div>}
             </div>
           </div>
         </div>
@@ -150,7 +182,7 @@ export const RegistrationReports = () => {
         <div className="bg-white rounded-3xl shadow-sm border border-slate-100 flex flex-col overflow-hidden">
           <div className="p-6 border-b border-slate-100 flex items-center justify-between">
             <h3 className="text-lg font-bold text-slate-800">Recent Registrations List</h3>
-            <Button variant="outline" size="sm" icon={FileText} onClick={() => exportToExcel(patients, 'RegistrationReports')}>Export CSV</Button>
+            <Button variant="outline" size="sm" icon={FileText} onClick={() => exportToExcel(reportData?.recent || [], 'RegistrationReports')}>Export CSV</Button>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm whitespace-nowrap">
@@ -164,7 +196,7 @@ export const RegistrationReports = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {patients.slice(0, 5).map((p, idx) => (
+                {(reportData?.recent || []).slice(0, 5).map((p: any, idx: number) => (
                   <tr key={idx} className="hover:bg-slate-50/50">
                     <td className="px-6 py-4 text-slate-600">{p.registrationDate}</td>
                     <td className="px-6 py-4 font-semibold text-primary">{p.uhid}</td>
@@ -179,7 +211,7 @@ export const RegistrationReports = () => {
                     </td>
                   </tr>
                 ))}
-                {patients.length === 0 && (
+                {!(reportData?.recent?.length > 0) && (
                   <tr>
                     <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
                       No recent registrations.

@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Search, Upload, FileText, Download, Trash2, Eye, FolderOpen } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
-import { usePatients } from '../../contexts/PatientContext';
+import { useEffect } from 'react';
+
+const API_BASE = import.meta.env.VITE_API_URL as string;
 import { exportToExcel } from '../../utils/exportToExcel';
 
 interface DocumentRecord {
@@ -14,36 +16,70 @@ interface DocumentRecord {
   size: string;
 }
 
-const initialDocuments: DocumentRecord[] = [
-  {
-    id: 1,
-    uhid: 'UHID-2023-0150',
-    documentType: 'Aadhaar Card',
-    documentName: 'robert_aadhaar_front.pdf',
-    uploadDate: '2023-10-05',
-    uploadedBy: 'Admin',
-    size: '2.4 MB'
-  },
-  {
-    id: 2,
-    uhid: 'UHID-2023-0150',
-    documentType: 'Insurance Policy',
-    documentName: 'star_health_policy.pdf',
-    uploadDate: '2023-10-05',
-    uploadedBy: 'Admin',
-    size: '1.1 MB'
-  }
-];
+
 
 export const PatientDocuments = () => {
-  const { patients } = usePatients();
-  const [documents, setDocuments] = useState<DocumentRecord[]>(initialDocuments);
+
+  const [patients, setPatients] = useState<any[]>([]);
+  const [documents, setDocuments] = useState<DocumentRecord[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUhid, setSelectedUhid] = useState<string>('');
   
   const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const [newDocType, setNewDocType] = useState('');
   const [newDocFile, setNewDocFile] = useState<File | null>(null);
+
+  // Fetch all patients for search
+  const fetchPatients = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/patients/`);
+      if (res.ok) {
+        const data = await res.json();
+        setPatients(data.map((d: any) => ({
+          uhid: d.Uhid,
+          patientName: d.PatientName
+        })));
+      }
+    } catch (e) {
+      console.error('Failed to fetch patients', e);
+    }
+  };
+
+  useEffect(() => {
+    fetchPatients();
+  }, []);
+
+  // Fetch documents when a patient is selected
+  const fetchDocuments = async (uhid: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/documents/${uhid}`);
+      if (res.ok) {
+        const data = await res.json();
+        setDocuments(data.map((d: any) => ({
+          id: d.DocumentId,
+          uhid: d.Uhid,
+          documentType: d.DocumentType,
+          documentName: d.DocumentName,
+          uploadDate: d.UploadDate?.split(' ')[0] || '', // Extract date
+          uploadedBy: d.UploadedBy,
+          size: d.Size,
+          filePath: d.FilePath
+        })));
+      }
+    } catch (e) {
+      console.error('Failed to fetch documents', e);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedUhid) {
+      fetchDocuments(selectedUhid);
+    } else {
+      setDocuments([]);
+    }
+  }, [selectedUhid]);
+
 
   const filteredPatients = patients.filter(p => 
     p.uhid.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -53,25 +89,52 @@ export const PatientDocuments = () => {
   const patientDocuments = documents.filter(d => d.uhid === selectedUhid);
   const selectedPatient = patients.find(p => p.uhid === selectedUhid);
 
-  const handleUpload = (e: React.FormEvent) => {
+
+  const handleDelete = async (documentId: number) => {
+    if (!confirm('Are you sure you want to delete this document?')) return;
+    try {
+      const res = await fetch(`${API_BASE}/documents/${documentId}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        fetchDocuments(selectedUhid); // Refresh the list
+      } else {
+        setErrorMessage('Delete failed');
+      }
+    } catch (e) {
+      console.error('Failed to delete document', e);
+      setErrorMessage('Delete failed');
+    }
+  };
+
+  const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUhid || !newDocType || !newDocFile) return;
 
-    const newDoc: DocumentRecord = {
-      id: Math.max(...documents.map(d => d.id), 0) + 1,
-      uhid: selectedUhid,
-      documentType: newDocType,
-      documentName: newDocFile.name,
-      uploadDate: new Date().toISOString().split('T')[0],
-      uploadedBy: 'Current User',
-      size: (newDocFile.size / (1024 * 1024)).toFixed(2) + ' MB'
-    };
+    const formData = new FormData();
+    formData.append('uhid', selectedUhid);
+    formData.append('documentType', newDocType);
+    formData.append('file', newDocFile);
 
-    setDocuments([newDoc, ...documents]);
-    setIsUploadOpen(false);
-    setNewDocType('');
-    setNewDocFile(null);
+    try {
+      const res = await fetch(`${API_BASE}/documents/`, {
+        method: 'POST',
+        body: formData
+      });
+      if (res.ok) {
+        setIsUploadOpen(false);
+        setNewDocType('');
+        setNewDocFile(null);
+        fetchDocuments(selectedUhid); // Refresh the list
+      } else {
+        setErrorMessage('Upload failed');
+      }
+    } catch (e) {
+      console.error('Failed to upload document', e);
+      setErrorMessage('Upload failed');
+    }
   };
+
 
   return (
     <div className="h-[calc(100vh-2rem)] flex flex-col relative">
@@ -163,14 +226,14 @@ export const PatientDocuments = () => {
                             </div>
                           </div>
                           <div className="flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg">
+                            <button className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg" onClick={() => window.open((doc as any).filePath, '_blank')}>
                               <Eye className="w-4 h-4" />
                             </button>
                             <button className="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg" onClick={() => exportToExcel(patients, 'PatientDocuments')}>
                   <Download className="w-5 h-5" />
                   Export
                 </button>
-                            <button className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg">
+                            <button className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg" onClick={() => handleDelete(doc.id)}>
                               <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
@@ -256,6 +319,30 @@ export const PatientDocuments = () => {
                 <Button variant="filled" color="primary" type="submit">Upload File</Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Error Modal */}
+      {errorMessage && (
+        <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden">
+            <div className="p-6 border-b border-red-100 flex items-center gap-3 bg-red-50">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center text-red-600 shrink-0">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <h2 className="text-xl font-bold text-slate-800">Error</h2>
+            </div>
+            <div className="p-6">
+              <p className="text-slate-600">{errorMessage}</p>
+            </div>
+            <div className="p-6 border-t border-slate-100 flex justify-end bg-slate-50">
+              <Button variant="filled" color="primary" onClick={() => setErrorMessage('')} type="button">
+                Close
+              </Button>
+            </div>
           </div>
         </div>
       )}

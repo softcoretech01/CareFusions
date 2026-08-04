@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Search, History, Calendar, User, Activity, Clock, FileText } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
-import { usePatients } from '../../contexts/PatientContext';
+import { useEffect } from 'react';
+
+const API_BASE = import.meta.env.VITE_API_URL as string;
 import { exportToExcel } from '../../utils/exportToExcel';
 
 interface VisitRecord {
@@ -16,7 +18,31 @@ interface VisitRecord {
 }
 
 export const VisitHistory = () => {
-  const { patients } = usePatients();
+
+  const [patients, setPatients] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchPatients = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/patients/`);
+        if (res.ok) {
+          const data = await res.json();
+          setPatients(data.map((d: any) => ({
+            uhid: d.Uhid,
+            patientName: d.PatientName,
+            registrationDate: d.RegistrationDate,
+            patientType: d.PatientType || 'OP',
+            department: d.Department || 'General Medicine',
+            primaryDoctor: d.PrimaryDoctor || 'Dr. Assigned'
+          })));
+        }
+      } catch (e) {
+        console.error('Failed to fetch patients', e);
+      }
+    };
+    fetchPatients();
+  }, []);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUhid, setSelectedUhid] = useState<string>('');
 
@@ -27,29 +53,41 @@ export const VisitHistory = () => {
 
   const selectedPatient = patients.find(p => p.uhid === selectedUhid);
 
-  // Mock visits for the selected patient
-  const mockVisits: VisitRecord[] = selectedPatient ? [
-    {
-      id: 'VIS-001',
-      date: selectedPatient.registrationDate,
-      time: '09:30 AM',
-      type: selectedPatient.patientType || 'OP',
-      department: selectedPatient.department || 'General Medicine',
-      doctor: selectedPatient.primaryDoctor || 'Dr. Assigned',
-      status: 'Completed',
-      notes: 'Initial consultation and registration.'
-    },
-    {
-      id: 'VIS-002',
-      date: new Date().toISOString().split('T')[0],
-      time: '10:15 AM',
-      type: 'Follow-up',
-      department: 'General Medicine',
-      doctor: 'Dr. Assigned',
-      status: 'Scheduled',
-      notes: 'Routine checkup.'
+  const [visits, setVisits] = useState<VisitRecord[]>([]);
+
+  useEffect(() => {
+    if (selectedUhid) {
+      const fetchVisits = async () => {
+        try {
+          const res = await fetch(`${API_BASE}/visits/${selectedUhid}`);
+          if (res.ok) {
+            const data = await res.json();
+            setVisits(data.map((v: any) => ({
+              id: v.VisitId.toString(),
+              date: v.VisitDate,
+              time: v.VisitTime || '00:00',
+              type: v.VisitType,
+              department: v.Department || 'General',
+              doctor: v.Doctor || '-',
+              status: v.Status || 'Scheduled',
+              notes: v.Notes || ''
+            })));
+          } else {
+            setVisits([]);
+          }
+        } catch (e) {
+          console.error('Failed to fetch visits', e);
+          setVisits([]);
+        }
+      };
+      fetchVisits();
+    } else {
+      setVisits([]);
     }
-  ] : [];
+  }, [selectedUhid]);
+
+
+
 
   return (
     <div className="h-[calc(100vh-2rem)] flex flex-col relative">
@@ -127,55 +165,65 @@ export const VisitHistory = () => {
                       </p>
                     </div>
                   </div>
-                  <Button variant="outline" color="primary" icon={FileText} onClick={() => exportToExcel(mockVisits, 'VisitSummary')}>
+                  <Button variant="outline" color="primary" icon={FileText} onClick={() => exportToExcel(visits, 'VisitSummary')}>
                     Export Summary
                   </Button>
                 </div>
 
+
                 <div className="flex-1 overflow-y-auto p-8">
-                  <div className="relative border-l-2 border-slate-200 ml-6 space-y-10">
-                    {mockVisits.map((visit, idx) => (
-                      <div key={idx} className="relative pl-8">
-                        <div className="absolute -left-[11px] top-1 w-5 h-5 rounded-full bg-white border-4 border-primary shadow-sm" />
-                        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
-                          <div className="flex flex-wrap gap-4 items-center justify-between mb-4">
-                            <div className="flex items-center gap-3">
-                              <span className="bg-primary/10 text-primary px-3 py-1 rounded-lg text-sm font-bold">
-                                {visit.type}
-                              </span>
-                              <span className="text-slate-400 text-sm flex items-center gap-1.5">
-                                <Calendar className="w-4 h-4" /> {visit.date}
-                              </span>
-                              <span className="text-slate-400 text-sm flex items-center gap-1.5">
-                                <Clock className="w-4 h-4" /> {visit.time}
+                  {visits.length > 0 ? (
+                    <div className="relative border-l-2 border-slate-200 ml-6 space-y-10">
+                      {visits.map((visit, idx) => (
+                        <div key={idx} className="relative pl-8">
+                          <div className="absolute -left-[11px] top-1 w-5 h-5 rounded-full bg-white border-4 border-primary shadow-sm" />
+                          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
+                            <div className="flex flex-wrap gap-4 items-center justify-between mb-4">
+                              <div className="flex items-center gap-3">
+                                <span className="bg-primary/10 text-primary px-3 py-1 rounded-lg text-sm font-bold">
+                                  {visit.type}
+                                </span>
+                                <span className="text-slate-400 text-sm flex items-center gap-1.5">
+                                  <Calendar className="w-4 h-4" /> {visit.date}
+                                </span>
+                                <span className="text-slate-400 text-sm flex items-center gap-1.5">
+                                  <Clock className="w-4 h-4" /> {visit.time}
+                                </span>
+                              </div>
+                              <span className={`px-3 py-1 rounded-full text-xs font-medium border ${
+                                visit.status === 'Completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                'bg-amber-50 text-amber-700 border-amber-200'
+                              }`}>
+                                {visit.status}
                               </span>
                             </div>
-                            <span className={`px-3 py-1 rounded-full text-xs font-medium border ${
-                              visit.status === 'Completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                              'bg-amber-50 text-amber-700 border-amber-200'
-                            }`}>
-                              {visit.status}
-                            </span>
-                          </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm bg-slate-50 p-4 rounded-xl border border-slate-100">
-                            <div>
-                              <div className="text-slate-500 mb-1 flex items-center gap-1.5"><Activity className="w-4 h-4"/> Department</div>
-                              <div className="font-semibold text-slate-800">{visit.department}</div>
-                            </div>
-                            <div>
-                              <div className="text-slate-500 mb-1 flex items-center gap-1.5"><User className="w-4 h-4"/> Doctor</div>
-                              <div className="font-semibold text-slate-800">{visit.doctor}</div>
-                            </div>
-                            <div className="sm:col-span-2">
-                              <div className="text-slate-500 mb-1">Visit Notes</div>
-                              <div className="text-slate-700">{visit.notes}</div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm bg-slate-50 p-4 rounded-xl border border-slate-100">
+                              <div>
+                                <div className="text-slate-500 mb-1 flex items-center gap-1.5"><Activity className="w-4 h-4"/> Department</div>
+                                <div className="font-semibold text-slate-800">{visit.department}</div>
+                              </div>
+                              <div>
+                                <div className="text-slate-500 mb-1 flex items-center gap-1.5"><User className="w-4 h-4"/> Doctor</div>
+                                <div className="font-semibold text-slate-800">{visit.doctor}</div>
+                              </div>
+                              <div className="sm:col-span-2">
+                                <div className="text-slate-500 mb-1">Visit Notes</div>
+                                <div className="text-slate-700">{visit.notes}</div>
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="h-full flex flex-col items-center justify-center text-slate-500 p-8 text-center">
+                      <History className="w-16 h-16 text-slate-200 mb-4 opacity-50" />
+                      <p className="text-xl font-bold text-slate-600">No Visits Found</p>
+                      <p className="text-sm mt-1 max-w-sm">This patient has no clinical encounters logged in the system.</p>
+                    </div>
+                  )}
                 </div>
+
               </>
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-slate-500 p-8 text-center">

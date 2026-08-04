@@ -3,14 +3,18 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Plus, Filter, Edit2, Download, User, Phone, Activity, CreditCard, Info } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { useNavigate } from 'react-router-dom';
-import { usePatients } from '../../contexts/PatientContext';
-import type { GlobalPatientRecord } from '../../contexts/PatientContext';
+import { toast } from 'react-hot-toast';
+import { useEffect } from 'react';
+
+const API_BASE = import.meta.env.VITE_API_URL as string;
+type GlobalPatientRecord = any;
+
 import { exportToExcel } from '../../utils/exportToExcel';
 
 const initialFormState: Partial<GlobalPatientRecord> = {
   uhid: '',
   registrationDate: new Date().toISOString().split('T')[0],
-  registrationTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+  registrationTime: new Date().toTimeString().split(' ')[0],
   title: 'Mr.',
   patientName: '',
   gender: 'Male',
@@ -38,10 +42,65 @@ const initialFormState: Partial<GlobalPatientRecord> = {
 
 export const QuickRegistration = () => {
   const navigate = useNavigate();
-  const { patients, addPatient, updatePatient } = usePatients();
   
-  // Only show quick registrations
-  const records = patients.filter(p => p.registrationType === 'Quick');
+  const [patients, setPatients] = useState<any[]>([]);
+  const [options, setOptions] = useState<any>({
+    Title: [], Gender: [], YesNo: [], Priority: [], VisitType: [],
+    Status: [], PaymentMode: [], Departments: [], Doctors: []
+  });
+
+  const fetchOptions = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/quick-registrations/options`);
+      if (res.ok) setOptions(await res.json());
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const fetchPatients = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/quick-registrations/`);
+      if (res.ok) {
+        const data = await res.json();
+        const mappedData = data.map((d: any) => ({
+          id: d.QuickRegistrationId,
+          uhid: d.Uhid,
+          registrationDate: d.RegistrationDate,
+          registrationTime: d.RegistrationTime,
+          title: d.Title,
+          patientName: d.PatientName,
+          gender: d.Gender,
+          dateOfBirth: d.DateOfBirth,
+          age: d.Age,
+          mobileNumber: d.MobileNumber,
+          alternateMobile: d.AlternateMobile,
+          visitType: d.VisitType,
+          department: d.Department,
+          doctor: d.Doctor,
+          priority: d.Priority,
+          visitReason: d.VisitReason,
+          consultationRequired: d.ConsultationRequired,
+          consultationFee: d.ConsultationFee,
+          paymentMode: d.PaymentMode,
+          insuranceRequired: d.InsuranceRequired,
+          status: d.Status,
+          remarks: d.Remarks,
+          registrationType: 'Quick'
+        }));
+        setPatients(mappedData);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  useEffect(() => {
+    fetchOptions();
+    fetchPatients();
+  }, []);
+
+  const records = patients;
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<GlobalPatientRecord | null>(null);
@@ -66,18 +125,13 @@ export const QuickRegistration = () => {
     return age;
   };
 
-  const generateUHID = () => {
-    const year = new Date().getFullYear();
-    const random = Math.floor(1000 + Math.random() * 9000);
-    return `UHID-${year}-${random}`;
-  };
-
+  
   const handleCreateNew = () => {
     setFormData({ 
       ...initialFormState, 
-      uhid: generateUHID(),
+      uhid: '',
       registrationDate: new Date().toISOString().split('T')[0],
-      registrationTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      registrationTime: new Date().toTimeString().split(' ')[0]
     });
     setSelectedRecord(null);
     setIsFormOpen(true);
@@ -90,29 +144,72 @@ export const QuickRegistration = () => {
   };
 
 
-  const handleSave = (e: React.FormEvent, action: 'Save' | 'SaveNew' | 'SaveBook' | 'SaveBill' = 'Save') => {
+  
+  const handleSave = async (e: React.FormEvent, action: 'Save' | 'SaveNew' | 'SaveBook' | 'SaveBill' = 'Save') => {
     e.preventDefault();
-    if (selectedRecord) {
-      updatePatient(selectedRecord.id, formData);
-    } else {
-      const newId = Math.max(...patients.map(r => r.id), 0) + 1;
-      addPatient({ id: newId, ...formData } as GlobalPatientRecord);
-    }
+    const payload = {
+      RegistrationDate: formData.registrationDate,
+      RegistrationTime: formData.registrationTime,
+      Title: formData.title,
+      PatientName: formData.patientName,
+      Gender: formData.gender,
+      DateOfBirth: formData.dateOfBirth || null,
+      Age: formData.age || 0,
+      MobileNumber: formData.mobileNumber,
+      AlternateMobile: formData.alternateMobile || null,
+      VisitType: formData.visitType || 'OP',
+      Department: formData.department || null,
+      Doctor: formData.doctor || null,
+      Priority: formData.priority || 'Normal',
+      VisitReason: formData.visitReason || null,
+      ConsultationRequired: formData.consultationRequired || 'Yes',
+      ConsultationFee: formData.consultationFee || 0,
+      PaymentMode: formData.paymentMode || 'Cash',
+      InsuranceRequired: formData.insuranceRequired || 'No',
+      Status: formData.status || 'Active',
+      Remarks: formData.remarks || null
+    };
 
-    if (action === 'SaveNew') {
-      setFormData({ 
-        ...initialFormState, 
-        uhid: generateUHID(),
-        registrationDate: new Date().toISOString().split('T')[0],
-        registrationTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      });
-      setSelectedRecord(null);
-    } else if (action === 'SaveBook') {
-      navigate('/appointments/dashboard', { state: { pendingQuickBooking: formData } });
-    } else {
-      setIsFormOpen(false);
+    try {
+      let res;
+      if (selectedRecord) {
+        res = await fetch(`${API_BASE}/quick-registrations/${selectedRecord.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      } else {
+        res = await fetch(`${API_BASE}/quick-registrations/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      }
+
+      if (res.ok) {
+        toast.success(selectedRecord ? 'Record updated' : 'Quick Registration saved');
+        await fetchPatients();
+        
+        if (action === 'SaveNew') {
+          setFormData({ ...initialFormState, uhid: '', registrationDate: new Date().toISOString().split('T')[0], registrationTime: new Date().toTimeString().split(' ')[0] });
+          setSelectedRecord(null);
+        } else if (action === 'SaveBook') {
+          navigate('/appointments/dashboard', { state: { pendingQuickBooking: formData } });
+        } else {
+          setIsFormOpen(false);
+          setSelectedRecord(null);
+        }
+      } else {
+        const err = await res.json();
+        const errorMessage = Array.isArray(err.detail) ? err.detail.map((e: any) => `${e.loc.join('.')}: ${e.msg}`).join(', ') : (err.detail || 'Failed to save');
+        toast.error(errorMessage);
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error('Network error');
     }
   };
+
 
   const handleReset = () => {
     if (selectedRecord) {
@@ -120,9 +217,9 @@ export const QuickRegistration = () => {
     } else {
       setFormData({ 
         ...initialFormState, 
-        uhid: generateUHID(),
+        uhid: '',
         registrationDate: new Date().toISOString().split('T')[0],
-        registrationTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        registrationTime: new Date().toTimeString().split(' ')[0]
       });
     }
   };
@@ -203,9 +300,7 @@ export const QuickRegistration = () => {
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     >
                       <option value="">All Visit Types</option>
-                      <option value="OP">OP</option>
-                      <option value="Walk-In">Walk-In</option>
-                      <option value="Emergency">Emergency</option>
+{options.VisitType.map((o: string) => <option key={o} value={o}>{o}</option>)}
                     </select>
                     <input
                       type="text"
@@ -220,8 +315,7 @@ export const QuickRegistration = () => {
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     >
                       <option value="">All Statuses</option>
-                      <option value="Active">Active</option>
-                      <option value="Inactive">Inactive</option>
+{options.Status.map((o: string) => <option key={o} value={o}>{o}</option>)}
                     </select>
                   </div>
                 </motion.div>
@@ -344,16 +438,11 @@ export const QuickRegistration = () => {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Title</label>
                   <select
                     value={formData.title}
-                    onChange={(e) => handleInputChange('title', e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  >
-                    <option value="Mr.">Mr.</option>
-                    <option value="Mrs.">Mrs.</option>
-                    <option value="Miss">Miss</option>
-                    <option value="Dr.">Dr.</option>
-                    <option value="Mast.">Mast.</option>
-                    <option value="Baby">Baby</option>
-                  </select>
+                      onChange={(e) => handleInputChange('title', e.target.value)}
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    >
+                      {options.Title.map((o: string) => <option key={o} value={o}>{o}</option>)}
+                    </select>
                 </div>
                 <div className="md:col-span-3">
                   <label className="block text-sm font-medium text-slate-700 mb-1">Patient Name <span className="text-red-500">*</span></label>
@@ -370,13 +459,11 @@ export const QuickRegistration = () => {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Gender <span className="text-red-500">*</span></label>
                   <select
                     value={formData.gender}
-                    onChange={(e) => handleInputChange('gender', e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  >
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                  </select>
+                      onChange={(e) => handleInputChange('gender', e.target.value)}
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    >
+                      {options.Gender.map((o: string) => <option key={o} value={o}>{o}</option>)}
+                    </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Date of Birth</label>
@@ -412,19 +499,16 @@ export const QuickRegistration = () => {
                   <input
                     type="text"
                     value={formData.mobileNumber}
-                    onChange={(e) => handleInputChange('mobileNumber', e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    placeholder="10-digit mobile number"
-                  />
+                    onChange={(e) => { const val = e.target.value; if (/^\d{0,10}$/.test(val)) handleInputChange('mobileNumber', val); }}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary" placeholder="10-digit mobile number" maxLength={10} />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Alternate Mobile</label>
                   <input
                     type="text"
                     value={formData.alternateMobile}
-                    onChange={(e) => handleInputChange('alternateMobile', e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  />
+                    onChange={(e) => { const val = e.target.value; if (/^\d{0,10}$/.test(val)) handleInputChange('alternateMobile', val); }}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"  maxLength={10} />
                 </div>
               </div>
             </div>
@@ -440,54 +524,43 @@ export const QuickRegistration = () => {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Visit Type <span className="text-red-500">*</span></label>
                   <select
                     value={formData.visitType}
-                    onChange={(e) => handleInputChange('visitType', e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  >
-                    <option value="OP">OP (Outpatient)</option>
-                    <option value="Emergency">Emergency</option>
-                    <option value="Walk-In">Walk-In</option>
-                  </select>
+                      onChange={(e) => handleInputChange('visitType', e.target.value)}
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    >
+                      {options.VisitType.map((o: string) => <option key={o} value={o}>{o}</option>)}
+                    </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Department <span className="text-red-500">*</span></label>
                   <select
                     value={formData.department || ''}
-                    onChange={(e) => handleInputChange('department', e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  >
-                    <option value="">Select Department</option>
-                    <option value="Cardiology">Cardiology</option>
-                    <option value="Orthopedics">Orthopedics</option>
-                    <option value="Neurology">Neurology</option>
-                    <option value="General Medicine">General Medicine</option>
-                    <option value="Pediatrics">Pediatrics</option>
-                  </select>
+                      onChange={(e) => handleInputChange('department', e.target.value)}
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    >
+                      <option value="">Select Department</option>
+{options.Departments.map((o: string) => <option key={o} value={o}>{o}</option>)}
+                    </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Doctor <span className="text-red-500">*</span></label>
                   <select
                     value={formData.doctor || ''}
-                    onChange={(e) => handleInputChange('doctor', e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  >
-                    <option value="">Select Doctor</option>
-                    <option value="Dr. Sarah Jenkins">Dr. Sarah Jenkins</option>
-                    <option value="Dr. Michael Chen">Dr. Michael Chen</option>
-                    <option value="Dr. Emily Patel">Dr. Emily Patel</option>
-                    <option value="Dr. James Wilson">Dr. James Wilson</option>
-                  </select>
+                      onChange={(e) => handleInputChange('doctor', e.target.value)}
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    >
+                      <option value="">Select Doctor</option>
+{options.Doctors.map((o: string) => <option key={o} value={o}>{o}</option>)}
+                    </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Priority <span className="text-red-500">*</span></label>
                   <select
                     value={formData.priority}
-                    onChange={(e) => handleInputChange('priority', e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  >
-                    <option value="Normal">Normal</option>
-                    <option value="Urgent">Urgent</option>
-                    <option value="Emergency">Emergency</option>
-                  </select>
+                      onChange={(e) => handleInputChange('priority', e.target.value)}
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    >
+                      {options.Priority.map((o: string) => <option key={o} value={o}>{o}</option>)}
+                    </select>
                 </div>
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-slate-700 mb-1">Visit Reason / Chief Complaint</label>
@@ -512,12 +585,11 @@ export const QuickRegistration = () => {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Consultation Required <span className="text-red-500">*</span></label>
                   <select
                     value={formData.consultationRequired}
-                    onChange={(e) => handleInputChange('consultationRequired', e.target.value as 'Yes' | 'No')}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  >
-                    <option value="Yes">Yes</option>
-                    <option value="No">No</option>
-                  </select>
+                      onChange={(e) => handleInputChange('consultationRequired', e.target.value)}
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    >
+                      {options.YesNo.map((o: string) => <option key={o} value={o}>{o}</option>)}
+                    </select>
                 </div>
                 {formData.consultationRequired === 'Yes' && (
                   <>
@@ -534,14 +606,11 @@ export const QuickRegistration = () => {
                       <label className="block text-sm font-medium text-slate-700 mb-1">Payment Mode</label>
                       <select
                         value={formData.paymentMode}
-                        onChange={(e) => handleInputChange('paymentMode', e.target.value)}
-                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                      >
-                        <option value="Cash">Cash</option>
-                        <option value="Card">Card</option>
-                        <option value="UPI">UPI</option>
-                        <option value="Insurance">Insurance</option>
-                      </select>
+                      onChange={(e) => handleInputChange('paymentMode', e.target.value)}
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    >
+                      {options.PaymentMode.map((o: string) => <option key={o} value={o}>{o}</option>)}
+                    </select>
                     </div>
                   </>
                 )}
@@ -549,12 +618,11 @@ export const QuickRegistration = () => {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Insurance Required <span className="text-red-500">*</span></label>
                   <select
                     value={formData.insuranceRequired}
-                    onChange={(e) => handleInputChange('insuranceRequired', e.target.value as 'Yes' | 'No')}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  >
-                    <option value="No">No</option>
-                    <option value="Yes">Yes</option>
-                  </select>
+                      onChange={(e) => handleInputChange('insuranceRequired', e.target.value)}
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    >
+                      {options.YesNo.map((o: string) => <option key={o} value={o}>{o}</option>)}
+                    </select>
                 </div>
               </div>
             </div>
@@ -570,12 +638,11 @@ export const QuickRegistration = () => {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Status <span className="text-red-500">*</span></label>
                   <select
                     value={formData.status}
-                    onChange={(e) => handleInputChange('status', e.target.value as 'Active' | 'Inactive')}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  >
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                  </select>
+                      onChange={(e) => handleInputChange('status', e.target.value)}
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    >
+                      {options.Status.map((o: string) => <option key={o} value={o}>{o}</option>)}
+                    </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Remarks</label>
