@@ -17,7 +17,7 @@ from app.routers import (
     appointment_status, allergy, medicine, medicine_category, lab_test, sample_type,
     patient_registration, quick_registration, emergency_registration, patient_documents,
     patient_visit,
-    appointment, permission, auth,
+    appointment, permission, auth, doctor_schedule,
 )
 
 # ── Logging ──────────────────────────────────────────────────
@@ -111,6 +111,7 @@ app.include_router(medicine_category.router,     prefix="/api/v1")
 app.include_router(lab_test.router,              prefix="/api/v1")
 app.include_router(sample_type.router,           prefix="/api/v1")
 app.include_router(appointment.router,           prefix="/api/v1")
+app.include_router(doctor_schedule.router,       prefix="/api/v1")
 app.include_router(permission.router,            prefix="/api/v1")
 app.include_router(auth.router,                  prefix="/api/v1")
 

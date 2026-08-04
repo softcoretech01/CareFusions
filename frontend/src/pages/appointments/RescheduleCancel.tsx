@@ -1,11 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAppointments } from '../../contexts/AppointmentContext';
 import {
   Search, CalendarX, CalendarClock, CheckCircle, X,
   Clock, User, Building2, AlertTriangle,
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
+import { Pagination } from '../../components/ui/Pagination';
 import type { AppointmentRecord } from '../../contexts/AppointmentContext';
+
+const PAGE_SIZE = 10;
+
+const ACTIVE_STATUSES = ['Scheduled', 'Checked-In', 'Waiting'];
 
 const STATUS_BADGE: Record<string, string> = {
   Scheduled:    'bg-slate-100 text-slate-700',
@@ -18,12 +23,15 @@ const STATUS_BADGE: Record<string, string> = {
 };
 
 export const RescheduleCancel = () => {
-  const { appointments, updateAppointmentStatus, updateAppointment } = useAppointments();
+  const { updateAppointmentStatus, updateAppointment, queryAppointments, apiError, clearError } = useAppointments();
 
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [selectedItem, setSelectedItem] = useState<AppointmentRecord | null>(null);
   const [actionModal, setActionModal] = useState<{ type: 'cancel' | 'noshow' | 'reschedule'; item: AppointmentRecord } | null>(null);
+  const [allFiltered, setAllFiltered] = useState<AppointmentRecord[]>([]);
+  const [page, setPage] = useState(1);
+  const paged = allFiltered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   // Reschedule form state
   const [newDate, setNewDate] = useState('');
@@ -36,17 +44,23 @@ export const RescheduleCancel = () => {
     '02:00 PM', '02:15 PM', '02:30 PM', '02:45 PM',
   ];
 
-  // Searchable list — active appointments (Scheduled, Checked-In, Waiting)
-  const activeStatuses = ['Scheduled', 'Checked-In', 'Waiting'];
-  const allFiltered = appointments.filter(a => {
-    const matchSearch =
-      a.patientName.toLowerCase().includes(search.toLowerCase()) ||
-      a.uhid.toLowerCase().includes(search.toLowerCase()) ||
-      a.appointmentNumber.toLowerCase().includes(search.toLowerCase()) ||
-      a.mobileNumber.includes(search);
-    const matchStatus = filterStatus ? a.status === filterStatus : activeStatuses.includes(a.status);
-    return matchSearch && matchStatus;
-  });
+  // Fetch from the backend (search server-side). Status is applied here because
+  // the default view is a SET of active statuses the API can't express directly.
+  const reload = useCallback(() => {
+    queryAppointments({ search: search.trim(), status: filterStatus }).then(rows => {
+      setAllFiltered(filterStatus ? rows : rows.filter(a => ACTIVE_STATUSES.includes(a.status)));
+    });
+  }, [queryAppointments, search, filterStatus]);
+
+  useEffect(() => {
+    const t = setTimeout(reload, 300);
+    return () => clearTimeout(t);
+  }, [reload]);
+
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(allFiltered.length / PAGE_SIZE));
+    if (page > totalPages) setPage(1);
+  }, [allFiltered, page]);
 
   // Confirm cancel
   const confirmCancel = () => {
@@ -54,6 +68,7 @@ export const RescheduleCancel = () => {
     updateAppointmentStatus(actionModal.item.id, 'Cancelled');
     setActionModal(null);
     setSelectedItem(null);
+    setTimeout(reload, 500);
   };
 
   // Confirm no-show
@@ -62,6 +77,7 @@ export const RescheduleCancel = () => {
     updateAppointmentStatus(actionModal.item.id, 'No-Show');
     setActionModal(null);
     setSelectedItem(null);
+    setTimeout(reload, 500);
   };
 
   // Confirm reschedule
@@ -72,10 +88,20 @@ export const RescheduleCancel = () => {
     setSelectedItem(null);
     setNewDate('');
     setNewSlot('');
+    setTimeout(reload, 500);
   };
 
   return (
-    <div className="h-[calc(100vh-2rem)] flex flex-col relative">
+    <div className="flex flex-col relative">
+
+      {/* API error banner */}
+      {apiError && (
+        <div className="mb-4 flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          <span className="flex-1">{apiError}</span>
+          <button onClick={clearError} className="text-red-500 hover:text-red-700 font-medium">Dismiss</button>
+        </div>
+      )}
 
       {/* ── Action Modal ── */}
       {actionModal && (
@@ -198,16 +224,15 @@ export const RescheduleCancel = () => {
       )}
 
       {/* ── Page Header ── */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-5">
         <div>
           <h1 className="text-3xl font-bold text-slate-800">Reschedule &amp; Cancel</h1>
-          <p className="text-slate-500 mt-1 text-sm">Manage active appointments — reschedule, cancel, or mark no-show.</p>
         </div>
       </div>
 
       {/* ── Search + Filter ── */}
-      <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm flex flex-col flex-1 overflow-hidden">
-        <div className="flex flex-wrap gap-3 mb-6">
+      <div className="bg-white rounded-3xl p-4 border border-slate-100 shadow-sm">
+        <div className="flex flex-wrap gap-3 mb-4">
           <div className="relative flex-1 min-w-[220px] max-w-md">
             <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
@@ -233,16 +258,16 @@ export const RescheduleCancel = () => {
         </div>
 
         {/* ── Table ── */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar">
+        <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider font-semibold sticky top-0 z-10">
               <tr>
-                <th className="px-4 py-4">Appt No.</th>
-                <th className="px-4 py-4">Patient</th>
-                <th className="px-4 py-4">Doctor &amp; Date</th>
-                <th className="px-4 py-4">Type</th>
-                <th className="px-4 py-4">Status</th>
-                <th className="px-4 py-4 text-center">Actions</th>
+                <th className="px-4 py-2">Appt No.</th>
+                <th className="px-4 py-2">Patient</th>
+                <th className="px-4 py-2">Doctor &amp; Date</th>
+                <th className="px-4 py-2">Type</th>
+                <th className="px-4 py-2">Status</th>
+                <th className="px-4 py-2 text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -254,30 +279,30 @@ export const RescheduleCancel = () => {
                   </td>
                 </tr>
               ) : (
-                allFiltered.map(item => {
+                paged.map(item => {
                   const isCancelledOrNoShow = item.status === 'Cancelled' || item.status === 'No-Show';
                   return (
                     <tr
                       key={item.id}
                       className={`hover:bg-slate-50/70 transition-colors ${selectedItem?.id === item.id ? 'bg-primary/5' : ''}`}
                     >
-                      <td className="px-4 py-4 font-bold text-primary text-sm font-mono">{item.appointmentNumber}</td>
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-2 font-bold text-primary text-sm font-mono whitespace-nowrap">{item.appointmentNumber}</td>
+                      <td className="px-4 py-2">
                         <div className="font-bold text-slate-800 text-sm">{item.patientName}</div>
                         <div className="text-xs text-slate-400">{item.uhid} · {item.mobileNumber}</div>
                       </td>
-                      <td className="px-4 py-4 text-sm">
+                      <td className="px-4 py-2 text-sm">
                         <div className="font-semibold text-slate-700">{item.doctor}</div>
                         <div className="text-slate-400 text-xs">{item.date} · {item.timeSlot}</div>
                         <div className="text-slate-400 text-xs">{item.department}</div>
                       </td>
-                      <td className="px-4 py-4 text-slate-500 text-sm">{item.type}</td>
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-2 text-slate-500 text-sm">{item.type}</td>
+                      <td className="px-4 py-2">
                         <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${STATUS_BADGE[item.status] ?? 'bg-slate-100 text-slate-600'}`}>
                           {item.status}
                         </span>
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-2">
                         <div className="flex items-center justify-center gap-2">
                           {!isCancelledOrNoShow && (
                             <>
@@ -313,6 +338,7 @@ export const RescheduleCancel = () => {
             </tbody>
           </table>
         </div>
+        <Pagination page={page} pageSize={PAGE_SIZE} totalItems={allFiltered.length} onPageChange={setPage} />
       </div>
     </div>
   );

@@ -1,6 +1,9 @@
-import { createContext, useContext, useState, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
+
+const API_BASE = import.meta.env.VITE_API_URL as string;
 
 export interface DoctorScheduleRecord {
+  id: number;
   name: string;
   dept: string;
   workingDays: string[]; // e.g. ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
@@ -13,7 +16,11 @@ export interface DoctorScheduleRecord {
 
 interface DoctorScheduleContextType {
   doctorSchedules: DoctorScheduleRecord[];
-  updateDoctorSchedule: (name: string, updates: Partial<DoctorScheduleRecord>) => void;
+  isLoading: boolean;
+  apiError: string | null;
+  clearError: () => void;
+  updateDoctorSchedule: (id: number, updates: Partial<DoctorScheduleRecord>) => void;
+  saveDoctorSchedule: (id: number) => Promise<boolean>;
   getDoctorsForDept: (dept: string) => DoctorScheduleRecord[];
   isDoctorAvailableOn: (name: string, dateString: string) => boolean;
   getDoctorsWithAvailability: (dept: string, dateString: string) => { name: string; dept: string; available: boolean }[];
@@ -26,97 +33,70 @@ const DAY_MAP: Record<string, number> = {
   Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6,
 };
 
-const INITIAL_SCHEDULES: DoctorScheduleRecord[] = [
-  {
-    name: 'Dr. Sarah Jenkins',
-    dept: 'Cardiology',
-    workingDays: ['Mon', 'Tue', 'Thu'],
-    session1: { start: '09:00', end: '13:00' },
-    session2: { start: '14:00', end: '18:00' },
-    slotDuration: 15,
-    maxPatients: 40,
-    exceptions: [],
-  },
-  {
-    name: 'Dr. Ravi Kumar',
-    dept: 'Cardiology',
-    workingDays: ['Tue', 'Wed', 'Fri'],
-    session1: { start: '09:00', end: '13:00' },
-    session2: { start: '14:00', end: '17:00' },
-    slotDuration: 15,
-    maxPatients: 30,
-    exceptions: [],
-  },
-  {
-    name: 'Dr. Michael Chen',
-    dept: 'General Medicine',
-    workingDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
-    session1: { start: '09:00', end: '13:00' },
-    session2: { start: '14:00', end: '18:00' },
-    slotDuration: 15,
-    maxPatients: 40,
-    exceptions: [],
-  },
-  {
-    name: 'Dr. Alice Wong',
-    dept: 'General Medicine',
-    workingDays: ['Mon', 'Wed', 'Fri'],
-    session1: { start: '09:00', end: '13:00' },
-    session2: { start: '14:00', end: '17:00' },
-    slotDuration: 15,
-    maxPatients: 30,
-    exceptions: [],
-  },
-  {
-    name: 'Dr. Emily Brown',
-    dept: 'Orthopedics',
-    workingDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
-    session1: { start: '09:00', end: '13:00' },
-    session2: { start: '14:00', end: '18:00' },
-    slotDuration: 15,
-    maxPatients: 40,
-    exceptions: [],
-  },
-  {
-    name: 'Dr. David Wilson',
-    dept: 'Pediatrics',
-    workingDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
-    session1: { start: '09:00', end: '13:00' },
-    session2: { start: '14:00', end: '18:00' },
-    slotDuration: 15,
-    maxPatients: 40,
-    exceptions: [],
-  },
-  {
-    name: 'Dr. Priya Nair',
-    dept: 'Dermatology',
-    workingDays: ['Tue', 'Thu', 'Sat'],
-    session1: { start: '09:00', end: '13:00' },
-    session2: { start: '14:00', end: '17:00' },
-    slotDuration: 15,
-    maxPatients: 24,
-    exceptions: [],
-  },
-  {
-    name: 'Dr. James Ford',
-    dept: 'Neurology',
-    workingDays: ['Mon', 'Wed', 'Fri'],
-    session1: { start: '09:00', end: '13:00' },
-    session2: { start: '14:00', end: '17:00' },
-    slotDuration: 15,
-    maxPatients: 24,
-    exceptions: [],
-  },
-];
-
 export const DoctorScheduleProvider = ({ children }: { children: ReactNode }) => {
-  const [doctorSchedules, setDoctorSchedules] = useState<DoctorScheduleRecord[]>(INITIAL_SCHEDULES);
+  const [doctorSchedules, setDoctorSchedules] = useState<DoctorScheduleRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [apiError, setApiError] = useState<string | null>(null);
 
-  const updateDoctorSchedule = (name: string, updates: Partial<DoctorScheduleRecord>) => {
-    setDoctorSchedules(prev =>
-      prev.map(doc => (doc.name === name ? { ...doc, ...updates } : doc))
-    );
+  const clearError = useCallback(() => setApiError(null), []);
+
+  // Load all doctors + their schedules from the API.
+  const loadSchedules = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/doctor-schedules/`);
+      if (res.ok) {
+        const data = await res.json();
+        setDoctorSchedules(Array.isArray(data) ? data : []);
+      } else {
+        setApiError('Failed to load doctor schedules.');
+      }
+    } catch {
+      setApiError('Could not load doctor schedules: the server is unreachable.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadSchedules(); }, [loadSchedules]);
+
+  // Local (unsaved) edit — kept in state until the user clicks Save.
+  const updateDoctorSchedule = (id: number, updates: Partial<DoctorScheduleRecord>) => {
+    setDoctorSchedules(prev => prev.map(doc => (doc.id === id ? { ...doc, ...updates } : doc)));
   };
+
+  // Persist one doctor's schedule (timings, capacity, leaves) to the API.
+  const saveDoctorSchedule = useCallback(async (id: number): Promise<boolean> => {
+    const doc = doctorSchedules.find(d => d.id === id);
+    if (!doc) return false;
+    setApiError(null);
+    try {
+      const res = await fetch(`${API_BASE}/doctor-schedules/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workingDays:  doc.workingDays,
+          session1:     doc.session1,
+          session2:     doc.session2,
+          slotDuration: doc.slotDuration,
+          maxPatients:  doc.maxPatients,
+          exceptions:   doc.exceptions,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        const d = (data as { detail?: unknown } | null)?.detail;
+        const msg = Array.isArray(d) ? (d[0] as { msg?: string })?.msg
+          : typeof d === 'string' ? d : `Save failed (${res.status})`;
+        setApiError(`Could not save schedule: ${msg}`);
+        return false;
+      }
+      return true;
+    } catch {
+      setApiError('Could not save schedule: the server is unreachable.');
+      return false;
+    }
+  }, [doctorSchedules]);
 
   const getDoctorsForDept = (dept: string) =>
     doctorSchedules.filter(d => dept === 'All Departments' || d.dept === dept);
@@ -147,7 +127,11 @@ export const DoctorScheduleProvider = ({ children }: { children: ReactNode }) =>
     <DoctorScheduleContext.Provider
       value={{
         doctorSchedules,
+        isLoading,
+        apiError,
+        clearError,
         updateDoctorSchedule,
+        saveDoctorSchedule,
         getDoctorsForDept,
         isDoctorAvailableOn,
         getDoctorsWithAvailability,

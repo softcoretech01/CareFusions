@@ -12,7 +12,10 @@ from app.schemas.appointment import (
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/appointments", tags=["Appointment"])
 
-SP_NAME = "SpAppointment"
+# Appointments live in the `registration` database (patient/registration
+# domain), while the connection's default schema is `admin`. The fully-qualified
+# name makes the cross-database CALL resolve correctly.
+SP_NAME = "registration.SpAppointment"
 
 
 def _call_sp(db: Session, opt: str, **kw):
@@ -39,13 +42,17 @@ def _call_sp(db: Session, opt: str, **kw):
         "p_StatusFilter":    kw.get("status_filter"),
         "p_TypeFilter":      kw.get("type_filter"),
         "p_DateFilter":      kw.get("date_filter"),
+        "p_DateFrom":        kw.get("date_from"),
+        "p_DateTo":          kw.get("date_to"),
+        "p_ExcludeType":     kw.get("exclude_type"),
     }
     sql = text(f"""
         CALL {SP_NAME}(
             :p_Opt, :p_AppointmentId, :p_Uhid, :p_PatientName, :p_MobileNumber, :p_Department,
             :p_Doctor, :p_AppointmentDate, :p_TimeSlot, :p_DurationMinutes, :p_Type, :p_Priority,
             :p_Status, :p_QueueToken, :p_Notes, :p_CreatedBy, :p_UpdatedBy, :p_Search,
-            :p_DeptFilter, :p_StatusFilter, :p_TypeFilter, :p_DateFilter
+            :p_DeptFilter, :p_StatusFilter, :p_TypeFilter, :p_DateFilter,
+            :p_DateFrom, :p_DateTo, :p_ExcludeType
         )
     """)
     return db.execute(sql, params)
@@ -93,12 +100,16 @@ def _fields(payload) -> dict:
 @router.get("/", response_model=List[AppointmentResponse])
 def get_appointments(search: Optional[str] = None, dept_filter: Optional[str] = None,
                      status_filter: Optional[str] = None, type_filter: Optional[str] = None,
-                     date_filter: Optional[str] = None, db: Session = Depends(get_db)):
-    """Fetch appointments (newest first) with optional filters."""
+                     date_filter: Optional[str] = None, date_from: Optional[str] = None,
+                     date_to: Optional[str] = None, exclude_type: Optional[str] = None,
+                     db: Session = Depends(get_db)):
+    """Fetch appointments (newest first) with optional server-side filters:
+    search, department, status, type (or exclude_type), and a date range."""
     try:
         rows = _call_sp(db, "GET", search=search, dept_filter=dept_filter,
                         status_filter=status_filter, type_filter=type_filter,
-                        date_filter=date_filter).fetchall()
+                        date_filter=date_filter, date_from=date_from, date_to=date_to,
+                        exclude_type=exclude_type).fetchall()
         return [_map_row(r) for r in rows]
     except Exception as e:
         logger.error(f"[GET /appointments] Error: {e}")

@@ -1,4 +1,6 @@
-import { createContext, useContext, useState, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
+
+const PATIENTS_STORAGE_KEY = 'carefusion_patients_v1';
 
 export interface GlobalPatientRecord {
   id: number;
@@ -40,6 +42,7 @@ interface PatientContextType {
   addPatient: (patient: GlobalPatientRecord) => void;
   updatePatient: (id: number, data: Partial<GlobalPatientRecord>) => void;
   getPatientByUhid: (uhid: string) => GlobalPatientRecord | undefined;
+  generateUhid: () => string;
 }
 
 const PatientContext = createContext<PatientContextType | undefined>(undefined);
@@ -192,7 +195,21 @@ const initialPatients: GlobalPatientRecord[] = [
 ];
 
 export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [patients, setPatients] = useState<GlobalPatientRecord[]>(initialPatients);
+  // Persist to localStorage so patients registered via booking/registration
+  // survive a page refresh (they used to reset to the seed data on reload).
+  const [patients, setPatients] = useState<GlobalPatientRecord[]>(() => {
+    try {
+      const saved = localStorage.getItem(PATIENTS_STORAGE_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch { /* corrupt/unavailable storage — fall back to seed */ }
+    return initialPatients;
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(PATIENTS_STORAGE_KEY, JSON.stringify(patients));
+    } catch { /* storage full/unavailable — ignore */ }
+  }, [patients]);
 
   const addPatient = (patient: GlobalPatientRecord) => {
     setPatients((prev) => [patient, ...prev]);
@@ -208,8 +225,23 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
     return patients.find(p => p.uhid === uhid);
   };
 
+  // Generate the next UHID in the format UHID-<year>-<roll>, e.g. UHID-2026-0011.
+  // The roll number continues from the highest existing UHID for the current year.
+  const generateUhid = useCallback((): string => {
+    const year = new Date().getFullYear();
+    const prefix = `UHID-${year}-`;
+    const maxRoll = patients.reduce((max, p) => {
+      if (typeof p.uhid === 'string' && p.uhid.startsWith(prefix)) {
+        const n = parseInt(p.uhid.slice(prefix.length), 10);
+        if (!isNaN(n) && n > max) return n;
+      }
+      return max;
+    }, 0);
+    return `${prefix}${String(maxRoll + 1).padStart(4, '0')}`;
+  }, [patients]);
+
   return (
-    <PatientContext.Provider value={{ patients, addPatient, updatePatient, getPatientByUhid }}>
+    <PatientContext.Provider value={{ patients, addPatient, updatePatient, getPatientByUhid, generateUhid }}>
       {children}
     </PatientContext.Provider>
   );

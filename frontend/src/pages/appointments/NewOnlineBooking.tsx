@@ -8,18 +8,48 @@ import { useNavigate } from 'react-router-dom';
 import { useDoctorSchedules } from '../../contexts/DoctorScheduleContext';
 import { getBookedSlots } from '../../data/doctorSchedules';
 
-const MOCK_DEPARTMENTS = ['General Medicine', 'Cardiology', 'Orthopedics', 'Pediatrics', 'Dermatology', 'Neurology'];
+// Departments are derived from the doctors configured in Doctor Master,
+// so the list always matches doctors that actually exist.
 
-const TIME_SLOTS = [
-  '09:00 AM', '09:15 AM', '09:30 AM', '09:45 AM',
-  '10:00 AM', '10:15 AM', '10:30 AM', '10:45 AM',
-  '11:00 AM', '11:15 AM', '11:30 AM', '11:45 AM',
-];
+// ── Slot generation from a doctor's schedule ──────────────────
+const timeToMin = (t: string) => {
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + m;
+};
+const minToLabel = (mins: number) => {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${String(h12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${ampm}`;
+};
+// Slot labels for one session [start, end) at the given slot duration (minutes).
+function buildSessionSlots(start: string, end: string, dur: number): string[] {
+  if (!start || !end || !dur || dur <= 0) return [];
+  const s = timeToMin(start), e = timeToMin(end);
+  const out: string[] = [];
+  for (let t = s; t + dur <= e; t += dur) out.push(minToLabel(t));
+  return out;
+}
+
+// A slot is "past" when its date+time is before now (e.g. earlier times today).
+// Future dates are never past.
+function isSlotInPast(dateStr: string, timeStr: string): boolean {
+  if (!dateStr) return false;
+  const [time, ampm] = timeStr.split(' ');
+  const [hRaw, m] = time.split(':').map(Number);
+  let h = hRaw;
+  if (ampm === 'PM' && h !== 12) h += 12;
+  if (ampm === 'AM' && h === 12) h = 0;
+  const slot = new Date(dateStr + 'T00:00:00');
+  slot.setHours(h, m, 0, 0);
+  return slot.getTime() < Date.now();
+}
 
 export const NewOnlineBooking = () => {
   const { addAppointment, appointments, generateAppointmentNumber } = useAppointments();
-  const { getDoctorsWithAvailability } = useDoctorSchedules();
-  const { patients, addPatient } = usePatients();
+  const { getDoctorsWithAvailability, doctorSchedules } = useDoctorSchedules();
+  const { patients, addPatient, generateUhid } = usePatients();
   const navigate = useNavigate();
 
   const [step, setStep] = useState(1);
@@ -27,6 +57,10 @@ export const NewOnlineBooking = () => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<GlobalPatientRecord | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
+
+  // Provisional UHID for a new patient — computed once, shown in the field, and
+  // used on confirm so the displayed value is exactly what gets saved.
+  const [newUhid] = useState(() => generateUhid());
 
   const [formData, setFormData] = useState({
     patientName: '',
@@ -100,8 +134,8 @@ export const NewOnlineBooking = () => {
       // Existing patient — reuse their UHID, do NOT create new patient
       uhidToUse = selectedPatient.uhid;
     } else {
-      // New patient — generate UHID and create in PatientContext (registration)
-      uhidToUse = `UHID-ONL-${String(Math.floor(Math.random() * 9000) + 1000)}`;
+      // New patient — use the UHID already shown in the field
+      uhidToUse = newUhid;
       addPatient({
         id: Date.now(),
         uhid: uhidToUse,
@@ -149,9 +183,21 @@ export const NewOnlineBooking = () => {
 
 
 
+  // Departments that actually have doctors (from the real doctor schedules).
+  const departments = Array.from(new Set(doctorSchedules.map(d => d.dept).filter(Boolean))).sort();
+
   // Doctors with availability for Step 2
   const doctorsWithAvailability = formData.department
     ? getDoctorsWithAvailability(formData.department, formData.date)
+    : [];
+
+  // Slots come from the selected doctor's schedule (Standard Timings + Slot Duration)
+  const selectedSchedule = doctorSchedules.find(d => d.name === formData.doctor) ?? null;
+  const timeSlots = selectedSchedule
+    ? [
+        ...buildSessionSlots(selectedSchedule.session1.start, selectedSchedule.session1.end, selectedSchedule.slotDuration),
+        ...buildSessionSlots(selectedSchedule.session2.start, selectedSchedule.session2.end, selectedSchedule.slotDuration),
+      ]
     : [];
 
   // Booked slots for Step 3
@@ -160,15 +206,14 @@ export const NewOnlineBooking = () => {
     : new Set<string>();
 
   return (
-    <div className="max-w-4xl mx-auto py-8">
+    <div className="max-w-3xl mx-auto py-5">
       {/* Top Header */}
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-5">
         <h1 className="text-3xl font-bold text-slate-800">New Online Booking</h1>
-        <Button variant="outline" onClick={handleBack}>Back</Button>
       </div>
 
       {/* Stepper */}
-      <div className="flex items-center justify-between mb-12 relative">
+      <div className="flex items-center justify-between mb-4 relative">
         <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-slate-100 -z-10"></div>
         <div
           className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-primary -z-10 transition-all duration-500"
@@ -187,15 +232,15 @@ export const NewOnlineBooking = () => {
       </div>
 
       {/* Form Card */}
-      <div className="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm min-h-[420px]">
+      <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm">
 
         {/* ─── STEP 1: Patient Details ─── */}
         {step === 1 && (
           <div className="animate-in fade-in slide-in-from-right-4 duration-500">
-            <h2 className="text-xl font-bold text-slate-800 mb-6">Patient Details</h2>
+            <h2 className="text-xl font-bold text-slate-800 mb-4">Patient Details</h2>
 
             {/* Existing Patient Search */}
-            <div className="mb-6" ref={searchRef}>
+            <div className="mb-4" ref={searchRef}>
               <label className="block text-sm font-semibold text-slate-600 mb-2 flex items-center gap-2">
                 <Search className="w-4 h-4 text-slate-400" />
                 Existing Patient Search
@@ -231,7 +276,7 @@ export const NewOnlineBooking = () => {
                       <div
                         key={p.id}
                         onClick={() => selectExistingPatient(p)}
-                        className="flex items-center gap-3 px-4 py-3 hover:bg-primary/5 cursor-pointer transition-colors border-b border-slate-50 last:border-0"
+                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-primary/5 cursor-pointer transition-colors border-b border-slate-50 last:border-0"
                       >
                         <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm shrink-0">
                           {(p.patientName || 'P').charAt(0)}
@@ -259,7 +304,7 @@ export const NewOnlineBooking = () => {
               {!selectedPatient && (
                 <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-600">
                   <UserPlus className="w-3.5 h-3.5" />
-                  <span>New patient — a new UHID will be auto-generated and registered</span>
+                  <span>New patient — UHID <span className="font-mono font-bold">{newUhid}</span> will be auto-generated and registered</span>
                 </div>
               )}
             </div>
@@ -275,14 +320,25 @@ export const NewOnlineBooking = () => {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div className="md:col-span-2">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">UHID</label>
+                  <input
+                    type="text"
+                    value={selectedPatient ? selectedPatient.uhid : newUhid}
+                    readOnly
+                    disabled
+                    className="w-full px-4 py-2.5 border rounded-xl text-sm bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed font-mono font-semibold"
+                  />
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">Full Name <span className="text-red-500">*</span></label>
                   <input
                     type="text"
+                    maxLength={100}
                     value={formData.patientName}
                     onChange={e => setFormData({ ...formData, patientName: e.target.value })}
                     disabled={!!selectedPatient}
-                    className={`w-full px-4 py-3 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors ${
+                    className={`w-full px-4 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors ${
                       selectedPatient ? 'bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed' : 'bg-slate-50 border-slate-200'
                     }`}
                     placeholder="Enter full name"
@@ -291,11 +347,13 @@ export const NewOnlineBooking = () => {
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">Mobile Number <span className="text-red-500">*</span></label>
                   <input
-                    type="text"
+                    type="tel"
+                    inputMode="numeric"
+                    maxLength={10}
                     value={formData.mobileNumber}
-                    onChange={e => setFormData({ ...formData, mobileNumber: e.target.value })}
+                    onChange={e => setFormData({ ...formData, mobileNumber: e.target.value.replace(/\D/g, '').slice(0, 10) })}
                     disabled={!!selectedPatient}
-                    className={`w-full px-4 py-3 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors ${
+                    className={`w-full px-4 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors ${
                       selectedPatient ? 'bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed' : 'bg-slate-50 border-slate-200'
                     }`}
                     placeholder="10-digit mobile number"
@@ -305,10 +363,11 @@ export const NewOnlineBooking = () => {
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">Email Address</label>
                   <input
                     type="email"
+                    maxLength={100}
                     value={formData.email}
                     onChange={e => setFormData({ ...formData, email: e.target.value })}
                     disabled={!!selectedPatient}
-                    className={`w-full px-4 py-3 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors ${
+                    className={`w-full px-4 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors ${
                       selectedPatient ? 'bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed' : 'bg-slate-50 border-slate-200'
                     }`}
                     placeholder="Email (optional)"
@@ -320,7 +379,7 @@ export const NewOnlineBooking = () => {
                     value={formData.gender}
                     onChange={e => setFormData({ ...formData, gender: e.target.value })}
                     disabled={!!selectedPatient}
-                    className={`w-full px-4 py-3 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors ${
+                    className={`w-full px-4 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors ${
                       selectedPatient ? 'bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed' : 'bg-slate-50 border-slate-200'
                     }`}
                   >
@@ -333,10 +392,12 @@ export const NewOnlineBooking = () => {
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">Age</label>
                   <input
                     type="number"
+                    min="0"
+                    max="120"
                     value={formData.age}
-                    onChange={e => setFormData({ ...formData, age: e.target.value })}
+                    onChange={e => setFormData({ ...formData, age: e.target.value.replace(/\D/g, '').slice(0, 3) })}
                     disabled={!!selectedPatient}
-                    className={`w-full px-4 py-3 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors ${
+                    className={`w-full px-4 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors ${
                       selectedPatient ? 'bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed' : 'bg-slate-50 border-slate-200'
                     }`}
                     placeholder="Years"
@@ -350,13 +411,28 @@ export const NewOnlineBooking = () => {
         {/* ─── STEP 2: Department & Doctor ─── */}
         {step === 2 && (
           <div className="animate-in fade-in slide-in-from-right-4 duration-500">
-            <h2 className="text-xl font-bold text-slate-800 mb-6">Department &amp; Doctor</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <h2 className="text-xl font-bold text-slate-800 mb-4">Department &amp; Doctor</h2>
+            <div className="mb-4 max-w-xs">
+              <label className="block text-sm font-medium text-slate-700 mb-2">Appointment Date <span className="text-red-500">*</span></label>
+              <input
+                type="date"
+                min={new Date().toISOString().split('T')[0]}
+                value={formData.date}
+                onChange={e => setFormData({ ...formData, date: e.target.value, doctor: '', timeSlot: '' })}
+                className="w-full px-4 py-2.5 border rounded-xl text-sm bg-slate-50 border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Department column */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Department <span className="text-red-500">*</span></label>
                 <div className="space-y-3">
-                  {MOCK_DEPARTMENTS.map(dept => (
+                  {departments.length === 0 && (
+                    <p className="text-sm text-slate-400 border-2 border-dashed border-slate-200 rounded-xl p-4 text-center">
+                      No departments configured. Add doctors in Doctor Master first.
+                    </p>
+                  )}
+                  {departments.map(dept => (
                     <div
                       key={dept}
                       onClick={() => setFormData({ ...formData, department: dept, doctor: '', timeSlot: '' })}
@@ -383,7 +459,11 @@ export const NewOnlineBooking = () => {
                     </span>
                   )}
                 </label>
-                {formData.department ? (
+                {formData.department && doctorsWithAvailability.length === 0 ? (
+                  <div className="h-full min-h-[140px] border-2 border-dashed border-slate-200 rounded-xl flex items-center justify-center text-center text-slate-400 font-medium p-4">
+                    No doctors available in this department. Add doctors in Doctor Master.
+                  </div>
+                ) : formData.department ? (
                   <div className="space-y-3 animate-in fade-in zoom-in-95">
                     {doctorsWithAvailability.map(({ name, available }) => (
                       <div
@@ -410,7 +490,7 @@ export const NewOnlineBooking = () => {
                     ))}
                   </div>
                 ) : (
-                  <div className="h-full min-h-[200px] border-2 border-dashed border-slate-200 rounded-xl flex items-center justify-center text-slate-400 font-medium">
+                  <div className="h-full min-h-[140px] border-2 border-dashed border-slate-200 rounded-xl flex items-center justify-center text-slate-400 font-medium">
                     Select a department first
                   </div>
                 )}
@@ -422,19 +502,13 @@ export const NewOnlineBooking = () => {
         {/* ─── STEP 3: Schedule ─── */}
         {step === 3 && (
           <div className="animate-in fade-in slide-in-from-right-4 duration-500">
-            <h2 className="text-xl font-bold text-slate-800 mb-6">Schedule Details</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <h2 className="text-xl font-bold text-slate-800 mb-4">Schedule Details</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Date <span className="text-red-500">*</span></label>
-                <div className="relative">
-                  <CalendarIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="date"
-                    min={new Date().toISOString().split('T')[0]}
-                    value={formData.date}
-                    onChange={e => setFormData({ ...formData, date: e.target.value, timeSlot: '' })}
-                    className="w-full px-4 py-3 pl-12 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors text-slate-700 font-medium"
-                  />
+                <label className="block text-sm font-medium text-slate-700 mb-2">Appointment Date</label>
+                <div className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-slate-600 font-medium">
+                  <CalendarIcon className="w-5 h-5 text-primary" />
+                  <span>{formData.date}</span>
                 </div>
 
                 {/* Legend */}
@@ -452,6 +526,10 @@ export const NewOnlineBooking = () => {
                     <span className="w-6 h-6 rounded bg-red-700 inline-block shrink-0"></span>
                     <span className="text-xs text-slate-600">Already booked</span>
                   </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-6 h-6 rounded bg-slate-100 border border-slate-200 inline-block shrink-0"></span>
+                    <span className="text-xs text-slate-600">Past / unavailable</span>
+                  </div>
                 </div>
               </div>
 
@@ -460,17 +538,26 @@ export const NewOnlineBooking = () => {
                   Available Slots <span className="text-red-500">*</span>
                 </label>
                 <div className="grid grid-cols-3 gap-2">
-                  {TIME_SLOTS.map(time => {
+                  {timeSlots.length === 0 && (
+                    <p className="col-span-3 text-sm text-slate-400 text-center py-6 border-2 border-dashed border-slate-200 rounded-xl">
+                      No slots — this doctor has no session times configured. Set them in Doctor Schedules.
+                    </p>
+                  )}
+                  {timeSlots.map(time => {
                     const isBooked = bookedSlots.has(time);
+                    const isPast = isSlotInPast(formData.date, time);
                     const isSelected = formData.timeSlot === time;
+                    const disabled = isBooked || isPast;
                     return (
                       <div
                         key={time}
-                        onClick={() => !isBooked && setFormData({ ...formData, timeSlot: time })}
-                        title={isBooked ? 'This slot is already booked' : ''}
+                        onClick={() => !disabled && setFormData({ ...formData, timeSlot: time })}
+                        title={isBooked ? 'This slot is already booked' : isPast ? 'This time has already passed' : ''}
                         className={`py-2 px-1 text-center rounded-lg border-2 text-xs font-semibold transition-all duration-200 select-none ${
                           isBooked
                             ? 'bg-red-700 border-red-700 text-white cursor-not-allowed opacity-85'
+                            : isPast
+                            ? 'bg-slate-100 border-slate-200 text-slate-300 cursor-not-allowed line-through'
                             : isSelected
                             ? 'bg-green-600 border-green-600 text-white shadow-md cursor-pointer scale-105'
                             : 'bg-white border-slate-200 text-slate-700 hover:border-primary hover:shadow-sm cursor-pointer'
@@ -498,7 +585,7 @@ export const NewOnlineBooking = () => {
         {/* ─── STEP 4: Confirm ─── */}
         {step === 4 && (
           <div className="animate-in fade-in slide-in-from-right-4 duration-500">
-            <div className="flex flex-col items-center text-center mb-8">
+            <div className="flex flex-col items-center text-center mb-5">
               <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
                 <CalendarIcon className="w-8 h-8 text-primary" />
               </div>
@@ -539,7 +626,8 @@ export const NewOnlineBooking = () => {
       </div>
 
       {/* Footer Navigation */}
-      <div className="flex justify-end items-center mt-8">
+      <div className="flex justify-between items-center mt-5">
+        <Button variant="outline" onClick={handleBack}>Back</Button>
         {step < 4 ? (
           <Button
             variant="filled"
@@ -547,8 +635,8 @@ export const NewOnlineBooking = () => {
             onClick={handleNext}
             disabled={
               (step === 1 && (!formData.patientName || !formData.mobileNumber)) ||
-              (step === 2 && !formData.doctor) ||
-              (step === 3 && (!formData.date || !formData.timeSlot))
+              (step === 2 && (!formData.date || !formData.doctor)) ||
+              (step === 3 && !formData.timeSlot)
             }
           >
             Continue to {step === 1 ? 'Doctor' : step === 2 ? 'Schedule' : 'Confirm'}
