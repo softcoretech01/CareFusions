@@ -1,13 +1,17 @@
 import { useState } from 'react';
 import { Search, Edit2, Activity, User, Phone, ShieldAlert } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
-import { usePatients } from '../../contexts/PatientContext';
-import type { GlobalPatientRecord } from '../../contexts/PatientContext';
+import { toast } from 'react-hot-toast';
+import { useEffect } from 'react';
+
+const API_BASE = import.meta.env.VITE_API_URL as string;
+type GlobalPatientRecord = any;
+
 
 const initialFormState: Partial<GlobalPatientRecord> = {
   uhid: '',
   registrationDate: new Date().toISOString().split('T')[0],
-  registrationTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+  registrationTime: new Date().toTimeString().split(' ')[0],
   patientName: '',
   gender: 'Unknown',
   approximateAge: 0,
@@ -18,10 +22,50 @@ const initialFormState: Partial<GlobalPatientRecord> = {
 };
 
 export const EmergencyRegistration = () => {
-  const { patients, addPatient, updatePatient } = usePatients();
   
-  // Only show emergency registrations
-  const records = patients.filter(p => p.registrationType === 'Emergency');
+  const [patients, setPatients] = useState<any[]>([]);
+  const [options, setOptions] = useState<any>({ Gender: [], Status: [] });
+
+  const fetchOptions = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/emergency-registrations/options`);
+      if (res.ok) setOptions(await res.json());
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const fetchPatients = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/emergency-registrations/`);
+      if (res.ok) {
+        const data = await res.json();
+        const mappedData = data.map((d: any) => ({
+          id: d.EmergencyRegistrationId,
+          uhid: d.Uhid,
+          registrationDate: d.RegistrationDate,
+          registrationTime: d.RegistrationTime,
+          patientName: d.PatientName,
+          gender: d.Gender,
+          approximateAge: d.ApproximateAge,
+          emergencyContactName: d.EmergencyContactName,
+          emergencyContactPhone: d.EmergencyContactPhone,
+          status: d.Status,
+          registrationType: 'Emergency'
+        }));
+        setPatients(mappedData);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  useEffect(() => {
+    fetchOptions();
+    fetchPatients();
+  }, []);
+
+  const records = patients;
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<GlobalPatientRecord | null>(null);
@@ -29,18 +73,13 @@ export const EmergencyRegistration = () => {
   
   const [searchTerm, setSearchTerm] = useState('');
 
-  const generateUHID = () => {
-    const year = new Date().getFullYear();
-    const random = Math.floor(1000 + Math.random() * 9000);
-    return `UHID-EM-${year}-${random}`;
-  };
-
+  
   const handleCreateNew = () => {
     setFormData({ 
       ...initialFormState, 
-      uhid: generateUHID(),
+      uhid: '',
       registrationDate: new Date().toISOString().split('T')[0],
-      registrationTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      registrationTime: new Date().toTimeString().split(' ')[0],
       patientName: 'Unknown Patient' // default
     });
     setSelectedRecord(null);
@@ -54,16 +93,52 @@ export const EmergencyRegistration = () => {
   };
 
 
-  const handleSave = (e: React.FormEvent) => {
+  
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (selectedRecord) {
-      updatePatient(selectedRecord.id, formData);
-    } else {
-      const newId = Math.max(...patients.map(r => r.id), 0) + 1;
-      addPatient({ id: newId, ...formData } as GlobalPatientRecord);
+    const payload = {
+      RegistrationDate: formData.registrationDate,
+      RegistrationTime: formData.registrationTime,
+      PatientName: formData.patientName || 'Unknown Patient',
+      Gender: formData.gender || 'Unknown',
+      ApproximateAge: formData.approximateAge || 0,
+      EmergencyContactName: formData.emergencyContactName || null,
+      EmergencyContactPhone: formData.emergencyContactPhone || null,
+      Status: formData.status || 'Active'
+    };
+
+    try {
+      let res;
+      if (selectedRecord) {
+        res = await fetch(`${API_BASE}/emergency-registrations/${selectedRecord.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      } else {
+        res = await fetch(`${API_BASE}/emergency-registrations/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      }
+
+      if (res.ok) {
+        toast.success(selectedRecord ? 'Emergency record updated' : 'Emergency record saved');
+        await fetchPatients();
+        setIsFormOpen(false);
+        setSelectedRecord(null);
+      } else {
+        const err = await res.json();
+        const errorMessage = Array.isArray(err.detail) ? err.detail.map((e: any) => `${e.loc.join('.')}: ${e.msg}`).join(', ') : (err.detail || 'Failed to save');
+        toast.error(errorMessage);
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error('Network error');
     }
-    setIsFormOpen(false);
   };
+
 
   const handleInputChange = (field: keyof typeof formData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -219,14 +294,11 @@ export const EmergencyRegistration = () => {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Gender</label>
                   <select
                     value={formData.gender}
-                    onChange={(e) => handleInputChange('gender', e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-danger/20 focus:border-danger"
-                  >
-                    <option value="Unknown">Unknown</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                  </select>
+                      onChange={(e) => handleInputChange('gender', e.target.value)}
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-danger/20 focus:border-danger"
+                    >
+                      {options.Gender.map((o: string) => <option key={o} value={o}>{o}</option>)}
+                    </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Approximate Age</label>
@@ -260,7 +332,7 @@ export const EmergencyRegistration = () => {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Contact Phone</label>
                   <input
                     type="text"
-                    value={formData.emergencyContactPhone}
+                    value={formData.emergencyContactPhone || ""} maxLength={10} pattern="\d{10}" title="Exactly 10 numeric digits required"
                     onChange={(e) => handleInputChange('emergencyContactPhone', e.target.value)}
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-danger/20 focus:border-danger"
                   />
