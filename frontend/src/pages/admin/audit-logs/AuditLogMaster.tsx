@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   Search, Filter, Download, FileText, Eye, ShieldAlert,
-  Clock, User, Laptop, Info, CheckCircle2, XCircle, RefreshCw, AlertTriangle
+  Clock, User, Laptop, Info, CheckCircle2, XCircle, AlertTriangle, X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
@@ -157,10 +157,9 @@ export const AuditLogMaster = () => {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-slate-800">Audit Log Master</h1>
-          <p className="text-slate-500 text-sm mt-1">Read-only, tamper-evident trail — entries cannot be edited or deleted.</p>
+          <p className="text-slate-500 text-sm mt-1"></p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline" icon={RefreshCw} onClick={() => fetchLogs()}>Refresh</Button>
           <Button variant="outline" icon={FileText} onClick={handleExportPdf} className="text-blue-600 border-blue-200 hover:bg-blue-50">
             Export PDF
           </Button>
@@ -190,14 +189,17 @@ export const AuditLogMaster = () => {
               Reset
             </button>
           </div>
-          <Button
-            variant={showFilters ? "filled" : "outline"}
-            color="secondary"
-            icon={Filter}
-            onClick={() => setShowFilters(!showFilters)}
-          >
-            Advanced Search
-          </Button>
+          <div className="flex items-center gap-2">
+              <button onClick={() => setShowFilters(!showFilters)} title="Filters" className={showFilters ? "p-2 border rounded-lg transition-colors border-primary bg-primary/5 text-primary" : "p-2 border rounded-lg transition-colors border-slate-200 text-slate-500 hover:bg-slate-50"}>
+                <Filter className="w-4 h-4" />
+              </button>
+              <button onClick={() => { setSearchTerm(''); setFilterAction(''); setFilterModule(''); setFilterRole(''); setFilterStatus(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+              <button onClick={() => exportToExcel(records, 'AuditLogMaster')} title="Export to Excel" className="p-2 border border-emerald-200 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 transition-colors">
+                <Download className="w-4 h-4" />
+              </button>
+            </div>
         </div>
 
         <AnimatePresence>

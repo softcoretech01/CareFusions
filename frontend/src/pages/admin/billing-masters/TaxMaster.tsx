@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, type KeyboardEvent } from 'react';
 import {
   Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle,
-  Save, RefreshCw, ChevronLeft, ChevronRight, Eye, Power
+  Save, ChevronLeft, ChevronRight, Eye, Power, X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
@@ -269,11 +269,10 @@ export const TaxMaster = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-slate-800">Tax (GST) Master</h1>
-            <p className="text-slate-500 mt-1">Manage GST Rates</p>
+            <p className="text-slate-500 mt-1"></p>
           </div>
 
           <div className="flex items-center gap-3">
-            <Button variant="outline" icon={Download} onClick={() => exportToExcel(records, 'TaxMaster')}>Export</Button>
             <Button variant="filled" color="primary" icon={Plus} onClick={handleCreateNew}>
               Add New
             </Button>
@@ -303,8 +302,11 @@ export const TaxMaster = () => {
             >
               <Filter className="w-4 h-4" />
             </button>
-            <button onClick={fetchTaxes} className="p-2 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 transition-colors" title="Refresh">
-              <RefreshCw className="w-4 h-4" />
+            <button onClick={() => { setSearchTerm(''); setFilterStatus(''); setCurrentPage(1); }} className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors" title="Clear search & filters">
+              <X className="w-4 h-4" />
+            </button>
+            <button onClick={() => exportToExcel(records, 'TaxMaster')} className="p-2 border border-emerald-200 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 transition-colors" title="Export to Excel">
+              <Download className="w-4 h-4" />
             </button>
           </div>
 

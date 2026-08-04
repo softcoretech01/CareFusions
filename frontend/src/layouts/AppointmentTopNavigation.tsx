@@ -1,10 +1,8 @@
-import { Search, Zap, CalendarDays } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { CalendarDays } from 'lucide-react';
 import { useState } from 'react';
 import { LiveClock } from '../components/ui/LiveClock';
 
 export const AppointmentTopNavigation = () => {
-  const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
 
@@ -24,26 +22,8 @@ export const AppointmentTopNavigation = () => {
         <LiveClock />
       </div>
 
-      <div className="flex-1 max-w-xl relative mx-8">
-        <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input
-          type="text"
-          placeholder="Search appointment by Patient Name, UHID, or Mobile..."
-          className="w-full bg-slate-50 border border-slate-200 rounded-full py-2.5 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm placeholder:text-slate-400 font-medium"
-        />
-      </div>
 
       <div className="flex items-center gap-4">
-        
-        <button 
-          onClick={() => navigate('/appointments/new')}
-          className="flex items-center gap-2 bg-secondary text-white px-4 py-2 rounded-xl text-sm font-bold shadow-sm hover:bg-secondary/90 transition-colors mr-2"
-        >
-          <Zap className="w-4 h-4 fill-white" />
-          New Appt
-        </button>
-
-
         <div className="flex items-center gap-3">
           <div className="text-right">
             <p className="text-sm font-bold text-slate-800">Sarah Jenkins</p>

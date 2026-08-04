@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import {
   Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle,
-  Save, RefreshCw, ChevronLeft, ChevronRight, Eye, Power, CheckCircle2
+  Save, ChevronLeft, ChevronRight, Eye, Power, CheckCircle2, X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
@@ -249,11 +249,10 @@ export const DepartmentMaster = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-slate-800">Department Master</h1>
-            <p className="text-slate-500 mt-1">Manage Hospital Departments</p>
+            <p className="text-slate-500 mt-1"></p>
           </div>
 
           <div className="flex items-center gap-3">
-            <Button variant="outline" icon={Download} onClick={() => exportToExcel(records, 'DepartmentMaster')}>Export</Button>
             <Button variant="filled" color="primary" icon={Plus} onClick={handleCreateNew}>
               Add New
             </Button>
@@ -278,13 +277,24 @@ export const DepartmentMaster = () => {
 
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className={`p-2 border rounded-lg transition-colors \${showFilters ? 'border-primary bg-primary/5 text-primary' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+              className={`p-2 border rounded-lg transition-colors ${showFilters ? 'border-primary bg-primary/5 text-primary' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
               title="Advanced Filters"
             >
               <Filter className="w-4 h-4" />
             </button>
-            <button className="p-2 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 transition-colors" title="Refresh" onClick={fetchDepartments}>
-              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            <button
+              onClick={() => { setSearchTerm(''); setFilterStatus(''); setShowFilters(false); setCurrentPage(1); }}
+              className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors"
+              title="Clear search & filters"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => exportToExcel(records, 'DepartmentMaster')}
+              className="p-2 border border-emerald-200 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 transition-colors"
+              title="Export to Excel"
+            >
+              <Download className="w-4 h-4" />
             </button>
           </div>
 

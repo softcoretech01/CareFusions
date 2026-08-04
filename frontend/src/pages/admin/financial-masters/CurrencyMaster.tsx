@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle,
-  Save, RefreshCw
+  Save, X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
@@ -50,6 +50,8 @@ const mapApiToRecord = (item: Record<string, unknown>): CurrencyRecord => ({
 export const CurrencyMaster = () => {
   const [records, setRecords] = useState<CurrencyRecord[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -182,6 +184,10 @@ export const CurrencyMaster = () => {
     return matchesSearch && matchesStatus;
   });
 
+  const _totalPages = Math.max(1, Math.ceil(filteredRecords.length / itemsPerPage));
+  const _page = Math.min(currentPage, _totalPages);
+  const pagedRecords = filteredRecords.slice((_page - 1) * itemsPerPage, _page * itemsPerPage);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -199,12 +205,10 @@ export const CurrencyMaster = () => {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-slate-800">Currency Master</h1>
-          <p className="text-slate-500 mt-1">Manage Currencies</p>
+          <p className="text-slate-500 mt-1"></p>
         </div>
 
         <div className="flex items-center gap-3">
-          <Button variant="outline" icon={RefreshCw} onClick={fetchCurrencies}>Refresh</Button>
-          <Button variant="outline" icon={Download} onClick={() => exportToExcel(records, 'CurrencyMaster')}>Export</Button>
           <Button variant="filled" color="primary" icon={Plus} onClick={handleCreateNew}>
             Add New
           </Button>
@@ -231,8 +235,11 @@ export const CurrencyMaster = () => {
             >
               <Filter className="w-4 h-4" />
             </button>
-            <button onClick={fetchCurrencies} className="p-2 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 transition-colors">
-              <RefreshCw className="w-4 h-4" />
+            <button onClick={() => { setSearchTerm(''); setFilterStatus(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
+              <X className="w-4 h-4" />
+            </button>
+            <button onClick={() => exportToExcel(records, 'CurrencyMaster')} title="Export to Excel" className="p-2 border border-emerald-200 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 transition-colors">
+              <Download className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -276,7 +283,7 @@ export const CurrencyMaster = () => {
                 <tr><td colSpan={5} className="py-8 text-center text-slate-500">Loading currencies...</td></tr>
               ) : filteredRecords.length === 0 ? (
                 <tr><td colSpan={5} className="py-8 text-center text-slate-500">No records found</td></tr>
-              ) : filteredRecords.map((record) => (
+              ) : pagedRecords.map((record) => (
                 <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="py-4 px-6 text-slate-800 font-medium">{record.currencyCode}</td>
                   <td className="py-4 px-6 text-slate-800">{record.currencyName}</td>
@@ -303,6 +310,26 @@ export const CurrencyMaster = () => {
             </tbody>
           </table>
         </div>
+            <div className="flex flex-wrap items-center justify-between gap-3 p-4 border-t border-slate-100 text-sm text-slate-500">
+              <div className="flex items-center gap-2">
+                <span>Show</span>
+                <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+                <span>entries</span>
+                <span className="text-slate-400">· {filteredRecords.length} total</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span>Page {_page} of {_totalPages}</span>
+                <div className="flex gap-1">
+                  <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={_page <= 1} className="px-3 py-1 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed">Prev</button>
+                  <button onClick={() => setCurrentPage(p => Math.min(_totalPages, p + 1))} disabled={_page >= _totalPages} className="px-3 py-1 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed">Next</button>
+                </div>
+              </div>
+            </div>
       </div>
 
       <Modal
