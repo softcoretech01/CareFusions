@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
+import { Pagination } from '../../components/ui/Pagination';
 import { Package, IndianRupee, PackageX, CalendarClock, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
@@ -40,6 +41,20 @@ export const InventoryDashboard = () => {
   ];
 
   const recent = useMemo(() => ledger.slice(0, 8), [ledger]);
+
+  // Stock grouped per store, paginated like every other inventory list.
+  const byStore = useMemo(() => Object.values(stock.reduce((acc: Record<string, any>, r) => {
+    const k = r.storeName;
+    acc[k] = acc[k] || { storeName: k, lots: 0, qty: 0, value: 0 };
+    acc[k].lots += 1; acc[k].qty += r.quantity; acc[k].value += r.stockValue;
+    return acc;
+  }, {})) as { storeName: string; lots: number; qty: number; value: number }[], [stock]);
+
+  const PAGE_SIZE = 10;
+  const [page, setPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(byStore.length / PAGE_SIZE));
+  useEffect(() => { if (page > totalPages) setPage(1); }, [page, totalPages]);
+  const pagedStores = byStore.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <div className="space-y-3">
@@ -112,12 +127,7 @@ export const InventoryDashboard = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {Object.values(stock.reduce((acc: Record<string, any>, r) => {
-                const k = r.storeName;
-                acc[k] = acc[k] || { storeName: k, lots: 0, qty: 0, value: 0 };
-                acc[k].lots += 1; acc[k].qty += r.quantity; acc[k].value += r.stockValue;
-                return acc;
-              }, {})).map((s: any) => (
+              {pagedStores.map(s => (
                 <tr key={s.storeName} className="hover:bg-slate-50/70">
                   <td className="px-3 py-2 font-medium text-slate-800">{s.storeName}</td>
                   <td className="px-3 py-2 text-right text-slate-600">{s.lots}</td>
@@ -133,6 +143,7 @@ export const InventoryDashboard = () => {
             </tbody>
           </table>
         </div>
+        <Pagination page={page} pageSize={PAGE_SIZE} totalItems={byStore.length} onPageChange={setPage} />
       </div>
     </div>
   );

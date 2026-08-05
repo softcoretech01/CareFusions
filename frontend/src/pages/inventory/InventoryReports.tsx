@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { Pagination } from '../../components/ui/Pagination';
 import {
   IndianRupee, TrendingUp, CalendarClock, Activity, Download, X, FileBarChart, Lock,
 } from 'lucide-react';
@@ -152,6 +153,16 @@ export const InventoryReports = () => {
 
   const active = open ? REPORTS[open] : null;
 
+  // Report tables paginate too, and reset whenever a different report is opened
+  // or the filters change the row count.
+  const PAGE_SIZE = 10;
+  const [page, setPage] = useState(1);
+  const activeRows = active?.rows ?? [];
+  const totalPages = Math.max(1, Math.ceil(activeRows.length / PAGE_SIZE));
+  useEffect(() => { setPage(1); }, [open]);
+  useEffect(() => { if (page > totalPages) setPage(1); }, [page, totalPages]);
+  const pagedRows = activeRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   const cell = (row: any, col: Column) => {
     const v = row[col.key];
     if (typeof v === 'number' && col.key.toLowerCase().includes('value')) return inr(v);
@@ -257,7 +268,7 @@ export const InventoryReports = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {active.rows.map((row, i) => (
+                  {pagedRows.map((row, i) => (
                     <tr key={i} className="hover:bg-slate-50/70">
                       {active.columns.map(c => (
                         <td key={c.key}
@@ -276,6 +287,7 @@ export const InventoryReports = () => {
                   )}
                 </tbody>
               </table>
+              <Pagination page={page} pageSize={PAGE_SIZE} totalItems={activeRows.length} onPageChange={setPage} />
             </div>
           </div>
         </div>
