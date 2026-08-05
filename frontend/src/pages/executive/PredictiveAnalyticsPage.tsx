@@ -4,6 +4,7 @@ import { useExecutiveData } from './hooks/useExecutiveData';
 import { TrendingUp, AlertTriangle, Zap, Activity } from 'lucide-react';
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
+import { NoDataNotice } from './components/NoDataNotice';
 
 export const PredictiveAnalyticsPage = () => {
   const [fromDate, setFromDate] = useState('');
@@ -36,6 +37,11 @@ export const PredictiveAnalyticsPage = () => {
 
   return (
     <div className="space-y-6">
+      <NoDataNotice
+        title="Revenue and occupancy forecasts"
+        needs="Billing history + a forecasting model"
+        detail="The figures and the 85% / 92% confidence badges are fixed literals, and the forecast chart is pinned to Mar-Aug so it labels June as current regardless of today's date."
+      />
       <div className="flex justify-end">
         <DateFilter
           dateFrom={fromDate}

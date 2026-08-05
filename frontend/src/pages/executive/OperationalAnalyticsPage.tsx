@@ -1,106 +1,99 @@
-import { useState } from 'react';
-import { DateFilter } from '../../components/ui/DateFilter';
-import { useExecutiveData } from './hooks/useExecutiveData';
-import { TrendingUp, TrendingDown, Clock, Crosshair, Users, Activity } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { CalendarCheck, Clock, FlaskConical, Pill, XCircle, Hourglass } from 'lucide-react';
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
+import { NoDataNotice } from './components/NoDataNotice';
 
-const OperationalKPICard = ({ title, value, subValue, trend, trendValue, icon: Icon }: any) => (
-  <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm hover:border-primary/50 transition-colors group">
-    <div className="flex justify-between items-start mb-4">
-      <div className="p-2.5 rounded-lg bg-slate-50 text-slate-500 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
-        <Icon className="w-5 h-5" />
-      </div>
-      {trend && (
-        <div className={`flex items-center gap-1 text-sm font-semibold ${trend === 'up' ? 'text-emerald-600' : 'text-rose-600'}`}>
-          {trend === 'up' ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-          {trendValue}%
-        </div>
-      )}
+const API_BASE = import.meta.env.VITE_API_URL as string;
+
+interface Operational {
+  appointmentsToday: number; cancelledToday: number; waitingToday: number;
+  labTatMinutes: number; labPending: number; dispensesToday: number;
+  byHour: { hour: string; count: number }[];
+  byStatus: { status: string; count: number }[];
+}
+
+const KPI = ({ title, value, sub, icon: Icon, cls }: any) => (
+  <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+    <div className={`w-9 h-9 rounded-lg flex items-center justify-center mb-2 ${cls}`}>
+      <Icon className="w-5 h-5" />
     </div>
-    
-    <div>
-      <h4 className="text-slate-500 text-sm font-medium mb-1">{title}</h4>
-      <div className="flex items-baseline gap-2">
-        <span className="text-2xl font-bold text-slate-800">{value}</span>
-        {subValue && <span className="text-sm font-medium text-slate-400">{subValue}</span>}
-      </div>
-    </div>
+    <p className="text-2xl font-bold text-slate-800">{value}</p>
+    <p className="text-xs text-slate-500 mt-0.5">{title}</p>
+    {sub && <p className="text-[11px] text-slate-400 mt-0.5">{sub}</p>}
   </div>
 );
 
 export const OperationalAnalyticsPage = () => {
-  const data = useExecutiveData();
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
-  const operational = data.operational;
+  const [d, setD] = useState<Operational | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const heatMapOptions: ApexOptions = {
-    chart: { type: 'heatmap', toolbar: { show: false }, fontFamily: 'Inter' },
-    colors: ['#01684c'],
-    dataLabels: { enabled: true },
-    xaxis: { categories: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] }
+  useEffect(() => {
+    fetch(`${API_BASE}/executive/operational`)
+      .then(r => r.json())
+      .then(x => { if (!x.detail) setD(x); setLoading(false); })
+      .catch(e => { console.error('[Executive] operational load failed', e); setLoading(false); });
+  }, []);
+
+  const byHour = d?.byHour ?? [];
+  const hourOptions: ApexOptions = {
+    chart: { type: 'bar', toolbar: { show: false }, fontFamily: 'Inter' },
+    plotOptions: { bar: { borderRadius: 4, columnWidth: '55%' } },
+    dataLabels: { enabled: false },
+    xaxis: { categories: byHour.map(h => h.hour), axisBorder: { show: false }, axisTicks: { show: false } },
+    colors: ['#6366f1'],
   };
 
-  const heatmapSeries = [
-    { name: '08:00', data: [120, 110, 140, 150, 120, 80, 75] },
-    { name: '10:00', data: [250, 240, 260, 275, 230, 150, 140] },
-    { name: '12:00', data: [310, 290, 320, 340, 305, 200, 180] },
-    { name: '14:00', data: [220, 210, 240, 250, 215, 140, 130] },
-    { name: '16:00', data: [280, 265, 295, 310, 275, 160, 150] },
-    { name: '18:00', data: [190, 180, 200, 215, 185, 110, 100] },
-    { name: '20:00', data: [80, 75, 85, 95, 75, 50, 45] },
-  ].reverse();
-
-  const barOptions: ApexOptions = {
-    chart: { type: 'bar', toolbar: { show: false }, fontFamily: 'Inter' },
-    colors: ['#01684c'],
-    plotOptions: { bar: { borderRadius: 4, horizontal: true } },
+  const byStatus = d?.byStatus ?? [];
+  const statusOptions: ApexOptions = {
+    chart: { type: 'donut', fontFamily: 'Inter' },
+    labels: byStatus.map(s => s.status),
+    colors: ['#10b981', '#6366f1', '#f59e0b', '#f43f5e', '#06b6d4'],
     dataLabels: { enabled: false },
-    xaxis: { categories: ['Cardio OT', 'Neuro OT', 'Ortho OT', 'General OT', 'Emergency OT'] }
+    legend: { position: 'bottom' },
+    stroke: { width: 0 },
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-end">
-        <DateFilter
-          dateFrom={fromDate}
-          dateTo={toDate}
-          onDateFromChange={setFromDate}
-          onDateToChange={setToDate}
-        />
+    <div className="space-y-3">
+      <div>
+        <h1 className="text-xl font-bold text-slate-800">Operational Analytics</h1>
+        <p className="text-xs text-slate-500">Throughput and turnaround from appointments, lab and pharmacy</p>
       </div>
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Operational Analytics</h1>
-          <p className="text-sm text-slate-500 mt-1">Monitor throughput, efficiency, and hospital operations.</p>
+
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <KPI title="Appointments Today" value={d?.appointmentsToday ?? 0} icon={CalendarCheck} cls="text-blue-600 bg-blue-50" />
+        <KPI title="Awaiting Consultation" value={d?.waitingToday ?? 0} icon={Hourglass} cls="text-amber-600 bg-amber-50" />
+        <KPI title="Cancelled Today" value={d?.cancelledToday ?? 0} icon={XCircle} cls="text-rose-600 bg-rose-50" />
+        <KPI title="Lab Turnaround" value={`${d?.labTatMinutes ?? 0}m`} sub="collection to result" icon={Clock} cls="text-teal-600 bg-teal-50" />
+        <KPI title="Lab Tests Pending" value={d?.labPending ?? 0} icon={FlaskConical} cls="text-cyan-600 bg-cyan-50" />
+        <KPI title="Pharmacy Dispenses" value={d?.dispensesToday ?? 0} sub="today" icon={Pill} cls="text-emerald-600 bg-emerald-50" />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+          <h3 className="font-bold text-slate-800 mb-2">Booking Volume by Hour — Last 30 Days</h3>
+          {byHour.length > 0
+            ? <Chart options={hourOptions} series={[{ name: 'Appointments', data: byHour.map(h => h.count) }]} type="bar" height={260} />
+            : <div className="h-[260px] flex items-center justify-center text-sm text-slate-400">
+                {loading ? 'Loading…' : 'No appointments in the last 30 days.'}
+              </div>}
+        </div>
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+          <h3 className="font-bold text-slate-800 mb-2">Appointment Outcomes</h3>
+          {byStatus.length > 0
+            ? <Chart options={statusOptions} series={byStatus.map(s => s.count)} type="donut" height={260} />
+            : <div className="h-[260px] flex items-center justify-center text-sm text-slate-400">
+                {loading ? 'Loading…' : 'No appointment data.'}
+              </div>}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-        <OperationalKPICard title="ER Wait Time" value={`${operational.averageBillingTime + 7}m`} trend="down" trendValue={12} icon={Clock} />
-        <OperationalKPICard title="Lab Turnaround" value={`${operational.labTurnaroundTime}m`} trend="down" trendValue={4} icon={Activity} />
-        <OperationalKPICard title="Pharmacy Dispensing" value={`${operational.pharmacyDispensingTime}m`} trend="down" trendValue={2} icon={Clock} />
-        <OperationalKPICard title="Appointments" value={operational.appointmentsToday} trend="up" trendValue={1.5} icon={Users} />
-        <OperationalKPICard title="OT Utilization" value={`${operational.otUtilization}%`} trend="up" trendValue={5.4} icon={Crosshair} />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-          <h3 className="text-lg font-bold text-slate-800 mb-6">Patient Flow Heatmap (Time of Day vs Day of Week)</h3>
-          <Chart options={heatMapOptions} series={heatmapSeries} type="heatmap" height={400} />
-        </div>
-        
-        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-          <h3 className="text-lg font-bold text-slate-800 mb-6">OT Utilization by Theatre</h3>
-          <Chart 
-            options={barOptions} 
-            series={[{ name: 'Utilization %', data: [88, 76, 92, 65, 45] }]} 
-            type="bar" 
-            height={400} 
-          />
-        </div>
-      </div>
+      <NoDataNotice
+        title="OT utilisation and average billing time"
+        needs="Operation Theatre / Billing"
+        detail="The prototype showed OT utilisation per theatre and an ER wait time computed as averageBillingTime + 7 — an unrelated field plus a constant."
+      />
     </div>
   );
 };

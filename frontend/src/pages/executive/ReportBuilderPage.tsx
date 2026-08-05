@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Download, Printer, FileText, ChevronRight, CheckCircle2, Activity, DollarSign, Users, Package, FileCheck, Stethoscope, HeartPulse, Building2, BarChart3, ShieldCheck, Sparkles, Filter } from 'lucide-react';
 import Chart from 'react-apexcharts';
+import { NoDataNotice } from './components/NoDataNotice';
 
 type Step = 'select-analysis' | 'configure' | 'generating' | 'preview';
 
@@ -52,6 +53,11 @@ export const ReportBuilderPage = () => {
 
   return (
     <div className="h-[calc(100vh-8rem)] flex flex-col relative overflow-hidden -mx-4 -my-4 lg:-mx-8 lg:-my-8 bg-slate-50">
+      <NoDataNotice
+        title="Generated reports"
+        needs="Reporting Service"
+        detail="The preview is a fixed layout with placeholder figures, and Print / PDF / Excel only show a toast. A report-run service is needed to produce real output."
+      />
       
       {/* Toast Notification */}
       {toast && (
@@ -134,7 +140,7 @@ export const ReportBuilderPage = () => {
                     </div>
                     <div>
                       <h3 className="font-bold text-slate-800 group-hover:text-primary transition-colors">{item.name}</h3>
-                      <p className="text-xs text-slate-500 mt-1">Select from {Math.floor(Math.random() * 8) + 4} ready-made templates.</p>
+                      <p className="text-xs text-slate-500 mt-1">Configure the period and scope for this analysis.</p>
                     </div>
                   </button>
                 ))}
