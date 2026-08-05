@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { Pagination } from '../../components/ui/Pagination';
 import { Plus, Search, X, Trash2, FileText, AlertCircle, PackageCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
@@ -196,6 +197,14 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
 
   const inputCls = 'w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary';
 
+  const PAGE_SIZE = 10;
+  const [page, setPage] = useState(1);
+  const totalRows = docs.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
+  // Filters can shrink the list under the current page — snap back into range.
+  useEffect(() => { if (page > totalPages) setPage(1); }, [page, totalPages]);
+  const paged = docs.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   return (
     <div className="space-y-3">
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3">
@@ -255,7 +264,7 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {docs.map(d => (
+              {paged.map(d => (
                 <tr key={d.docId} className="hover:bg-slate-50/70 transition-colors">
                   <td className="px-3 py-2 font-bold text-primary whitespace-nowrap">{d.docNumber}</td>
                   <td className="px-3 py-2 text-slate-600 whitespace-nowrap">
@@ -294,6 +303,7 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
             </tbody>
           </table>
         </div>
+        <Pagination page={page} pageSize={PAGE_SIZE} totalItems={totalRows} onPageChange={setPage} />
       </div>
 
       {/* ── New movement ── */}

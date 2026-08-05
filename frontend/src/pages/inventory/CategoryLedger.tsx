@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { Pagination } from '../../components/ui/Pagination';
 import { Layers, Search } from 'lucide-react';
 import { useInventory } from '../../contexts/InventoryContext';
 
@@ -19,6 +20,14 @@ export const CategoryLedger = () => {
   }), [stock, active, search]);
 
   const grandTotal = valuation.reduce((s, v) => s + v.totalValue, 0);
+
+  const PAGE_SIZE = 10;
+  const [page, setPage] = useState(1);
+  const totalRows = rows.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
+  // Filters can shrink the list under the current page — snap back into range.
+  useEffect(() => { if (page > totalPages) setPage(1); }, [page, totalPages]);
+  const paged = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <div className="space-y-3">
@@ -79,7 +88,7 @@ export const CategoryLedger = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {rows.map(r => (
+              {paged.map(r => (
                 <tr key={r.stockId} className="hover:bg-slate-50/70">
                   <td className="px-3 py-2">
                     <div className="font-bold text-slate-800">{r.itemName}</div>
@@ -100,6 +109,7 @@ export const CategoryLedger = () => {
             </tbody>
           </table>
         </div>
+        <Pagination page={page} pageSize={PAGE_SIZE} totalItems={totalRows} onPageChange={setPage} />
       </div>
     </div>
   );

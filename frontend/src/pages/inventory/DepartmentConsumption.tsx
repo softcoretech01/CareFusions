@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { Pagination } from '../../components/ui/Pagination';
 import { Search, Building2 } from 'lucide-react';
 import { useInventory } from '../../contexts/InventoryContext';
 
@@ -47,6 +48,14 @@ export const DepartmentConsumption = () => {
 
   const totalValue = summary.reduce((s, r) => s + r.value, 0);
 
+  const PAGE_SIZE = 10;
+  const [page, setPage] = useState(1);
+  const totalRows = summary.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
+  // Filters can shrink the list under the current page — snap back into range.
+  useEffect(() => { if (page > totalPages) setPage(1); }, [page, totalPages]);
+  const paged = summary.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   return (
     <div className="space-y-3">
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3">
@@ -89,7 +98,7 @@ export const DepartmentConsumption = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {summary.map(r => (
+              {paged.map(r => (
                 <tr key={r.department} className="hover:bg-slate-50/70">
                   <td className="px-3 py-2 font-bold text-slate-800">{r.department}</td>
                   <td className="px-3 py-2 text-right text-slate-600">{r.docs}</td>
@@ -107,6 +116,7 @@ export const DepartmentConsumption = () => {
             </tbody>
           </table>
         </div>
+        <Pagination page={page} pageSize={PAGE_SIZE} totalItems={totalRows} onPageChange={setPage} />
       </div>
     </div>
   );

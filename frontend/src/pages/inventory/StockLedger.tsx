@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { Pagination } from '../../components/ui/Pagination';
 import { Search, Download, ScrollText } from 'lucide-react';
 import { useInventory } from '../../contexts/InventoryContext';
 import { exportToExcel } from '../../utils/exportToExcel';
@@ -38,6 +39,14 @@ export const StockLedger = () => {
 
   const inQty = rows.filter(r => r.quantity > 0).reduce((s, r) => s + r.quantity, 0);
   const outQty = rows.filter(r => r.quantity < 0).reduce((s, r) => s - r.quantity, 0);
+
+  const PAGE_SIZE = 10;
+  const [page, setPage] = useState(1);
+  const totalRows = rows.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
+  // Filters can shrink the list under the current page — snap back into range.
+  useEffect(() => { if (page > totalPages) setPage(1); }, [page, totalPages]);
+  const paged = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <div className="space-y-3">
@@ -107,7 +116,7 @@ export const StockLedger = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {rows.map(r => (
+              {paged.map(r => (
                 <tr key={r.ledgerId} className="hover:bg-slate-50/70 transition-colors">
                   <td className="px-3 py-2 text-slate-600 whitespace-nowrap">
                     {new Date(r.txnDate).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
@@ -145,6 +154,7 @@ export const StockLedger = () => {
             </tbody>
           </table>
         </div>
+        <Pagination page={page} pageSize={PAGE_SIZE} totalItems={totalRows} onPageChange={setPage} />
       </div>
     </div>
   );
