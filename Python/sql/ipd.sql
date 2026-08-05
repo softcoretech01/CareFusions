@@ -1,6 +1,6 @@
 -- ============================================================
 -- IPD (In-Patient Department) - SQL Script
--- Database : registration
+-- Database : hospital
 -- Tables   : IPD_Ward, IPD_Bed, IPD_Admission, IPD_WardTransfer,
 --            IPD_DischargeMedicine, IPD_AdmissionRequest
 -- SPs      : SpIpdWard, SpIpdBed, SpIpdAdmission, SpIpdAdmissionRequest
@@ -14,14 +14,14 @@
 --   IPD_WardTransfer.AdmissionId    -> IPD_Admission.AdmissionId
 --   IPD_DischargeMedicine.AdmissionId -> IPD_Admission.AdmissionId
 --
--- Object names are fully qualified with `registration.` so this deploys
+-- Object names are fully qualified with `hospital.` so this deploys
 -- correctly even when the connection's default schema is admin.
 -- ============================================================
 
-USE registration;
+USE hospital;
 
 -- ── Ward ─────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS registration.IPD_Ward (
+CREATE TABLE IF NOT EXISTS hospital.IPD_Ward (
     WardId            INT          NOT NULL AUTO_INCREMENT,
     WardName          VARCHAR(120) NOT NULL,
     WardType          ENUM('General','Semi-Private','Private','Deluxe','ICU','NICU','PICU','HDU','OT') NOT NULL,
@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS registration.IPD_Ward (
 );
 
 -- ── Bed ──────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS registration.IPD_Bed (
+CREATE TABLE IF NOT EXISTS hospital.IPD_Bed (
     BedId       INT          NOT NULL AUTO_INCREMENT,
     WardId      INT          NOT NULL,
     RoomNumber  VARCHAR(50)  NULL,
@@ -52,12 +52,12 @@ CREATE TABLE IF NOT EXISTS registration.IPD_Bed (
     CONSTRAINT PK_IPD_Bed PRIMARY KEY (BedId),
     CONSTRAINT UQ_IPD_Bed UNIQUE (WardId, BedNumber),
     CONSTRAINT FK_IPD_Bed_Ward FOREIGN KEY (WardId)
-        REFERENCES registration.IPD_Ward (WardId),
+        REFERENCES hospital.IPD_Ward (WardId),
     KEY IDX_IPD_Bed_Status (Status)
 );
 
 -- ── Admission ────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS registration.IPD_Admission (
+CREATE TABLE IF NOT EXISTS hospital.IPD_Admission (
     AdmissionId         INT          NOT NULL AUTO_INCREMENT,
     AdmissionNumber     VARCHAR(20)  NOT NULL,            -- Auto: IPD-YYYYNNNN
     Uhid                VARCHAR(30)  NOT NULL,
@@ -87,15 +87,15 @@ CREATE TABLE IF NOT EXISTS registration.IPD_Admission (
     CONSTRAINT PK_IPD_Admission PRIMARY KEY (AdmissionId),
     CONSTRAINT UQ_IPD_Admission_Number UNIQUE (AdmissionNumber),
     CONSTRAINT FK_IPD_Admission_Ward FOREIGN KEY (CurrentWardId)
-        REFERENCES registration.IPD_Ward (WardId),
+        REFERENCES hospital.IPD_Ward (WardId),
     CONSTRAINT FK_IPD_Admission_Bed FOREIGN KEY (CurrentBedId)
-        REFERENCES registration.IPD_Bed (BedId),
+        REFERENCES hospital.IPD_Bed (BedId),
     KEY IDX_IPD_Admission_Uhid   (Uhid),
     KEY IDX_IPD_Admission_Status (Status)
 );
 
 -- ── Ward transfer history ────────────────────────────────────
-CREATE TABLE IF NOT EXISTS registration.IPD_WardTransfer (
+CREATE TABLE IF NOT EXISTS hospital.IPD_WardTransfer (
     TransferId    INT          NOT NULL AUTO_INCREMENT,
     AdmissionId   INT          NOT NULL,
     FromWardId    INT          NULL,
@@ -107,12 +107,12 @@ CREATE TABLE IF NOT EXISTS registration.IPD_WardTransfer (
     CreatedDate   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT PK_IPD_WardTransfer PRIMARY KEY (TransferId),
     CONSTRAINT FK_IPD_Transfer_Admission FOREIGN KEY (AdmissionId)
-        REFERENCES registration.IPD_Admission (AdmissionId),
+        REFERENCES hospital.IPD_Admission (AdmissionId),
     KEY IDX_IPD_Transfer_Admission (AdmissionId)
 );
 
 -- ── Discharge medicines ──────────────────────────────────────
-CREATE TABLE IF NOT EXISTS registration.IPD_DischargeMedicine (
+CREATE TABLE IF NOT EXISTS hospital.IPD_DischargeMedicine (
     DischargeMedId INT          NOT NULL AUTO_INCREMENT,
     AdmissionId    INT          NOT NULL,
     MedicineName   VARCHAR(255) NOT NULL,
@@ -123,12 +123,12 @@ CREATE TABLE IF NOT EXISTS registration.IPD_DischargeMedicine (
     Notes          VARCHAR(255) NULL,
     CONSTRAINT PK_IPD_DischargeMedicine PRIMARY KEY (DischargeMedId),
     CONSTRAINT FK_IPD_DischargeMed_Admission FOREIGN KEY (AdmissionId)
-        REFERENCES registration.IPD_Admission (AdmissionId),
+        REFERENCES hospital.IPD_Admission (AdmissionId),
     KEY IDX_IPD_DischargeMed_Admission (AdmissionId)
 );
 
 -- ── Admission requests (pre-admission queue) ─────────────────
-CREATE TABLE IF NOT EXISTS registration.IPD_AdmissionRequest (
+CREATE TABLE IF NOT EXISTS hospital.IPD_AdmissionRequest (
     RequestId           INT          NOT NULL AUTO_INCREMENT,
     RequestDate         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     Uhid                VARCHAR(30)  NOT NULL,
@@ -152,9 +152,9 @@ CREATE TABLE IF NOT EXISTS registration.IPD_AdmissionRequest (
 -- ============================================================
 -- SP: SpIpdWard  (LIST | INSERT | UPDATE | DELETE)
 -- ============================================================
-DROP PROCEDURE IF EXISTS registration.SpIpdWard;
+DROP PROCEDURE IF EXISTS hospital.SpIpdWard;
 DELIMITER $$
-CREATE PROCEDURE registration.SpIpdWard(
+CREATE PROCEDURE hospital.SpIpdWard(
     IN p_Opt VARCHAR(20),
     IN p_WardId INT,
     IN p_WardName VARCHAR(120),
@@ -196,9 +196,9 @@ DELIMITER ;
 -- ============================================================
 -- SP: SpIpdBed  (LIST | INSERT | UPDATESTATUS | DELETE)
 -- ============================================================
-DROP PROCEDURE IF EXISTS registration.SpIpdBed;
+DROP PROCEDURE IF EXISTS hospital.SpIpdBed;
 DELIMITER $$
-CREATE PROCEDURE registration.SpIpdBed(
+CREATE PROCEDURE hospital.SpIpdBed(
     IN p_Opt VARCHAR(20),
     IN p_BedId INT,
     IN p_WardId INT,
@@ -240,9 +240,9 @@ DELIMITER ;
 --   DELDISCHARGEMEDS | ADDDISCHARGEMED
 -- Bed status is kept in sync transactionally with each action.
 -- ============================================================
-DROP PROCEDURE IF EXISTS registration.SpIpdAdmission;
+DROP PROCEDURE IF EXISTS hospital.SpIpdAdmission;
 DELIMITER $$
-CREATE PROCEDURE registration.SpIpdAdmission(
+CREATE PROCEDURE hospital.SpIpdAdmission(
     IN p_Opt VARCHAR(24),
     IN p_AdmissionId INT,
     IN p_Uhid VARCHAR(30),
@@ -394,9 +394,9 @@ DELIMITER ;
 -- ============================================================
 -- SP: SpIpdAdmissionRequest  (LIST | INSERT | UPDATESTATUS)
 -- ============================================================
-DROP PROCEDURE IF EXISTS registration.SpIpdAdmissionRequest;
+DROP PROCEDURE IF EXISTS hospital.SpIpdAdmissionRequest;
 DELIMITER $$
-CREATE PROCEDURE registration.SpIpdAdmissionRequest(
+CREATE PROCEDURE hospital.SpIpdAdmissionRequest(
     IN p_Opt VARCHAR(20),
     IN p_RequestId INT,
     IN p_Uhid VARCHAR(30),

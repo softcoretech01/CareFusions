@@ -22,7 +22,7 @@ def _sp(db: Session, name: str, params: dict):
 
 
 def _ward_sp(db, opt, **kw):
-    return _sp(db, "registration.SpIpdWard", {
+    return _sp(db, "hospital.SpIpdWard", {
         "p_Opt": opt, "p_WardId": kw.get("ward_id"), "p_WardName": kw.get("ward_name"),
         "p_WardType": kw.get("ward_type"), "p_GenderRestriction": kw.get("gender_restriction"),
         "p_Capacity": kw.get("capacity"), "p_Status": kw.get("st"), "p_User": kw.get("user"),
@@ -30,7 +30,7 @@ def _ward_sp(db, opt, **kw):
 
 
 def _bed_sp(db, opt, **kw):
-    return _sp(db, "registration.SpIpdBed", {
+    return _sp(db, "hospital.SpIpdBed", {
         "p_Opt": opt, "p_BedId": kw.get("bed_id"), "p_WardId": kw.get("ward_id"),
         "p_RoomNumber": kw.get("room_number"), "p_BedNumber": kw.get("bed_number"),
         "p_Status": kw.get("st"), "p_User": kw.get("user"),
@@ -38,7 +38,7 @@ def _bed_sp(db, opt, **kw):
 
 
 def _adm_sp(db, opt, **kw):
-    return _sp(db, "registration.SpIpdAdmission", {
+    return _sp(db, "hospital.SpIpdAdmission", {
         "p_Opt": opt, "p_AdmissionId": kw.get("admission_id"), "p_Uhid": kw.get("uhid"),
         "p_PatientName": kw.get("patient_name"), "p_Age": kw.get("age"), "p_Gender": kw.get("gender"),
         "p_BloodGroup": kw.get("blood_group"), "p_AdmittingDoctor": kw.get("admitting_doctor"),
@@ -55,7 +55,7 @@ def _adm_sp(db, opt, **kw):
 
 
 def _req_sp(db, opt, **kw):
-    return _sp(db, "registration.SpIpdAdmissionRequest", {
+    return _sp(db, "hospital.SpIpdAdmissionRequest", {
         "p_Opt": opt, "p_RequestId": kw.get("request_id"), "p_Uhid": kw.get("uhid"),
         "p_PatientName": kw.get("patient_name"), "p_Specialty": kw.get("specialty"),
         "p_AdmissionType": kw.get("admission_type"), "p_Priority": kw.get("priority"),
