@@ -47,6 +47,7 @@ type PreAuth = {
   diagnosis?: string;
   amount: number;
   approvedAmount?: number;
+  decisionReason?: string;
   date: string;
   status: string;
 };
@@ -104,7 +105,7 @@ interface InsuranceContextType {
   markClaimDenied: (claimId: string, reason?: string) => void;
   markClaimSettled: (claimId: string, approvedAmt: number) => void;
   fileAppeal: (appealId: string, appealReason?: string) => void;
-  updatePreAuthStatus: (id: string, status: string) => void;
+  updatePreAuthStatus: (id: string, status: string, approvedAmount?: number, decisionReason?: string) => void;
   deleteClaim: (id: string) => void;
   updateClaim: (claim: Claim) => void;
   deletePreAuth: (id: string) => void;
@@ -251,10 +252,15 @@ export const InsuranceProvider = ({ children }: { children: ReactNode }) => {
     }), 'update pre-auth');
   };
 
-  const updatePreAuthStatus = (id: string, status: string) => {
+  const updatePreAuthStatus = (id: string, status: string, approvedAmount?: number, decisionReason?: string) => {
     const pk = preAuthPk(id);
     if (pk) run(() => fetch(`${INS}/pre-auths/${pk}/status`, {
-      method: 'PATCH', headers: JSON_HEADERS, body: JSON.stringify({ status }),
+      method: 'PATCH', headers: JSON_HEADERS,
+      body: JSON.stringify({
+        status,
+        approvedAmount: approvedAmount ?? null,
+        decisionReason: decisionReason ?? null,
+      }),
     }), 'pre-auth status');
   };
 
