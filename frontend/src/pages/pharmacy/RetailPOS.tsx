@@ -61,6 +61,13 @@ export const RetailPOS = () => {
   const handleCompleteSale = () => {
     if (cart.length === 0) return;
 
+    // If a phone number was entered, it must be a full 10 digits.
+    if (phoneNumber.length > 0 && phoneNumber.length !== 10) {
+      setErrorMsg('Enter a valid 10-digit phone number, or leave it blank.');
+      setTimeout(() => setErrorMsg(''), 3000);
+      return;
+    }
+
     const newBill = {
       billId: `INV-${Date.now().toString().slice(-6)}`,
       patientName: customerName || 'Walk-in',
@@ -133,23 +140,29 @@ export const RetailPOS = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wider">Customer Name (Optional)</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   placeholder="e.g. John Doe"
                   value={customerName}
-                  onChange={e => setCustomerName(e.target.value)}
+                  // Letters and spaces only.
+                  onChange={e => setCustomerName(e.target.value.replace(/[^A-Za-z\s]/g, '').slice(0, 100))}
                   className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
                 />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wider">Phone Number</label>
-                <input 
-                  type="text" 
-                  placeholder="+91 99999 99999"
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="10-digit mobile number"
                   value={phoneNumber}
-                  onChange={e => setPhoneNumber(e.target.value)}
+                  // Digits only, max 10.
+                  onChange={e => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
                   className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors"
                 />
+                {phoneNumber.length > 0 && phoneNumber.length < 10 && (
+                  <p className="text-[11px] text-red-500 mt-1">Enter a valid 10-digit mobile number.</p>
+                )}
               </div>
             </div>
           </div>
@@ -223,11 +236,13 @@ export const RetailPOS = () => {
                         <p className="text-red-500 text-[10px] font-semibold mt-0.5">{item.expiryDate}</p>
                       </td>
                       <td className="px-4 py-4 text-center">
-                        <input 
+                        <input
                           type="number"
                           min="1"
                           max={item.quantity}
                           value={item.cartQty}
+                          // Block non-integer characters (e, E, +, -, .).
+                          onKeyDown={(e) => ['e', 'E', '+', '-', '.'].includes(e.key) && e.preventDefault()}
                           onChange={(e) => handleUpdateQty(item.id, parseInt(e.target.value) || 1)}
                           className="w-16 text-center border border-slate-200 rounded p-1 text-sm font-semibold focus:outline-none focus:border-primary bg-slate-50"
                         />
