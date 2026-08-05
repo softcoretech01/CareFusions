@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import { IPDSidebar } from './IPDSidebar';
-import { IPDTopBar } from './IPDTopBar';
+import { TopNavigation } from './TopNavigation';
 import { useAppSelector } from '../hooks/redux';
 
 export const IPDLayout = () => {
@@ -22,7 +22,7 @@ export const IPDLayout = () => {
     <div className="flex h-screen overflow-hidden bg-background">
       <IPDSidebar />
       <div className="flex-1 flex flex-col relative overflow-hidden">
-        <IPDTopBar />
+        <TopNavigation />
         <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 custom-scrollbar">
           <Outlet />
         </main>

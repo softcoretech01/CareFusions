@@ -1,13 +1,21 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useIPD } from '../../contexts/IPDContext';
-import { UserPlus, Save, ArrowLeft, CheckCircle2, Bed, Stethoscope, BedDouble } from 'lucide-react';
+import { usePatients } from '../../contexts/PatientContext';
+import type { GlobalPatientRecord } from '../../contexts/PatientContext';
+import { UserPlus, Save, ArrowLeft, CheckCircle2, Bed, Stethoscope, BedDouble, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export const NewAdmission = () => {
   const { state } = useLocation();
   const navigate = useNavigate();
   const { admitPatient, updateAdmissionRequestStatus, wards, beds } = useIPD();
+  const { patients: registeredPatients } = usePatients();
+
+  // Searchable UHID picker (registered patients only)
+  const [uhidSearch, setUhidSearch] = useState('');
+  const [showList, setShowList] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
 
   const [form, setForm] = useState({
     uhid: '',
@@ -31,6 +39,7 @@ export const NewAdmission = () => {
   useEffect(() => {
     if (state?.request) {
       const req = state.request;
+      setUhidSearch(req.uhid);
       setForm(prev => ({
         ...prev,
         uhid: req.uhid,
@@ -54,6 +63,40 @@ export const NewAdmission = () => {
     if (!form.wardId || !form.roomNumber) return [];
     return beds.filter(b => b.wardId === Number(form.wardId) && b.roomNumber === form.roomNumber);
   }, [form.wardId, form.roomNumber, beds]);
+
+  // Registered patients matching the UHID search box.
+  const matchedPatients = useMemo(() => {
+    const q = uhidSearch.trim().toLowerCase();
+    if (!q) return [];
+    return registeredPatients.filter(p =>
+      (p.uhid || '').toLowerCase().includes(q) ||
+      (p.patientName || '').toLowerCase().includes(q) ||
+      (p.mobileNumber || '').includes(uhidSearch.trim())
+    ).slice(0, 8);
+  }, [uhidSearch, registeredPatients]);
+
+  const selectPatient = (p: GlobalPatientRecord) => {
+    setForm(prev => ({
+      ...prev,
+      uhid: p.uhid,
+      patientName: p.patientName || '',
+      age: p.age ? String(p.age) : '',
+      gender: p.gender || 'Male',
+      bloodGroup: (p.bloodGroup as string) || prev.bloodGroup,
+    }));
+    setUhidSearch(p.uhid);
+    setShowList(false);
+    setErrors(prev => ({ ...prev, uhid: '', patientName: '', age: '' }));
+  };
+
+  // Close the patient dropdown when clicking outside it.
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) setShowList(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   const validate = () => {
     const e: Record<string, string> = {};
@@ -129,9 +172,42 @@ export const NewAdmission = () => {
             <UserPlus className="w-4 h-4 text-primary" /> Patient Details
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
+            <div className="relative" ref={searchRef}>
               <label className={labelCls}>UHID <span className="text-red-500">*</span></label>
-              <input type="text" maxLength={30} value={form.uhid} onChange={e => setForm({ ...form, uhid: e.target.value })} className={fieldCls('uhid')} />
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={uhidSearch}
+                  onChange={e => {
+                    setUhidSearch(e.target.value);
+                    setShowList(true);
+                    // Typing invalidates a previously-picked patient until re-selected.
+                    if (form.uhid) setForm({ ...form, uhid: '', patientName: '', age: '' });
+                  }}
+                  onFocus={() => setShowList(true)}
+                  autoComplete="off"
+                  placeholder="Search registered patient (UHID / Name / Mobile)"
+                  className={`${fieldCls('uhid')} pl-9`}
+                />
+              </div>
+              {showList && uhidSearch.trim() && (
+                <div className="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg max-h-56 overflow-y-auto">
+                  {matchedPatients.length === 0 ? (
+                    <div className="px-3 py-2 text-sm text-slate-400">No registered patient found</div>
+                  ) : matchedPatients.map(p => (
+                    <button
+                      type="button"
+                      key={p.id}
+                      onClick={() => selectPatient(p)}
+                      className="w-full text-left px-3 py-2 hover:bg-primary/5 border-b border-slate-50 last:border-0"
+                    >
+                      <div className="font-semibold text-slate-800 text-sm">{p.patientName}</div>
+                      <div className="text-xs text-slate-500">{p.uhid} · {p.mobileNumber} · {p.gender}{p.age ? `, ${p.age}y` : ''}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
               <Err f="uhid" />
             </div>
             <div>
