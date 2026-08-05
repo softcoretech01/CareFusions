@@ -68,8 +68,10 @@ export const AdmissionDesk = () => {
           <table className="w-full">
             <thead className="bg-white text-xs font-semibold text-slate-500 uppercase tracking-wider sticky top-0 border-b border-slate-100 shadow-sm z-10">
               <tr>
+                <th className="px-4 py-3 text-left w-16">S.No</th>
                 <th className="px-4 py-3 text-left">Request Time</th>
                 <th className="px-4 py-3 text-left">Patient Details</th>
+                <th className="px-4 py-3 text-left">Department</th>
                 <th className="px-4 py-3 text-left">Requested By</th>
                 <th className="px-4 py-3 text-left">Details</th>
                 <th className="px-4 py-3 text-left">Action</th>
@@ -78,13 +80,14 @@ export const AdmissionDesk = () => {
             <tbody className="divide-y divide-slate-100">
               {pendingRequests.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-400">
+                  <td colSpan={7} className="px-6 py-12 text-center text-slate-400">
                     No pending admission requests.
                   </td>
                 </tr>
               ) : (
-                pendingRequests.map(req => (
+                pendingRequests.map((req, index) => (
                   <tr key={req.id} className="hover:bg-slate-50/70 transition-colors">
+                    <td className="px-4 py-3 text-sm font-semibold text-slate-500">{index + 1}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2 text-sm text-slate-600 font-medium">
                         <Clock className="w-4 h-4 text-amber-500" />
@@ -95,6 +98,7 @@ export const AdmissionDesk = () => {
                       <div className="font-bold text-slate-800">{req.patientName}</div>
                       <div className="text-xs text-slate-500">{req.uhid}</div>
                     </td>
+                    <td className="px-4 py-3 text-sm text-slate-600">{req.specialty}</td>
                     <td className="px-4 py-3 text-sm text-slate-600">
                       {req.requestedBy}
                     </td>
