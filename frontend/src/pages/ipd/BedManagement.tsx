@@ -1,16 +1,67 @@
 import { useState } from 'react';
 import { useIPD } from '../../contexts/IPDContext';
 import type { IPDPatient, Bed } from '../../contexts/IPDContext';
-import { Activity, Stethoscope, X, User, Calendar, BedDouble, Clock } from 'lucide-react';
+import { Activity, Stethoscope, X, User, Calendar, BedDouble, Clock, Plus } from 'lucide-react';
+import { Modal } from '../../components/ui/Modal';
 import { IpdErrorBanner } from './IpdErrorBanner';
+import toast from 'react-hot-toast';
+
+const WARD_TYPES = ['General', 'Semi-Private', 'Private', 'Deluxe', 'ICU', 'NICU', 'PICU', 'HDU', 'OT'];
 
 export const BedManagement = () => {
-  const { wards, beds, patients } = useIPD();
+  const { wards, beds, patients, addWard, addBed } = useIPD();
   const [selectedWard, setSelectedWard] = useState<number | 'All'>('All');
 
   // Patient detail popup
   const [popupPatient, setPopupPatient] = useState<IPDPatient | null>(null);
   const [popupBed, setPopupBed] = useState<Bed | null>(null);
+
+  // Add Ward / Add Bed modals
+  const [showWardModal, setShowWardModal] = useState(false);
+  const [showBedModal, setShowBedModal] = useState(false);
+  const [wardForm, setWardForm] = useState({ name: '', type: 'General', genderRestriction: 'Any', capacity: '' });
+  const [bedForm, setBedForm] = useState({ wardId: '', roomNumber: '', bedNumber: '' });
+  const [wardErr, setWardErr] = useState<Record<string, string>>({});
+  const [bedErr, setBedErr] = useState<Record<string, string>>({});
+
+  const inputCls = (bad?: string) =>
+    `w-full px-3 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all font-medium ${
+      bad ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'
+    }`;
+
+  const submitWard = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const er: Record<string, string> = {};
+    if (!wardForm.name.trim()) er.name = 'Ward name is required';
+    else if (!/^[A-Za-z0-9\s\-]+$/.test(wardForm.name.trim())) er.name = 'Letters, numbers, spaces and - only';
+    const cap = Number(wardForm.capacity);
+    if (!wardForm.capacity || cap < 1 || cap > 1000) er.capacity = 'Capacity must be 1–1000';
+    setWardErr(er);
+    if (Object.keys(er).length) return;
+    const ok = await addWard({ name: wardForm.name.trim(), type: wardForm.type as never, genderRestriction: wardForm.genderRestriction as never, capacity: cap });
+    if (ok) {
+      toast.success('Ward added');
+      setShowWardModal(false);
+      setWardForm({ name: '', type: 'General', genderRestriction: 'Any', capacity: '' });
+      setWardErr({});
+    }
+  };
+
+  const submitBed = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const er: Record<string, string> = {};
+    if (!bedForm.wardId) er.wardId = 'Select a ward';
+    if (!bedForm.bedNumber.trim()) er.bedNumber = 'Bed number is required';
+    setBedErr(er);
+    if (Object.keys(er).length) return;
+    const ok = await addBed({ wardId: Number(bedForm.wardId), roomNumber: bedForm.roomNumber.trim(), bedNumber: bedForm.bedNumber.trim() });
+    if (ok) {
+      toast.success('Bed added');
+      setShowBedModal(false);
+      setBedForm({ wardId: '', roomNumber: '', bedNumber: '' });
+      setBedErr({});
+    }
+  };
 
   const filteredWards = selectedWard === 'All' ? wards : wards.filter(w => w.id === selectedWard);
 
@@ -26,19 +77,94 @@ export const BedManagement = () => {
   return (
     <div className="space-y-4">
       <IpdErrorBanner />
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Bed Management</h1>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <h1 className="text-2xl font-bold text-slate-800">Bed Management</h1>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setShowWardModal(true)}
+            className="flex items-center gap-1.5 px-3 py-2 border border-slate-200 text-slate-700 font-semibold rounded-xl text-sm hover:bg-slate-50 transition-colors"
+          >
+            <Plus className="w-4 h-4" /> Add Ward
+          </button>
+          <button
+            onClick={() => setShowBedModal(true)}
+            className="flex items-center gap-1.5 px-3 py-2 bg-primary text-white font-semibold rounded-xl text-sm hover:bg-primary/90 transition-colors"
+          >
+            <Plus className="w-4 h-4" /> Add Bed
+          </button>
+          <select
+            className="px-4 py-2 border border-slate-200 rounded-xl bg-white text-sm focus:outline-none focus:border-primary"
+            value={selectedWard}
+            onChange={(e) => setSelectedWard(e.target.value === 'All' ? 'All' : Number(e.target.value))}
+          >
+            <option value="All">All Wards</option>
+            {wards.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+          </select>
         </div>
-        <select
-          className="px-4 py-2 border border-slate-200 rounded-xl bg-white text-sm focus:outline-none focus:border-primary"
-          value={selectedWard}
-          onChange={(e) => setSelectedWard(e.target.value === 'All' ? 'All' : Number(e.target.value))}
-        >
-          <option value="All">All Wards</option>
-          {wards.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-        </select>
       </div>
+
+      {/* Add Ward Modal */}
+      <Modal isOpen={showWardModal} onClose={() => setShowWardModal(false)} title="Add Ward" maxWidth="sm">
+        <form onSubmit={submitWard} className="space-y-4 p-1">
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Ward Name <span className="text-red-500">*</span></label>
+            <input type="text" maxLength={120} value={wardForm.name} onChange={e => setWardForm({ ...wardForm, name: e.target.value })} className={inputCls(wardErr.name)} placeholder="e.g. General Ward - Male" />
+            {wardErr.name && <p className="text-red-500 text-xs mt-1">{wardErr.name}</p>}
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Type</label>
+              <select value={wardForm.type} onChange={e => setWardForm({ ...wardForm, type: e.target.value })} className={inputCls()}>
+                {WARD_TYPES.map(t => <option key={t}>{t}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Gender</label>
+              <select value={wardForm.genderRestriction} onChange={e => setWardForm({ ...wardForm, genderRestriction: e.target.value })} className={inputCls()}>
+                <option>Any</option><option>Male</option><option>Female</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Capacity <span className="text-red-500">*</span></label>
+            <input type="number" min="1" max="1000" value={wardForm.capacity} onChange={e => setWardForm({ ...wardForm, capacity: e.target.value.replace(/\D/g, '').slice(0, 4) })} className={inputCls(wardErr.capacity)} placeholder="No. of beds" />
+            {wardErr.capacity && <p className="text-red-500 text-xs mt-1">{wardErr.capacity}</p>}
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <button type="button" onClick={() => setShowWardModal(false)} className="px-4 py-2 border border-slate-200 text-slate-600 font-medium rounded-xl hover:bg-slate-50 transition-colors">Cancel</button>
+            <button type="submit" className="px-4 py-2 bg-primary text-white font-bold rounded-xl hover:bg-primary/90 transition-colors">Save Ward</button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Add Bed Modal */}
+      <Modal isOpen={showBedModal} onClose={() => setShowBedModal(false)} title="Add Bed" maxWidth="sm">
+        <form onSubmit={submitBed} className="space-y-4 p-1">
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Ward <span className="text-red-500">*</span></label>
+            <select value={bedForm.wardId} onChange={e => setBedForm({ ...bedForm, wardId: e.target.value })} className={inputCls(bedErr.wardId)}>
+              <option value="">Select Ward</option>
+              {wards.map(w => <option key={w.id} value={w.id}>{w.name} ({w.type})</option>)}
+            </select>
+            {bedErr.wardId && <p className="text-red-500 text-xs mt-1">{bedErr.wardId}</p>}
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Room Number</label>
+              <input type="text" maxLength={50} value={bedForm.roomNumber} onChange={e => setBedForm({ ...bedForm, roomNumber: e.target.value })} className={inputCls()} placeholder="e.g. 101" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Bed Number <span className="text-red-500">*</span></label>
+              <input type="text" maxLength={50} value={bedForm.bedNumber} onChange={e => setBedForm({ ...bedForm, bedNumber: e.target.value })} className={inputCls(bedErr.bedNumber)} placeholder="e.g. GW-M-1" />
+              {bedErr.bedNumber && <p className="text-red-500 text-xs mt-1">{bedErr.bedNumber}</p>}
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <button type="button" onClick={() => setShowBedModal(false)} className="px-4 py-2 border border-slate-200 text-slate-600 font-medium rounded-xl hover:bg-slate-50 transition-colors">Cancel</button>
+            <button type="submit" className="px-4 py-2 bg-primary text-white font-bold rounded-xl hover:bg-primary/90 transition-colors">Save Bed</button>
+          </div>
+        </form>
+      </Modal>
 
       <div className="space-y-8">
         {filteredWards.map(ward => {

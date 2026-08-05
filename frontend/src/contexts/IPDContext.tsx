@@ -96,6 +96,8 @@ interface IPDContextType {
   requestAdmission: (request: Omit<AdmissionRequest, 'id' | 'status' | 'requestDate'>) => void;
   updateAdmissionRequestStatus: (id: number, status: AdmissionRequest['status']) => void;
   generateAdmissionNumber: () => string;
+  addWard: (ward: { name: string; type: Ward['type']; genderRestriction: Ward['genderRestriction']; capacity: number }) => Promise<boolean>;
+  addBed: (bed: { wardId: number; roomNumber: string; bedNumber: string }) => Promise<boolean>;
   apiError: string | null;
   clearError: () => void;
 }
@@ -233,6 +235,30 @@ export const IPDProvider = ({ children }: { children: ReactNode }) => {
     })();
   };
 
+  const addWard = async (w: { name: string; type: Ward['type']; genderRestriction: Ward['genderRestriction']; capacity: number }): Promise<boolean> => {
+    try {
+      const res = await fetch(`${IPD}/wards`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wardName: w.name, wardType: w.type, genderRestriction: w.genderRestriction, capacity: w.capacity }),
+      });
+      if (!res.ok) { setApiError(`Add ward failed: ${await errMsg(res)}`); return false; }
+      await loadWards();
+      return true;
+    } catch { setApiError('Add ward failed: server unreachable.'); return false; }
+  };
+
+  const addBed = async (b: { wardId: number; roomNumber: string; bedNumber: string }): Promise<boolean> => {
+    try {
+      const res = await fetch(`${IPD}/beds`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ wardId: b.wardId, roomNumber: b.roomNumber, bedNumber: b.bedNumber }),
+      });
+      if (!res.ok) { setApiError(`Add bed failed: ${await errMsg(res)}`); return false; }
+      await Promise.all([loadBeds(), loadWards()]);
+      return true;
+    } catch { setApiError('Add bed failed: server unreachable.'); return false; }
+  };
+
   // Provisional preview only — the definitive number is assigned by the server on admit.
   const generateAdmissionNumber = useCallback(() => {
     const yr = new Date().getFullYear();
@@ -253,6 +279,8 @@ export const IPDProvider = ({ children }: { children: ReactNode }) => {
         requestAdmission,
         updateAdmissionRequestStatus,
         generateAdmissionNumber,
+        addWard,
+        addBed,
         apiError,
         clearError,
       }}
