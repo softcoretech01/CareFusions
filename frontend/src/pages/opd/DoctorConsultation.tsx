@@ -5,17 +5,17 @@ import { useAppointments } from '../../contexts/AppointmentContext';
 import { useIPD } from '../../contexts/IPDContext';
 import { useInvestigations } from '../../contexts/InvestigationContext';
 import type { Diagnosis, PrescriptionItem, LabOrder, RadiologyOrder } from '../../contexts/OPDVisitContext';
-import { MEDICINE_LIST, LAB_TESTS, RADIOLOGY_SERVICES } from '../../data/opdData';
+import { LAB_TESTS, RADIOLOGY_SERVICES } from '../../data/opdData';
 import { User, AlertTriangle, Hash, Activity, Pill, FlaskConical, ScanLine, CheckCircle, Plus, Trash2, Eye, BookOpen, ArrowLeft, RefreshCw, History, Calendar } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const TABS = [
-  { id: 'history',      label: 'History',        icon: History },
-  { id: 'diagnosis',    label: 'Diagnosis',      icon: BookOpen },
-  { id: 'prescription', label: 'Prescription',   icon: Pill },
-  { id: 'lab',          label: 'Lab Orders',     icon: FlaskConical },
-  { id: 'radiology',    label: 'Radiology',      icon: ScanLine },
-  { id: 'summary',      label: 'Summary',        icon: Eye },
+  { id: 'history', label: 'History', icon: History },
+  { id: 'diagnosis', label: 'Diagnosis', icon: BookOpen },
+  { id: 'prescription', label: 'Prescription', icon: Pill },
+  { id: 'lab', label: 'Lab Orders', icon: FlaskConical },
+  { id: 'radiology', label: 'Radiology', icon: ScanLine },
+  { id: 'summary', label: 'Summary', icon: Eye },
 ];
 
 const inputCls = 'w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all';
@@ -44,11 +44,11 @@ export const DoctorConsultation = () => {
     addPrescription, removePrescription, addLabOrder, removeLabOrder,
     addRadiologyOrder, removeRadiologyOrder, finalizeVisit, updateVisitStatus, visits
   } = useOPDVisits();
-  
+
   const { appointments, updateAppointmentStatus } = useAppointments();
   const { requestAdmission } = useIPD();
   const { addOrder: addGlobalInvestigationOrder } = useInvestigations();
-  
+
   const navigate = useNavigate();
 
   const visit = getVisitById(Number(visitId));
@@ -57,6 +57,30 @@ export const DoctorConsultation = () => {
   const patientHistory = visits
     .filter(v => v.uhid === visit?.uhid && v.id !== visit?.id && v.status === 'Completed')
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  // ── Medicine Data from API ──
+  const [apiMedicines, setApiMedicines] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchMedicines = async () => {
+      try {
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/medicines`);
+        if (res.ok) {
+          const data = await res.json();
+          // Filter to only active medicines
+          setApiMedicines(data.filter((m: any) => m.status === 'Active' || m.status === 'active'));
+        }
+      } catch (e) {
+        console.error("Failed to fetch medicines", e);
+      }
+    };
+    fetchMedicines();
+  }, []);
+
+  // Compute unique types (Dosage Forms) from live medicines to populate the Type dropdown
+  const uniqueDosageForms = Array.from(
+    new Set(apiMedicines.map(m => m.dosageForm).filter(Boolean))
+  ).sort();
 
   // Sync Global Queue Status to 'Consulting'
   useEffect(() => {
@@ -173,7 +197,7 @@ export const DoctorConsultation = () => {
 
   const handleFinalizeVisit = () => {
     finalizeVisit(visit.id, 'Dr. on duty');
-    
+
     // Push Labs to Global Investigation Context
     if (visit.labOrders.length > 0) {
       addGlobalInvestigationOrder({
@@ -238,7 +262,7 @@ export const DoctorConsultation = () => {
       provisionalDiagnosis: visit.diagnoses.map(d => d.description).join(', '),
       requestedBy: 'Dr. on duty'
     });
-    
+
     // Auto Finalize Visit
     handleFinalizeVisit();
     toast.success('Admission Request Sent to IPD');
@@ -310,25 +334,23 @@ export const DoctorConsultation = () => {
             const Icon = tab.icon;
             const badge = tab.id === 'prescription' ? visit.prescriptions.length
               : tab.id === 'lab' ? visit.labOrders.length
-              : tab.id === 'radiology' ? visit.radiologyOrders.length
-              : tab.id === 'diagnosis' ? visit.diagnoses.length
-              : 0;
+                : tab.id === 'radiology' ? visit.radiologyOrders.length
+                  : tab.id === 'diagnosis' ? visit.diagnoses.length
+                    : 0;
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all relative ${
-                  activeTab === tab.id
-                    ? 'bg-primary text-white shadow-sm'
-                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
-                }`}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all relative ${activeTab === tab.id
+                  ? 'bg-primary text-white shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                  }`}
               >
                 <Icon className="w-3.5 h-3.5" />
                 {tab.label}
                 {badge > 0 && (
-                  <span className={`ml-1 w-4 h-4 rounded-full text-[10px] font-bold flex items-center justify-center ${
-                    activeTab === tab.id ? 'bg-white text-primary' : 'bg-primary text-white'
-                  }`}>{badge}</span>
+                  <span className={`ml-1 w-4 h-4 rounded-full text-[10px] font-bold flex items-center justify-center ${activeTab === tab.id ? 'bg-white text-primary' : 'bg-primary text-white'
+                    }`}>{badge}</span>
                 )}
               </button>
             );
@@ -343,14 +365,14 @@ export const DoctorConsultation = () => {
             <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6">
               <h3 className="font-bold text-slate-800 mb-4">Diagnosis</h3>
               <div className="flex flex-col gap-3">
-                <textarea 
-                  rows={4} 
+                <textarea
+                  rows={4}
                   value={diagnosisText}
                   onChange={e => setDiagnosisText(e.target.value)}
-                  placeholder="Enter diagnosis description..." 
-                  className={`${inputCls} resize-none text-base`} 
+                  placeholder="Enter diagnosis description..."
+                  className={`${inputCls} resize-none text-base`}
                 />
-                <button 
+                <button
                   onClick={handleAddDiagnosis}
                   className="px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors self-end flex items-center gap-2"
                 >
@@ -399,7 +421,7 @@ export const DoctorConsultation = () => {
                           <p className="text-sm font-bold text-slate-700">{past.doctorName}</p>
                         </div>
                       </div>
-                      
+
                       {past.diagnoses.length > 0 && (
                         <div className="mb-3">
                           <h4 className="text-xs font-bold text-slate-500 uppercase mb-1">Diagnoses</h4>
@@ -434,38 +456,69 @@ export const DoctorConsultation = () => {
               <div className="flex items-end gap-3 mb-6 bg-slate-50 p-4 rounded-2xl border border-slate-100">
                 <div className="w-1/4">
                   <label className={labelCls}>Type</label>
-                  <select 
-                    value={rxForm.type} 
-                    onChange={e => setRxForm(f => ({ ...f, type: e.target.value as any }))} 
+                  <select
+                    value={rxForm.type}
+                    onChange={e => {
+                      const newType = e.target.value as any;
+                      setRxForm(f => {
+                        const newState = { ...f, type: newType };
+                        // If type is selected, filter medicines. If current medicine doesn't match, clear it (or select first)
+                        if (newType) {
+                          const matchedMeds = apiMedicines.filter(m => m.dosageForm === newType);
+                          if (matchedMeds.length === 1) {
+                            newState.medicineName = matchedMeds[0].brandName || matchedMeds[0].genericName;
+                          } else {
+                            const currentMedMatches = matchedMeds.some(m => (m.brandName === f.medicineName || m.genericName === f.medicineName));
+                            if (!currentMedMatches) newState.medicineName = '';
+                          }
+                        }
+                        return newState;
+                      });
+                    }}
                     className={inputCls}
                   >
-                    {['Tablet', 'Injection', 'Syrup', 'Capsule', 'Ointment', 'Drops'].map(t => <option key={t} value={t}>{t}</option>)}
+                    <option value="">Select Type</option>
+                    {(uniqueDosageForms.length > 0 ? uniqueDosageForms : ['Tablet', 'Injection', 'Syrup', 'Capsule', 'Ointment', 'Drops']).map((t: any) => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
                   </select>
                 </div>
                 <div className="flex-1">
                   <label className={labelCls}>Medicine</label>
-                  <select 
-                    value={rxForm.medicineName} 
-                    onChange={e => setRxForm(f => ({ ...f, medicineName: e.target.value }))} 
+                  <select
+                    value={rxForm.medicineName}
+                    onChange={e => {
+                      const selectedName = e.target.value;
+                      const matchedMed = apiMedicines.find(m => m.brandName === selectedName || m.genericName === selectedName);
+                      setRxForm(f => ({
+                        ...f,
+                        medicineName: selectedName,
+                        // Auto-fill Type if we found a matching medicine
+                        ...(matchedMed && matchedMed.dosageForm ? { type: matchedMed.dosageForm as any } : {})
+                      }));
+                    }}
                     className={inputCls}
                   >
                     <option value="">Select from Master...</option>
-                    {MEDICINE_LIST.map(m => (
-                      <option key={m.name} value={m.name}>{m.name}</option>
-                    ))}
+                    {apiMedicines
+                      .filter(m => !rxForm.type || m.dosageForm === rxForm.type)
+                      .map(m => {
+                        const name = m.brandName || m.genericName;
+                        return <option key={m.id} value={name}>{name}</option>;
+                      })}
                   </select>
                 </div>
                 <div className="w-36">
                   <label className={labelCls}>{UOM_MAP[rxForm.type] || 'QTY'}</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     placeholder="e.g. 1-0-1 or 2"
-                    value={rxForm.quantity} 
-                    onChange={e => setRxForm(f => ({ ...f, quantity: e.target.value }))} 
-                    className={`${inputCls} w-full`} 
+                    value={rxForm.quantity}
+                    onChange={e => setRxForm(f => ({ ...f, quantity: e.target.value }))}
+                    className={`${inputCls} w-full`}
                   />
                 </div>
-                <button 
+                <button
                   onClick={handleAddPrescription}
                   className="px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors h-[42px] flex items-center justify-center shrink-0"
                 >
@@ -506,19 +559,18 @@ export const DoctorConsultation = () => {
                 <span>Laboratory Tests Master</span>
                 <span className="text-xs bg-primary text-white px-2 py-1 rounded-lg">{selectedLabs.length} Selected</span>
               </h3>
-              
+
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {LAB_TESTS.map(test => {
                   const checked = selectedLabs.includes(test.code);
                   return (
-                    <label 
-                      key={test.code} 
-                      className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
-                        checked ? 'bg-primary/5 border-primary/40' : 'bg-slate-50 border-slate-200 hover:border-primary/30'
-                      }`}
+                    <label
+                      key={test.code}
+                      className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${checked ? 'bg-primary/5 border-primary/40' : 'bg-slate-50 border-slate-200 hover:border-primary/30'
+                        }`}
                     >
-                      <input 
-                        type="checkbox" 
+                      <input
+                        type="checkbox"
                         className="mt-0.5 w-4 h-4 accent-primary rounded"
                         checked={checked}
                         onChange={() => toggleLabOrder(test)}
@@ -541,19 +593,18 @@ export const DoctorConsultation = () => {
                 <span>Radiology Services Master</span>
                 <span className="text-xs bg-primary text-white px-2 py-1 rounded-lg">{selectedRadiology.length} Selected</span>
               </h3>
-              
+
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {RADIOLOGY_SERVICES.map(svc => {
                   const checked = selectedRadiology.includes(svc.name);
                   return (
-                    <label 
-                      key={svc.name} 
-                      className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
-                        checked ? 'bg-purple-50 border-purple-300' : 'bg-slate-50 border-slate-200 hover:border-purple-300'
-                      }`}
+                    <label
+                      key={svc.name}
+                      className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${checked ? 'bg-purple-50 border-purple-300' : 'bg-slate-50 border-slate-200 hover:border-purple-300'
+                        }`}
                     >
-                      <input 
-                        type="checkbox" 
+                      <input
+                        type="checkbox"
                         className="mt-0.5 w-4 h-4 accent-purple-600 rounded"
                         checked={checked}
                         onChange={() => toggleRadiologyOrder(svc)}
@@ -668,21 +719,21 @@ export const DoctorConsultation = () => {
             <div className="p-6 space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Specialty</label>
-                <input value={admitForm.specialty} onChange={e => setAdmitForm({...admitForm, specialty: e.target.value})} className={inputCls} />
+                <input value={admitForm.specialty} onChange={e => setAdmitForm({ ...admitForm, specialty: e.target.value })} className={inputCls} />
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Admission Type</label>
-                <select value={admitForm.type} onChange={e => setAdmitForm({...admitForm, type: e.target.value})} className={inputCls}>
+                <select value={admitForm.type} onChange={e => setAdmitForm({ ...admitForm, type: e.target.value })} className={inputCls}>
                   <option>General</option><option>ICU</option><option>Surgical</option>
                 </select>
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Priority</label>
-                <select value={admitForm.priority} onChange={e => setAdmitForm({...admitForm, priority: e.target.value})} className={inputCls}>
+                <select value={admitForm.priority} onChange={e => setAdmitForm({ ...admitForm, priority: e.target.value })} className={inputCls}>
                   <option>Normal</option><option>Emergency</option>
                 </select>
               </div>
-              
+
               <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
                 <button onClick={() => setShowAdmitModal(false)} className="px-4 py-2 text-slate-500 font-bold hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
                 <button onClick={handleRecommendAdmission} className="px-6 py-2 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-colors">Confirm & Admit</button>
