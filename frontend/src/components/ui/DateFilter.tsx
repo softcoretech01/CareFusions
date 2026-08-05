@@ -17,7 +17,7 @@ export const DateFilter = ({
   onDateFromChange,
   onDateToChange,
   onSearch,
-  onReset
+  onReset,
 }: DateFilterProps) => {
   // Format local date manually to avoid UTC offset issues
   const formatYYYYMMDD = (d: Date) => {
@@ -32,25 +32,14 @@ export const DateFilter = ({
   const defaultFrom = formatYYYYMMDD(firstDay);
   const defaultTo = formatYYYYMMDD(today);
 
-  // Force parent to adopt our defaults on mount if they are empty
+  // Seed a default range (this month → today) ONLY if the parent hasn't set
+  // one. This is a controlled component: the inputs reflect the parent's
+  // dateFrom/dateTo directly, and every change is pushed up immediately.
   useEffect(() => {
     if (!dateFrom) onDateFromChange(defaultFrom);
     if (!dateTo) onDateToChange(defaultTo);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const handleSearch = () => {
-    if (onSearch) onSearch();
-  };
-
-  const handleReset = () => {
-    onDateFromChange(defaultFrom);
-    onDateToChange(defaultTo);
-    // Execute reset in parent asynchronously to allow state to update
-    setTimeout(() => {
-        if (onReset) onReset();
-    }, 0);
-  };
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-1.5 flex flex-wrap items-center gap-2 shadow-sm w-fit">
@@ -58,6 +47,7 @@ export const DateFilter = ({
       <input
         type="date"
         value={dateFrom}
+        max={dateTo || undefined}
         onChange={(e) => onDateFromChange(e.target.value)}
         className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm"
       />
@@ -65,20 +55,21 @@ export const DateFilter = ({
       <input
         type="date"
         value={dateTo}
+        min={dateFrom || undefined}
         onChange={(e) => onDateToChange(e.target.value)}
         className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm"
       />
-      
+
       <div className="w-px h-6 bg-slate-200 mx-1"></div>
-      
+
       <button
-        onClick={handleSearch}
+        onClick={() => onSearch?.()}
         className="px-4 py-1.5 bg-[#00705a] text-white rounded-lg hover:bg-[#005c4a] transition-colors font-medium text-sm"
       >
         Search
       </button>
       <button
-        onClick={handleReset}
+        onClick={() => { onDateFromChange(defaultFrom); onDateToChange(defaultTo); onReset?.(); }}
         className="px-4 py-1.5 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors font-medium text-sm"
       >
         Cancel

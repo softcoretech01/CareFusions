@@ -1,8 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, CalendarPlus, Calendar, Clock, Edit2, Download, X, CheckCircle } from 'lucide-react';
+import { Search, CalendarPlus, Calendar, Clock, Edit2, Download, X, CheckCircle, AlertTriangle } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { DateFilter } from '../../components/ui/DateFilter';
+import { Pagination } from '../../components/ui/Pagination';
+
+const PAGE_SIZE = 10;
 import { useAppointments } from '../../contexts/AppointmentContext';
 import type { AppointmentRecord } from '../../contexts/AppointmentContext';
 import { exportToExcel } from '../../utils/exportToExcel';
@@ -17,53 +20,53 @@ const STATUS_COLORS: Record<string, string> = {
   'No-Show': 'bg-slate-100 text-slate-500',
 };
 
-const DEPARTMENTS = ['Cardiology', 'General Medicine', 'Orthopedics', 'Pediatrics', 'Dermatology', 'Neurology'];
 
 export const AppointmentList = () => {
   const navigate = useNavigate();
-  const { appointments, updateAppointment } = useAppointments();
+  const { appointments, updateAppointment, queryAppointments, apiError, clearError } = useAppointments();
+
+  // Department options come from the actual appointment data so real
+  // departments (e.g. custom ones like "test") appear in the filter.
+  const departmentOptions = Array.from(new Set(appointments.map(a => a.department).filter(Boolean))).sort();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDept, setFilterDept] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+  const [dateFrom, setDateFrom] = useState('');   // DateFilter seeds the default range
+  const [dateTo, setDateTo] = useState('');
 
-  const today = new Date().toISOString().split('T')[0];
-  const [dateFrom, setDateFrom] = useState(today);
-  const [dateTo, setDateTo] = useState(today);
-
-  const [appliedSearchTerm, setAppliedSearchTerm] = useState('');
-  const [appliedFilterDept, setAppliedFilterDept] = useState('');
-  const [appliedFilterStatus, setAppliedFilterStatus] = useState('');
-  const [appliedDateFrom, setAppliedDateFrom] = useState(today);
-  const [appliedDateTo, setAppliedDateTo] = useState(today);
+  // Server-filtered rows (Walk-In only) for this page.
+  const [filtered, setFiltered] = useState<AppointmentRecord[]>([]);
+  const [page, setPage] = useState(1);
+  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   // Edit modal state
   const [editItem, setEditItem] = useState<AppointmentRecord | null>(null);
   const [editForm, setEditForm] = useState<Partial<AppointmentRecord>>({});
 
-  // Only show Walk-In type appointments — online bookings appear in the Online Booking screen
-  const walkInAppointments = appointments.filter(a => a.type === 'Walk-In');
+  // Fetch from the backend with the current filters (type is fixed to Walk-In).
+  const reload = useCallback(() => {
+    queryAppointments({
+      search: searchTerm.trim(),
+      department: filterDept,
+      status: filterStatus,
+      dateFrom,
+      dateTo,
+      type: 'Walk-In',
+    }).then(setFiltered);
+  }, [queryAppointments, searchTerm, filterDept, filterStatus, dateFrom, dateTo]);
 
-  const filtered = walkInAppointments.filter(a => {
-    const matchSearch =
-      a.patientName.toLowerCase().includes(appliedSearchTerm.toLowerCase()) ||
-      a.uhid.toLowerCase().includes(appliedSearchTerm.toLowerCase()) ||
-      a.appointmentNumber.toLowerCase().includes(appliedSearchTerm.toLowerCase()) ||
-      a.mobileNumber.includes(appliedSearchTerm);
-    const matchDept = !appliedFilterDept || a.department === appliedFilterDept;
-    const matchStatus = !appliedFilterStatus || a.status === appliedFilterStatus;
-    const matchDate = (!appliedDateFrom || a.date >= appliedDateFrom) && (!appliedDateTo || a.date <= appliedDateTo);
-    
-    return matchSearch && matchDept && matchStatus && matchDate;
-  });
+  // Debounce so typing/selecting doesn't spam the API.
+  useEffect(() => {
+    const t = setTimeout(reload, 300);
+    return () => clearTimeout(t);
+  }, [reload]);
 
-  const handleSearch = () => {
-    setAppliedSearchTerm(searchTerm);
-    setAppliedFilterDept(filterDept);
-    setAppliedFilterStatus(filterStatus);
-    setAppliedDateFrom(dateFrom);
-    setAppliedDateTo(dateTo);
-  };
+  // Keep the current page valid when the result set changes.
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    if (page > totalPages) setPage(1);
+  }, [filtered, page]);
 
   const handleReset = () => {
     setSearchTerm('');
@@ -71,12 +74,6 @@ export const AppointmentList = () => {
     setFilterStatus('');
     setDateFrom('');
     setDateTo('');
-
-    setAppliedSearchTerm('');
-    setAppliedFilterDept('');
-    setAppliedFilterStatus('');
-    setAppliedDateFrom('');
-    setAppliedDateTo('');
   };
 
   const openEdit = (item: AppointmentRecord) => {
@@ -97,7 +94,10 @@ export const AppointmentList = () => {
   const handleSave = () => {
     if (!editItem) return;
     updateAppointment(editItem.id, editForm);
+    // Optimistically reflect the edit, then re-sync from the server.
+    setFiltered(prev => prev.map(r => (r.id === editItem.id ? { ...r, ...editForm } as AppointmentRecord : r)));
     setEditItem(null);
+    setTimeout(reload, 500);
   };
 
   const TIME_SLOTS = [
@@ -108,9 +108,18 @@ export const AppointmentList = () => {
   ];
 
   return (
-    <div className="h-[calc(100vh-2rem)] flex flex-col relative">
+    <div className="flex flex-col relative">
+      {/* API error banner */}
+      {apiError && (
+        <div className="mb-4 flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          <span className="flex-1">{apiError}</span>
+          <button onClick={clearError} className="text-red-500 hover:text-red-700 font-medium">Dismiss</button>
+        </div>
+      )}
+
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-5">
         <div>
           <h1 className="text-3xl font-bold text-slate-800">Walk-in Booking</h1>
         </div>
@@ -123,9 +132,9 @@ export const AppointmentList = () => {
       </div>
 
       {/* List Card */}
-      <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm flex flex-col flex-1 overflow-hidden">
+      <div className="bg-white rounded-3xl p-4 border border-slate-100 shadow-sm">
         {/* Search + Filters Row */}
-        <div className="flex flex-wrap items-center gap-3 mb-6">
+        <div className="flex flex-wrap items-center gap-3 mb-4">
           <div className="relative flex-1 min-w-[220px] max-w-sm">
             <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
@@ -144,8 +153,7 @@ export const AppointmentList = () => {
             dateTo={dateTo}
             onDateFromChange={setDateFrom}
             onDateToChange={setDateTo}
-            onSearch={handleSearch}
-            onReset={handleReset}
+            onReset={() => { setDateFrom(''); setDateTo(''); }}
           />
 
           <select
@@ -154,7 +162,7 @@ export const AppointmentList = () => {
             className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 appearance-none min-w-[160px]"
           >
             <option value="">All Departments</option>
-            {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+            {departmentOptions.map(d => <option key={d} value={d}>{d}</option>)}
           </select>
 
           <select
@@ -166,28 +174,25 @@ export const AppointmentList = () => {
             {Object.keys(STATUS_COLORS).map(s => <option key={s} value={s}>{s}</option>)}
           </select>
 
-          <button onClick={handleSearch} className="px-4 py-2.5 bg-primary text-white text-sm font-bold rounded-xl hover:bg-primary/90 transition-colors">
-            Search
-          </button>
           <button onClick={handleReset} className="px-4 py-2.5 bg-slate-200 text-slate-600 text-sm font-bold rounded-xl hover:bg-slate-300 transition-colors">
             Reset
           </button>
         </div>
 
         {/* Table */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar">
+        <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider font-semibold sticky top-0 z-10">
               <tr>
-                <th className="px-4 py-4">Appt No.</th>
-                <th className="px-4 py-4">UHID</th>
-                <th className="px-4 py-4">Patient Name</th>
-                <th className="px-4 py-4">Phone No.</th>
-                <th className="px-4 py-4">Date &amp; Time</th>
-                <th className="px-4 py-4">Doctor</th>
-                <th className="px-4 py-4">Department</th>
-                <th className="px-4 py-4">Status</th>
-                <th className="px-4 py-4 text-center">Action</th>
+                <th className="px-4 py-2">Appt No.</th>
+                <th className="px-4 py-2">UHID</th>
+                <th className="px-4 py-2">Patient Name</th>
+                <th className="px-4 py-2">Phone No.</th>
+                <th className="px-4 py-2">Date &amp; Time</th>
+                <th className="px-4 py-2">Doctor</th>
+                <th className="px-4 py-2">Department</th>
+                <th className="px-4 py-2">Status</th>
+                <th className="px-4 py-2 text-center">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -199,13 +204,13 @@ export const AppointmentList = () => {
                   </td>
                 </tr>
               ) : (
-                filtered.map(item => (
+                paged.map(item => (
                   <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="px-4 py-4 font-semibold text-primary text-sm">{item.appointmentNumber}</td>
-                    <td className="px-4 py-4 text-slate-500 text-sm">{item.uhid}</td>
-                    <td className="px-4 py-4 font-bold text-slate-800 text-sm">{item.patientName}</td>
-                    <td className="px-4 py-4 text-slate-600 text-sm">{item.mobileNumber}</td>
-                    <td className="px-4 py-4">
+                    <td className="px-4 py-2 font-semibold text-primary text-sm whitespace-nowrap">{item.appointmentNumber}</td>
+                    <td className="px-4 py-2 text-slate-500 text-sm whitespace-nowrap">{item.uhid}</td>
+                    <td className="px-4 py-2 font-bold text-slate-800 text-sm">{item.patientName}</td>
+                    <td className="px-4 py-2 text-slate-600 text-sm">{item.mobileNumber}</td>
+                    <td className="px-4 py-2">
                       <div className="flex items-center gap-1 text-slate-700 text-sm font-medium">
                         <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                         {item.date}
@@ -215,14 +220,14 @@ export const AppointmentList = () => {
                         {item.timeSlot}
                       </div>
                     </td>
-                    <td className="px-4 py-4 text-sm font-medium text-slate-700">{item.doctor}</td>
-                    <td className="px-4 py-4 text-sm text-slate-500">{item.department}</td>
-                    <td className="px-4 py-4">
+                    <td className="px-4 py-2 text-sm font-medium text-slate-700">{item.doctor}</td>
+                    <td className="px-4 py-2 text-sm text-slate-500">{item.department}</td>
+                    <td className="px-4 py-2">
                       <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${STATUS_COLORS[item.status] || 'bg-slate-100 text-slate-600'}`}>
                         {item.status}
                       </span>
                     </td>
-                    <td className="px-4 py-4 text-center">
+                    <td className="px-4 py-2 text-center">
                       <button
                         onClick={() => openEdit(item)}
                         className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
@@ -237,6 +242,7 @@ export const AppointmentList = () => {
             </tbody>
           </table>
         </div>
+        <Pagination page={page} pageSize={PAGE_SIZE} totalItems={filtered.length} onPageChange={setPage} />
       </div>
 
       {/* ── EDIT MODAL ── */}
@@ -261,6 +267,7 @@ export const AppointmentList = () => {
                   <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5">Patient Name</label>
                   <input
                     type="text"
+                    maxLength={100}
                     value={editForm.patientName || ''}
                     onChange={e => setEditForm({ ...editForm, patientName: e.target.value })}
                     className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
@@ -269,9 +276,11 @@ export const AppointmentList = () => {
                 <div>
                   <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5">Mobile Number</label>
                   <input
-                    type="text"
+                    type="tel"
+                    inputMode="numeric"
+                    maxLength={10}
                     value={editForm.mobileNumber || ''}
-                    onChange={e => setEditForm({ ...editForm, mobileNumber: e.target.value })}
+                    onChange={e => setEditForm({ ...editForm, mobileNumber: e.target.value.replace(/\D/g, '').slice(0, 10) })}
                     className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                   />
                 </div>
@@ -282,7 +291,7 @@ export const AppointmentList = () => {
                     onChange={e => setEditForm({ ...editForm, department: e.target.value })}
                     className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                   >
-                    {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+                    {departmentOptions.map(d => <option key={d} value={d}>{d}</option>)}
                   </select>
                 </div>
                 <div>

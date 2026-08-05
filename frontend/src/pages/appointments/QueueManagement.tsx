@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAppointments } from '../../contexts/AppointmentContext';
+import type { AppointmentRecord } from '../../contexts/AppointmentContext';
 import { useOPDVisits } from '../../contexts/OPDVisitContext';
 import {
   Clock, UserCheck, Stethoscope, CheckCircle, AlertTriangle,
@@ -30,7 +31,7 @@ const PRIORITY_META: Record<string, { label: string; badge: string }> = {
 };
 
 export const QueueManagement = () => {
-  const { appointments, updateAppointmentStatus } = useAppointments();
+  const { updateAppointmentStatus, queryAppointments, apiError, clearError } = useAppointments();
   const { visits, addVisit, updateVisitStatus: updateOPDVisitStatus } = useOPDVisits();
   const [selectedDept, setSelectedDept] = useState(DEPT_ALL);
   const [confirmAction, setConfirmAction] = useState<{ id: number; action: string } | null>(null);
@@ -42,12 +43,21 @@ export const QueueManagement = () => {
   const [appliedDateFrom, setAppliedDateFrom] = useState(today);
   const [appliedDateTo, setAppliedDateTo] = useState(today);
 
-  // All appointments in range
-  const rangeAll = appointments.filter(a => {
-    if (appliedDateFrom && a.date < appliedDateFrom) return false;
-    if (appliedDateTo && a.date > appliedDateTo) return false;
-    return true;
-  });
+  // All appointments in the applied date range (fetched from the backend).
+  const [rangeAll, setRangeAll] = useState<AppointmentRecord[]>([]);
+
+  const reload = useCallback(() => {
+    queryAppointments({ dateFrom: appliedDateFrom, dateTo: appliedDateTo }).then(setRangeAll);
+  }, [queryAppointments, appliedDateFrom, appliedDateTo]);
+
+  useEffect(() => { reload(); }, [reload]);
+
+  // Change an appointment's status: persist + optimistic local update + re-sync.
+  const changeStatus = (id: number, status: AppointmentRecord['status']) => {
+    updateAppointmentStatus(id, status);
+    setRangeAll(prev => prev.map(a => (a.id === id ? { ...a, status } : a)));
+    setTimeout(reload, 500);
+  };
 
   // Unique departments from ranged appointments
   const departments = [DEPT_ALL, ...Array.from(new Set(rangeAll.map(a => a.department))).sort()];
@@ -96,10 +106,10 @@ export const QueueManagement = () => {
 
   // Token is already assigned at booking time — just move to Checked-In
   const handleCheckIn = (id: number) => {
-    updateAppointmentStatus(id, 'Checked-In');
-    
+    changeStatus(id, 'Checked-In');
+
     // Sync with OPD Visit Queue
-    const appt = appointments.find(a => a.id === id);
+    const appt = rangeAll.find(a => a.id === id);
     if (appt) {
       const existingVisit = visits.find(v => v.appointmentId === id);
       if (existingVisit) {
@@ -137,19 +147,19 @@ export const QueueManagement = () => {
   };
 
   const handleCallConsult = (id: number) => {
-    updateAppointmentStatus(id, 'Consulting');
+    changeStatus(id, 'Consulting');
     const visit = visits.find(v => v.appointmentId === id);
     if (visit) updateOPDVisitStatus(visit.id, 'Consulting');
   };
 
   const handleComplete = (id: number) => {
-    updateAppointmentStatus(id, 'Completed');
+    changeStatus(id, 'Completed');
     const visit = visits.find(v => v.appointmentId === id);
     if (visit) updateOPDVisitStatus(visit.id, 'Completed');
   };
 
-  const handleNoShow = (id: number) => { updateAppointmentStatus(id, 'No-Show'); setConfirmAction(null); };
-  const handleCancel = (id: number) => { updateAppointmentStatus(id, 'Cancelled'); setConfirmAction(null); };
+  const handleNoShow = (id: number) => { changeStatus(id, 'No-Show'); setConfirmAction(null); };
+  const handleCancel = (id: number) => { changeStatus(id, 'Cancelled'); setConfirmAction(null); };
 
   /* ── Patient Card ── */
   const PatientCard = ({
@@ -254,6 +264,15 @@ export const QueueManagement = () => {
   return (
     <div className="h-[calc(100vh-2rem)] flex flex-col relative">
 
+      {/* API error banner */}
+      {apiError && (
+        <div className="mb-4 flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          <span className="flex-1">{apiError}</span>
+          <button onClick={clearError} className="text-red-500 hover:text-red-700 font-medium">Dismiss</button>
+        </div>
+      )}
+
       {/* Confirm Modal */}
       {confirmAction && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -261,7 +280,7 @@ export const QueueManagement = () => {
             <h3 className="text-lg font-bold text-slate-800 mb-2">
               {confirmAction.action === 'cancel' ? 'Cancel Appointment' : 'Mark as No-Show'}
             </h3>
-            <p className="text-sm text-slate-500 mb-6">
+            <p className="text-sm text-slate-500 mb-4">
               {confirmAction.action === 'cancel'
                 ? 'Are you sure you want to cancel this appointment?'
                 : 'Mark this patient as no-show? They did not arrive for their appointment.'}
@@ -285,7 +304,7 @@ export const QueueManagement = () => {
       )}
 
       {/* Header */}
-      <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
+      <div className="flex items-start justify-between mb-4 gap-4 flex-wrap">
         <div>
           <h1 className="text-3xl font-bold text-slate-800">Queue Management</h1>
         </div>
@@ -318,7 +337,7 @@ export const QueueManagement = () => {
       </div>
 
       {/* Stats bar */}
-      <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-6">
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-4">
         {stats.map(s => {
           const Icon = s.icon;
           return (
@@ -407,7 +426,7 @@ export const QueueManagement = () => {
                   <CheckCircle className="w-3.5 h-3.5" /> Mark Complete
                 </button>
                 <button
-                  onClick={() => updateAppointmentStatus(item.id, 'Checked-In')}
+                  onClick={() => changeStatus(item.id, 'Checked-In')}
                   className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 text-slate-400 hover:bg-slate-100 rounded-xl text-xs font-semibold border border-slate-200 transition-colors"
                 >
                   <RefreshCw className="w-3 h-3" /> Send Back to Waiting

@@ -1,10 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Globe, CalendarPlus, Calendar, Clock, Edit2, Download, X, CheckCircle } from 'lucide-react';
+import { Search, Globe, CalendarPlus, Calendar, Clock, Edit2, Download, X, CheckCircle, AlertTriangle } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { useAppointments } from '../../contexts/AppointmentContext';
 import type { AppointmentRecord } from '../../contexts/AppointmentContext';
 import { exportToExcel } from '../../utils/exportToExcel';
+import { Pagination } from '../../components/ui/Pagination';
+
+const PAGE_SIZE = 10;
 
 const STATUS_COLORS: Record<string, string> = {
   Scheduled: 'bg-blue-100 text-blue-700',
@@ -16,7 +19,6 @@ const STATUS_COLORS: Record<string, string> = {
   'No-Show': 'bg-slate-100 text-slate-500',
 };
 
-const DEPARTMENTS = ['Cardiology', 'General Medicine', 'Orthopedics', 'Pediatrics', 'Dermatology', 'Neurology'];
 
 const TIME_SLOTS = [
   '09:00 AM', '09:15 AM', '09:30 AM', '09:45 AM',
@@ -27,31 +29,43 @@ const TIME_SLOTS = [
 
 export const OnlineBooking = () => {
   const navigate = useNavigate();
-  const { appointments, updateAppointment } = useAppointments();
+  const { appointments, updateAppointment, queryAppointments, apiError, clearError } = useAppointments();
+
+  // Department options come from the actual appointment data so real
+  // departments (e.g. custom ones like "test") appear in the filter.
+  const departmentOptions = Array.from(new Set(appointments.map(a => a.department).filter(Boolean))).sort();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDept, setFilterDept] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
 
+  // Server-filtered rows (online = everything that is NOT Walk-In).
+  const [filtered, setFiltered] = useState<AppointmentRecord[]>([]);
+  const [page, setPage] = useState(1);
+  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   // Edit modal state
   const [editItem, setEditItem] = useState<AppointmentRecord | null>(null);
   const [editForm, setEditForm] = useState<Partial<AppointmentRecord>>({});
 
-  // Show online bookings: all appointments that are NOT Walk-In type
-  const onlineBookings = appointments.filter(a =>
-    a.type !== 'Walk-In'
-  );
+  const reload = useCallback(() => {
+    queryAppointments({
+      search: searchTerm.trim(),
+      department: filterDept,
+      status: filterStatus,
+      excludeType: 'Walk-In',
+    }).then(setFiltered);
+  }, [queryAppointments, searchTerm, filterDept, filterStatus]);
 
-  const filtered = onlineBookings.filter(a => {
-    const matchSearch =
-      a.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      a.uhid.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      a.appointmentNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      a.mobileNumber.includes(searchTerm);
-    const matchDept = !filterDept || a.department === filterDept;
-    const matchStatus = !filterStatus || a.status === filterStatus;
-    return matchSearch && matchDept && matchStatus;
-  });
+  useEffect(() => {
+    const t = setTimeout(reload, 300);
+    return () => clearTimeout(t);
+  }, [reload]);
+
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    if (page > totalPages) setPage(1);
+  }, [filtered, page]);
 
   const openEdit = (item: AppointmentRecord) => {
     setEditItem(item);
@@ -71,16 +85,26 @@ export const OnlineBooking = () => {
   const handleSave = () => {
     if (!editItem) return;
     updateAppointment(editItem.id, editForm);
+    setFiltered(prev => prev.map(r => (r.id === editItem.id ? { ...r, ...editForm } as AppointmentRecord : r)));
     setEditItem(null);
+    setTimeout(reload, 500);
   };
 
   return (
-    <div className="h-[calc(100vh-2rem)] flex flex-col relative">
+    <div className="flex flex-col relative">
+      {/* API error banner */}
+      {apiError && (
+        <div className="mb-4 flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          <span className="flex-1">{apiError}</span>
+          <button onClick={clearError} className="text-red-500 hover:text-red-700 font-medium">Dismiss</button>
+        </div>
+      )}
+
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-5">
         <div>
           <h1 className="text-3xl font-bold text-slate-800">Online Booking</h1>
-          <p className="text-slate-500 mt-1">Manage patient self-service appointment bookings.</p>
         </div>
         <div className="flex items-center gap-3">
           <Button variant="outline" icon={Download} onClick={() => exportToExcel(filtered, 'OnlineBookings')}>Export</Button>
@@ -96,10 +120,10 @@ export const OnlineBooking = () => {
       </div>
 
       {/* List Card */}
-      <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm flex flex-col flex-1 overflow-hidden">
+      <div className="bg-white rounded-3xl p-4 border border-slate-100 shadow-sm">
 
         {/* Search + Filters Row */}
-        <div className="flex flex-wrap items-center gap-3 mb-6">
+        <div className="flex flex-wrap items-center gap-3 mb-4">
           <div className="relative flex-1 min-w-[220px] max-w-sm">
             <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
@@ -118,7 +142,7 @@ export const OnlineBooking = () => {
             className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
           >
             <option value="">All Departments</option>
-            {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+            {departmentOptions.map(d => <option key={d} value={d}>{d}</option>)}
           </select>
 
           {/* Status filter */}
@@ -142,19 +166,19 @@ export const OnlineBooking = () => {
         </div>
 
         {/* Table */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar">
+        <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider font-semibold sticky top-0 z-10">
               <tr>
-                <th className="px-4 py-4">Appt No.</th>
-                <th className="px-4 py-4">UHID</th>
-                <th className="px-4 py-4">Patient Name</th>
-                <th className="px-4 py-4">Phone No.</th>
-                <th className="px-4 py-4">Date &amp; Time</th>
-                <th className="px-4 py-4">Doctor</th>
-                <th className="px-4 py-4">Department</th>
-                <th className="px-4 py-4">Status</th>
-                <th className="px-4 py-4 text-center">Action</th>
+                <th className="px-4 py-2">Appt No.</th>
+                <th className="px-4 py-2">UHID</th>
+                <th className="px-4 py-2">Patient Name</th>
+                <th className="px-4 py-2">Phone No.</th>
+                <th className="px-4 py-2">Date &amp; Time</th>
+                <th className="px-4 py-2">Doctor</th>
+                <th className="px-4 py-2">Department</th>
+                <th className="px-4 py-2">Status</th>
+                <th className="px-4 py-2 text-center">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -167,13 +191,13 @@ export const OnlineBooking = () => {
                   </td>
                 </tr>
               ) : (
-                filtered.map(item => (
+                paged.map(item => (
                   <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="px-4 py-4 font-semibold text-primary text-sm">{item.appointmentNumber}</td>
-                    <td className="px-4 py-4 text-slate-500 text-sm">{item.uhid}</td>
-                    <td className="px-4 py-4 font-bold text-slate-800 text-sm">{item.patientName}</td>
-                    <td className="px-4 py-4 text-slate-600 text-sm">{item.mobileNumber}</td>
-                    <td className="px-4 py-4">
+                    <td className="px-4 py-2 font-semibold text-primary text-sm whitespace-nowrap">{item.appointmentNumber}</td>
+                    <td className="px-4 py-2 text-slate-500 text-sm whitespace-nowrap">{item.uhid}</td>
+                    <td className="px-4 py-2 font-bold text-slate-800 text-sm">{item.patientName}</td>
+                    <td className="px-4 py-2 text-slate-600 text-sm">{item.mobileNumber}</td>
+                    <td className="px-4 py-2">
                       <div className="flex items-center gap-1 text-slate-700 text-sm font-medium">
                         <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                         {item.date}
@@ -183,14 +207,14 @@ export const OnlineBooking = () => {
                         {item.timeSlot}
                       </div>
                     </td>
-                    <td className="px-4 py-4 text-sm font-medium text-slate-700">{item.doctor}</td>
-                    <td className="px-4 py-4 text-sm text-slate-500">{item.department}</td>
-                    <td className="px-4 py-4">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${STATUS_COLORS[item.status] || 'bg-slate-100 text-slate-600'}`}>
+                    <td className="px-4 py-2 text-sm font-medium text-slate-700">{item.doctor}</td>
+                    <td className="px-4 py-2 text-sm text-slate-500">{item.department}</td>
+                    <td className="px-4 py-2 align-middle">
+                      <span className={`inline-flex items-center justify-center min-w-[96px] px-2.5 py-1 rounded-full text-xs font-bold ${STATUS_COLORS[item.status] || 'bg-slate-100 text-slate-600'}`}>
                         {item.status}
                       </span>
                     </td>
-                    <td className="px-4 py-4 text-center">
+                    <td className="px-4 py-2 text-center">
                       <button
                         onClick={() => openEdit(item)}
                         className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
@@ -205,6 +229,7 @@ export const OnlineBooking = () => {
             </tbody>
           </table>
         </div>
+        <Pagination page={page} pageSize={PAGE_SIZE} totalItems={filtered.length} onPageChange={setPage} />
       </div>
 
       {/* ── EDIT MODAL ── */}
@@ -229,6 +254,7 @@ export const OnlineBooking = () => {
                   <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5">Patient Name</label>
                   <input
                     type="text"
+                    maxLength={100}
                     value={editForm.patientName || ''}
                     onChange={e => setEditForm({ ...editForm, patientName: e.target.value })}
                     className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
@@ -237,9 +263,11 @@ export const OnlineBooking = () => {
                 <div>
                   <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5">Mobile Number</label>
                   <input
-                    type="text"
+                    type="tel"
+                    inputMode="numeric"
+                    maxLength={10}
                     value={editForm.mobileNumber || ''}
-                    onChange={e => setEditForm({ ...editForm, mobileNumber: e.target.value })}
+                    onChange={e => setEditForm({ ...editForm, mobileNumber: e.target.value.replace(/\D/g, '').slice(0, 10) })}
                     className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                   />
                 </div>
@@ -250,7 +278,7 @@ export const OnlineBooking = () => {
                     onChange={e => setEditForm({ ...editForm, department: e.target.value })}
                     className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                   >
-                    {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+                    {departmentOptions.map(d => <option key={d} value={d}>{d}</option>)}
                   </select>
                 </div>
                 <div>

@@ -1,20 +1,25 @@
 -- ============================================================
 -- Appointment (transaction) - SQL Script
--- Database : admin
--- Table    : Trn_Appointment
--- SP       : SpAppointment
+-- Database : registration
+-- Table    : registration.Trn_Appointment
+-- SP       : registration.SpAppointment
 -- Screens  : /appointments/online-booking, /appointments (list, queue, waiting…)
 --
 -- The server owns AppointmentNumber (APT-YYYYMMNNN, resets monthly) and the
 -- department-based QueueToken (e.g. CAR-001) — both generated at INSERT.
+--
+-- NOTE: object names are fully qualified with `registration.` so this script
+-- deploys to the registration DB even when the connection's default schema is
+-- admin. The stored-procedure body uses unqualified table names, which MySQL
+-- resolves to the procedure's own schema (registration).
 -- ============================================================
 
-USE admin;
+USE registration;
 
 -- ============================================================
--- TABLE: Trn_Appointment
+-- TABLE: registration.Trn_Appointment
 -- ============================================================
-CREATE TABLE IF NOT EXISTS Trn_Appointment (
+CREATE TABLE IF NOT EXISTS registration.Trn_Appointment (
     AppointmentId     INT           NOT NULL AUTO_INCREMENT,
     AppointmentNumber VARCHAR(20)   NOT NULL,           -- Auto: APT-YYYYMMNNN
     Uhid              VARCHAR(30)    NOT NULL,
@@ -55,11 +60,11 @@ CREATE TABLE IF NOT EXISTS Trn_Appointment (
 -- STORED PROCEDURE: SpAppointment
 -- p_Opt: GET | GETBYID | NEXTNUMBER | INSERT | UPDATE | UPDATESTATUS | SETTOKEN | DELETE
 -- ============================================================
-DROP PROCEDURE IF EXISTS SpAppointment;
+DROP PROCEDURE IF EXISTS registration.SpAppointment;
 
 DELIMITER $$
 
-CREATE PROCEDURE SpAppointment(
+CREATE PROCEDURE registration.SpAppointment(
     IN  p_Opt             VARCHAR(20),
     IN  p_AppointmentId   INT,
     IN  p_Uhid            VARCHAR(30),
@@ -81,7 +86,10 @@ CREATE PROCEDURE SpAppointment(
     IN  p_DeptFilter      VARCHAR(100),
     IN  p_StatusFilter    VARCHAR(20),
     IN  p_TypeFilter      VARCHAR(30),
-    IN  p_DateFilter      VARCHAR(20)
+    IN  p_DateFilter      VARCHAR(20),
+    IN  p_DateFrom        VARCHAR(20),
+    IN  p_DateTo          VARCHAR(20),
+    IN  p_ExcludeType     VARCHAR(30)
 )
 BEGIN
 
@@ -102,7 +110,10 @@ BEGIN
           AND (p_DeptFilter   IS NULL OR p_DeptFilter   = '' OR Department = p_DeptFilter)
           AND (p_StatusFilter IS NULL OR p_StatusFilter = '' OR Status     = p_StatusFilter)
           AND (p_TypeFilter   IS NULL OR p_TypeFilter   = '' OR Type       = p_TypeFilter)
+          AND (p_ExcludeType  IS NULL OR p_ExcludeType  = '' OR Type      <> p_ExcludeType)
           AND (p_DateFilter   IS NULL OR p_DateFilter   = '' OR AppointmentDate = p_DateFilter)
+          AND (p_DateFrom     IS NULL OR p_DateFrom     = '' OR AppointmentDate >= p_DateFrom)
+          AND (p_DateTo       IS NULL OR p_DateTo       = '' OR AppointmentDate <= p_DateTo)
         ORDER BY AppointmentId DESC;
 
     ELSEIF p_Opt = 'GETBYID' THEN

@@ -105,7 +105,7 @@ export const Login = () => {
       <motion.div
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
-        className="hidden lg:flex w-[55%] relative h-full"
+        className="hidden lg:flex w-[50%] relative h-full"
       >
         {/* Modern Hospital Image Background */}
         <div className="absolute inset-0 z-0">
@@ -172,10 +172,10 @@ export const Login = () => {
         initial={{ opacity: 0, x: "100vw" }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ type: "spring", damping: 25, stiffness: 120 }}
-        className="w-full lg:w-[45%] bg-white flex items-center justify-center p-4 lg:p-8 relative z-20 h-full overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+        className="w-full lg:w-[50%] bg-white flex items-center justify-center p-4 lg:p-10 relative z-20 h-full overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
       >
         <motion.div
-          className="w-full max-w-[480px]"
+          className="w-full max-w-[600px]"
           variants={{
             hidden: { opacity: 0 },
             show: { opacity: 1, transition: { staggerChildren: 0.1, delayChildren: 0.2 } }
@@ -260,7 +260,7 @@ export const Login = () => {
                   type="text"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-400 text-slate-700 text-sm"
+                  className="w-full pl-10 pr-4 py-1 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-400 text-slate-700 text-sm"
                   placeholder="Enter your username"
                   required
                 />
@@ -275,7 +275,7 @@ export const Login = () => {
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-10 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-400 text-slate-700 text-sm"
+                  className="w-full pl-10 pr-10 py-1 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-slate-400 text-slate-700 text-sm"
                   placeholder="Enter your password"
                   required
                 />
@@ -305,7 +305,7 @@ export const Login = () => {
               whileTap={{ scale: 0.98 }}
               type="submit"
               disabled={loading}
-              className="w-full bg-primary text-white font-bold py-2.5 rounded-lg mt-2 flex items-center justify-center gap-2 hover:bg-primary-hover transition-all shadow-lg shadow-primary/30 text-sm disabled:opacity-60"
+              className="w-full bg-primary text-white font-bold py-1.5 rounded-lg mt-2 flex items-center justify-center gap-2 hover:bg-primary-hover transition-all shadow-lg shadow-primary/30 text-sm disabled:opacity-60"
             >
               {loading ? 'Signing in…' : 'Login'}
               <motion.span
