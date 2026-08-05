@@ -253,7 +253,6 @@ export const RescheduleCancel = () => {
             <option value="Checked-In">Checked-In</option>
             <option value="Waiting">Waiting</option>
             <option value="Cancelled">Cancelled</option>
-            <option value="No-Show">No-Show</option>
           </select>
         </div>
 
@@ -317,12 +316,6 @@ export const RescheduleCancel = () => {
                                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-red-500 border border-red-200 hover:bg-red-50 rounded-lg transition-colors"
                               >
                                 <CalendarX className="w-3.5 h-3.5" /> Cancel
-                              </button>
-                              <button
-                                onClick={() => setActionModal({ type: 'noshow', item })}
-                                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-400 border border-slate-200 hover:bg-slate-50 rounded-lg transition-colors"
-                              >
-                                No-Show
                               </button>
                             </>
                           )}
