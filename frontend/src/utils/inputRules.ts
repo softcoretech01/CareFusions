@@ -27,15 +27,15 @@ export const LIMITS = {
 const cap = (v: string, max: number) => v.slice(0, max);
 
 /** Letters, spaces and the punctuation that legitimately appears in names. */
-export const lettersOnly = (v: string, max = LIMITS.name) =>
+export const lettersOnly = (v: string, max: number = LIMITS.name) =>
   cap(v.replace(/[^A-Za-z\s.'-]/g, ''), max);
 
 /** Digits only — phone numbers, quantities, whole amounts. */
-export const digitsOnly = (v: string, max = LIMITS.amount) =>
+export const digitsOnly = (v: string, max: number = LIMITS.amount) =>
   cap(v.replace(/\D/g, ''), max);
 
 /** Digits with a single decimal point — rates and money. */
-export const decimalOnly = (v: string, max = LIMITS.amount) => {
+export const decimalOnly = (v: string, max: number = LIMITS.amount) => {
   const cleaned = v.replace(/[^\d.]/g, '');
   const parts = cleaned.split('.');
   const joined = parts.length > 1 ? `${parts[0]}.${parts.slice(1).join('')}` : cleaned;
@@ -43,25 +43,25 @@ export const decimalOnly = (v: string, max = LIMITS.amount) => {
 };
 
 /** Signed integer — stock adjustments may be negative. */
-export const signedDigits = (v: string, max = LIMITS.qty + 1) => {
+export const signedDigits = (v: string, max: number = LIMITS.qty + 1) => {
   const negative = v.trim().startsWith('-');
   return cap((negative ? '-' : '') + v.replace(/\D/g, ''), max);
 };
 
 /** Letters, digits, space and - / _ — codes, batch numbers, references. */
-export const alphanumeric = (v: string, max = LIMITS.code) =>
+export const alphanumeric = (v: string, max: number = LIMITS.code) =>
   cap(v.replace(/[^A-Za-z0-9\s\-_/]/g, ''), max);
 
 /** Uppercase alphanumeric — policy and document numbers. */
-export const upperCode = (v: string, max = LIMITS.policy) =>
+export const upperCode = (v: string, max: number = LIMITS.policy) =>
   cap(v.replace(/[^A-Za-z0-9\-/]/g, '').toUpperCase(), max);
 
 /** Email characters only. */
-export const emailChars = (v: string, max = LIMITS.email) =>
+export const emailChars = (v: string, max: number = LIMITS.email) =>
   cap(v.replace(/[^A-Za-z0-9@._%+-]/g, ''), max);
 
 /** Free text with no control characters, capped. */
-export const freeText = (v: string, max = LIMITS.remarks) => cap(v, max);
+export const freeText = (v: string, max: number = LIMITS.remarks) => cap(v, max);
 
 // ── Validators (for submit-time checks) ──────────────────────
 export const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
