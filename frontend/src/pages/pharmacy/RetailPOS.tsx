@@ -85,7 +85,8 @@ export const RetailPOS = () => {
       tax: tax,
       netAmount: netAmount,
       paymentMode: paymentMethod,
-      paymentStatus: 'Pending'
+      // Retail POS collects payment at the counter, so the sale is Paid.
+      paymentStatus: 'Paid'
     };
 
     if (addRetailBill) {
