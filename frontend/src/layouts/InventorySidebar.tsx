@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Package, ArrowDownToLine, ArrowRightLeft, ArrowUpFromLine, CalendarClock, AlertTriangle, BookOpen, CornerDownLeft } from 'lucide-react';
+import { LayoutDashboard, Package, ArrowDownToLine, ArrowRightLeft, ArrowUpFromLine, CalendarClock, AlertTriangle, BookOpen, CornerDownLeft, SlidersHorizontal, Building2, FileBarChart } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const navigation = [
@@ -9,10 +9,13 @@ const navigation = [
   { name: 'Stock Out', to: '/inventory/stock-issue', icon: ArrowUpFromLine },
   { name: 'Stock Return', to: '/inventory/stock-return', icon: CornerDownLeft },
   { name: 'Stock Transfer', to: '/inventory/transfer', icon: ArrowRightLeft },
+  { name: 'Stock Adjustment', to: '/inventory/adjustment', icon: SlidersHorizontal },
   { name: 'Batch & Expiry', to: '/inventory/batch-expiry', icon: CalendarClock },
   { name: 'Low Stock Monitor', to: '/inventory/low-stock', icon: AlertTriangle },
   { name: 'Stock Ledger', to: '/inventory/ledger', icon: BookOpen },
   { name: 'Category Ledger', to: '/inventory/category-ledger', icon: BookOpen },
+  { name: 'Dept Consumption', to: '/inventory/consumption', icon: Building2 },
+  { name: 'Reports', to: '/inventory/reports', icon: FileBarChart },
 ];
 
 export const InventorySidebar = () => {
