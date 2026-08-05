@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import { useAppSelector } from '../hooks/redux';
-import { PharmacyTopNavigation } from './PharmacyTopNavigation';
+import { TopNavigation } from './TopNavigation';
 import { PharmacySidebar } from './PharmacySidebar';
 
 export const PharmacyLayout = () => {
@@ -25,7 +25,7 @@ export const PharmacyLayout = () => {
       </div>
       <div className="flex-1 flex flex-col relative overflow-hidden">
         <div className="print:hidden">
-          <PharmacyTopNavigation />
+          <TopNavigation />
         </div>
         <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 custom-scrollbar print:p-0 print:overflow-visible">
           <Outlet />
