@@ -16,7 +16,7 @@ from app.routers import (
     patient_category, blood_group, diagnosis, procedure, procedure_type, consultation_type,
     appointment_status, allergy, medicine, medicine_category, lab_test, sample_type,
     patient_registration, quick_registration, emergency_registration, patient_documents,
-    patient_visit,
+    patient_visit, opd_visit,
     appointment, permission, auth,
 )
 
@@ -106,6 +106,7 @@ app.include_router(quick_registration.router,    prefix="/api/v1")
 app.include_router(emergency_registration.router, prefix="/api/v1")
 app.include_router(patient_documents.router,      prefix="/api/v1")
 app.include_router(patient_visit.router,          prefix="/api/v1")
+app.include_router(opd_visit.router,              prefix="/api/v1")
 app.include_router(medicine.router,              prefix="/api/v1")
 app.include_router(medicine_category.router,     prefix="/api/v1")
 app.include_router(lab_test.router,              prefix="/api/v1")
@@ -133,3 +134,5 @@ if __name__ == "__main__":
         port=int(os.getenv("PORT", "8001")),
         reload=True,
     )
+    
+# trigger reload

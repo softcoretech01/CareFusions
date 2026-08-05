@@ -177,190 +177,40 @@ interface OPDVisitContextType {
 
 const OPDVisitContext = createContext<OPDVisitContextType | undefined>(undefined);
 
-// ── Dummy data ─────────────────────────────────────────────────────────────
-const today = new Date().toISOString().split('T')[0];
+const API_BASE = import.meta.env.VITE_API_URL as string;
 
-const DUMMY_VISITS: OPDVisit[] = [
-  {
-    id: 1,
-    visitNumber: 'OPD-202601',
-    appointmentId: 1,
-    uhid: 'UHID-2026-0001',
-    patientName: 'John Doe',
-    age: 52,
-    gender: 'Male',
-    mobileNumber: '9876543210',
-    doctorName: 'Dr. Sarah Jenkins',
-    department: 'Cardiology',
-    date: today,
-    timeSlot: '09:00 AM',
-    queueToken: 'CAR-001',
-    appointmentNumber: 'APT-202601',
-    visitType: 'OP',
-    priority: 'Normal',
-    status: 'Nursing Assessment',
-    billingStatus: 'Completed',
-    allergies: [],
-    diagnoses: [],
-    prescriptions: [],
-    labOrders: [],
-    radiologyOrders: [],
-    procedures: [],
-    isFinalized: false,
-  },
-  {
-    id: 2,
-    visitNumber: 'OPD-202602',
-    appointmentId: 2,
-    uhid: 'UHID-2026-0002',
-    patientName: 'Jane Smith',
-    age: 34,
-    gender: 'Female',
-    mobileNumber: '9876543211',
-    doctorName: 'Dr. Michael Chen',
-    department: 'General Medicine',
-    date: today,
-    timeSlot: '09:15 AM',
-    queueToken: 'GEN-001',
-    appointmentNumber: 'APT-202602',
-    visitType: 'Follow-Up',
-    priority: 'Normal',
-    status: 'Completed',
-    billingStatus: 'Completed',
-    allergies: ['Penicillin'],
-    diagnoses: [],
-    prescriptions: [],
-    labOrders: [],
-    radiologyOrders: [],
-    procedures: [],
-    isFinalized: false,
-  },
-  {
-    id: 3,
-    visitNumber: 'OPD-202603',
-    appointmentId: 3,
-    uhid: 'UHID-2026-0003',
-    patientName: 'Robert Johnson',
-    age: 47,
-    gender: 'Male',
-    mobileNumber: '9876543212',
-    doctorName: 'Dr. Emily Brown',
-    department: 'Orthopedics',
-    date: today,
-    timeSlot: '09:30 AM',
-    queueToken: 'ORT-001',
-    appointmentNumber: 'APT-202603',
-    visitType: 'Walk-In',
-    priority: 'Normal',
-    status: 'Waiting for Doctor',
-    billingStatus: 'Pending',
-    allergies: [],
-    vitals: {
-      bp_systolic: 128, bp_diastolic: 82, pulse: 74,
-      respRate: 16, temp: 37.1, tempUnit: 'C', spo2: 98,
-      height: 175, weight: 82, bmi: 26.8,
-      recordedAt: '09:10 AM', recordedBy: 'Nurse Priya',
-    },
-    triageInfo: {
-      chiefComplaint: 'Right knee pain, difficulty walking',
-      painScore: 6,
-      allergyVerified: true,
-      pregnancyStatus: 'NA',
-      fallRisk: 'Medium',
-      infectionStatus: 'None',
-      observations: 'Patient limping, swelling on right knee',
-    },
-    diagnoses: [],
-    prescriptions: [],
-    labOrders: [],
-    radiologyOrders: [],
-    procedures: [],
-    isFinalized: false,
-  },
-  {
-    id: 4,
-    visitNumber: 'OPD-202604',
-    appointmentId: 4,
-    uhid: 'UHID-2026-0004',
-    patientName: 'Maria Garcia',
-    age: 28,
-    gender: 'Female',
-    mobileNumber: '9876543213',
-    doctorName: 'Dr. David Wilson',
-    department: 'Pediatrics',
-    date: today,
-    timeSlot: '10:00 AM',
-    queueToken: 'PED-001',
-    appointmentNumber: 'APT-202604',
-    visitType: 'Emergency',
-    priority: 'Emergency',
-    status: 'Consulting',
-    billingStatus: 'Pending',
-    allergies: ['Sulfa drugs', 'Aspirin'],
-    vitals: {
-      bp_systolic: 90, bp_diastolic: 60, pulse: 110,
-      respRate: 22, temp: 38.9, tempUnit: 'C', spo2: 94,
-      height: 162, weight: 58, bmi: 22.1,
-      recordedAt: '09:55 AM', recordedBy: 'Nurse Kumar',
-    },
-    triageInfo: {
-      chiefComplaint: 'High fever, difficulty breathing',
-      painScore: 7,
-      allergyVerified: true,
-      pregnancyStatus: 'NotPregnant',
-      fallRisk: 'High',
-      infectionStatus: 'Suspected',
-      observations: 'Tachycardic, febrile, SpO2 borderline',
-    },
-    diagnoses: [],
-    prescriptions: [],
-    labOrders: [],
-    radiologyOrders: [],
-    procedures: [],
-    isFinalized: false,
-  },
-  {
-    id: 5,
-    visitNumber: 'OPD-202605',
-    appointmentId: 5,
-    uhid: 'UHID-2026-0005',
-    patientName: 'William Taylor',
-    age: 62,
-    gender: 'Male',
-    mobileNumber: '9876543214',
-    doctorName: 'Dr. Lisa Wong',
-    department: 'Ophthalmology',
-    date: today,
-    timeSlot: '10:30 AM',
-    queueToken: 'OPH-001',
-    appointmentNumber: 'APT-202605',
-    visitType: 'OP',
-    priority: 'Normal',
-    status: 'Nursing Assessment',
-    billingStatus: 'Pending',
-    allergies: [],
-    diagnoses: [],
-    prescriptions: [],
-    labOrders: [],
-    radiologyOrders: [],
-    procedures: [],
-    isFinalized: false,
-  },
-];
-
-let visitCounter = 5;
+let visitCounter = 0;
 
 // ── Provider ───────────────────────────────────────────────────────────────
 export const OPDVisitProvider = ({ children }: { children: ReactNode }) => {
-  const [visits, setVisits] = useState<OPDVisit[]>(() => {
-    const saved = localStorage.getItem('opdVisits_v4');
-    if (saved) return JSON.parse(saved);
-    return DUMMY_VISITS;
-  });
+  const [visits, setVisits] = useState<OPDVisit[]>([]);
+
+  const fetchSchedule = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/opd-visits/schedule`);
+      if (res.ok) {
+        const data = await res.json();
+        // Map the backend data to frontend OPDVisit format
+        const mapped = data.map((d: any) => ({
+          ...d,
+          visitNumber: d.queueToken || `OPD-${d.id}`,
+          allergies: [],
+          diagnoses: [],
+          prescriptions: [],
+          labOrders: d.labOrders || [],
+          radiologyOrders: d.radiologyOrders || [],
+          procedures: [],
+        }));
+        setVisits(mapped);
+      }
+    } catch (e) {
+      console.error("Failed to fetch OPD schedule", e);
+    }
+  }, []);
 
   useEffect(() => {
-    localStorage.setItem('opdVisits_v4', JSON.stringify(visits));
-  }, [visits]);
+    fetchSchedule();
+  }, [fetchSchedule]);
 
   const generateVisitNumber = useCallback((): string => {
     visitCounter += 1;
