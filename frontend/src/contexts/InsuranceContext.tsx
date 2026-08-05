@@ -79,6 +79,7 @@ export type Policy = {
   uhid: string;
   patientName: string;
   policyNumber: string;
+  providerId?: number | null;
   insurerName: string;
   planName: string;
   status: string;
@@ -294,6 +295,7 @@ export const InsuranceProvider = ({ children }: { children: ReactNode }) => {
         body: JSON.stringify({
           uhid: policy.uhid, patientName: policy.patientName,
           policyNumber: policy.policyNumber, insurerName: policy.insurerName,
+          providerId: policy.providerId ?? null,
           planName: policy.planName ?? 'Standard Plan',
           status: policy.status ?? 'Active',
           validUntil: policy.validUntil ?? null,
