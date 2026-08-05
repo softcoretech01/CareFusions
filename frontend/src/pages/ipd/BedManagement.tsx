@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useIPD } from '../../contexts/IPDContext';
 import type { IPDPatient, Bed } from '../../contexts/IPDContext';
 import { Activity, Stethoscope, X, User, Calendar, BedDouble, Clock } from 'lucide-react';
+import { IpdErrorBanner } from './IpdErrorBanner';
 
 export const BedManagement = () => {
   const { wards, beds, patients } = useIPD();
@@ -23,10 +24,11 @@ export const BedManagement = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      <IpdErrorBanner />
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800">Bed Management</h1>
+          <h1 className="text-2xl font-bold text-slate-800">Bed Management</h1>
         </div>
         <select
           className="px-4 py-2 border border-slate-200 rounded-xl bg-white text-sm focus:outline-none focus:border-primary"
@@ -79,7 +81,7 @@ export const BedManagement = () => {
               </div>
 
               {/* Rooms grid */}
-              <div className="space-y-6">
+              <div className="space-y-4">
                 {Object.entries(
                   wardBeds.reduce((acc, bed) => {
                     const room = bed.roomNumber || 'Unknown Room';

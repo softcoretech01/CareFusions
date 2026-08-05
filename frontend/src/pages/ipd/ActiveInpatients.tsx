@@ -3,6 +3,7 @@ import { useIPD } from '../../contexts/IPDContext';
 import { useInvestigations } from '../../contexts/InvestigationContext';
 import { ResultViewer } from '../../components/investigations/ResultViewer';
 import { Search, FileText, FlaskConical, ScanLine } from 'lucide-react';
+import { IpdErrorBanner } from './IpdErrorBanner';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { DateFilter } from '../../components/ui/DateFilter';
 
@@ -67,17 +68,18 @@ export const ActiveInpatients = () => {
   const availableRooms = Array.from(new Set(wardBeds.map(b => b.roomNumber))).sort();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      <IpdErrorBanner />
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800">
+          <h1 className="text-2xl font-bold text-slate-800">
             {selectedWard ? selectedWard.name : 'Active Inpatients'}
           </h1>
         </div>
       </div>
 
       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex flex-col h-[calc(100vh-10rem)]">
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-4 bg-slate-50/50 flex-wrap">
+        <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-4 bg-slate-50/50 flex-wrap">
           <div className="relative w-64">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
@@ -112,12 +114,12 @@ export const ActiveInpatients = () => {
           <table className="w-full">
             <thead className="bg-white text-xs font-semibold text-slate-500 uppercase tracking-wider sticky top-0 shadow-sm z-10 border-b border-slate-100">
               <tr>
-                <th className="px-6 py-4 text-left">Patient & UHID</th>
-                <th className="px-6 py-4 text-left">Ward & Bed</th>
-                <th className="px-6 py-4 text-left">Admitting Doctor</th>
-                <th className="px-6 py-4 text-left">Admission Date</th>
-                <th className="px-6 py-4 text-left">LOS</th>
-                <th className="px-6 py-4 text-left">Action</th>
+                <th className="px-4 py-3 text-left">Patient & UHID</th>
+                <th className="px-4 py-3 text-left">Ward & Bed</th>
+                <th className="px-4 py-3 text-left">Admitting Doctor</th>
+                <th className="px-4 py-3 text-left">Admission Date</th>
+                <th className="px-4 py-3 text-left">LOS</th>
+                <th className="px-4 py-3 text-left">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -137,25 +139,25 @@ export const ActiveInpatients = () => {
 
                   return (
                     <tr key={patient.id} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3">
                         <div className="font-bold text-slate-800">{patient.patientName}</div>
                         <div className="text-xs text-slate-500">{patient.uhid} • {patient.age}y {patient.gender}</div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3">
                         <div className="font-bold text-slate-700">{bed?.bedNumber || 'Unassigned'}</div>
                         <div className="text-xs text-slate-500">{ward?.name || 'N/A'} • Room no {bed?.roomNumber || 'N/A'}</div>
                       </td>
-                      <td className="px-6 py-4 text-sm text-slate-700 font-medium">
+                      <td className="px-4 py-3 text-sm text-slate-700 font-medium">
                         {patient.admittingDoctor}
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3">
                         <div className="text-sm font-medium text-slate-700">{admitDate.toLocaleDateString()}</div>
                         <div className="text-xs text-slate-500">{admitDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                       </td>
-                      <td className="px-6 py-4 text-sm font-bold text-slate-700">
+                      <td className="px-4 py-3 text-sm font-bold text-slate-700">
                         {losDays} Days
                       </td>
-                      <td className="px-6 py-4 flex items-center gap-2">
+                      <td className="px-4 py-3 flex items-center gap-2">
                         <button 
                           onClick={() => navigate(`/ipd/visit/${patient.id}`)}
                           className="px-3 py-1.5 bg-primary/10 text-primary hover:bg-primary hover:text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5"

@@ -3,6 +3,7 @@ import { useIPD } from '../../contexts/IPDContext';
 import { Search, Plus, Eye, Pencil, X, ArrowRightLeft } from 'lucide-react';
 import { Modal } from '../../components/ui/Modal';
 import { DateFilter } from '../../components/ui/DateFilter';
+import { IpdErrorBanner } from './IpdErrorBanner';
 import toast from 'react-hot-toast';
 
 interface TransferWithPatient {
@@ -146,10 +147,11 @@ export const WardTransfers = () => {
   const inputCls = "w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      <IpdErrorBanner />
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800">Ward Transfers</h1>
+          <h1 className="text-2xl font-bold text-slate-800">Ward Transfers</h1>
         </div>
         <button
           onClick={() => {
@@ -164,7 +166,7 @@ export const WardTransfers = () => {
       </div>
 
       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex flex-col h-[calc(100vh-12rem)]">
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-4 bg-slate-50/50 flex-wrap">
+        <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-4 bg-slate-50/50 flex-wrap">
           <div className="relative w-64">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
@@ -189,11 +191,11 @@ export const WardTransfers = () => {
           <table className="w-full text-left text-sm">
             <thead className="bg-white text-xs font-semibold text-slate-500 uppercase tracking-wider sticky top-0 shadow-sm z-10 border-b border-slate-100">
               <tr>
-                <th className="px-6 py-4 text-left">Date &amp; Time</th>
-                <th className="px-6 py-4 text-left">Patient Details</th>
-                <th className="px-6 py-4 text-left">From Ward/Bed</th>
-                <th className="px-6 py-4 text-left">To Ward/Bed</th>
-                <th className="px-6 py-4 text-center">Action</th>
+                <th className="px-4 py-3 text-left">Date &amp; Time</th>
+                <th className="px-4 py-3 text-left">Patient Details</th>
+                <th className="px-4 py-3 text-left">From Ward/Bed</th>
+                <th className="px-4 py-3 text-left">To Ward/Bed</th>
+                <th className="px-4 py-3 text-center">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -212,23 +214,23 @@ export const WardTransfers = () => {
 
                   return (
                     <tr key={transfer.id} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-4 py-3 whitespace-nowrap">
                         <p className="font-bold text-slate-700">{new Date(transfer.transferDate).toLocaleDateString()}</p>
                         <p className="text-xs text-slate-500">{new Date(transfer.transferDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3">
                         <p className="font-bold text-slate-800">{transfer.patientName}</p>
                         <p className="text-xs text-slate-500">{transfer.uhid}</p>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3">
                         <p className="font-bold text-slate-700">{fromWard?.name || 'Unknown'}</p>
                         <p className="text-xs text-slate-500">Bed: {fromBed?.bedNumber || 'N/A'}</p>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3">
                         <p className="font-bold text-slate-800">{toWard?.name || 'Unknown'}</p>
                         <p className="text-xs text-slate-600">Bed: {toBed?.bedNumber || 'N/A'}</p>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3">
                         <div className="flex items-center justify-center gap-2">
                           <button
                             onClick={() => openViewModal(transfer)}
@@ -406,7 +408,7 @@ export const WardTransfers = () => {
                 <p className="text-sm text-slate-700">{viewTransfer.transferReason || 'No reason provided.'}</p>
               </div>
             </div>
-            <div className="px-6 py-4 border-t border-slate-100 flex justify-end">
+            <div className="px-4 py-3 border-t border-slate-100 flex justify-end">
               <button
                 onClick={() => setShowViewModal(false)}
                 className="px-5 py-2 bg-slate-100 text-slate-700 font-semibold rounded-xl hover:bg-slate-200 transition-colors"
@@ -458,7 +460,7 @@ export const WardTransfers = () => {
                 />
               </div>
             </div>
-            <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-3">
+            <div className="px-4 py-3 border-t border-slate-100 flex justify-end gap-3">
               <button
                 onClick={() => setShowEditModal(false)}
                 className="px-5 py-2 border border-slate-200 text-slate-600 font-medium rounded-xl hover:bg-slate-50 transition-colors"

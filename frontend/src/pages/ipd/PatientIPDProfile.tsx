@@ -137,7 +137,7 @@ export const PatientIPDProfile = () => {
 
           {/* DISCHARGE TAB */}
           {activeTab === 'discharge' && (
-            <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 space-y-6">
+            <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                 <div>
                   <h3 className="font-bold text-slate-800 text-xl flex items-center gap-2">
@@ -147,7 +147,7 @@ export const PatientIPDProfile = () => {
                 </div>
               </div>
 
-              <div className="space-y-6">
+              <div className="space-y-4">
                 {/* Clinical Summary */}
                 <div className="border border-slate-200 rounded-2xl p-4">
                   <h4 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
