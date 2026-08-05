@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Pill, Receipt, LayoutDashboard, FileText, AlertOctagon, TrendingUp } from 'lucide-react';
 import { usePharmacyBilling } from '../../contexts/PharmacyBillingContext';
 import Chart from 'react-apexcharts';
@@ -6,7 +6,11 @@ import type { ApexOptions } from 'apexcharts';
 import { DateFilter } from '../../components/ui/DateFilter';
 
 export const PharmacySummary = () => {
-  const { medicines, bills, checkLowStock } = usePharmacyBilling();
+  const { medicines, bills, checkLowStock, refresh } = usePharmacyBilling();
+
+  // Pull the latest sales/stock every time the dashboard is opened, so paying
+  // a bill or making a sale on another screen is reflected here immediately.
+  useEffect(() => { refresh(); }, [refresh]);
   const [activeTab, setActiveTab] = useState<'bills' | 'lowStock' | 'outOfStock'>('bills');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');

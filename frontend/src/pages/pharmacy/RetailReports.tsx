@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FileText, Download, Printer, CreditCard, X, Eye } from 'lucide-react';
 import { usePharmacyBilling } from '../../contexts/PharmacyBillingContext';
@@ -6,7 +6,9 @@ import { DateFilter } from '../../components/ui/DateFilter';
 
 export const RetailReports = () => {
   const navigate = useNavigate();
-  const { bills, updateBillStatus } = usePharmacyBilling() as any;
+  const { bills, updateBillStatus, refresh } = usePharmacyBilling() as any;
+
+  useEffect(() => { refresh(); }, [refresh]);
   const [viewingBill, setViewingBill] = useState<any | null>(null);
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
