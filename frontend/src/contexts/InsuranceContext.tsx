@@ -1,12 +1,22 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
+
+const API_BASE = import.meta.env.VITE_API_URL as string;
+const INS = `${API_BASE}/insurance`;
 
 type Claim = {
-  id: string;
+  id: string;            // ClaimNumber, e.g. CLM-20260001
+  claimId?: number;      // server PK
   patient: string;
   uhid: string;
   insurer: string;
+  providerId?: number;
+  preAuthId?: number;
+  admissionId?: number;
   diagnosis: string;
-  amount: number;
+  amount: number;        // total billed
+  preAuth?: number;
+  claimedAmount?: number;
+  approvedAmount?: number;
   balance: number;
   date: string;
   status: string;
@@ -14,36 +24,70 @@ type Claim = {
 
 type Appeal = {
   id: string;
+  appealId?: number;
   claimId: string;
   patient: string;
   uhid: string;
   insurer: string;
   amount: number;
   denialReason: string;
+  denialCode?: string;
+  appealReason?: string;
   date: string;
   status: string;
 };
 
 type PreAuth = {
   id: string;
+  preAuthId?: number;
   patient: string;
   uhid: string;
   insurer: string;
+  providerId?: number;
+  diagnosis?: string;
   amount: number;
+  approvedAmount?: number;
   date: string;
   status: string;
 };
 
 type Settlement = {
   id: string;
+  settlementId?: number;
   claimId: string;
   patient: string;
   insurer: string;
   billedAmt: number;
   approvedAmt: number;
   tds: number;
+  netReceivable?: number;
   date: string;
   status: string;
+};
+
+export type Provider = {
+  providerId: number;
+  providerCode: string;
+  providerName: string;
+  cashlessFacility: boolean;
+  preAuthRequired: boolean;
+  claimSettlementDays: number | null;
+};
+
+export type Policy = {
+  policyId: number;
+  uhid: string;
+  patientName: string;
+  policyNumber: string;
+  insurerName: string;
+  planName: string;
+  status: string;
+  validUntil: string | null;
+  sumInsured: number;
+  balanceAmount: number;
+  networkHospital: boolean;
+  copayPercentage: number;
+  deductible: number;
 };
 
 interface InsuranceContextType {
@@ -51,10 +95,14 @@ interface InsuranceContextType {
   appeals: Appeal[];
   settlements: Settlement[];
   preAuths: PreAuth[];
+  providers: Provider[];
+  policies: Policy[];
+  loading: boolean;
+  refresh: () => Promise<void>;
   addClaim: (claim: Claim) => void;
-  markClaimDenied: (claimId: string) => void;
+  markClaimDenied: (claimId: string, reason?: string) => void;
   markClaimSettled: (claimId: string, approvedAmt: number) => void;
-  fileAppeal: (appealId: string) => void;
+  fileAppeal: (appealId: string, appealReason?: string) => void;
   updatePreAuthStatus: (id: string, status: string) => void;
   deleteClaim: (id: string) => void;
   updateClaim: (claim: Claim) => void;
@@ -63,145 +111,227 @@ interface InsuranceContextType {
   resolveAppeal: (appealId: string, approvedAmt: number) => void;
   reconcileSettlement: (settlementId: string) => void;
   addPreAuth: (preAuth: PreAuth) => void;
+  savePolicy: (policy: Partial<Policy> & {
+    uhid: string; patientName: string; policyNumber: string; insurerName: string;
+  }) => Promise<boolean>;
+  searchPolicy: (query: string) => Promise<Policy | null>;
 }
 
 const InsuranceContext = createContext<InsuranceContextType | undefined>(undefined);
 
+const JSON_HEADERS = { 'Content-Type': 'application/json' };
+
 export const InsuranceProvider = ({ children }: { children: ReactNode }) => {
-  const [claims, setClaims] = useState<Claim[]>(() => {
-    const saved = localStorage.getItem('insurance_claims_v2');
-    return saved ? JSON.parse(saved) : [
-      { id: 'CLM-2026-001', patient: 'Priya Sharma', uhid: 'UHID-2026-0006', insurer: 'Star Health', diagnosis: 'Viral Fever', amount: 8700, balance: 0, date: 'Jul 21, 2026', status: 'Settled' },
-      { id: 'CLM-2026-002', patient: 'Rahul Verma', uhid: 'UHID-2026-0007', insurer: 'HDFC ERGO', diagnosis: 'Acute MI', amount: 20300, balance: 20300, date: 'Jul 20, 2026', status: 'Submitted' },
-      { id: 'CLM-2026-003', patient: 'Sneha Gupta', uhid: 'UHID-2026-0008', insurer: 'Care Health', diagnosis: 'Observation', amount: 11600, balance: 11600, date: 'Jul 22, 2026', status: 'Denied' },
-      { id: 'CLM-2026-004', patient: 'John Doe', uhid: 'UHID-2026-0001', insurer: 'Star Health', diagnosis: 'Consultation', amount: 1500, balance: 1500, date: 'Jul 23, 2026', status: 'In Process' },
-    ];
-  });
+  const [claims, setClaims] = useState<Claim[]>([]);
+  const [appeals, setAppeals] = useState<Appeal[]>([]);
+  const [settlements, setSettlements] = useState<Settlement[]>([]);
+  const [preAuths, setPreAuths] = useState<PreAuth[]>([]);
+  const [providers, setProviders] = useState<Provider[]>([]);
+  const [policies, setPolicies] = useState<Policy[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const [appeals, setAppeals] = useState<Appeal[]>(() => {
-    const saved = localStorage.getItem('insurance_appeals_v2');
-    return saved ? JSON.parse(saved) : [
-      { id: 'APP-2026-001', claimId: 'CLM-2026-003', patient: 'Sneha Gupta', uhid: 'UHID-2026-0008', insurer: 'Care Health', amount: 11600, denialReason: 'Non-disclosure of pre-existing condition', date: 'Jul 23, 2026', status: 'Appealing' },
-    ];
-  });
+  // All insurance records are owned by the backend (hospital.Ins_*). Denying a
+  // claim raises its appeal and settling one raises its settlement, server-side.
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    const [c, a, s, p, pr, po] = await Promise.allSettled([
+      fetch(`${INS}/claims`).then(r => r.json()),
+      fetch(`${INS}/appeals`).then(r => r.json()),
+      fetch(`${INS}/settlements`).then(r => r.json()),
+      fetch(`${INS}/pre-auths`).then(r => r.json()),
+      fetch(`${INS}/providers`).then(r => r.json()),
+      fetch(`${INS}/policies`).then(r => r.json()),
+    ]);
+    if (c.status === 'fulfilled' && Array.isArray(c.value)) setClaims(c.value);
+    else console.error('[Insurance] claims load failed', c);
+    if (a.status === 'fulfilled' && Array.isArray(a.value)) setAppeals(a.value);
+    if (s.status === 'fulfilled' && Array.isArray(s.value)) setSettlements(s.value);
+    if (p.status === 'fulfilled' && Array.isArray(p.value)) setPreAuths(p.value);
+    if (pr.status === 'fulfilled' && Array.isArray(pr.value)) setProviders(pr.value);
+    if (po.status === 'fulfilled' && Array.isArray(po.value)) setPolicies(po.value);
+    setLoading(false);
+  }, []);
 
-  const [settlements, setSettlements] = useState<Settlement[]>(() => {
-    const saved = localStorage.getItem('insurance_settlements_v2');
-    return saved ? JSON.parse(saved) : [
-      { id: 'SET-2026-001', claimId: 'CLM-2026-001', patient: 'Priya Sharma', insurer: 'Star Health', billedAmt: 8700, approvedAmt: 8700, tds: 870, date: 'Jul 21, 2026', status: 'Reconciled' },
-    ];
-  });
+  useEffect(() => { refresh(); }, [refresh]);
 
-  const [preAuths, setPreAuths] = useState<PreAuth[]>(() => {
-    const saved = localStorage.getItem('insurance_preauths_v2');
-    return saved ? JSON.parse(saved) : [
-      { id: 'AUTH-2026-001', patient: 'Amit Patel', uhid: 'UHID-2026-0009', insurer: 'HDFC ERGO', amount: 14500, date: 'Jul 19, 2026', status: 'Approved' },
-      { id: 'AUTH-2026-002', patient: 'Anjali Desai', uhid: 'UHID-2026-0010', insurer: 'Care Health', amount: 29000, date: 'Jul 15, 2026', status: 'Pending' },
-    ];
-  });
+  // Screens address records by document number; resolve that to the server PK.
+  const claimPk = (id: string) => claims.find(c => c.id === id)?.claimId;
+  const preAuthPk = (id: string) => preAuths.find(p => p.id === id)?.preAuthId;
+  const appealPk = (id: string) => appeals.find(a => a.id === id)?.appealId;
+  const settlementPk = (id: string) => settlements.find(s => s.id === id)?.settlementId;
 
-  useEffect(() => {
-    localStorage.setItem('insurance_claims_v2', JSON.stringify(claims));
-  }, [claims]);
-
-  useEffect(() => {
-    localStorage.setItem('insurance_appeals_v2', JSON.stringify(appeals));
-  }, [appeals]);
-
-  useEffect(() => {
-    localStorage.setItem('insurance_settlements_v2', JSON.stringify(settlements));
-  }, [settlements]);
-
-  useEffect(() => {
-    localStorage.setItem('insurance_preauths_v2', JSON.stringify(preAuths));
-  }, [preAuths]);
-
-  const addClaim = (claim: Claim) => {
-    setClaims([claim, ...claims]);
+  const run = (fn: () => Promise<Response>, label: string) => {
+    (async () => {
+      try {
+        const res = await fn();
+        if (!res.ok) throw new Error(await res.text());
+        await refresh();
+      } catch (e) { console.error(`[Insurance] ${label} failed`, e); }
+    })();
   };
 
-  const markClaimDenied = (claimId: string) => {
-    setClaims(claims.map(c => c.id === claimId ? { ...c, status: 'Denied' } : c));
-    const claim = claims.find(c => c.id === claimId);
-    if (claim && !appeals.find(a => a.claimId === claimId)) {
-      const newAppeal = {
-        id: `APP-${Math.floor(10000 + Math.random() * 90000)}`,
-        claimId: claim.id,
-        patient: claim.patient,
-        uhid: claim.uhid,
-        insurer: claim.insurer,
-        amount: claim.amount,
-        denialReason: 'Pending review of medical necessity (Simulated)',
-        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-        status: 'Denied'
-      };
-      setAppeals([newAppeal, ...appeals]);
+  // The server assigns the claim number (the prototype generated
+  // `CLM-2023-<random>` client-side, with a hardcoded year and no uniqueness).
+  const addClaim = (claim: Claim) => run(() => fetch(`${INS}/claims`, {
+    method: 'POST', headers: JSON_HEADERS,
+    body: JSON.stringify({
+      uhid: claim.uhid, patientName: claim.patient,
+      providerId: claim.providerId ?? null, insurerName: claim.insurer,
+      preAuthId: claim.preAuthId ?? null, admissionId: claim.admissionId ?? null,
+      diagnosis: claim.diagnosis || null,
+      billedAmount: claim.amount, preAuthAmount: claim.preAuth ?? 0,
+      claimedAmount: claim.claimedAmount ?? 0,
+    }),
+  }), 'create claim');
+
+  const updateClaim = (claim: Claim) => {
+    const pk = claim.claimId ?? claimPk(claim.id);
+    if (!pk) return;
+    const current = claims.find(c => c.id === claim.id);
+    run(() => fetch(`${INS}/claims/${pk}`, {
+      method: 'PUT', headers: JSON_HEADERS,
+      body: JSON.stringify({
+        uhid: claim.uhid, patientName: claim.patient,
+        providerId: claim.providerId ?? null, insurerName: claim.insurer,
+        diagnosis: claim.diagnosis || null, billedAmount: claim.amount,
+        preAuthAmount: claim.preAuth ?? 0, claimedAmount: claim.claimedAmount ?? 0,
+      }),
+    }), 'update claim');
+    // A status change goes through the status endpoint so the settlement /
+    // appeal side effects fire — editing a claim to Settled or Denied did
+    // nothing in the prototype.
+    if (current && current.status !== claim.status) {
+      run(() => fetch(`${INS}/claims/${pk}/status`, {
+        method: 'PATCH', headers: JSON_HEADERS,
+        body: JSON.stringify({ status: claim.status, approvedAmount: claim.claimedAmount ?? null }),
+      }), 'claim status');
     }
-  };
-
-  const markClaimSettled = (claimId: string, approvedAmt: number) => {
-    setClaims(claims.map(c => c.id === claimId ? { ...c, status: 'Settled', balance: c.amount - approvedAmt } : c));
-    const claim = claims.find(c => c.id === claimId);
-    if (claim && !settlements.find(s => s.claimId === claimId)) {
-      const newSettlement = {
-        id: `SET-${Math.floor(1000 + Math.random() * 9000)}`,
-        claimId: claim.id,
-        patient: claim.patient,
-        insurer: claim.insurer,
-        billedAmt: claim.amount,
-        approvedAmt: approvedAmt,
-        tds: approvedAmt * 0.1, // 10% TDS
-        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-        status: 'Pending'
-      };
-      setSettlements([newSettlement, ...settlements]);
-    }
-  };
-
-  const fileAppeal = (appealId: string) => {
-    setAppeals(appeals.map(a => a.id === appealId ? { ...a, status: 'Appealing' } : a));
-  };
-
-  const resolveAppeal = (appealId: string, approvedAmt: number) => {
-    setAppeals(appeals.map(a => a.id === appealId ? { ...a, status: 'Resolved' } : a));
-    const appeal = appeals.find(a => a.id === appealId);
-    if (appeal) {
-      markClaimSettled(appeal.claimId, approvedAmt);
-    }
-  };
-
-  const reconcileSettlement = (settlementId: string) => {
-    setSettlements(settlements.map(s => s.id === settlementId ? { ...s, status: 'Reconciled' } : s));
-  };
-
-  const addPreAuth = (preAuth: PreAuth) => {
-    setPreAuths([preAuth, ...preAuths]);
-  };
-
-  const updatePreAuthStatus = (id: string, status: string) => {
-    setPreAuths(preAuths.map(p => p.id === id ? { ...p, status } : p));
   };
 
   const deleteClaim = (id: string) => {
-    setClaims(claims.filter(c => c.id !== id));
+    const pk = claimPk(id);
+    if (pk) run(() => fetch(`${INS}/claims/${pk}`, { method: 'DELETE' }), 'delete claim');
   };
 
-  const updateClaim = (updatedClaim: Claim) => {
-    setClaims(claims.map(c => c.id === updatedClaim.id ? updatedClaim : c));
+  const markClaimDenied = (claimId: string, reason?: string) => {
+    const pk = claimPk(claimId);
+    if (pk) run(() => fetch(`${INS}/claims/${pk}/status`, {
+      method: 'PATCH', headers: JSON_HEADERS,
+      body: JSON.stringify({ status: 'Denied', reason: reason ?? null }),
+    }), 'deny claim');
+  };
+
+  const markClaimSettled = (claimId: string, approvedAmt: number) => {
+    const pk = claimPk(claimId);
+    if (pk) run(() => fetch(`${INS}/claims/${pk}/status`, {
+      method: 'PATCH', headers: JSON_HEADERS,
+      body: JSON.stringify({ status: 'Settled', approvedAmount: approvedAmt }),
+    }), 'settle claim');
+  };
+
+  const addPreAuth = (p: PreAuth) => run(() => fetch(`${INS}/pre-auths`, {
+    method: 'POST', headers: JSON_HEADERS,
+    body: JSON.stringify({
+      uhid: p.uhid, patientName: p.patient, providerId: p.providerId ?? null,
+      insurerName: p.insurer, diagnosis: p.diagnosis || null, requestedAmount: p.amount,
+    }),
+  }), 'create pre-auth');
+
+  const updatePreAuth = (p: PreAuth) => {
+    const pk = p.preAuthId ?? preAuthPk(p.id);
+    if (!pk) return;
+    run(() => fetch(`${INS}/pre-auths/${pk}`, {
+      method: 'PUT', headers: JSON_HEADERS,
+      body: JSON.stringify({
+        uhid: p.uhid, patientName: p.patient, providerId: p.providerId ?? null,
+        insurerName: p.insurer, diagnosis: p.diagnosis || null,
+        requestedAmount: p.amount, status: p.status,
+      }),
+    }), 'update pre-auth');
+  };
+
+  const updatePreAuthStatus = (id: string, status: string) => {
+    const pk = preAuthPk(id);
+    if (pk) run(() => fetch(`${INS}/pre-auths/${pk}/status`, {
+      method: 'PATCH', headers: JSON_HEADERS, body: JSON.stringify({ status }),
+    }), 'pre-auth status');
   };
 
   const deletePreAuth = (id: string) => {
-    setPreAuths(preAuths.filter(p => p.id !== id));
+    const pk = preAuthPk(id);
+    if (pk) run(() => fetch(`${INS}/pre-auths/${pk}`, { method: 'DELETE' }), 'delete pre-auth');
   };
 
-  const updatePreAuth = (updatedPreAuth: PreAuth) => {
-    setPreAuths(preAuths.map(p => p.id === updatedPreAuth.id ? updatedPreAuth : p));
+  const fileAppeal = (appealId: string, appealReason?: string) => {
+    const pk = appealPk(appealId);
+    if (pk) run(() => fetch(`${INS}/appeals/${pk}/file`, {
+      method: 'POST', headers: JSON_HEADERS,
+      body: JSON.stringify({ appealReason: appealReason ?? null }),
+    }), 'file appeal');
+  };
+
+  const resolveAppeal = (appealId: string, approvedAmt: number) => {
+    const pk = appealPk(appealId);
+    if (pk) run(() => fetch(`${INS}/appeals/${pk}/resolve`, {
+      method: 'POST', headers: JSON_HEADERS,
+      body: JSON.stringify({ approvedAmount: approvedAmt }),
+    }), 'resolve appeal');
+  };
+
+  const reconcileSettlement = (settlementId: string) => {
+    const pk = settlementPk(settlementId);
+    if (pk) run(() => fetch(`${INS}/settlements/${pk}/reconcile`, {
+      method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({}),
+    }), 'reconcile settlement');
+  };
+
+  // Eligibility records are persisted now — the prototype kept them in a
+  // component useState that was lost on every reload.
+  const savePolicy: InsuranceContextType['savePolicy'] = async (policy) => {
+    try {
+      const res = await fetch(`${INS}/policies`, {
+        method: 'POST', headers: JSON_HEADERS,
+        body: JSON.stringify({
+          uhid: policy.uhid, patientName: policy.patientName,
+          policyNumber: policy.policyNumber, insurerName: policy.insurerName,
+          planName: policy.planName ?? 'Standard Plan',
+          status: policy.status ?? 'Active',
+          validUntil: policy.validUntil ?? null,
+          sumInsured: policy.sumInsured ?? 0,
+          balanceAmount: policy.balanceAmount ?? null,
+          networkHospital: policy.networkHospital ?? true,
+          copayPercentage: policy.copayPercentage ?? 0,
+          deductible: policy.deductible ?? 0,
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      await refresh();
+      return true;
+    } catch (e) {
+      console.error('[Insurance] save policy failed', e);
+      return false;
+    }
+  };
+
+  const searchPolicy = async (query: string): Promise<Policy | null> => {
+    try {
+      const res = await fetch(`${INS}/policies/search?q=${encodeURIComponent(query)}`);
+      if (!res.ok) return null;
+      return await res.json();
+    } catch {
+      return null;
+    }
   };
 
   return (
-    <InsuranceContext.Provider value={{
-      claims, appeals, settlements, preAuths, addClaim, markClaimDenied, markClaimSettled, fileAppeal, resolveAppeal, reconcileSettlement, addPreAuth, updatePreAuthStatus, deleteClaim, updateClaim, deletePreAuth, updatePreAuth
-    }}>
+    <InsuranceContext.Provider
+      value={{
+        claims, appeals, settlements, preAuths, providers, policies, loading, refresh,
+        addClaim, markClaimDenied, markClaimSettled, fileAppeal, updatePreAuthStatus,
+        deleteClaim, updateClaim, deletePreAuth, updatePreAuth, resolveAppeal,
+        reconcileSettlement, addPreAuth, savePolicy, searchPolicy,
+      }}
+    >
       {children}
     </InsuranceContext.Provider>
   );
