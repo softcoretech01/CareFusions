@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Activity, Plus, Trash2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Activity, Plus, Trash2, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export interface VitalsEntry {
@@ -17,17 +17,30 @@ interface NursingFlowsheetProps {
   patientId: number;
 }
 
-export const NursingFlowsheet: React.FC<NursingFlowsheetProps> = () => {
-  const [entries, setEntries] = useState<VitalsEntry[]>([]);
+export const NursingFlowsheet: React.FC<NursingFlowsheetProps> = ({ patientId }) => {
+  // Persist per patient so recorded vitals survive navigation/refresh.
+  const storageKey = `ipd_flowsheet_${patientId}`;
+  const [entries, setEntries] = useState<VitalsEntry[]>(() => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) return JSON.parse(saved);
+    } catch { /* ignore */ }
+    return [];
+  });
   const [isAdding, setIsAdding] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     temperature: '',
     pulse: '',
     bloodPressure: '',
     respiratoryRate: '',
     spO2: '',
-    notes: ''
+    notes: '',
   });
+
+  useEffect(() => {
+    try { localStorage.setItem(storageKey, JSON.stringify(entries)); } catch { /* ignore */ }
+  }, [entries, storageKey]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,13 +48,7 @@ export const NursingFlowsheet: React.FC<NursingFlowsheetProps> = () => {
       toast.error('Please enter at least one vital sign');
       return;
     }
-
-    const newEntry: VitalsEntry = {
-      id: Date.now().toString(),
-      timestamp: new Date().toISOString(),
-      ...formData
-    };
-
+    const newEntry: VitalsEntry = { id: Date.now().toString(), timestamp: new Date().toISOString(), ...formData };
     setEntries([newEntry, ...entries]);
     setIsAdding(false);
     setFormData({ temperature: '', pulse: '', bloodPressure: '', respiratoryRate: '', spO2: '', notes: '' });
@@ -50,19 +57,21 @@ export const NursingFlowsheet: React.FC<NursingFlowsheetProps> = () => {
 
   const handleDelete = (id: string) => {
     setEntries(entries.filter(e => e.id !== id));
+    if (selectedId === id) setSelectedId(null);
     toast.success('Vitals entry removed');
   };
 
-  const inputCls = "w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20";
+  const inputCls = 'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20';
+  const shown = selectedId ? entries.filter(e => e.id === selectedId) : entries;
 
   return (
-    <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 space-y-6">
-      <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-        <h3 className="font-bold text-slate-800 text-xl flex items-center gap-2">
+    <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 space-y-4">
+      <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h3 className="font-bold text-slate-800 text-lg flex items-center gap-2">
           <Activity className="w-5 h-5 text-primary" /> Nursing Flowsheet
         </h3>
         {!isAdding && (
-          <button 
+          <button
             onClick={() => setIsAdding(true)}
             className="px-4 py-2 bg-primary/10 text-primary font-bold rounded-xl text-sm flex items-center gap-2 hover:bg-primary hover:text-white transition-colors"
           >
@@ -72,34 +81,34 @@ export const NursingFlowsheet: React.FC<NursingFlowsheetProps> = () => {
       </div>
 
       {isAdding && (
-        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 mb-6">
-          <h4 className="font-bold text-slate-800 mb-4">New Vitals Entry</h4>
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4">
+          <h4 className="font-bold text-slate-800 mb-3">New Vitals Entry</h4>
           <form onSubmit={handleSubmit}>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-3">
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Temp (°F/°C)</label>
-                <input type="text" placeholder="e.g. 98.6" value={formData.temperature} onChange={e => setFormData({...formData, temperature: e.target.value})} className={inputCls} />
+                <input type="text" placeholder="e.g. 98.6" value={formData.temperature} onChange={e => setFormData({ ...formData, temperature: e.target.value })} className={inputCls} />
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Pulse (bpm)</label>
-                <input type="text" placeholder="e.g. 82" value={formData.pulse} onChange={e => setFormData({...formData, pulse: e.target.value})} className={inputCls} />
+                <input type="text" placeholder="e.g. 82" value={formData.pulse} onChange={e => setFormData({ ...formData, pulse: e.target.value.replace(/[^\d]/g, '').slice(0, 3) })} className={inputCls} />
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">BP (mmHg)</label>
-                <input type="text" placeholder="e.g. 120/80" value={formData.bloodPressure} onChange={e => setFormData({...formData, bloodPressure: e.target.value})} className={inputCls} />
+                <input type="text" placeholder="e.g. 120/80" value={formData.bloodPressure} onChange={e => setFormData({ ...formData, bloodPressure: e.target.value })} className={inputCls} />
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">RR (bpm)</label>
-                <input type="text" placeholder="e.g. 16" value={formData.respiratoryRate} onChange={e => setFormData({...formData, respiratoryRate: e.target.value})} className={inputCls} />
+                <input type="text" placeholder="e.g. 16" value={formData.respiratoryRate} onChange={e => setFormData({ ...formData, respiratoryRate: e.target.value.replace(/[^\d]/g, '').slice(0, 3) })} className={inputCls} />
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">SpO2 (%)</label>
-                <input type="text" placeholder="e.g. 98" value={formData.spO2} onChange={e => setFormData({...formData, spO2: e.target.value})} className={inputCls} />
+                <input type="text" placeholder="e.g. 98" value={formData.spO2} onChange={e => setFormData({ ...formData, spO2: e.target.value.replace(/[^\d]/g, '').slice(0, 3) })} className={inputCls} />
               </div>
             </div>
-            <div className="mb-4">
+            <div className="mb-3">
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nursing Notes</label>
-              <input type="text" placeholder="Observations, inputs/outputs, etc." value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})} className={inputCls} />
+              <input type="text" placeholder="Observations, inputs/outputs, etc." value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} className={inputCls} />
             </div>
             <div className="flex justify-end gap-2">
               <button type="button" onClick={() => setIsAdding(false)} className="px-4 py-2 bg-slate-200 text-slate-700 font-bold rounded-xl text-sm hover:bg-slate-300 transition-colors">Cancel</button>
@@ -109,49 +118,93 @@ export const NursingFlowsheet: React.FC<NursingFlowsheetProps> = () => {
         </div>
       )}
 
-      {entries.length === 0 ? (
-        <div className="text-center py-12 text-slate-400 font-medium">
-          <Activity className="w-12 h-12 mx-auto text-slate-200 mb-3" />
-          No flowsheet entries recorded yet for this shift.
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Left: History timeline */}
+        <div className="lg:col-span-1 border border-slate-100 rounded-2xl bg-slate-50/50 p-3">
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">History</h4>
+            {selectedId && (
+              <button onClick={() => setSelectedId(null)} className="text-[11px] text-primary font-semibold">Show all</button>
+            )}
+          </div>
+          {entries.length === 0 ? (
+            <p className="text-sm text-slate-400 py-6 text-center">No history yet.</p>
+          ) : (
+            <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1 custom-scrollbar">
+              {entries.map(entry => {
+                const active = selectedId === entry.id;
+                return (
+                  <button
+                    key={entry.id}
+                    onClick={() => setSelectedId(active ? null : entry.id)}
+                    className={`w-full text-left rounded-xl border px-3 py-2 transition-colors ${
+                      active ? 'border-primary bg-primary/5' : 'border-slate-200 bg-white hover:border-primary/40'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-700">{new Date(entry.timestamp).toLocaleDateString()}</span>
+                      <span className="text-[11px] text-slate-400 flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-slate-500 mt-1">
+                      T {entry.temperature || '-'} · P {entry.pulse || '-'} · BP {entry.bloodPressure || '-'} · SpO2 {entry.spO2 || '-'}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
-              <tr>
-                <th className="px-4 py-3 font-bold">Time</th>
-                <th className="px-4 py-3 font-bold">Temp</th>
-                <th className="px-4 py-3 font-bold">Pulse</th>
-                <th className="px-4 py-3 font-bold">BP</th>
-                <th className="px-4 py-3 font-bold">RR</th>
-                <th className="px-4 py-3 font-bold">SpO2</th>
-                <th className="px-4 py-3 font-bold">Notes</th>
-                <th className="px-4 py-3 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {entries.map(entry => (
-                <tr key={entry.id} className="border-b border-slate-100 hover:bg-slate-50/50">
-                  <td className="px-4 py-3 font-medium text-slate-800">
-                    {new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </td>
-                  <td className="px-4 py-3">{entry.temperature || '-'}</td>
-                  <td className="px-4 py-3">{entry.pulse || '-'}</td>
-                  <td className="px-4 py-3">{entry.bloodPressure || '-'}</td>
-                  <td className="px-4 py-3">{entry.respiratoryRate || '-'}</td>
-                  <td className="px-4 py-3">{entry.spO2 || '-'}</td>
-                  <td className="px-4 py-3 text-slate-500">{entry.notes || '-'}</td>
-                  <td className="px-4 py-3 text-right">
-                    <button onClick={() => handleDelete(entry.id)} className="text-red-400 hover:text-red-600 p-1">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+
+        {/* Right: detail table */}
+        <div className="lg:col-span-2">
+          {entries.length === 0 ? (
+            <div className="text-center py-12 text-slate-400 font-medium">
+              <Activity className="w-12 h-12 mx-auto text-slate-200 mb-3" />
+              No flowsheet entries recorded yet for this shift.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    <th className="px-3 py-2 font-bold">Time</th>
+                    <th className="px-3 py-2 font-bold">Temp</th>
+                    <th className="px-3 py-2 font-bold">Pulse</th>
+                    <th className="px-3 py-2 font-bold">BP</th>
+                    <th className="px-3 py-2 font-bold">RR</th>
+                    <th className="px-3 py-2 font-bold">SpO2</th>
+                    <th className="px-3 py-2 font-bold">Notes</th>
+                    <th className="px-3 py-2 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {shown.map(entry => (
+                    <tr key={entry.id} className="border-b border-slate-100 hover:bg-slate-50/50">
+                      <td className="px-3 py-2 font-medium text-slate-800 whitespace-nowrap">
+                        {new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </td>
+                      <td className="px-3 py-2">{entry.temperature || '-'}</td>
+                      <td className="px-3 py-2">{entry.pulse || '-'}</td>
+                      <td className="px-3 py-2">{entry.bloodPressure || '-'}</td>
+                      <td className="px-3 py-2">{entry.respiratoryRate || '-'}</td>
+                      <td className="px-3 py-2">{entry.spO2 || '-'}</td>
+                      <td className="px-3 py-2 text-slate-500">{entry.notes || '-'}</td>
+                      <td className="px-3 py-2 text-right">
+                        <button onClick={() => handleDelete(entry.id)} className="text-red-400 hover:text-red-600 p-1">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 };
