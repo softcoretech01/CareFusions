@@ -123,8 +123,9 @@ def health_check():
 
 
 # ── Entrypoint ────────────────────────────────────────────────
-# Run with:  python main.py   (defaults to port 8001, matching the
-# frontend's VITE_API_URL). Override with the PORT env var if needed.
+# Run with:  python main.py   (defaults to port 8000, matching the
+# frontend's VITE_API_URL=http://localhost:8000/api/v1). Override with
+# the PORT env var if needed.
 if __name__ == "__main__":
     import os
     import uvicorn
@@ -132,6 +133,6 @@ if __name__ == "__main__":
     uvicorn.run(
         "main:app",
         host=os.getenv("HOST", "0.0.0.0"),
-        port=int(os.getenv("PORT", "8001")),
+        port=int(os.getenv("PORT", "8000")),
         reload=True,
     )

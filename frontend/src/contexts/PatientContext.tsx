@@ -1,6 +1,11 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 
-const PATIENTS_STORAGE_KEY = 'carefusion_patients_v1';
+const API_BASE = import.meta.env.VITE_API_URL as string;
+
+// ID namespaces so the three separate auto-increment sequences
+// (New / Quick / Emergency each start at 1) never collide once merged.
+const QUICK_ID_OFFSET = 1_000_000;
+const EMERGENCY_ID_OFFSET = 2_000_000;
 
 export interface GlobalPatientRecord {
   id: number;
@@ -9,7 +14,7 @@ export interface GlobalPatientRecord {
   registrationTime: string;
   registrationType: 'New' | 'Quick' | 'Emergency';
   status: string;
-  
+
   // Core demographics
   title?: string;
   patientName?: string;
@@ -17,28 +22,31 @@ export interface GlobalPatientRecord {
   dateOfBirth?: string;
   age?: number;
   approximateAge?: number;
-  
+
   // Contact
   mobileNumber?: string;
   alternateMobile?: string;
+  email?: string;
   nationalId?: string;
-  
+
   // Visit info
   visitType?: string;
   department?: string;
   doctor?: string;
   priority?: string;
-  
+
   // Emergency Contacts
   emergencyContactName?: string;
   emergencyContactPhone?: string;
-  
-  // Allow dynamic addition of other fields from massive form
+
+  // Allow dynamic addition of other fields from the massive intake form
   [key: string]: any;
 }
 
 interface PatientContextType {
   patients: GlobalPatientRecord[];
+  loading: boolean;
+  refreshPatients: () => Promise<void>;
   addPatient: (patient: GlobalPatientRecord) => void;
   updatePatient: (id: number, data: Partial<GlobalPatientRecord>) => void;
   getPatientByUhid: (uhid: string) => GlobalPatientRecord | undefined;
@@ -47,186 +55,124 @@ interface PatientContextType {
 
 const PatientContext = createContext<PatientContextType | undefined>(undefined);
 
-// Initial mock data — matches appointment context UHIDs so existing patient search works
-const initialPatients: GlobalPatientRecord[] = [
-  // ── OP Patients ──
-  {
-    id: 1,
-    uhid: 'UHID-2026-0001',
-    patientName: 'John Doe',
-    gender: 'Male',
-    age: 52,
-    mobileNumber: '9876543210',
-    registrationDate: '2026-07-23',
-    registrationTime: '08:30 AM',
-    registrationType: 'New',
-    status: 'Active',
-    department: 'Cardiology',
-    doctor: 'Dr. Sarah Jenkins',
-  },
-  {
-    id: 2,
-    uhid: 'UHID-2026-0002',
-    patientName: 'Jane Smith',
-    gender: 'Female',
-    age: 34,
-    mobileNumber: '9876543211',
-    email: 'jane.smith@email.com',
-    registrationDate: '2026-07-23',
-    registrationTime: '08:45 AM',
-    registrationType: 'New',
-    status: 'Active',
-    department: 'General Medicine',
-    doctor: 'Dr. Michael Chen',
-  },
-  {
-    id: 3,
-    uhid: 'UHID-2026-0003',
-    patientName: 'Robert Johnson',
-    gender: 'Male',
-    age: 47,
-    mobileNumber: '9876543212',
-    registrationDate: '2026-07-23',
-    registrationTime: '09:00 AM',
-    registrationType: 'Quick',
-    status: 'Active',
-    department: 'Orthopedics',
-    doctor: 'Dr. Emily Brown',
-  },
-  {
-    id: 4,
-    uhid: 'UHID-2026-0004',
-    patientName: 'Maria Garcia',
-    gender: 'Female',
-    age: 28,
-    mobileNumber: '9876543213',
-    registrationDate: '2026-07-23',
-    registrationTime: '09:15 AM',
-    registrationType: 'Emergency',
-    status: 'Active',
-    department: 'Pediatrics',
-    doctor: 'Dr. David Wilson',
-  },
-  {
-    id: 5,
-    uhid: 'UHID-2026-0005',
-    patientName: 'William Taylor',
-    gender: 'Male',
-    age: 62,
-    mobileNumber: '9876543214',
-    registrationDate: '2026-07-23',
-    registrationTime: '09:30 AM',
-    registrationType: 'New',
-    status: 'Active',
-    department: 'Ophthalmology',
-    doctor: 'Dr. Lisa Wong',
-  },
-  // ── IP Patients ──
-  {
-    id: 6,
-    uhid: 'UHID-2026-0006',
-    patientName: 'Priya Sharma',
-    gender: 'Female',
-    age: 45,
-    mobileNumber: '9876543215',
-    registrationDate: '2026-07-20',
-    registrationTime: '10:00 AM',
-    registrationType: 'New',
-    status: 'Active',
-    department: 'General Medicine',
-    doctor: 'Dr. Sarah Jenkins',
-  },
-  {
-    id: 7,
-    uhid: 'UHID-2026-0007',
-    patientName: 'Rahul Verma',
-    gender: 'Male',
-    age: 55,
-    mobileNumber: '9876543216',
-    registrationDate: '2026-07-18',
-    registrationTime: '11:30 AM',
-    registrationType: 'Emergency',
-    status: 'Active',
-    department: 'Cardiology',
-    doctor: 'Dr. Michael Chen',
-  },
-  {
-    id: 8,
-    uhid: 'UHID-2026-0008',
-    patientName: 'Sneha Gupta',
-    gender: 'Female',
-    age: 32,
-    mobileNumber: '9876543217',
-    registrationDate: '2026-07-21',
-    registrationTime: '02:15 PM',
-    registrationType: 'New',
-    status: 'Active',
-    department: 'Obstetrics',
-    doctor: 'Dr. Emily Brown',
-  },
-  {
-    id: 9,
-    uhid: 'UHID-2026-0009',
-    patientName: 'Amit Patel',
-    gender: 'Male',
-    age: 41,
-    mobileNumber: '9876543218',
-    registrationDate: '2026-07-19',
-    registrationTime: '04:45 PM',
-    registrationType: 'Quick',
-    status: 'Active',
-    department: 'Orthopedics',
-    doctor: 'Dr. David Wilson',
-  },
-  {
-    id: 10,
-    uhid: 'UHID-2026-0010',
-    patientName: 'Anjali Desai',
-    gender: 'Female',
-    age: 68,
-    mobileNumber: '9876543219',
-    registrationDate: '2026-07-15',
-    registrationTime: '08:00 AM',
-    registrationType: 'Emergency',
-    status: 'Active',
-    department: 'Neurology',
-    doctor: 'Dr. Lisa Wong',
-  },
-];
+// ── API row → GlobalPatientRecord mappers ────────────────────
+// The backend returns PascalCase columns; normalise to the camelCase
+// shape the app consumes. Each source is tagged with its registrationType
+// and given a collision-free id.
+const mapNew = (r: any): GlobalPatientRecord => ({
+  id: r.PatientId,
+  uhid: r.Uhid,
+  registrationType: 'New',
+  registrationDate: r.RegistrationDate ?? '',
+  registrationTime: r.RegistrationTime ?? '',
+  status: r.Status ?? 'Active',
+  title: r.Title,
+  patientName: r.PatientName,
+  gender: r.Gender,
+  dateOfBirth: r.DateOfBirth,
+  age: r.Age,
+  mobileNumber: r.MobileNumber,
+  alternateMobile: r.AlternateMobile,
+  email: r.Email,
+  department: r.Department,
+  doctor: r.PrimaryDoctor,
+  bloodGroup: r.BloodGroup,
+});
+
+const mapQuick = (r: any): GlobalPatientRecord => ({
+  id: QUICK_ID_OFFSET + r.QuickRegistrationId,
+  uhid: r.Uhid,
+  registrationType: 'Quick',
+  registrationDate: r.RegistrationDate ?? '',
+  registrationTime: r.RegistrationTime ?? '',
+  status: r.Status ?? 'Active',
+  title: r.Title,
+  patientName: r.PatientName,
+  gender: r.Gender,
+  dateOfBirth: r.DateOfBirth,
+  age: r.Age,
+  mobileNumber: r.MobileNumber,
+  alternateMobile: r.AlternateMobile,
+  visitType: r.VisitType,
+  department: r.Department,
+  doctor: r.Doctor,
+  priority: r.Priority,
+});
+
+const mapEmergency = (r: any): GlobalPatientRecord => ({
+  id: EMERGENCY_ID_OFFSET + r.EmergencyRegistrationId,
+  uhid: r.Uhid,
+  registrationType: 'Emergency',
+  registrationDate: r.RegistrationDate ?? '',
+  registrationTime: r.RegistrationTime ?? '',
+  status: r.Status ?? 'Active',
+  patientName: r.PatientName,
+  gender: r.Gender,
+  age: r.ApproximateAge,
+  approximateAge: r.ApproximateAge,
+  department: 'Emergency',
+  mobileNumber: r.EmergencyContactPhone,
+  emergencyContactName: r.EmergencyContactName,
+  emergencyContactPhone: r.EmergencyContactPhone,
+});
+
+async function fetchList(path: string): Promise<any[]> {
+  const res = await fetch(`${API_BASE}/${path}`);
+  if (!res.ok) throw new Error(`${path} → ${res.status}`);
+  const data = await res.json();
+  return Array.isArray(data) ? data : [];
+}
 
 export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  // Persist to localStorage so patients registered via booking/registration
-  // survive a page refresh (they used to reset to the seed data on reload).
-  const [patients, setPatients] = useState<GlobalPatientRecord[]>(() => {
-    try {
-      const saved = localStorage.getItem(PATIENTS_STORAGE_KEY);
-      if (saved) return JSON.parse(saved);
-    } catch { /* corrupt/unavailable storage — fall back to seed */ }
-    return initialPatients;
-  });
+  const [patients, setPatients] = useState<GlobalPatientRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Load the real registered-patient directory (New + Quick + Emergency)
+  // from the API. This is the single source of truth shared by the IPD
+  // admission picker, appointment search, billing and insurance screens.
+  const refreshPatients = useCallback(async () => {
+    setLoading(true);
+    const [neu, quick, emergency] = await Promise.allSettled([
+      fetchList('patients/'),
+      fetchList('quick-registrations/'),
+      fetchList('emergency-registrations/'),
+    ]);
+
+    const merged: GlobalPatientRecord[] = [];
+    if (neu.status === 'fulfilled') merged.push(...neu.value.map(mapNew));
+    if (quick.status === 'fulfilled') merged.push(...quick.value.map(mapQuick));
+    if (emergency.status === 'fulfilled') merged.push(...emergency.value.map(mapEmergency));
+
+    // Newest first by registration date.
+    merged.sort((a, b) => (b.registrationDate || '').localeCompare(a.registrationDate || ''));
+
+    if (neu.status === 'rejected') console.error('[PatientContext] patients load failed:', neu.reason);
+    if (quick.status === 'rejected') console.error('[PatientContext] quick-registrations load failed:', quick.reason);
+    if (emergency.status === 'rejected') console.error('[PatientContext] emergency-registrations load failed:', emergency.reason);
+
+    setPatients(merged);
+    setLoading(false);
+  }, []);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(PATIENTS_STORAGE_KEY, JSON.stringify(patients));
-    } catch { /* storage full/unavailable — ignore */ }
-  }, [patients]);
+    refreshPatients();
+  }, [refreshPatients]);
 
+  // Optimistic local add — the actual persistence happens in the
+  // registration/booking flow that calls this; keeping it local means the
+  // just-created patient is immediately searchable without a full refetch.
   const addPatient = (patient: GlobalPatientRecord) => {
     setPatients((prev) => [patient, ...prev]);
   };
 
   const updatePatient = (id: number, data: Partial<GlobalPatientRecord>) => {
-    setPatients((prev) => 
-      prev.map(p => (p.id === id ? { ...p, ...data } : p))
-    );
+    setPatients((prev) => prev.map(p => (p.id === id ? { ...p, ...data } : p)));
   };
 
-  const getPatientByUhid = (uhid: string) => {
-    return patients.find(p => p.uhid === uhid);
-  };
+  const getPatientByUhid = (uhid: string) => patients.find(p => p.uhid === uhid);
 
   // Generate the next UHID in the format UHID-<year>-<roll>, e.g. UHID-2026-0011.
-  // The roll number continues from the highest existing UHID for the current year.
+  // Continues from the highest existing UHID for the current year.
   const generateUhid = useCallback((): string => {
     const year = new Date().getFullYear();
     const prefix = `UHID-${year}-`;
@@ -241,7 +187,7 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, [patients]);
 
   return (
-    <PatientContext.Provider value={{ patients, addPatient, updatePatient, getPatientByUhid, generateUhid }}>
+    <PatientContext.Provider value={{ patients, loading, refreshPatients, addPatient, updatePatient, getPatientByUhid, generateUhid }}>
       {children}
     </PatientContext.Provider>
   );
