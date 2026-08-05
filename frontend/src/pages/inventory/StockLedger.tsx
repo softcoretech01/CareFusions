@@ -40,7 +40,7 @@ export const StockLedger = () => {
   const outQty = rows.filter(r => r.quantity < 0).reduce((s, r) => s - r.quantity, 0);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3">
         <div>
           <h1 className="text-xl font-bold text-slate-800">Stock Ledger</h1>
@@ -64,7 +64,7 @@ export const StockLedger = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-3 flex flex-wrap items-center gap-2">
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-2.5 flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input type="text" value={search} onChange={e => setSearch(e.target.value)}
@@ -94,48 +94,48 @@ export const StockLedger = () => {
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-xs font-semibold text-slate-500 uppercase tracking-wider">
               <tr>
-                <th className="px-4 py-3 text-left">Date</th>
-                <th className="px-4 py-3 text-left">Document</th>
-                <th className="px-4 py-3 text-left">Type</th>
-                <th className="px-4 py-3 text-left">Item / Batch</th>
-                <th className="px-4 py-3 text-left">Store</th>
-                <th className="px-4 py-3 text-right">Qty</th>
-                <th className="px-4 py-3 text-right">Rate</th>
-                <th className="px-4 py-3 text-right">Value</th>
-                <th className="px-4 py-3 text-right">Balance</th>
-                <th className="px-4 py-3 text-left">User</th>
+                <th className="px-3 py-2 text-left">Date</th>
+                <th className="px-3 py-2 text-left">Document</th>
+                <th className="px-3 py-2 text-left">Type</th>
+                <th className="px-3 py-2 text-left">Item / Batch</th>
+                <th className="px-3 py-2 text-left">Store</th>
+                <th className="px-3 py-2 text-right">Qty</th>
+                <th className="px-3 py-2 text-right">Rate</th>
+                <th className="px-3 py-2 text-right">Value</th>
+                <th className="px-3 py-2 text-right">Balance</th>
+                <th className="px-3 py-2 text-left">User</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {rows.map(r => (
                 <tr key={r.ledgerId} className="hover:bg-slate-50/70 transition-colors">
-                  <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
+                  <td className="px-3 py-2 text-slate-600 whitespace-nowrap">
                     {new Date(r.txnDate).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                   </td>
-                  <td className="px-4 py-3 font-bold text-primary whitespace-nowrap">{r.docNumber || '—'}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2 font-bold text-primary whitespace-nowrap">{r.docNumber || '—'}</td>
+                  <td className="px-3 py-2">
                     <span className={`px-2 py-1 text-[11px] font-bold rounded-lg w-max block ${typeCls(r.movementType)}`}>
                       {r.movementType}
                     </span>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2">
                     <div className="font-medium text-slate-800">{r.itemName}</div>
                     <div className="text-xs text-slate-500">{r.batchNo}</div>
                   </td>
-                  <td className="px-4 py-3 text-slate-600">{r.storeName}</td>
-                  <td className={`px-4 py-3 text-right font-bold ${r.quantity > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                  <td className="px-3 py-2 text-slate-600">{r.storeName}</td>
+                  <td className={`px-3 py-2 text-right font-bold ${r.quantity > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                     {r.quantity > 0 ? '+' : ''}{r.quantity}
                   </td>
-                  <td className="px-4 py-3 text-right text-slate-600">{inr(r.rate)}</td>
-                  <td className="px-4 py-3 text-right text-slate-700">{inr(r.value)}</td>
-                  <td className="px-4 py-3 text-right font-semibold text-slate-800">{r.balanceQty}</td>
-                  <td className="px-4 py-3 text-slate-500 text-xs">{r.user || '—'}</td>
+                  <td className="px-3 py-2 text-right text-slate-600">{inr(r.rate)}</td>
+                  <td className="px-3 py-2 text-right text-slate-700">{inr(r.value)}</td>
+                  <td className="px-3 py-2 text-right font-semibold text-slate-800">{r.balanceQty}</td>
+                  <td className="px-3 py-2 text-slate-500 text-xs">{r.user || '—'}</td>
                 </tr>
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="px-4 py-12 text-center text-slate-400">
-                    <ScrollText className="w-10 h-10 mx-auto text-slate-200 mb-2" />
+                  <td colSpan={10} className="px-3 py-8 text-center text-slate-400">
+                    <ScrollText className="w-8 h-8 mx-auto text-slate-200 mb-2" />
                     {loading ? 'Loading ledger…' : ledger.length === 0
                       ? 'No movements recorded yet.'
                       : 'No movements match the current filters.'}

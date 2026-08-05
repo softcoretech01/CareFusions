@@ -197,7 +197,7 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
   const inputCls = 'w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary';
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3">
         <div>
           <h1 className="text-xl font-bold text-slate-800">{config.title}</h1>
@@ -219,7 +219,7 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
         </div>
       )}
 
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-3 flex flex-wrap items-center gap-2">
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-2.5 flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[220px] max-w-md">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
@@ -242,35 +242,35 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-xs font-semibold text-slate-500 uppercase tracking-wider">
               <tr>
-                <th className="px-4 py-3 text-left">{config.numberLabel} No</th>
-                <th className="px-4 py-3 text-left">Date</th>
-                {config.needsSource && <th className="px-4 py-3 text-left">From</th>}
-                {(config.needsDestination || config.needsDepartment) && <th className="px-4 py-3 text-left">To</th>}
-                {config.needsVendor && <th className="px-4 py-3 text-left">Vendor</th>}
-                {config.reasons && <th className="px-4 py-3 text-left">Reason</th>}
-                <th className="px-4 py-3 text-right">Items</th>
-                <th className="px-4 py-3 text-right">Total Qty</th>
-                <th className="px-4 py-3 text-right">Value</th>
-                <th className="px-4 py-3 text-center">Action</th>
+                <th className="px-3 py-2 text-left">{config.numberLabel} No</th>
+                <th className="px-3 py-2 text-left">Date</th>
+                {config.needsSource && <th className="px-3 py-2 text-left">From</th>}
+                {(config.needsDestination || config.needsDepartment) && <th className="px-3 py-2 text-left">To</th>}
+                {config.needsVendor && <th className="px-3 py-2 text-left">Vendor</th>}
+                {config.reasons && <th className="px-3 py-2 text-left">Reason</th>}
+                <th className="px-3 py-2 text-right">Items</th>
+                <th className="px-3 py-2 text-right">Total Qty</th>
+                <th className="px-3 py-2 text-right">Value</th>
+                <th className="px-3 py-2 text-center">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {docs.map(d => (
                 <tr key={d.docId} className="hover:bg-slate-50/70 transition-colors">
-                  <td className="px-4 py-3 font-bold text-primary whitespace-nowrap">{d.docNumber}</td>
-                  <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
+                  <td className="px-3 py-2 font-bold text-primary whitespace-nowrap">{d.docNumber}</td>
+                  <td className="px-3 py-2 text-slate-600 whitespace-nowrap">
                     {d.docDate ? new Date(d.docDate).toLocaleDateString('en-GB') : '—'}
                   </td>
-                  {config.needsSource && <td className="px-4 py-3 text-slate-600">{d.fromStoreName || '—'}</td>}
+                  {config.needsSource && <td className="px-3 py-2 text-slate-600">{d.fromStoreName || '—'}</td>}
                   {(config.needsDestination || config.needsDepartment) && (
-                    <td className="px-4 py-3 text-slate-600">{d.toStoreName || d.departmentName || '—'}</td>
+                    <td className="px-3 py-2 text-slate-600">{d.toStoreName || d.departmentName || '—'}</td>
                   )}
-                  {config.needsVendor && <td className="px-4 py-3 text-slate-600">{d.vendorName || '—'}</td>}
-                  {config.reasons && <td className="px-4 py-3 text-slate-600">{d.reason || '—'}</td>}
-                  <td className="px-4 py-3 text-right text-slate-700">{d.totalItems}</td>
-                  <td className="px-4 py-3 text-right font-semibold text-slate-800">{d.totalQty}</td>
-                  <td className="px-4 py-3 text-right text-slate-700">{inr(d.totalValue)}</td>
-                  <td className="px-4 py-3">
+                  {config.needsVendor && <td className="px-3 py-2 text-slate-600">{d.vendorName || '—'}</td>}
+                  {config.reasons && <td className="px-3 py-2 text-slate-600">{d.reason || '—'}</td>}
+                  <td className="px-3 py-2 text-right text-slate-700">{d.totalItems}</td>
+                  <td className="px-3 py-2 text-right font-semibold text-slate-800">{d.totalQty}</td>
+                  <td className="px-3 py-2 text-right text-slate-700">{inr(d.totalValue)}</td>
+                  <td className="px-3 py-2">
                     <div className="flex items-center justify-center gap-1">
                       <button onClick={() => setViewDoc(d)} title="View"
                         className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors">
@@ -286,7 +286,7 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
               ))}
               {docs.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="px-4 py-10 text-center text-slate-400">
+                  <td colSpan={10} className="px-3 py-8 text-center text-slate-400">
                     {loading ? 'Loading…' : `No ${config.title.toLowerCase()} records yet.`}
                   </td>
                 </tr>
@@ -300,13 +300,13 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
       {showForm && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[92vh] overflow-y-auto">
-            <div className="px-5 py-3 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 sticky top-0 z-10">
+            <div className="px-4 py-2.5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 sticky top-0 z-10">
               <h2 className="text-lg font-bold text-slate-800">{config.submitLabel}</h2>
               <button onClick={() => setShowForm(false)} className="p-2 hover:bg-slate-200 rounded-full">
                 <X className="w-5 h-5 text-slate-500" />
               </button>
             </div>
-            <form onSubmit={handleSubmit} className="p-5 space-y-4">
+            <form onSubmit={handleSubmit} className="p-5 space-y-3">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 {config.needsSource && (
                   <div>
@@ -502,7 +502,7 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
       {viewDoc && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="px-5 py-3 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 sticky top-0">
+            <div className="px-4 py-2.5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 sticky top-0">
               <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                 <FileText className="w-5 h-5 text-primary" /> {viewDoc.docNumber}
               </h2>
@@ -510,7 +510,7 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
                 <X className="w-5 h-5 text-slate-500" />
               </button>
             </div>
-            <div className="p-5 space-y-4">
+            <div className="p-5 space-y-3">
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
                 <div><p className="text-xs text-slate-500">Date</p><p className="font-bold text-slate-800">{new Date(viewDoc.docDate).toLocaleString('en-GB')}</p></div>
                 {viewDoc.fromStoreName && <div><p className="text-xs text-slate-500">From</p><p className="font-bold text-slate-800">{viewDoc.fromStoreName}</p></div>}

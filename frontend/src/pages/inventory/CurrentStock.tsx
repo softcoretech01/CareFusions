@@ -36,7 +36,7 @@ export const CurrentStock = () => {
   const totalValue = rows.reduce((s, r) => s + r.stockValue, 0);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3">
         <div>
           <h1 className="text-xl font-bold text-slate-800">Current Stock</h1>
@@ -60,7 +60,7 @@ export const CurrentStock = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-3 flex flex-wrap items-center gap-2">
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-2.5 flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[220px] max-w-md">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input type="text" value={search} onChange={e => setSearch(e.target.value)}
@@ -86,14 +86,14 @@ export const CurrentStock = () => {
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-xs font-semibold text-slate-500 uppercase tracking-wider">
               <tr>
-                <th className="px-4 py-3 text-left">Item</th>
-                <th className="px-4 py-3 text-left">Category</th>
-                <th className="px-4 py-3 text-left">Store</th>
-                <th className="px-4 py-3 text-left">Batch / Expiry</th>
-                <th className="px-4 py-3 text-right">Quantity</th>
-                <th className="px-4 py-3 text-right">Rate</th>
-                <th className="px-4 py-3 text-right">Value</th>
-                <th className="px-4 py-3 text-left">Status</th>
+                <th className="px-3 py-2 text-left">Item</th>
+                <th className="px-3 py-2 text-left">Category</th>
+                <th className="px-3 py-2 text-left">Store</th>
+                <th className="px-3 py-2 text-left">Batch / Expiry</th>
+                <th className="px-3 py-2 text-right">Quantity</th>
+                <th className="px-3 py-2 text-right">Rate</th>
+                <th className="px-3 py-2 text-right">Value</th>
+                <th className="px-3 py-2 text-left">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -101,27 +101,27 @@ export const CurrentStock = () => {
                 const st = statusOf(r.quantity, r.reorderLevel);
                 return (
                   <tr key={r.stockId} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-2">
                       <div className="font-bold text-slate-800">{r.itemName}</div>
                       <div className="text-xs text-slate-500">{r.itemCode}</div>
                     </td>
-                    <td className="px-4 py-3 text-slate-600">{r.category || '—'}</td>
-                    <td className="px-4 py-3 text-slate-600">{r.storeName}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-2 text-slate-600">{r.category || '—'}</td>
+                    <td className="px-3 py-2 text-slate-600">{r.storeName}</td>
+                    <td className="px-3 py-2">
                       <div className="text-slate-700">{r.batchNo}</div>
                       <div className="text-xs text-slate-500">
                         {r.expiryDate ? new Date(r.expiryDate).toLocaleDateString('en-GB') : 'No expiry'}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-right font-semibold text-slate-800">
+                    <td className="px-3 py-2 text-right font-semibold text-slate-800">
                       {r.quantity} <span className="text-xs font-normal text-slate-500">{r.uom}</span>
                       {r.reorderLevel != null && (
                         <div className="text-[11px] text-slate-400">Reorder: {r.reorderLevel}</div>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-right text-slate-600">{inr(r.valuationRate)}</td>
-                    <td className="px-4 py-3 text-right font-semibold text-slate-800">{inr(r.stockValue)}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-2 text-right text-slate-600">{inr(r.valuationRate)}</td>
+                    <td className="px-3 py-2 text-right font-semibold text-slate-800">{inr(r.stockValue)}</td>
+                    <td className="px-3 py-2">
                       <span className={`px-2.5 py-1 text-xs font-bold rounded-lg w-max block ${badge(st)}`}>{st}</span>
                     </td>
                   </tr>
@@ -129,8 +129,8 @@ export const CurrentStock = () => {
               })}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center text-slate-400">
-                    <Package className="w-10 h-10 mx-auto text-slate-200 mb-2" />
+                  <td colSpan={8} className="px-3 py-8 text-center text-slate-400">
+                    <Package className="w-8 h-8 mx-auto text-slate-200 mb-2" />
                     {loading ? 'Loading stock…' : stock.length === 0
                       ? 'No stock yet. Receive goods under Stock In to get started.'
                       : 'No stock matches the current filters.'}

@@ -160,7 +160,7 @@ export const InventoryReports = () => {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3">
         <div>
           <h1 className="text-xl font-bold text-slate-800">Inventory Reports</h1>
@@ -227,7 +227,7 @@ export const InventoryReports = () => {
       {active && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[88vh] overflow-y-auto">
-            <div className="px-5 py-3 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 sticky top-0">
+            <div className="px-4 py-2.5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 sticky top-0">
               <div>
                 <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                   <FileBarChart className="w-5 h-5 text-primary" /> {active.title}

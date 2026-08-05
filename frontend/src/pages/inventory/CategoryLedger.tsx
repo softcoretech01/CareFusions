@@ -21,7 +21,7 @@ export const CategoryLedger = () => {
   const grandTotal = valuation.reduce((s, v) => s + v.totalValue, 0);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3">
         <div>
           <h1 className="text-xl font-bold text-slate-800">Category Ledger</h1>
@@ -55,7 +55,7 @@ export const CategoryLedger = () => {
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-        <div className="px-4 py-3 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
+        <div className="px-4 py-2.5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
           <h3 className="font-bold text-slate-800">
             {active ? `Items in ${active}` : 'All Stock Items'}
           </h3>
@@ -70,30 +70,30 @@ export const CategoryLedger = () => {
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-xs font-semibold text-slate-500 uppercase tracking-wider">
               <tr>
-                <th className="px-4 py-3 text-left">Item</th>
-                <th className="px-4 py-3 text-left">Category</th>
-                <th className="px-4 py-3 text-left">Store</th>
-                <th className="px-4 py-3 text-right">Quantity</th>
-                <th className="px-4 py-3 text-right">Rate</th>
-                <th className="px-4 py-3 text-right">Value</th>
+                <th className="px-3 py-2 text-left">Item</th>
+                <th className="px-3 py-2 text-left">Category</th>
+                <th className="px-3 py-2 text-left">Store</th>
+                <th className="px-3 py-2 text-right">Quantity</th>
+                <th className="px-3 py-2 text-right">Rate</th>
+                <th className="px-3 py-2 text-right">Value</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {rows.map(r => (
                 <tr key={r.stockId} className="hover:bg-slate-50/70">
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2">
                     <div className="font-bold text-slate-800">{r.itemName}</div>
                     <div className="text-xs text-slate-500">{r.itemCode} · {r.batchNo}</div>
                   </td>
-                  <td className="px-4 py-3 text-slate-600">{r.category || '—'}</td>
-                  <td className="px-4 py-3 text-slate-600">{r.storeName}</td>
-                  <td className="px-4 py-3 text-right text-slate-700">{r.quantity} {r.uom}</td>
-                  <td className="px-4 py-3 text-right text-slate-600">{inr(r.valuationRate)}</td>
-                  <td className="px-4 py-3 text-right font-semibold text-slate-800">{inr(r.stockValue)}</td>
+                  <td className="px-3 py-2 text-slate-600">{r.category || '—'}</td>
+                  <td className="px-3 py-2 text-slate-600">{r.storeName}</td>
+                  <td className="px-3 py-2 text-right text-slate-700">{r.quantity} {r.uom}</td>
+                  <td className="px-3 py-2 text-right text-slate-600">{inr(r.valuationRate)}</td>
+                  <td className="px-3 py-2 text-right font-semibold text-slate-800">{inr(r.stockValue)}</td>
                 </tr>
               ))}
               {rows.length === 0 && (
-                <tr><td colSpan={6} className="px-4 py-10 text-center text-slate-400">
+                <tr><td colSpan={6} className="px-3 py-8 text-center text-slate-400">
                   {loading ? 'Loading…' : 'No items to show.'}
                 </td></tr>
               )}

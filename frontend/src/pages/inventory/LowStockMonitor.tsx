@@ -22,13 +22,13 @@ export const LowStockMonitor = () => {
       : { text: 'Reorder Required', cls: 'bg-amber-100 text-amber-700' };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div>
         <h1 className="text-xl font-bold text-slate-800">Low Stock Monitor</h1>
         <p className="text-xs text-slate-500">Items at or below their reorder level</p>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-3 flex flex-wrap items-center gap-2">
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-2.5 flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[220px] max-w-md">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input type="text" value={search} onChange={e => setSearch(e.target.value)}
@@ -48,12 +48,12 @@ export const LowStockMonitor = () => {
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-xs font-semibold text-slate-500 uppercase tracking-wider">
               <tr>
-                <th className="px-4 py-3 text-left">Item</th>
-                <th className="px-4 py-3 text-left">Category</th>
-                <th className="px-4 py-3 text-right">On Hand</th>
-                <th className="px-4 py-3 text-right">Reorder Level</th>
-                <th className="px-4 py-3 text-right">Deficit</th>
-                <th className="px-4 py-3 text-left">Status</th>
+                <th className="px-3 py-2 text-left">Item</th>
+                <th className="px-3 py-2 text-left">Category</th>
+                <th className="px-3 py-2 text-right">On Hand</th>
+                <th className="px-3 py-2 text-right">Reorder Level</th>
+                <th className="px-3 py-2 text-right">Deficit</th>
+                <th className="px-3 py-2 text-left">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -61,17 +61,17 @@ export const LowStockMonitor = () => {
                 const sev = severity(r.quantity, r.reorderLevel);
                 return (
                   <tr key={r.itemId} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-2">
                       <div className="font-bold text-slate-800">{r.itemName}</div>
                       <div className="text-xs text-slate-500">{r.itemCode}</div>
                     </td>
-                    <td className="px-4 py-3 text-slate-600">{r.category || '—'}</td>
-                    <td className="px-4 py-3 text-right font-semibold text-slate-800">
+                    <td className="px-3 py-2 text-slate-600">{r.category || '—'}</td>
+                    <td className="px-3 py-2 text-right font-semibold text-slate-800">
                       {r.quantity} <span className="text-xs font-normal text-slate-500">{r.uom}</span>
                     </td>
-                    <td className="px-4 py-3 text-right text-slate-600">{r.reorderLevel}</td>
-                    <td className="px-4 py-3 text-right font-bold text-rose-600">{r.deficit}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-2 text-right text-slate-600">{r.reorderLevel}</td>
+                    <td className="px-3 py-2 text-right font-bold text-rose-600">{r.deficit}</td>
+                    <td className="px-3 py-2">
                       <span className={`px-2.5 py-1 text-xs font-bold rounded-lg w-max block ${sev.cls}`}>{sev.text}</span>
                     </td>
                   </tr>
@@ -79,10 +79,10 @@ export const LowStockMonitor = () => {
               })}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center text-slate-400">
+                  <td colSpan={6} className="px-3 py-8 text-center text-slate-400">
                     {loading ? 'Loading…' : (
                       <>
-                        <PackageX className="w-10 h-10 mx-auto text-slate-200 mb-2" />
+                        <PackageX className="w-8 h-8 mx-auto text-slate-200 mb-2" />
                         No items are below their reorder level.
                       </>
                     )}

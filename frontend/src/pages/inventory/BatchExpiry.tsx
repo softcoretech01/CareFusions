@@ -37,7 +37,7 @@ export const BatchExpiry = () => {
     : { text: `${days}d left`, cls: 'bg-emerald-100 text-emerald-700' };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div>
         <h1 className="text-xl font-bold text-slate-800">Batch &amp; Expiry</h1>
         <p className="text-xs text-slate-500">Lots approaching or past their expiry date</p>
@@ -52,7 +52,7 @@ export const BatchExpiry = () => {
         </p>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-3 flex flex-wrap items-center gap-2">
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-2.5 flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[220px] max-w-md">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input type="text" value={search} onChange={e => setSearch(e.target.value)}
@@ -79,14 +79,14 @@ export const BatchExpiry = () => {
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-xs font-semibold text-slate-500 uppercase tracking-wider">
               <tr>
-                <th className="px-4 py-3 text-left">Item</th>
-                <th className="px-4 py-3 text-left">Category</th>
-                <th className="px-4 py-3 text-left">Store</th>
-                <th className="px-4 py-3 text-left">Batch</th>
-                <th className="px-4 py-3 text-left">Mfg</th>
-                <th className="px-4 py-3 text-left">Expiry</th>
-                <th className="px-4 py-3 text-right">Quantity</th>
-                <th className="px-4 py-3 text-left">Status</th>
+                <th className="px-3 py-2 text-left">Item</th>
+                <th className="px-3 py-2 text-left">Category</th>
+                <th className="px-3 py-2 text-left">Store</th>
+                <th className="px-3 py-2 text-left">Batch</th>
+                <th className="px-3 py-2 text-left">Mfg</th>
+                <th className="px-3 py-2 text-left">Expiry</th>
+                <th className="px-3 py-2 text-right">Quantity</th>
+                <th className="px-3 py-2 text-left">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -94,23 +94,23 @@ export const BatchExpiry = () => {
                 const l = label(r.daysToExpiry);
                 return (
                   <tr key={r.stockId} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-2">
                       <div className="font-bold text-slate-800">{r.itemName}</div>
                       <div className="text-xs text-slate-500">{r.itemCode}</div>
                     </td>
-                    <td className="px-4 py-3 text-slate-600">{r.category || '—'}</td>
-                    <td className="px-4 py-3 text-slate-600">{r.storeName}</td>
-                    <td className="px-4 py-3 text-slate-700">{r.batchNo}</td>
-                    <td className="px-4 py-3 text-slate-600">
+                    <td className="px-3 py-2 text-slate-600">{r.category || '—'}</td>
+                    <td className="px-3 py-2 text-slate-600">{r.storeName}</td>
+                    <td className="px-3 py-2 text-slate-700">{r.batchNo}</td>
+                    <td className="px-3 py-2 text-slate-600">
                       {r.mfgDate ? new Date(r.mfgDate).toLocaleDateString('en-GB') : '—'}
                     </td>
-                    <td className="px-4 py-3 font-medium text-slate-800">
+                    <td className="px-3 py-2 font-medium text-slate-800">
                       {r.expiryDate ? new Date(r.expiryDate).toLocaleDateString('en-GB') : '—'}
                     </td>
-                    <td className="px-4 py-3 text-right font-semibold text-slate-800">
+                    <td className="px-3 py-2 text-right font-semibold text-slate-800">
                       {r.quantity} <span className="text-xs font-normal text-slate-500">{r.uom}</span>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-2">
                       <span className={`px-2.5 py-1 text-xs font-bold rounded-lg w-max block ${l.cls}`}>{l.text}</span>
                     </td>
                   </tr>
@@ -118,8 +118,8 @@ export const BatchExpiry = () => {
               })}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center text-slate-400">
-                    <CalendarClock className="w-10 h-10 mx-auto text-slate-200 mb-2" />
+                  <td colSpan={8} className="px-3 py-8 text-center text-slate-400">
+                    <CalendarClock className="w-8 h-8 mx-auto text-slate-200 mb-2" />
                     {loading ? 'Loading…' : 'No lots in this expiry window.'}
                   </td>
                 </tr>

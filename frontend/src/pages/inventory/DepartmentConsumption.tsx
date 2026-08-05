@@ -48,7 +48,7 @@ export const DepartmentConsumption = () => {
   const totalValue = summary.reduce((s, r) => s + r.value, 0);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3">
         <div>
           <h1 className="text-xl font-bold text-slate-800">Department Consumption</h1>
@@ -60,7 +60,7 @@ export const DepartmentConsumption = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-3 flex flex-wrap items-center gap-2">
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-2.5 flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[220px] max-w-md">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input type="text" value={search} onChange={e => setSearch(e.target.value)}
@@ -81,26 +81,26 @@ export const DepartmentConsumption = () => {
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-xs font-semibold text-slate-500 uppercase tracking-wider">
               <tr>
-                <th className="px-4 py-3 text-left">Department</th>
-                <th className="px-4 py-3 text-right">Issues</th>
-                <th className="px-4 py-3 text-right">Line Items</th>
-                <th className="px-4 py-3 text-right">Total Qty</th>
-                <th className="px-4 py-3 text-right">Consumption Value</th>
+                <th className="px-3 py-2 text-left">Department</th>
+                <th className="px-3 py-2 text-right">Issues</th>
+                <th className="px-3 py-2 text-right">Line Items</th>
+                <th className="px-3 py-2 text-right">Total Qty</th>
+                <th className="px-3 py-2 text-right">Consumption Value</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {summary.map(r => (
                 <tr key={r.department} className="hover:bg-slate-50/70">
-                  <td className="px-4 py-3 font-bold text-slate-800">{r.department}</td>
-                  <td className="px-4 py-3 text-right text-slate-600">{r.docs}</td>
-                  <td className="px-4 py-3 text-right text-slate-600">{r.items}</td>
-                  <td className="px-4 py-3 text-right font-semibold text-slate-800">{r.qty}</td>
-                  <td className="px-4 py-3 text-right font-semibold text-slate-800">{inr(r.value)}</td>
+                  <td className="px-3 py-2 font-bold text-slate-800">{r.department}</td>
+                  <td className="px-3 py-2 text-right text-slate-600">{r.docs}</td>
+                  <td className="px-3 py-2 text-right text-slate-600">{r.items}</td>
+                  <td className="px-3 py-2 text-right font-semibold text-slate-800">{r.qty}</td>
+                  <td className="px-3 py-2 text-right font-semibold text-slate-800">{inr(r.value)}</td>
                 </tr>
               ))}
               {summary.length === 0 && (
-                <tr><td colSpan={5} className="px-4 py-12 text-center text-slate-400">
-                  <Building2 className="w-10 h-10 mx-auto text-slate-200 mb-2" />
+                <tr><td colSpan={5} className="px-3 py-8 text-center text-slate-400">
+                  <Building2 className="w-8 h-8 mx-auto text-slate-200 mb-2" />
                   {loading ? 'Loading…' : 'No stock has been issued to departments yet.'}
                 </td></tr>
               )}
