@@ -15,13 +15,18 @@ export const PharmacySummary = () => {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
 
+  // Compare on local calendar days (YYYY-MM-DD). Using Date objects here is
+  // unsafe: `new Date('2026-08-05')` is parsed as UTC midnight while the bill
+  // timestamp is parsed as local time, and a bare end date would also exclude
+  // everything after 00:00 on that day.
+  const toLocalDay = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
   const filteredBills = bills.filter(b => {
-    const bDate = new Date(b.date);
-    const startDate = fromDate ? new Date(fromDate) : null;
-    const endDate = toDate ? new Date(toDate) : null;
-    const matchesFrom = !startDate || bDate >= startDate;
-    const matchesTo = !endDate || bDate <= endDate;
-    return matchesFrom && matchesTo;
+    const day = toLocalDay(new Date(b.date));
+    if (fromDate && day < fromDate) return false;
+    if (toDate && day > toDate) return false;
+    return true;
   });
 
   const lowStockItems = checkLowStock();
@@ -51,10 +56,12 @@ export const PharmacySummary = () => {
   });
 
   const trendLabels = trendDates.map(date => date.toLocaleDateString('en-US', { weekday: 'short' }));
+  // "Last 7 Days" is its own fixed window, so it reads all bills rather than
+  // the date-filtered subset (which would flatten the chart to zero).
   const trendData = trendDates.map(date => {
-    const dateStr = date.toDateString();
-    return filteredBills
-      .filter(b => new Date(b.date).toDateString() === dateStr && b.paymentStatus === 'Paid')
+    const day = toLocalDay(date);
+    return bills
+      .filter(b => toLocalDay(new Date(b.date)) === day && b.paymentStatus === 'Paid')
       .reduce((sum, b) => sum + b.netAmount, 0);
   });
 

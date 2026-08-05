@@ -14,20 +14,18 @@ export const RetailReports = () => {
   const [toDate, setToDate] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Compare on local calendar days (YYYY-MM-DD) so the range is inclusive of
+  // the whole end day and free of UTC-vs-local parsing skew.
+  const toLocalDay = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
   const filteredBills = bills.filter((bill: any) => {
-    const bDate = new Date(bill.date);
-    const startDate = fromDate ? new Date(fromDate) : null;
-    const endDate = toDate ? new Date(toDate) : null;
-    
-    if (startDate) startDate.setHours(0,0,0,0);
-    if (endDate) endDate.setHours(23,59,59,999);
-    
-    const matchesFrom = !startDate || bDate >= startDate;
-    const matchesTo = !endDate || bDate <= endDate;
-    const matchesSearch = bill.billId.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          (bill.patientName && bill.patientName.toLowerCase().includes(searchQuery.toLowerCase()));
-    
-    return matchesFrom && matchesTo && matchesSearch;
+    const day = toLocalDay(new Date(bill.date));
+    if (fromDate && day < fromDate) return false;
+    if (toDate && day > toDate) return false;
+    const q = searchQuery.toLowerCase();
+    return bill.billId.toLowerCase().includes(q) ||
+           (bill.patientName && bill.patientName.toLowerCase().includes(q));
   });
 
   const exportToCSV = () => {
