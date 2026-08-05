@@ -322,6 +322,14 @@ def create_claim(payload: ClaimCreate, db: Session = Depends(get_db)):
         return _map_claim(row)
     except Exception as e:
         db.rollback()
+        msg = str(getattr(e, "orig", e))
+        # A bad admission / pre-auth / provider reference is a client error,
+        # not a server fault.
+        if "foreign key constraint" in msg.lower() or "1452" in msg:
+            raise HTTPException(
+                status_code=400,
+                detail="Unknown admission, pre-authorisation or insurance provider reference",
+            )
         logger.error(f"[POST /insurance/claims] {e}")
         raise HTTPException(status_code=500, detail="Failed to create claim")
 
