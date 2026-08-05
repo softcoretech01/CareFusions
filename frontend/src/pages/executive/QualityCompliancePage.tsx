@@ -1,9 +1,12 @@
 import { useState } from 'react';
+import { Pagination } from '@/components/ui/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 import { DateFilter } from '../../components/ui/DateFilter';
 import { useExecutiveData } from './hooks/useExecutiveData';
 import { ShieldCheck, FileText, Bug, CheckCircle } from 'lucide-react';
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
+import { NoDataNotice } from './components/NoDataNotice';
 
 const QualityKPICard = ({ title, value, subValue, icon: Icon, alert }: any) => (
   <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm hover:border-primary/50 transition-colors group">
@@ -44,8 +47,15 @@ export const QualityCompliancePage = () => {
     { id: 'INC-2024-083', date: '2024-03-15', type: 'Equipment Failure', dept: 'Radiology', severity: 'High', status: 'Resolved' },
   ];
 
+  const { page, setPage, pageSize, total, paged } = usePagination(incidents);
+
   return (
     <div className="space-y-6">
+      <NoDataNotice
+        title="NABH / JCI scores, audit findings and incident log"
+        needs="Quality & Incident Reporting"
+        detail="Accreditation scores and the incidents table were hardcoded, with incident dates fixed to March 2024."
+      />
       <div className="flex justify-end">
         <DateFilter
           dateFrom={fromDate}
@@ -93,7 +103,7 @@ export const QualityCompliancePage = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {incidents.map((inc, idx) => (
+                {paged.map((inc, idx) => (
                   <tr key={idx} className="hover:bg-slate-50 transition-colors">
                     <td className="py-4 px-6 font-medium text-slate-800">{inc.id}</td>
                     <td className="py-4 px-6 text-slate-600">{inc.date}</td>
@@ -114,6 +124,7 @@ export const QualityCompliancePage = () => {
               </tbody>
             </table>
           </div>
+        <Pagination page={page} pageSize={pageSize} totalItems={total} onPageChange={setPage} />
         </div>
       </div>
     </div>

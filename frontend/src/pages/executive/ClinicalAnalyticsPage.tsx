@@ -1,176 +1,169 @@
-import { useState } from 'react';
-import { DateFilter } from '../../components/ui/DateFilter';
-import { useExecutiveData } from './hooks/useExecutiveData';
-import { TrendingUp, TrendingDown, Users, Bed, Clock, Heart, ShieldCheck, Activity } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Users, BedDouble, Activity, CalendarCheck, LogOut, Clock } from 'lucide-react';
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
+import { Pagination } from '../../components/ui/Pagination';
+import { NoDataNotice } from './components/NoDataNotice';
 
-// Minimal KPI Card without background colors/gradients
-const ClinicalKPICard = ({ title, value, subValue, trend, trendValue, icon: Icon }: any) => (
-  <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm hover:border-primary/50 transition-colors group">
-    <div className="flex justify-between items-start mb-4">
-      <div className="p-2.5 rounded-lg bg-slate-50 text-slate-500 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
-        <Icon className="w-5 h-5" />
-      </div>
-      {trend && (
-        <div className={`flex items-center gap-1 text-sm font-semibold ${trend === 'up' ? 'text-emerald-600' : 'text-rose-600'}`}>
-          {trend === 'up' ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-          {trendValue}%
-        </div>
-      )}
+const API_BASE = import.meta.env.VITE_API_URL as string;
+
+interface Clinical {
+  admissionsToday: number;
+  dischargesToday: number;
+  currentInpatients: number;
+  appointmentsToday: number;
+  registrationsToday: number;
+  avgLengthOfStay: number;
+  totalBeds: number;
+  occupiedBeds: number;
+  bedOccupancyPct: number;
+  bedOccupancy: { wardId: number; name: string; total: number; occupied: number }[];
+  admissionsTrend: { date: string; ipd: number; opd: number }[];
+  bySpecialty: { specialty: string; admissions: number; avgStay: number }[];
+}
+
+const KPI = ({ title, value, sub, icon: Icon, cls }: any) => (
+  <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+    <div className={`w-9 h-9 rounded-lg flex items-center justify-center mb-2 ${cls}`}>
+      <Icon className="w-5 h-5" />
     </div>
-    
-    <div>
-      <h4 className="text-slate-500 text-sm font-medium mb-1">{title}</h4>
-      <div className="flex items-baseline gap-2">
-        <span className="text-2xl font-bold text-slate-800">{value}</span>
-        {subValue && <span className="text-sm font-medium text-slate-400">{subValue}</span>}
-      </div>
-    </div>
+    <p className="text-2xl font-bold text-slate-800">{value}</p>
+    <p className="text-xs text-slate-500 mt-0.5">{title}</p>
+    {sub && <p className="text-[11px] text-slate-400 mt-0.5">{sub}</p>}
   </div>
 );
 
 export const ClinicalAnalyticsPage = () => {
-  const data = useExecutiveData();
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
-  const clinical = data.clinical;
+  const [data, setData] = useState<Clinical | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const barOptions: ApexOptions = {
-    chart: { type: 'bar', toolbar: { show: false }, fontFamily: 'Inter' },
-    colors: ['#01684c'],
-    plotOptions: { bar: { borderRadius: 4, columnWidth: '60%' } },
-    dataLabels: { enabled: false },
-    xaxis: { categories: clinical.bedOccupancy.map((b: any) => b.name) },
-    legend: { position: 'top' },
-    stroke: { width: 0 }
-  };
+  useEffect(() => {
+    fetch(`${API_BASE}/executive/clinical`)
+      .then(r => r.json())
+      .then(d => { setData(d); setLoading(false); })
+      .catch(e => { console.error('[Executive] clinical load failed', e); setLoading(false); });
+  }, []);
 
-  const lineOptions: ApexOptions = {
-    chart: { type: 'area', toolbar: { show: false }, fontFamily: 'Inter' },
-    colors: ['#01684c', '#0ea5e9', '#f5a623'],
-    fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.2, opacityTo: 0.05, stops: [0, 90, 100] } },
-    dataLabels: { enabled: false },
+  const trend = data?.admissionsTrend ?? [];
+  const trendOptions: ApexOptions = {
+    chart: { type: 'area', toolbar: { show: false }, zoom: { enabled: false }, fontFamily: 'Inter' },
     stroke: { curve: 'smooth', width: 2 },
-    xaxis: { 
-      categories: clinical.admissionsTrend.map((t: any) => t.date).filter((_, i) => i % 5 === 0),
-      labels: { style: { colors: '#64748b' } } 
+    fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.3, opacityTo: 0.05 } },
+    dataLabels: { enabled: false },
+    // One category per data point — the prototype filtered the labels to every
+    // 5th day while keeping all 30 points, so the axis was misaligned.
+    xaxis: {
+      categories: trend.map(t => new Date(t.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })),
+      tickAmount: 6, axisBorder: { show: false }, axisTicks: { show: false },
     },
-    yaxis: { labels: { style: { colors: '#64748b' } } }
+    colors: ['#6366f1', '#10b981'],
+    legend: { position: 'top' },
   };
-
-  const departments = [
-    { name: 'Cardiology', patients: 1240, alos: '4.2', mortality: '1.8%', status: 'Excellent' },
-    { name: 'Neurology', patients: 850, alos: '6.5', mortality: '2.1%', status: 'Good' },
-    { name: 'Orthopedics', patients: 1420, alos: '3.1', mortality: '0.4%', status: 'Excellent' },
-    { name: 'Oncology', patients: 620, alos: '7.8', mortality: '4.5%', status: 'Warning' },
-    { name: 'General Medicine', patients: 2840, alos: '2.5', mortality: '0.8%', status: 'Good' },
+  const trendSeries = [
+    { name: 'OPD Appointments', data: trend.map(t => t.opd) },
+    { name: 'IPD Admissions', data: trend.map(t => t.ipd) },
   ];
 
+  const beds = data?.bedOccupancy ?? [];
+  const bedOptions: ApexOptions = {
+    chart: { type: 'bar', toolbar: { show: false }, stacked: true, fontFamily: 'Inter' },
+    plotOptions: { bar: { horizontal: true, borderRadius: 4, barHeight: '60%' } },
+    dataLabels: { enabled: false },
+    xaxis: { categories: beds.map(b => b.name) },
+    colors: ['#6366f1', '#e2e8f0'],
+    legend: { position: 'top' },
+  };
+  // Occupied vs free, so a 1/2 ICU is not visually dwarfed by a 1/4 ward —
+  // the prototype plotted only the occupied count.
+  const bedSeries = [
+    { name: 'Occupied', data: beds.map(b => b.occupied) },
+    { name: 'Available', data: beds.map(b => Math.max(b.total - b.occupied, 0)) },
+  ];
+
+  const specialties = data?.bySpecialty ?? [];
+  const PAGE_SIZE = 10;
+  const [page, setPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(specialties.length / PAGE_SIZE));
+  useEffect(() => { if (page > totalPages) setPage(1); }, [page, totalPages]);
+  const paged = specialties.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   return (
-    <div className="space-y-6">
-      <div className="flex justify-end">
-        <DateFilter
-          dateFrom={fromDate}
-          dateTo={toDate}
-          onDateFromChange={setFromDate}
-          onDateToChange={setToDate}
-        />
+    <div className="space-y-3">
+      <div>
+        <h1 className="text-xl font-bold text-slate-800">Clinical Analytics</h1>
+        <p className="text-xs text-slate-500">Live activity from admissions, appointments and registrations</p>
       </div>
-      {/* Page Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Clinical Analytics</h1>
-          <p className="text-sm text-slate-500 mt-1">Deep dive into patient volumes, bed occupancy, and clinical outcomes.</p>
+
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+        <KPI title="OPD Appointments Today" value={data?.appointmentsToday ?? 0} icon={CalendarCheck} cls="text-blue-600 bg-blue-50" />
+        <KPI title="Admissions Today" value={data?.admissionsToday ?? 0} icon={Users} cls="text-indigo-600 bg-indigo-50" />
+        <KPI title="Discharges Today" value={data?.dischargesToday ?? 0} icon={LogOut} cls="text-teal-600 bg-teal-50" />
+        <KPI title="Current Inpatients" value={data?.currentInpatients ?? 0} icon={Activity} cls="text-purple-600 bg-purple-50" />
+        <KPI title="Bed Occupancy"
+             value={`${data?.bedOccupancyPct ?? 0}%`}
+             sub={`${data?.occupiedBeds ?? 0} of ${data?.totalBeds ?? 0} beds`}
+             icon={BedDouble} cls="text-amber-600 bg-amber-50" />
+        <KPI title="Avg Length of Stay"
+             value={`${data?.avgLengthOfStay ?? 0}d`} sub="last 90 days"
+             icon={Clock} cls="text-emerald-600 bg-emerald-50" />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+          <h3 className="font-bold text-slate-800 mb-2">Patient Volume — Last 30 Days</h3>
+          {trend.length > 0
+            ? <Chart options={trendOptions} series={trendSeries} type="area" height={260} />
+            : <div className="h-[260px] flex items-center justify-center text-sm text-slate-400">
+                {loading ? 'Loading…' : 'No activity in the last 30 days.'}
+              </div>}
         </div>
-        <div className="flex gap-3">
-          <button className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors shadow-sm">
-            Export PDF
-          </button>
-          <button className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors shadow-sm shadow-primary/20">
-            Generate Report
-          </button>
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+          <h3 className="font-bold text-slate-800 mb-2">Bed Occupancy by Ward</h3>
+          {beds.length > 0
+            ? <Chart options={bedOptions} series={bedSeries} type="bar" height={260} />
+            : <div className="h-[260px] flex items-center justify-center text-sm text-slate-400">
+                {loading ? 'Loading…' : 'No wards configured.'}
+              </div>}
         </div>
       </div>
 
-      {/* Top 6 KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <ClinicalKPICard title="Total Patients (Today)" value={clinical.opVisitsToday + clinical.admissionsToday} trend="up" trendValue={4.2} icon={Users} />
-        <ClinicalKPICard title="Admissions Today" value={clinical.admissionsToday} subValue={`vs ${clinical.dischargesToday} Discharges`} trend="up" trendValue={2.1} icon={Bed} />
-        <ClinicalKPICard title="Overall Bed Occupancy" value="85%" trend="down" trendValue={1.5} icon={Heart} />
-        <ClinicalKPICard title="Avg Length of Stay" value={`${clinical.averageLengthOfStay} Days`} trend="down" trendValue={0.5} icon={Clock} />
-        <ClinicalKPICard title="Avg Emergency Wait" value={`${clinical.emergencyResponseTime} Mins`} trend="down" trendValue={12.4} icon={Activity} />
-        <ClinicalKPICard title="Surgery Success Rate" value={`${clinical.operationSuccessRate}%`} trend="up" trendValue={0.2} icon={ShieldCheck} />
-      </div>
-
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-          <h3 className="text-lg font-bold text-slate-800 mb-6">Patient Volume Trend (Last 30 Days)</h3>
-          <Chart 
-            options={lineOptions} 
-            series={[
-              { name: 'OPD Visits', data: clinical.admissionsTrend.map((t: any) => t.opd) },
-              { name: 'IPD Admissions', data: clinical.admissionsTrend.map((t: any) => t.ipd) },
-              { name: 'Emergency', data: clinical.admissionsTrend.map((t: any) => t.emergency) }
-            ]} 
-            type="area" 
-            height={320} 
-          />
-        </div>
-        
-        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-          <h3 className="text-lg font-bold text-slate-800 mb-6">Bed Occupancy Breakdown</h3>
-          <Chart 
-            options={barOptions} 
-            series={[
-              { name: 'Occupied', data: clinical.bedOccupancy.map((b: any) => b.occupied) }
-            ]} 
-            type="bar" 
-            height={320} 
-          />
-        </div>
-      </div>
-
-      {/* Clinical Performance Table */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-slate-200">
-          <h3 className="text-lg font-bold text-slate-800">Top Departments by Clinical Performance</h3>
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+        <div className="px-4 py-2.5 border-b border-slate-100">
+          <h3 className="font-bold text-slate-800">Admissions by Specialty</h3>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-xs font-semibold text-slate-500 uppercase tracking-wider">
               <tr>
-                <th className="py-4 px-6">Department</th>
-                <th className="py-4 px-6">Patient Volume</th>
-                <th className="py-4 px-6">Avg Length of Stay (Days)</th>
-                <th className="py-4 px-6">Mortality Rate</th>
-                <th className="py-4 px-6">Status</th>
+                <th className="px-3 py-2 text-left">Specialty</th>
+                <th className="px-3 py-2 text-right">Admissions</th>
+                <th className="px-3 py-2 text-right">Avg Stay (days)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {departments.map((dept, idx) => (
-                <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                  <td className="py-4 px-6 font-medium text-slate-800">{dept.name}</td>
-                  <td className="py-4 px-6 text-slate-600">{dept.patients.toLocaleString()}</td>
-                  <td className="py-4 px-6 text-slate-600">{dept.alos}</td>
-                  <td className="py-4 px-6 text-slate-600">{dept.mortality}</td>
-                  <td className="py-4 px-6">
-                    <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${
-                      dept.status === 'Excellent' ? 'bg-emerald-100 text-emerald-700' :
-                      dept.status === 'Good' ? 'bg-blue-100 text-blue-700' :
-                      'bg-amber-100 text-amber-700'
-                    }`}>
-                      {dept.status}
-                    </span>
-                  </td>
+              {paged.map(s => (
+                <tr key={s.specialty} className="hover:bg-slate-50/70">
+                  <td className="px-3 py-2 font-medium text-slate-800">{s.specialty}</td>
+                  <td className="px-3 py-2 text-right font-semibold text-slate-800">{s.admissions}</td>
+                  <td className="px-3 py-2 text-right text-slate-600">{s.avgStay || '—'}</td>
                 </tr>
               ))}
+              {specialties.length === 0 && (
+                <tr><td colSpan={3} className="px-3 py-8 text-center text-slate-400">
+                  {loading ? 'Loading…' : 'No admissions recorded.'}
+                </td></tr>
+              )}
             </tbody>
           </table>
         </div>
+        <Pagination page={page} pageSize={PAGE_SIZE} totalItems={specialties.length} onPageChange={setPage} />
       </div>
 
+      <NoDataNotice
+        title="Mortality rate, OT success rate and emergency response time"
+        needs="EMR / Operation Theatre"
+        detail="The prototype showed 1.2%, 99.1% and 4.5 minutes here; no service records clinical outcomes or theatre timings."
+      />
     </div>
   );
 };

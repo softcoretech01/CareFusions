@@ -4,6 +4,7 @@ import { useExecutiveData } from './hooks/useExecutiveData';
 import { TrendingUp, TrendingDown, Users, UserCheck, Calendar, DollarSign, Activity } from 'lucide-react';
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
+import { NoDataNotice } from './components/NoDataNotice';
 
 const HRKPICard = ({ title, value, subValue, trend, trendValue, icon: Icon }: any) => (
   <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm hover:border-primary/50 transition-colors group">
@@ -61,6 +62,11 @@ export const HRAnalyticsPage = () => {
 
   return (
     <div className="space-y-6">
+      <NoDataNotice
+        title="Payroll, attendance and attrition"
+        needs="HR / Payroll"
+        detail="Headcount can come from the staff masters, but payroll, attendance and attrition have no source."
+      />
       <div className="flex justify-end">
         <DateFilter
           dateFrom={fromDate}

@@ -4,6 +4,7 @@ import { useExecutiveData } from './hooks/useExecutiveData';
 import { TrendingUp, TrendingDown, DollarSign, Activity, FileText, PieChart, ShieldCheck, CreditCard } from 'lucide-react';
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
+import { NoDataNotice } from './components/NoDataNotice';
 
 // Minimal KPI Card without background colors/gradients
 const FinancialKPICard = ({ title, value, trend, trendValue, icon: Icon }: any) => (
@@ -72,6 +73,11 @@ export const FinancialAnalyticsPage = () => {
 
   return (
     <div className="space-y-6">
+      <NoDataNotice
+        title="Revenue, P&L, expenses and cash flow"
+        needs="Billing / General Ledger"
+        detail="Every figure on this page was hardcoded. Pharmacy sales and insurance settlements are real and can be surfaced once this page is rebuilt against them."
+      />
       <div className="flex justify-end">
         <DateFilter
           dateFrom={fromDate}

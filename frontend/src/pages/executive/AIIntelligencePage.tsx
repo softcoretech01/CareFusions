@@ -1,12 +1,18 @@
 import { useState } from 'react';
 import { DateFilter } from '../../components/ui/DateFilter';
 import { Bot, Sparkles, TrendingUp, AlertTriangle, ArrowRight, Activity } from 'lucide-react';
+import { NoDataNotice } from './components/NoDataNotice';
 
 export const AIIntelligencePage = () => {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   return (
     <div className="space-y-6 max-w-6xl mx-auto h-[calc(100vh-8rem)] flex flex-col">
+      <NoDataNotice
+        title="Conversational analytics"
+        needs="AI Analytics Service"
+        detail="The chat transcript is a fixed script — the input box and suggested queries have no handlers."
+      />
       <div className="flex justify-end">
         <DateFilter
           dateFrom={fromDate}

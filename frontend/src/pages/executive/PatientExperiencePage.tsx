@@ -1,8 +1,11 @@
 import { useState } from 'react';
+import { Pagination } from '@/components/ui/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 import { DateFilter } from '../../components/ui/DateFilter';
 import { TrendingUp, TrendingDown, Heart, Star, MessageSquare, AlertCircle } from 'lucide-react';
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
+import { NoDataNotice } from './components/NoDataNotice';
 
 const KPICard = ({ title, value, subValue, trend, trendValue, icon: Icon }: any) => (
   <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm hover:border-primary/50 transition-colors group">
@@ -61,8 +64,15 @@ export const PatientExperiencePage = () => {
     { patient: 'P-10455', dept: 'Orthopedics', text: 'The facilities are world class. Highly recommended.', sentiment: 'Positive' },
   ];
 
+  const { page, setPage, pageSize, total, paged } = usePagination(feedback);
+
   return (
     <div className="space-y-6">
+      <NoDataNotice
+        title="NPS, satisfaction ratings and patient feedback"
+        needs="Patient Feedback"
+        detail="No survey or feedback capture exists; the scores and testimonials shown here were written into the page."
+      />
       <div className="flex justify-end">
         <DateFilter
           dateFrom={fromDate}
@@ -115,7 +125,7 @@ export const PatientExperiencePage = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {feedback.map((item, idx) => (
+              {paged.map((item, idx) => (
                 <tr key={idx} className="hover:bg-slate-50 transition-colors">
                   <td className="py-4 px-6 font-medium text-slate-800">{item.patient}</td>
                   <td className="py-4 px-6 text-slate-600">{item.dept}</td>
@@ -134,6 +144,7 @@ export const PatientExperiencePage = () => {
             </tbody>
           </table>
         </div>
+        <Pagination page={page} pageSize={pageSize} totalItems={total} onPageChange={setPage} />
       </div>
     </div>
   );

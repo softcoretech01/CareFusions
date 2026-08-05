@@ -1,9 +1,12 @@
 import { useState } from 'react';
+import { Pagination } from '@/components/ui/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 import { DateFilter } from '../../components/ui/DateFilter';
 import { useExecutiveData } from './hooks/useExecutiveData';
 import { TrendingUp, TrendingDown, ShoppingCart, Truck, Clock, DollarSign } from 'lucide-react';
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
+import { NoDataNotice } from './components/NoDataNotice';
 
 const ProcurementKPICard = ({ title, value, subValue, trend, trendValue, icon: Icon }: any) => (
   <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm hover:border-primary/50 transition-colors group">
@@ -59,8 +62,15 @@ export const ProcurementAnalyticsPage = () => {
     { name: 'Local Surgicals Pvt Ltd', spend: 1200000, items: 850, performance: 78, status: 'Warning' },
   ];
 
+  const { page, setPage, pageSize, total, paged } = usePagination(topVendors);
+
   return (
     <div className="space-y-6">
+      <NoDataNotice
+        title="Purchase requisitions, orders, vendor performance and savings"
+        needs="Procurement"
+        detail="PR/PO/RFQ counts, cycle time and the vendor table were fixed literals with no service behind them."
+      />
       <div className="flex justify-end">
         <DateFilter
           dateFrom={fromDate}
@@ -106,7 +116,7 @@ export const ProcurementAnalyticsPage = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {topVendors.map((vendor, idx) => (
+                {paged.map((vendor, idx) => (
                   <tr key={idx} className="hover:bg-slate-50 transition-colors">
                     <td className="py-4 px-6 font-medium text-slate-800">{vendor.name}</td>
                     <td className="py-4 px-6 text-slate-600">{formatINR(vendor.spend)}</td>
@@ -126,6 +136,7 @@ export const ProcurementAnalyticsPage = () => {
               </tbody>
             </table>
           </div>
+        <Pagination page={page} pageSize={pageSize} totalItems={total} onPageChange={setPage} />
         </div>
       </div>
     </div>
