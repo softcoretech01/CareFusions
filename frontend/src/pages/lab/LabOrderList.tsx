@@ -28,18 +28,21 @@ export const LabOrderList = () => {
     setActiveOrder(null);
   };
 
-  const handleSaveResult = (testId: string, resultValue: string, resultFile?: string) => {
+  const handleSaveResult = async (testId: string, resultValue: string, resultFile?: string) => {
     if (!activeOrder) return;
 
-    // Basic mock validation for critical values (e.g. if Hemoglobin < 7 or > 18)
-    let isCritical = false;
-    const valueNum = parseFloat(resultValue);
-    if (!isNaN(valueNum) && (valueNum < 7 || valueNum > 18)) {
-      isCritical = true;
-      toast.error('Critical value detected!', { icon: '⚠️' });
-    }
+    // Abnormal/critical flagging is decided by the backend from the test's own
+    // reference range and its critical-value flag in the test master, so the
+    // result of the save tells us whether to warn.
+    updateTestResult(activeOrder.id, testId, resultValue, resultFile);
 
-    updateTestResult(activeOrder.id, testId, resultValue, resultFile, isCritical);
+    const test = activeOrder.tests.find(t => t.id === testId);
+    const range = test?.normalRange;
+    const value = parseFloat(resultValue);
+    const bounds = range?.match(/^(-?\d+(?:\.\d+)?)\s*-\s*(-?\d+(?:\.\d+)?)$/);
+    if (bounds && !isNaN(value) && (value < parseFloat(bounds[1]) || value > parseFloat(bounds[2]))) {
+      toast.error(`Out of reference range (${range})`, { icon: '⚠️' });
+    }
     toast.success('Result saved successfully');
   };
 

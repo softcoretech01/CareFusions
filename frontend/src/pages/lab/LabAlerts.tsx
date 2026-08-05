@@ -1,18 +1,20 @@
-import { useState } from 'react';
+import { useEffect } from 'react';
 import { useInvestigations } from '../../contexts/InvestigationContext';
 import { AlertTriangle, Check, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export const LabAlerts = () => {
-  const { orders } = useInvestigations();
-  const [acknowledgedIds, setAcknowledgedIds] = useState<Set<string>>(new Set());
+  const { orders, acknowledgeAlert, refresh } = useInvestigations();
 
-  // Extract critical alerts from all lab orders
+  useEffect(() => { refresh(); }, [refresh]);
+
+  // Critical alerts across all lab orders. Acknowledgement is persisted
+  // server-side, so an acknowledged alert stays acknowledged after a refresh.
   const criticalAlerts = orders
     .filter(o => o.category === 'Lab')
-    .flatMap(order => 
+    .flatMap(order =>
       order.tests
-        .filter(test => test.isCritical && !acknowledgedIds.has(test.id))
+        .filter(test => test.isCritical && !test.acknowledgedAt)
         .map(test => ({
           testId: test.id,
           orderId: order.id,
@@ -25,11 +27,7 @@ export const LabAlerts = () => {
     .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
 
   const handleAcknowledge = (testId: string) => {
-    setAcknowledgedIds(prev => {
-      const newSet = new Set(prev);
-      newSet.add(testId);
-      return newSet;
-    });
+    acknowledgeAlert(testId);
     toast.success('Alert acknowledged');
   };
 
