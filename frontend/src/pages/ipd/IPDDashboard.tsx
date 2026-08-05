@@ -78,8 +78,8 @@ export const IPDDashboard = () => {
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 flex items-start justify-between">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex items-start justify-between">
           <div>
             <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-2">Total Inpatients</p>
             <h3 className="text-4xl font-bold text-slate-800">{activePatients.length}</h3>
@@ -89,7 +89,7 @@ export const IPDDashboard = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 flex items-start justify-between">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex items-start justify-between">
           <div>
             <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-2">Bed Occupancy</p>
             <h3 className="text-4xl font-bold text-slate-800">{occupancyRate}%</h3>
@@ -100,7 +100,7 @@ export const IPDDashboard = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 flex items-start justify-between">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex items-start justify-between">
           <div>
             <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-2">Pending Admissions</p>
             <h3 className="text-4xl font-bold text-slate-800">{pendingAdmissions}</h3>
@@ -110,7 +110,7 @@ export const IPDDashboard = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 flex items-start justify-between">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex items-start justify-between">
           <div>
             <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-2">Expected Discharges (24h)</p>
             <h3 className="text-4xl font-bold text-slate-800">{expectedDischarges}</h3>
@@ -121,8 +121,8 @@ export const IPDDashboard = () => {
         </div>
       </div>
       
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white rounded-3xl border border-slate-100 shadow-sm p-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-bold text-lg text-slate-800">Admissions vs Discharges</h3>
             <div className="flex gap-4 text-sm font-bold">
@@ -141,7 +141,7 @@ export const IPDDashboard = () => {
           />
         </div>
 
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 flex flex-col">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col">
           <h3 className="font-bold text-lg text-slate-800 mb-4">Occupancy by Ward</h3>
           <div className="flex-1 flex items-center justify-center">
             <Chart options={donutOptions} series={wardOccupancyData} type="donut" height={300} />

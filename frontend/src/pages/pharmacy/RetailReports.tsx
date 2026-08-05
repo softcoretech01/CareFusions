@@ -66,7 +66,7 @@ export const RetailReports = () => {
     <div className="h-full flex flex-col max-w-7xl mx-auto">
       
       {/* Header Tabs (Static for UI as per screenshot) */}
-      <div className="flex border-b border-slate-200 mb-6">
+      <div className="flex border-b border-slate-200 mb-4">
         <button className="px-6 py-3 border-b-2 border-primary text-primary font-bold text-sm flex items-center gap-2 bg-primary/5 rounded-t-lg">
           <FileText className="w-4 h-4" />
           Retail Sales Report
@@ -103,42 +103,42 @@ export const RetailReports = () => {
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead className="bg-slate-100/80 text-slate-500 sticky top-0 border-b border-slate-200 z-10">
               <tr>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider">Invoice</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider">Date</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider">Customer Details</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider">Medicine Details</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-center">Qty</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-right">Net Amount</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-center">Status</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-center">Action</th>
+                <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider">Invoice</th>
+                <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider">Date</th>
+                <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider">Customer Details</th>
+                <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider">Medicine Details</th>
+                <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-center">Qty</th>
+                <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-right">Net Amount</th>
+                <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-center">Status</th>
+                <th className="px-6 py-3 text-xs font-bold uppercase tracking-wider text-center">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredBills.length > 0 ? (
                 filteredBills.map((bill: any) => (
                   <tr key={bill.billId} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-3">
                       <span className="font-bold text-primary">{bill.billId}</span>
                     </td>
-                    <td className="px-6 py-4 text-slate-600">
+                    <td className="px-4 py-3 text-slate-600">
                       {new Date(bill.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-3">
                       <p className="font-bold text-slate-800">{bill.patientName || 'Walk-in'}</p>
                       <p className="text-xs text-slate-500 mt-0.5">Ph: {bill.patientId}</p>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-3">
                       <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold bg-blue-50 text-blue-700 border border-blue-100">
                         {bill.items.length} {bill.items.length === 1 ? 'item' : 'items'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-center font-bold text-slate-700">
+                    <td className="px-4 py-3 text-center font-bold text-slate-700">
                       {bill.items.reduce((sum: number, item: any) => sum + item.quantity, 0)}
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-4 py-3 text-right">
                       <span className="font-bold text-primary text-base">₹{bill.netAmount.toFixed(2)}</span>
                     </td>
-                    <td className="px-6 py-4 text-center">
+                    <td className="px-4 py-3 text-center">
                       {bill.paymentStatus === 'Paid' ? (
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700">
                           Paid
@@ -153,7 +153,7 @@ export const RetailReports = () => {
                         </button>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-center">
+                    <td className="px-4 py-3 text-center">
                       <div className="flex items-center justify-center gap-2">
                         <button 
                           onClick={() => setViewingBill({ ...bill })}
@@ -196,7 +196,7 @@ export const RetailReports = () => {
       {viewingBill && (
         <div className="fixed inset-0 bg-slate-900/50 flex flex-col items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="bg-slate-50 border-b border-slate-200 px-6 py-4 flex justify-between items-center">
+            <div className="bg-slate-50 border-b border-slate-200 px-4 py-3 flex justify-between items-center">
               <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                 <FileText className="w-5 h-5 text-primary" />
                 Bill Details: {viewingBill.billId}
@@ -207,7 +207,7 @@ export const RetailReports = () => {
             </div>
             
             <div className="p-6 overflow-y-auto max-h-[70vh]">
-              <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="grid grid-cols-2 gap-4 mb-4">
                 <div>
                   <p className="text-xs text-slate-500 font-semibold uppercase">Customer</p>
                   <p className="font-bold text-slate-800">{viewingBill.patientName || 'Walk-in'}</p>
@@ -227,7 +227,7 @@ export const RetailReports = () => {
               </div>
 
               <h4 className="font-bold text-slate-800 mb-3 border-b border-slate-100 pb-2">Medicine Details</h4>
-              <div className="space-y-3 mb-6">
+              <div className="space-y-3 mb-4">
                 {viewingBill.items.map((item: any, i: number) => (
                   <div key={i} className="flex justify-between items-center text-sm">
                     <div>
@@ -261,7 +261,7 @@ export const RetailReports = () => {
               </div>
             </div>
 
-            <div className="bg-slate-50 border-t border-slate-200 px-6 py-4 flex justify-end">
+            <div className="bg-slate-50 border-t border-slate-200 px-4 py-3 flex justify-end">
               <button 
                 onClick={() => setViewingBill(null)}
                 className="px-6 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 text-sm font-bold rounded-lg transition-colors"

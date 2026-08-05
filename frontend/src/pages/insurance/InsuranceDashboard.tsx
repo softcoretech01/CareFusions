@@ -77,8 +77,8 @@ export const InsuranceDashboard = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-start mb-6">
+    <div className="space-y-4">
+      <div className="flex justify-between items-start mb-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Insurance & Claims Dashboard</h1>
         </div>
@@ -140,7 +140,7 @@ export const InsuranceDashboard = () => {
       </div>
 
       {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
           className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 p-6 shadow-sm"
@@ -186,14 +186,14 @@ export const InsuranceDashboard = () => {
             <tbody className="divide-y divide-slate-100">
               {(data?.recentSettlements ?? []).map((row, i) => (
                 <tr key={i} className="hover:bg-slate-50/70 transition-colors">
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-3">
                     <span className="font-bold text-primary">{row.claimId}</span>
                   </td>
-                  <td className="px-6 py-4 font-bold text-slate-800">{row.patient}</td>
-                  <td className="px-6 py-4 font-medium text-slate-600">{row.insurer}</td>
-                  <td className="px-6 py-4 text-slate-600">{inr(row.claimed)}</td>
-                  <td className="px-6 py-4 font-bold text-emerald-600">{inr(row.settled)}</td>
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-3 font-bold text-slate-800">{row.patient}</td>
+                  <td className="px-4 py-3 font-medium text-slate-600">{row.insurer}</td>
+                  <td className="px-4 py-3 text-slate-600">{inr(row.claimed)}</td>
+                  <td className="px-4 py-3 font-bold text-emerald-600">{inr(row.settled)}</td>
+                  <td className="px-4 py-3">
                     <span className={`px-2.5 py-1 text-xs font-bold rounded-lg flex items-center gap-1 w-max ${
                       row.status === 'Reconciled' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
                     }`}>

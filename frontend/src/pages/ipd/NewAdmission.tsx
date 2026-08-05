@@ -150,7 +150,7 @@ export const NewAdmission = () => {
   };
 
   const labelCls = 'block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5';
-  const base = 'w-full px-3 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all font-medium';
+  const base = 'w-full px-3 py-1.5 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all font-medium';
   const fieldCls = (field?: string) =>
     `${base} ${field && errors[field] ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'}`;
   const Err = ({ f }: { f: string }) => (errors[f] ? <p className="text-red-500 text-xs mt-1">{errors[f]}</p> : null);
@@ -164,7 +164,7 @@ export const NewAdmission = () => {
         <h1 className="text-2xl font-bold text-slate-800">New Admission</h1>
       </div>
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 space-y-5">
+      <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-5">
 
         {/* Patient Details */}
         <div>

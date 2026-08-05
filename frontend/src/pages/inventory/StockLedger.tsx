@@ -72,19 +72,19 @@ export const StockLedger = () => {
             className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-primary" />
         </div>
         <select value={storeId} onChange={e => setStoreId(e.target.value)}
-          className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600">
+          className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600">
           <option value="">All Stores</option>
           {stores.map(s => <option key={s.storeId} value={s.storeId}>{s.storeName}</option>)}
         </select>
         <select value={type} onChange={e => setType(e.target.value)}
-          className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600">
+          className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600">
           {TYPES.map(t => <option key={t} value={t}>{t === 'All' ? 'All Types' : t}</option>)}
         </select>
         <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)}
-          className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600" />
+          className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600" />
         <span className="text-slate-400 text-sm">to</span>
         <input type="date" value={toDate} onChange={e => setToDate(e.target.value)}
-          className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600" />
+          className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600" />
         <button onClick={() => { setSearch(''); setStoreId(''); setType('All'); setFromDate(''); setToDate(''); }}
           className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-200">Clear</button>
       </div>

@@ -18,7 +18,7 @@ export const BillingNew = () => {
   };
 
   return (
-    <div className="h-full flex flex-col space-y-6">
+    <div className="h-full flex flex-col space-y-4">
       <div>
         <h2 className="text-2xl font-bold text-slate-800">Create New Bill</h2>
         <p className="text-slate-500 text-sm">Generate a new pharmacy bill</p>

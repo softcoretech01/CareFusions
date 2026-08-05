@@ -32,12 +32,12 @@ export const LabAlerts = () => {
   };
 
   return (
-    <div className="h-full flex flex-col space-y-6">
+    <div className="h-full flex flex-col space-y-4">
       <div>
         <h2 className="text-2xl font-bold text-slate-800">Critical Alerts</h2>
       </div>
       
-      <div className="flex-1 bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+      <div className="flex-1 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
         <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="flex h-3 w-3 relative">
@@ -81,7 +81,7 @@ export const LabAlerts = () => {
                     </button>
                   </div>
                   
-                  <div className="bg-white p-4 rounded-xl border border-red-100 mt-3 flex flex-wrap gap-6 items-center">
+                  <div className="bg-white p-4 rounded-xl border border-red-100 mt-3 flex flex-wrap gap-4 items-center">
                     <div>
                       <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Test Name</p>
                       <p className="font-semibold text-slate-800">{alert.testName}</p>

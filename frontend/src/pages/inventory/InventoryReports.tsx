@@ -19,7 +19,7 @@ export const InventoryReports = () => {
 
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="h-full flex flex-col">
-      <div className="mb-6 flex justify-between items-end">
+      <div className="mb-4 flex justify-between items-end">
         <div>
           <div className="flex items-center text-sm text-slate-500 mb-2">
             <span>Inventory</span>
@@ -30,9 +30,9 @@ export const InventoryReports = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {reports.map((report, i) => (
-          <div key={i} className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 group hover:shadow-md transition-all hover:border-primary/20 flex flex-col">
+          <div key={i} className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 group hover:shadow-md transition-all hover:border-primary/20 flex flex-col">
             <div className="flex items-start justify-between mb-4">
               <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center group-hover:scale-110 transition-transform">
                 <report.icon className="w-6 h-6" />
@@ -42,7 +42,7 @@ export const InventoryReports = () => {
               </span>
             </div>
             <h3 className="font-bold text-slate-800 text-lg mb-2">{report.title}</h3>
-            <p className="text-slate-500 text-sm mb-6 flex-1">{report.desc}</p>
+            <p className="text-slate-500 text-sm mb-4 flex-1">{report.desc}</p>
             <div className="flex gap-2">
               <button 
                 onClick={() => setSelectedReport(report)}
@@ -63,7 +63,7 @@ export const InventoryReports = () => {
 
       <Modal isOpen={!!selectedReport} onClose={() => setSelectedReport(null)} title={selectedReport?.title || 'Report Preview'} size="5xl">
         {selectedReport && (
-          <div className="space-y-6">
+          <div className="space-y-4">
             <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-between">
               <div>
                 <h4 className="font-bold text-slate-800">{selectedReport.title} Overview</h4>

@@ -37,7 +37,7 @@ export const LowStockMonitor = () => {
         </div>
         <select value={storeId} onChange={e => setStoreId(e.target.value)} disabled
           title="Low stock is evaluated across all stores"
-          className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-400">
+          className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-400">
           <option value="">All Stores</option>
           {stores.map(s => <option key={s.storeId} value={s.storeId}>{s.storeName}</option>)}
         </select>

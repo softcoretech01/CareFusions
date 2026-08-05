@@ -25,7 +25,7 @@ export const BedManagement = () => {
   const [bedErr, setBedErr] = useState<Record<string, string>>({});
 
   const inputCls = (bad?: string) =>
-    `w-full px-3 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all font-medium ${
+    `w-full px-3 py-1.5 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all font-medium ${
       bad ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'
     }`;
 
@@ -175,12 +175,12 @@ export const BedManagement = () => {
           return (
             <div
               key={ward.id}
-              className={`bg-white rounded-3xl border p-6 shadow-sm ${
+              className={`bg-white rounded-2xl border p-6 shadow-sm ${
                 isOT ? 'border-purple-200 ring-1 ring-purple-100' : 'border-slate-100'
               }`}
             >
               {/* Ward header */}
-              <div className="flex items-center justify-between mb-6 border-b border-slate-100 pb-4">
+              <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-4">
                 <div className="flex items-center gap-3">
                   {isOT ? (
                     <div className="w-10 h-10 rounded-xl bg-purple-50 border border-purple-200 flex items-center justify-center">

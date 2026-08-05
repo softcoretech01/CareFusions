@@ -38,8 +38,8 @@ export const AppealsManagement = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-start mb-6">
+    <div className="space-y-4">
+      <div className="flex justify-between items-start mb-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Denials & Appeals</h1>
         </div>
@@ -111,41 +111,41 @@ export const AppealsManagement = () => {
           <table className="w-full">
             <thead className="bg-slate-50 text-xs font-semibold text-slate-500 uppercase tracking-wider">
               <tr>
-                <th className="px-6 py-4 text-left">Claim ID</th>
-                <th className="px-6 py-4 text-left">Patient Details</th>
-                <th className="px-6 py-4 text-left">Insurer</th>
-                <th className="px-6 py-4 text-left">Denial Reason</th>
-                <th className="px-6 py-4 text-left">Denied Amount</th>
-                <th className="px-6 py-4 text-left">Date</th>
-                <th className="px-6 py-4 text-left">Status</th>
-                <th className="px-6 py-4 text-left">Action</th>
+                <th className="px-4 py-3 text-left">Claim ID</th>
+                <th className="px-4 py-3 text-left">Patient Details</th>
+                <th className="px-4 py-3 text-left">Insurer</th>
+                <th className="px-4 py-3 text-left">Denial Reason</th>
+                <th className="px-4 py-3 text-left">Denied Amount</th>
+                <th className="px-4 py-3 text-left">Date</th>
+                <th className="px-4 py-3 text-left">Status</th>
+                <th className="px-4 py-3 text-left">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredAppeals.map((row) => (
                 <tr key={row.id} className="hover:bg-slate-50/70 transition-colors">
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-3">
                     <span className="font-bold text-primary">{row.claimId}</span>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-3">
                     <div className="font-bold text-slate-800">{row.patient}</div>
                     <div className="text-xs text-slate-500">{row.uhid}</div>
                   </td>
-                  <td className="px-6 py-4 font-medium text-slate-600">{row.insurer}</td>
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-3 font-medium text-slate-600">{row.insurer}</td>
+                  <td className="px-4 py-3">
                     <div className="flex items-start gap-2 text-rose-700 font-medium text-sm">
                       <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                       <span className="max-w-[200px] leading-tight">{row.denialReason}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 font-bold text-slate-800">
+                  <td className="px-4 py-3 font-bold text-slate-800">
                     ₹{row.amount.toLocaleString()}
                   </td>
-                  <td className="px-6 py-4 text-sm text-slate-500">{row.date}</td>
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-3 text-sm text-slate-500">{row.date}</td>
+                  <td className="px-4 py-3">
                     {getStatusBadge(row.status)}
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       <button 
                         onClick={() => setShowEob(row)}
@@ -193,7 +193,7 @@ export const AppealsManagement = () => {
       {showEob && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+            <div className="px-4 py-3 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
                   <FileText className="w-5 h-5" />
@@ -210,8 +210,8 @@ export const AppealsManagement = () => {
                 <X className="w-5 h-5 text-slate-500" />
               </button>
             </div>
-            <div className="p-6 space-y-6">
-              <div className="grid grid-cols-2 gap-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
+            <div className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
                 <div>
                   <p className="text-sm font-medium text-slate-500 mb-1">Patient</p>
                   <p className="font-bold text-slate-800">{showEob.patient} <span className="text-sm font-normal text-slate-500">({showEob.uhid})</span></p>

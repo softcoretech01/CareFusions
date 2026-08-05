@@ -4,6 +4,9 @@ import toast from 'react-hot-toast';
 import {
   useInventory, type DocType, type IssuableLot, type MovementDocument,
 } from '../../contexts/InventoryContext';
+import {
+  lettersOnly, digitsOnly, decimalOnly, signedDigits, alphanumeric, freeText, LIMITS,
+} from '../../utils/inputRules';
 
 /** Local calendar day (YYYY-MM-DD) — safe against UTC parsing skew. */
 const localDay = (d: Date) =>
@@ -191,7 +194,7 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
     toast[ok ? 'success' : 'error'](ok ? 'Document deleted' : 'Failed to delete document');
   };
 
-  const inputCls = 'w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary';
+  const inputCls = 'w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary';
 
   return (
     <div className="space-y-4">
@@ -226,10 +229,10 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
           />
         </div>
         <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)}
-          className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600" />
+          className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600" />
         <span className="text-slate-400 text-sm">to</span>
         <input type="date" value={toDate} onChange={e => setToDate(e.target.value)}
-          className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600" />
+          className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600" />
         <button onClick={() => { setSearch(''); setFromDate(''); setToDate(''); }}
           className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-200">Clear</button>
       </div>
@@ -338,12 +341,14 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
                   <>
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 mb-1">Vendor</label>
-                      <input type="text" value={vendorName} onChange={e => setVendorName(e.target.value)}
+                      <input type="text" value={vendorName} maxLength={LIMITS.shortText}
+                        onChange={e => setVendorName(freeText(e.target.value, LIMITS.shortText))}
                         className={inputCls} placeholder="Supplier name" />
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 mb-1">PO / GRN Reference</label>
-                      <input type="text" value={referenceNo} onChange={e => setReferenceNo(e.target.value)}
+                      <input type="text" value={referenceNo} maxLength={LIMITS.reference}
+                        onChange={e => setReferenceNo(alphanumeric(e.target.value, LIMITS.reference))}
                         className={inputCls} placeholder="e.g. PO-2026-001" />
                     </div>
                   </>
@@ -360,7 +365,8 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Requested / Done By</label>
                   <input type="text" value={requestedBy}
-                    onChange={e => setRequestedBy(e.target.value.replace(/[^A-Za-z\s.'-]/g, ''))}
+                    maxLength={LIMITS.name}
+                    onChange={e => setRequestedBy(lettersOnly(e.target.value))}
                     className={inputCls} placeholder="Name" />
                 </div>
               </div>
@@ -409,7 +415,8 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
                         <>
                           <div className="col-span-2">
                             <input type="text" value={line.batchNo} placeholder="Batch"
-                              onChange={e => updateLine(line.key, { batchNo: e.target.value })} className={inputCls} />
+                              maxLength={LIMITS.batch}
+                              onChange={e => updateLine(line.key, { batchNo: alphanumeric(e.target.value, LIMITS.batch) })} className={inputCls} />
                           </div>
                           <div className="col-span-2">
                             <input type="date" value={line.expiryDate} title="Expiry date"
@@ -422,21 +429,23 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
                           type="text" inputMode="numeric" value={line.quantity} placeholder="Qty"
                           onChange={e => updateLine(line.key, {
                             quantity: config.allowNegative
-                              ? e.target.value.replace(/[^\d-]/g, '')
-                              : e.target.value.replace(/\D/g, ''),
+                              ? signedDigits(e.target.value)
+                              : digitsOnly(e.target.value, LIMITS.qty),
                           })}
                           className={inputCls} />
                       </div>
                       {config.needsRate && (
                         <div className="col-span-2">
                           <input type="text" inputMode="decimal" value={line.rate} placeholder="Rate ₹"
-                            onChange={e => updateLine(line.key, { rate: e.target.value.replace(/[^\d.]/g, '') })}
+                            maxLength={LIMITS.amount}
+                            onChange={e => updateLine(line.key, { rate: decimalOnly(e.target.value) })}
                             className={inputCls} />
                         </div>
                       )}
                       <div className={config.needsSource ? (config.needsRate ? 'col-span-3' : 'col-span-5') : 'col-span-2'}>
                         <input type="text" value={line.remarks} placeholder="Remarks"
-                          onChange={e => updateLine(line.key, { remarks: e.target.value })} className={inputCls} />
+                          maxLength={LIMITS.remarks}
+                          onChange={e => updateLine(line.key, { remarks: freeText(e.target.value) })} className={inputCls} />
                       </div>
                       <div className="col-span-1 flex justify-end">
                         <button type="button" onClick={() => removeLine(line.key)}
@@ -450,7 +459,7 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
                     <p className="text-xs text-slate-400 text-center py-4">No lines yet — click "Add line".</p>
                   )}
                 </div>
-                <div className="bg-slate-50 px-4 py-2 flex items-center justify-end gap-6 text-sm">
+                <div className="bg-slate-50 px-4 py-2 flex items-center justify-end gap-4 text-sm">
                   <span className="text-slate-500">Lines: <b className="text-slate-800">{lines.length}</b></span>
                   <span className="text-slate-500">Total Qty: <b className="text-slate-800">{totalQty}</b></span>
                   {config.needsRate && (
@@ -468,7 +477,8 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
 
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Remarks</label>
-                <input type="text" value={remarks} onChange={e => setRemarks(e.target.value)}
+                <input type="text" value={remarks} maxLength={LIMITS.notes}
+                  onChange={e => setRemarks(freeText(e.target.value, LIMITS.notes))}
                   className={inputCls} placeholder="Optional note for this document" />
               </div>
 

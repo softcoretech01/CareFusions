@@ -133,12 +133,12 @@ export const RetailPOS = () => {
         <div className="flex-1 p-6 overflow-y-auto custom-scrollbar flex flex-col">
           
           {/* Customer Details Box */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5 mb-6">
+          <div className="bg-white rounded-xl border border-slate-200 p-5 mb-4">
             <h3 className="text-sm font-bold text-primary mb-4 flex items-center gap-2 border-b border-slate-100 pb-3">
                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                Walk-in Customer Details
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wider">Customer Name (Optional)</label>
                 <input
@@ -169,7 +169,7 @@ export const RetailPOS = () => {
           </div>
 
           {/* Search Medicine */}
-          <div className="relative mb-6">
+          <div className="relative mb-4">
             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
               <Search className="h-5 w-5 text-slate-400" />
             </div>
@@ -278,9 +278,9 @@ export const RetailPOS = () => {
 
         {/* Right Column: Billing Summary */}
         <div className="w-full lg:w-80 bg-white border-l border-slate-200 p-6 flex flex-col">
-          <h3 className="text-sm font-bold text-slate-800 mb-6 border-b border-slate-100 pb-3 uppercase tracking-wider">Billing Summary</h3>
+          <h3 className="text-sm font-bold text-slate-800 mb-4 border-b border-slate-100 pb-3 uppercase tracking-wider">Billing Summary</h3>
           
-          <div className="space-y-4 mb-6">
+          <div className="space-y-4 mb-4">
             <div className="flex justify-between text-sm">
               <span className="text-slate-500 font-medium">Sub Total</span>
               <span className="font-bold text-slate-800">₹{subTotal.toFixed(2)}</span>
@@ -302,7 +302,7 @@ export const RetailPOS = () => {
             </div>
           </div>
 
-          <div className="mb-6">
+          <div className="mb-4">
             <span className="block text-xs font-bold text-slate-500 mb-3 uppercase tracking-wider">Payment Method</span>
             <div className="grid grid-cols-3 gap-2">
               {['Cash', 'UPI', 'Card'].map(method => (

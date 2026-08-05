@@ -68,10 +68,10 @@ export const DepartmentConsumption = () => {
             className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-primary" />
         </div>
         <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)}
-          className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600" />
+          className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600" />
         <span className="text-slate-400 text-sm">to</span>
         <input type="date" value={toDate} onChange={e => setToDate(e.target.value)}
-          className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600" />
+          className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600" />
         <button onClick={() => { setSearch(''); setFromDate(''); setToDate(''); }}
           className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-200">Clear</button>
       </div>

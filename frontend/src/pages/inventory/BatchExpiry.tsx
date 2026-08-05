@@ -60,7 +60,7 @@ export const BatchExpiry = () => {
             className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-primary" />
         </div>
         <select value={storeName} onChange={e => setStoreName(e.target.value)}
-          className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600">
+          className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600">
           <option value="">All Stores</option>
           {stores.map(s => <option key={s.storeId} value={s.storeName}>{s.storeName}</option>)}
         </select>
