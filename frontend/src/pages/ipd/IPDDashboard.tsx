@@ -63,10 +63,10 @@ export const IPDDashboard = () => {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800">IPD Analytics Dashboard</h1>
+          <h1 className="text-2xl font-bold text-slate-800">IPD Analytics Dashboard</h1>
         </div>
         <DateFilter
           dateFrom={dateFrom}

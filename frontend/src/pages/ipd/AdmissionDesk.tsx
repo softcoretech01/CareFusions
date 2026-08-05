@@ -3,6 +3,7 @@ import { useIPD } from '../../contexts/IPDContext';
 import { useNavigate } from 'react-router-dom';
 import { Clock, CheckCircle } from 'lucide-react';
 import { DateFilter } from '../../components/ui/DateFilter';
+import { IpdErrorBanner } from './IpdErrorBanner';
 
 export const AdmissionDesk = () => {
   const { admissionRequests } = useIPD();
@@ -37,10 +38,11 @@ export const AdmissionDesk = () => {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      <IpdErrorBanner />
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800">Admission Desk</h1>
+          <h1 className="text-2xl font-bold text-slate-800">Admission Desk</h1>
         </div>
         <button 
           onClick={() => navigate('/ipd/new-admission')}
@@ -51,7 +53,7 @@ export const AdmissionDesk = () => {
       </div>
 
       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex flex-col h-[calc(100vh-10rem)]">
-        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+        <div className="px-4 py-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
           <h2 className="text-lg font-bold text-slate-800">Pending Admission Requests</h2>
           <DateFilter
             dateFrom={dateFrom}
@@ -66,11 +68,11 @@ export const AdmissionDesk = () => {
           <table className="w-full">
             <thead className="bg-white text-xs font-semibold text-slate-500 uppercase tracking-wider sticky top-0 border-b border-slate-100 shadow-sm z-10">
               <tr>
-                <th className="px-6 py-4 text-left">Request Time</th>
-                <th className="px-6 py-4 text-left">Patient Details</th>
-                <th className="px-6 py-4 text-left">Requested By</th>
-                <th className="px-6 py-4 text-left">Details</th>
-                <th className="px-6 py-4 text-left">Action</th>
+                <th className="px-4 py-3 text-left">Request Time</th>
+                <th className="px-4 py-3 text-left">Patient Details</th>
+                <th className="px-4 py-3 text-left">Requested By</th>
+                <th className="px-4 py-3 text-left">Details</th>
+                <th className="px-4 py-3 text-left">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -83,24 +85,24 @@ export const AdmissionDesk = () => {
               ) : (
                 pendingRequests.map(req => (
                   <tr key={req.id} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-3">
                       <div className="flex items-center gap-2 text-sm text-slate-600 font-medium">
                         <Clock className="w-4 h-4 text-amber-500" />
                         {new Date(req.requestDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-3">
                       <div className="font-bold text-slate-800">{req.patientName}</div>
                       <div className="text-xs text-slate-500">{req.uhid}</div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-slate-600">
+                    <td className="px-4 py-3 text-sm text-slate-600">
                       {req.requestedBy}
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-3">
                       <div className="text-sm font-bold text-slate-700">{req.admissionType} • {req.specialty}</div>
                       <div className="text-xs text-slate-500 truncate max-w-[200px]">{req.provisionalDiagnosis}</div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-3">
                       <button 
                         onClick={() => navigate('/ipd/new-admission', { state: { request: req } })}
                         className="px-4 py-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white rounded-lg text-sm font-bold transition-colors flex items-center gap-2"

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useIPD } from '../../contexts/IPDContext';
 import { Search, CheckCircle, Eye, Printer, AlertCircle } from 'lucide-react';
+import { IpdErrorBanner } from './IpdErrorBanner';
 import { DischargePrintTemplate } from '../../components/discharge/DischargePrintTemplate';
 import { WardTransferHistory } from '../../components/discharge/WardTransferHistory';
 import { DateFilter } from '../../components/ui/DateFilter';
@@ -102,15 +103,16 @@ export const Discharges = () => {
 
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      <IpdErrorBanner />
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800">Discharge Management</h1>
+          <h1 className="text-2xl font-bold text-slate-800">Discharge Management</h1>
         </div>
       </div>
 
       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex flex-col h-[calc(100vh-10rem)]">
-        <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+        <div className="px-4 py-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
           <div className="relative w-64">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
@@ -135,12 +137,12 @@ export const Discharges = () => {
           <table className="w-full">
             <thead className="bg-white text-xs font-semibold text-slate-500 uppercase tracking-wider sticky top-0 shadow-sm z-10 border-b border-slate-100">
               <tr>
-                <th className="px-6 py-4 text-left">Patient Details</th>
-                <th className="px-6 py-4 text-left">Ward & Bed</th>
-                <th className="px-6 py-4 text-left">Admission Date</th>
-                <th className="px-6 py-4 text-left">Billing Status</th>
-                <th className="px-6 py-4 text-left">Status</th>
-                <th className="px-6 py-4 text-center">Action</th>
+                <th className="px-4 py-3 text-left">Patient Details</th>
+                <th className="px-4 py-3 text-left">Ward & Bed</th>
+                <th className="px-4 py-3 text-left">Admission Date</th>
+                <th className="px-4 py-3 text-left">Billing Status</th>
+                <th className="px-4 py-3 text-left">Status</th>
+                <th className="px-4 py-3 text-center">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -159,18 +161,18 @@ export const Discharges = () => {
 
                   return (
                     <tr key={patient.id} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3">
                         <div className="font-bold text-slate-800">{patient.patientName}</div>
                         <div className="text-xs text-slate-500">{patient.uhid}</div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3">
                         <div className="font-bold text-slate-700">{bed?.bedNumber || 'Unassigned'}</div>
                         <div className="text-xs text-slate-500">{ward?.name || 'N/A'} • Room no {bed?.roomNumber || 'N/A'}</div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3">
                         <div className="text-sm font-medium text-slate-700">{admitDate.toLocaleDateString()}</div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3">
                         {(() => {
                           const billing = MOCK_BILLING[patient.id] || 'Pending';
                           const cls = billing === 'Cleared'
@@ -185,7 +187,7 @@ export const Discharges = () => {
                           );
                         })()}
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3">
                         {patient.status === 'Discharge Requested' ? (
                           <button
                             onClick={() => openDischargeModal(patient)}
@@ -199,7 +201,7 @@ export const Discharges = () => {
                           </span>
                         )}
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3">
                         <div className="flex items-center justify-center gap-2">
                           <button
                             onClick={() => openViewModal(patient)}
@@ -254,7 +256,7 @@ export const Discharges = () => {
                 Are you sure you want to discharge this patient? The patient's status will be changed to <span className="font-bold text-primary">Discharged</span>.
               </p>
             </div>
-            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-3">
+            <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-end gap-3">
               <button
                 onClick={() => setShowDischargeModal(false)}
                 className="px-6 py-2.5 border border-slate-200 text-slate-700 rounded-lg font-medium hover:bg-slate-100 transition-colors"
@@ -276,7 +278,7 @@ export const Discharges = () => {
       {showViewModal && selectedPatient && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 px-6 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+            <div className="sticky top-0 px-4 py-3 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
               <h2 className="text-xl font-bold text-slate-800">Patient Details & Discharge Information</h2>
               <button
                 onClick={() => setShowViewModal(false)}
@@ -286,7 +288,7 @@ export const Discharges = () => {
               </button>
             </div>
 
-            <div className="p-6 space-y-6">
+            <div className="p-6 space-y-4">
               {/* Patient Info */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -361,7 +363,7 @@ export const Discharges = () => {
               )}
             </div>
 
-            <div className="sticky bottom-0 px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end">
+            <div className="sticky bottom-0 px-4 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-end">
               <button
                 onClick={() => setShowViewModal(false)}
                 className="px-6 py-2.5 border border-slate-200 text-slate-700 rounded-lg font-medium hover:bg-slate-100 transition-colors"
