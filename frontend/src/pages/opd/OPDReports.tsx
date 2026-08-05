@@ -132,7 +132,6 @@ export const OPDReports = () => {
                 <th className="px-6 py-4 text-left">Department</th>
                 <th className="px-6 py-4 text-left">Doctor</th>
                 <th className="px-6 py-4 text-left">Billing Status</th>
-                <th className="px-6 py-4 text-left">Rx Count</th>
                 <th className="px-6 py-4 text-left">Action</th>
               </tr>
             </thead>
@@ -164,11 +163,6 @@ export const OPDReports = () => {
                     <td className="px-6 py-4">
                       <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${v.billingStatus === 'Completed' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-700'}`}>
                         {v.billingStatus || 'Pending'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${v.prescriptions.length > 0 ? 'bg-blue-50 text-blue-600' : 'text-slate-400'}`}>
-                        {v.prescriptions.length} items
                       </span>
                     </td>
                     <td className="px-6 py-4 flex gap-2">
@@ -231,10 +225,6 @@ export const OPDReports = () => {
                   <p className="text-xs uppercase text-slate-500">Billing Status</p>
                   <p className="font-bold text-slate-800">{printVisit.billingStatus}</p>
                 </div>
-              </div>
-              <div className="border-t border-slate-200 pt-4 text-sm text-slate-700">
-                <p className="font-semibold mb-2">Prescription Count</p>
-                <p>{printVisit.prescriptions.length} item(s)</p>
               </div>
             </div>
           </div>
