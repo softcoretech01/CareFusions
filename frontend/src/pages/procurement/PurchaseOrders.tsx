@@ -10,7 +10,7 @@ import { DateFilter } from '../../components/ui/DateFilter';
 // Mock Data Imports
 import { mockData as vendorsMock } from '../admin/purchase-inventory/VendorMaster';
 import { mockData as departmentsMock } from '../admin/organization-masters/DepartmentMaster';
-import { mockData as paymentTermsMock } from '../admin/purchase-inventory/PaymentTermsMaster';
+import { usePaymentTerms } from '../../hooks/useMasterOptions';
 import { mockData as warehousesMock } from '../admin/purchase-inventory/WarehouseMaster';
 import { mockData as currencyMock } from '../admin/financial-masters/CurrencyMaster';
 import { initialQuotations, type QuotationRecord } from './VendorQuotation';
@@ -55,6 +55,8 @@ export interface PORecord {
 export const initialPOs: PORecord[] = [];
 
 export const PurchaseOrders = () => {
+  // Live from Payment Terms Master, so a term added there shows up here.
+  const { options: paymentTerms } = usePaymentTerms();
   const [records, setRecords] = useLocalStorage<PORecord[]>('procurement_pos_v2', initialPOs);
   const [allQtns] = useLocalStorage<QuotationRecord[]>('procurement_qtns_v2', initialQuotations);
   const [prs] = useLocalStorage<PRRecord[]>('procurement_prs_v2', initialPRs);
@@ -455,7 +457,7 @@ export const PurchaseOrders = () => {
               <label className="block text-xs font-medium text-slate-500 mb-1">Payment Terms</label>
               <select value={formData.paymentTerms} onChange={(e) => setFormData({...formData, paymentTerms: e.target.value})} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm">
                 <option value="">Select Terms</option>
-                {paymentTermsMock.map(p => <option key={p.id} value={p.termName}>{p.termName}</option>)}
+                {paymentTerms.map(p => <option key={p.id} value={p.paymentTermName}>{p.paymentTermName}</option>)}
               </select>
             </div>
             <div><label className="block text-xs font-medium text-slate-500 mb-1">Delivery Terms</label><input type="text" value={formData.deliveryTerms} onChange={(e) => setFormData({...formData, deliveryTerms: e.target.value})} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm" /></div>

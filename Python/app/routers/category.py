@@ -17,8 +17,14 @@ def _call_sp(db: Session, opt: str, **kwargs):
     params = {
         "p_Opt":          opt,
         "p_CategoryId":   kwargs.get("category_id"),
-        "p_CategoryName": kwargs.get("category_name"),
-        "p_Description":  kwargs.get("description"),
+        "p_CategoryName":   kwargs.get("category_name"),
+        "p_InventoryType":  kwargs.get("inventory_type"),
+        "p_Description":    kwargs.get("description"),
+        "p_StockRequired":  kwargs.get("stock_required"),
+        "p_BatchTracking":  kwargs.get("batch_tracking"),
+        "p_ExpiryTracking": kwargs.get("expiry_tracking"),
+        "p_BarcodeRequired":kwargs.get("barcode_required"),
+        "p_Remarks":        kwargs.get("remarks"),
         "p_Status":       kwargs.get("status"),
         "p_CreatedBy":    kwargs.get("created_by"),
         "p_UpdatedBy":    kwargs.get("updated_by"),
@@ -27,8 +33,9 @@ def _call_sp(db: Session, opt: str, **kwargs):
     }
     sql = text(f"""
         CALL {SP_NAME}(
-            :p_Opt, :p_CategoryId, :p_CategoryName, :p_Description, :p_Status,
-            :p_CreatedBy, :p_UpdatedBy, :p_Search, :p_StatusFilter
+            :p_Opt, :p_CategoryId, :p_CategoryName, :p_InventoryType, :p_Description,
+            :p_StockRequired, :p_BatchTracking, :p_ExpiryTracking, :p_BarcodeRequired,
+            :p_Remarks, :p_Status, :p_CreatedBy, :p_UpdatedBy, :p_Search, :p_StatusFilter
         )
     """)
     return db.execute(sql, params)
@@ -38,8 +45,14 @@ def _map_row(row) -> dict:
     return {
         "id":           row.CategoryId,
         "categoryCode": row.CategoryCode,
-        "categoryName": row.CategoryName,
-        "description":  row.Description,
+        "categoryName":    row.CategoryName,
+        "inventoryType":   row.InventoryType,
+        "description":     row.Description,
+        "stockRequired":   bool(row.StockRequired),
+        "batchTracking":   bool(row.BatchTracking),
+        "expiryTracking":  bool(row.ExpiryTracking),
+        "barcodeRequired": bool(row.BarcodeRequired),
+        "remarks":         row.Remarks,
         "status":       row.Status,
         "createdBy":    row.CreatedBy,
         "createdDate":  row.CreatedDate,
@@ -53,12 +66,34 @@ def _raise_if_duplicate(exc: Exception):
     if "DUPLICATE_CATEGORY_NAME" in msg:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT,
                             detail="Category Name cannot be duplicated")
+    if "EXPIRY_NEEDS_BATCH" in msg:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Expiry tracking requires batch tracking — "
+                                   "an expiry date has no batch to attach to otherwise")
+    if "TRACKING_NEEDS_STOCK" in msg:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Batch and expiry tracking only apply to categories "
+                                   "that are stocked")
     if "1062" in msg or "Duplicate entry" in msg:
         if "UQ_Category_Code" in msg:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT,
                                 detail="Category Code must be unique")
         raise HTTPException(status_code=status.HTTP_409_CONFLICT,
                             detail="A category with these details already exists")
+
+
+def _payload_kwargs(payload) -> dict:
+    return dict(
+        category_name=payload.categoryName,
+        inventory_type=payload.inventoryType,
+        description=payload.description,
+        stock_required=1 if payload.stockRequired else 0,
+        batch_tracking=1 if payload.batchTracking else 0,
+        expiry_tracking=1 if payload.expiryTracking else 0,
+        barcode_required=1 if payload.barcodeRequired else 0,
+        remarks=payload.remarks,
+        status=payload.status.value,
+    )
 
 
 # ── GET /categories/ ──────────────────────────────────────────
@@ -117,10 +152,8 @@ def create_category(payload: CategoryCreate, db: Session = Depends(get_db)):
     try:
         result = _call_sp(
             db, "INSERT",
-            category_name=payload.categoryName,
-            description=payload.description,
-            status=payload.status.value,
             created_by=payload.createdBy or "Admin",
+            **_payload_kwargs(payload),
         )
         new_id = result.fetchone().CategoryId
         db.commit()
@@ -145,10 +178,8 @@ def update_category(category_id: int, payload: CategoryUpdate, db: Session = Dep
         _call_sp(
             db, "UPDATE",
             category_id=category_id,
-            category_name=payload.categoryName,
-            description=payload.description,
-            status=payload.status.value,
             updated_by=payload.updatedBy or "Admin",
+            **_payload_kwargs(payload),
         )
         db.commit()
 

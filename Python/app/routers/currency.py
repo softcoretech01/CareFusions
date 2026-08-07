@@ -20,6 +20,8 @@ def _call_sp(db: Session, opt: str, **kwargs):
         "p_CurrencyCode": kwargs.get("currency_code"),
         "p_CurrencyName": kwargs.get("currency_name"),
         "p_Symbol":       kwargs.get("symbol"),
+        "p_ExchangeRate": kwargs.get("exchange_rate"),
+        "p_IsBase":       kwargs.get("is_base"),
         "p_Status":       kwargs.get("status"),
         "p_CreatedBy":    kwargs.get("created_by"),
         "p_UpdatedBy":    kwargs.get("updated_by"),
@@ -29,7 +31,8 @@ def _call_sp(db: Session, opt: str, **kwargs):
     sql = text(f"""
         CALL {SP_NAME}(
             :p_Opt, :p_CurrencyId, :p_CurrencyCode, :p_CurrencyName, :p_Symbol,
-            :p_Status, :p_CreatedBy, :p_UpdatedBy, :p_Search, :p_StatusFilter
+            :p_ExchangeRate, :p_IsBase, :p_Status, :p_CreatedBy, :p_UpdatedBy,
+            :p_Search, :p_StatusFilter
         )
     """)
     return db.execute(sql, params)
@@ -41,6 +44,8 @@ def _map_row(row) -> dict:
         "currencyCode": row.CurrencyCode,
         "currencyName": row.CurrencyName,
         "symbol":       row.Symbol,
+        "exchangeRate": row.ExchangeRate,
+        "baseCurrency": bool(row.IsBaseCurrency),
         "status":       row.Status,
         "createdBy":    row.CreatedBy,
         "createdDate":  row.CreatedDate,
@@ -60,6 +65,17 @@ def _raise_if_duplicate(exc: Exception):
     if "1062" in msg or "Duplicate entry" in msg:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT,
                             detail="A currency with these details already exists")
+    if "INVALID_EXCHANGE_RATE" in msg:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Exchange Rate must be greater than zero")
+    if "BASE_CURRENCY_REQUIRED" in msg:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="One currency must remain the base currency. "
+                                   "Mark another currency as base first.")
+    if "BASE_CURRENCY_LOCKED" in msg:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
+                            detail="The base currency cannot be deactivated or deleted. "
+                                   "Mark another currency as base first.")
 
 
 def _payload_kwargs(payload) -> dict:
@@ -67,6 +83,8 @@ def _payload_kwargs(payload) -> dict:
         currency_code=payload.currencyCode,
         currency_name=payload.currencyName,
         symbol=payload.symbol,
+        exchange_rate=payload.exchangeRate,
+        is_base=1 if payload.baseCurrency else 0,
         status=payload.status.value,
     )
 
@@ -177,6 +195,7 @@ def toggle_currency_status(currency_id: int, db: Session = Depends(get_db)):
     except Exception as e:
         db.rollback()
         logger.error(f"[PATCH /currencies/{currency_id}/toggle-status] Error: {e}")
+        _raise_if_duplicate(e)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                             detail="Failed to toggle currency status")
 
@@ -192,5 +211,6 @@ def delete_currency(currency_id: int, db: Session = Depends(get_db)):
     except Exception as e:
         db.rollback()
         logger.error(f"[DELETE /currencies/{currency_id}] Error: {e}")
+        _raise_if_duplicate(e)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                             detail="Failed to delete currency")

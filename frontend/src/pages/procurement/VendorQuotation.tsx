@@ -7,7 +7,7 @@ import { DateFilter } from '../../components/ui/DateFilter';
 
 // Mock Data Imports
 import { mockData as vendorsMock } from '../admin/purchase-inventory/VendorMaster';
-import { mockData as paymentTermsMock } from '../admin/purchase-inventory/PaymentTermsMaster';
+import { usePaymentTerms } from '../../hooks/useMasterOptions';
 import { initialRFQs, type RFQRecord } from './RequestForQuotation';
 import { useLocalStorage } from '../../utils/useLocalStorage';
 
@@ -42,6 +42,8 @@ export interface QuotationRecord {
 export const initialQuotations: QuotationRecord[] = [];
 
 export const VendorQuotation = () => {
+  // Live from Payment Terms Master, so a term added there shows up here.
+  const { options: paymentTerms } = usePaymentTerms();
   const [records, setRecords] = useLocalStorage<QuotationRecord[]>('procurement_qtns_v2', initialQuotations);
   const [allRFQs] = useLocalStorage<RFQRecord[]>('procurement_rfqs_v2', initialRFQs);
   
@@ -355,7 +357,7 @@ export const VendorQuotation = () => {
               <label className="block text-xs font-medium text-slate-500 mb-1">Payment Terms</label>
               <select value={formData.paymentTerms} onChange={(e) => setFormData({...formData, paymentTerms: e.target.value})} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm">
                 <option value="">Select Terms</option>
-                {paymentTermsMock.map(p => <option key={p.id} value={p.termName}>{p.termName}</option>)}
+                {paymentTerms.map(p => <option key={p.id} value={p.paymentTermName}>{p.paymentTermName}</option>)}
               </select>
             </div>
             <div><label className="block text-xs font-medium text-slate-500 mb-1">Delivery Days</label><input type="number" value={formData.deliveryDays} onChange={(e) => setFormData({...formData, deliveryDays: Number(e.target.value)})} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm" /></div>
