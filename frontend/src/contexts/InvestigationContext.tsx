@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode, useRef } from 'react';
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
 const LAB = `${API_BASE}/lab`;
@@ -71,6 +71,7 @@ interface InvestigationContextType {
   qcLogs: QCLog[];
   catalogue: CatalogueTest[];
   loading: boolean;
+  hasLoaded: boolean;
   refresh: () => Promise<void>;
   addOrder: (order: InvestigationOrder) => void;
   updateTestResult: (orderId: string, testId: string, resultValue?: string, resultFile?: string, isCritical?: boolean) => void;
@@ -87,11 +88,13 @@ export const InvestigationProvider = ({ children }: { children: ReactNode }) => 
   const [orders, setOrders] = useState<InvestigationOrder[]>([]);
   const [qcLogs, setQcLogs] = useState<QCLog[]>([]);
   const [catalogue, setCatalogue] = useState<CatalogueTest[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [hasLoaded, setHasLoaded] = useState(false);
 
   // Orders, results and QC logs are owned by the backend (hospital.Lab_*).
   // Lab and Radiology share those tables, separated by `category`.
   const refresh = useCallback(async () => {
+    if (hasLoaded) return;
     setLoading(true);
     const [o, q, c] = await Promise.allSettled([
       fetch(`${LAB}/orders`).then(r => r.json()),
@@ -103,9 +106,8 @@ export const InvestigationProvider = ({ children }: { children: ReactNode }) => 
     if (q.status === 'fulfilled' && Array.isArray(q.value)) setQcLogs(q.value);
     if (c.status === 'fulfilled' && Array.isArray(c.value)) setCatalogue(c.value);
     setLoading(false);
+    setHasLoaded(true);
   }, []);
-
-  useEffect(() => { refresh(); }, [refresh]);
 
   // Client-supplied order/test ids are ignored — the server assigns the
   // authoritative order number and test ids, and fills reference range/unit
@@ -217,7 +219,7 @@ export const InvestigationProvider = ({ children }: { children: ReactNode }) => 
   return (
     <InvestigationContext.Provider
       value={{
-        orders, qcLogs, catalogue, loading, refresh,
+        orders, qcLogs, catalogue, loading, hasLoaded, refresh,
         addOrder, updateTestResult, updateTestStatus, verifyTest, acknowledgeAlert,
         getOrdersByPatient, addQCLog,
       }}
@@ -232,5 +234,28 @@ export const useInvestigations = () => {
   if (context === undefined) {
     throw new Error('useInvestigations must be used within an InvestigationProvider');
   }
+
+  // Depend on the values actually used, not the context object: the provider
+
+  // builds a new object every render, so [context] re-fired this effect on each
+
+  // one. The ref stops a second request while the first is still in flight —
+
+  // hasLoaded only flips once the fetches resolve, so it cannot guard that gap.
+
+  const { hasLoaded, loading, refresh } = context as any;
+
+  const requested = useRef(false);
+
+  useEffect(() => {
+
+    if (hasLoaded || loading || requested.current) return;
+
+    requested.current = true;
+
+    Promise.resolve(refresh?.()).finally(() => { requested.current = false; });
+
+  }, [hasLoaded, loading, refresh]);
+
   return context;
 };

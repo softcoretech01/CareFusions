@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode, useRef } from 'react';
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
 
@@ -51,6 +51,7 @@ interface PatientContextType {
   updatePatient: (id: number, data: Partial<GlobalPatientRecord>) => void;
   getPatientByUhid: (uhid: string) => GlobalPatientRecord | undefined;
   generateUhid: () => string;
+  hasLoaded?: boolean;
 }
 
 const PatientContext = createContext<PatientContextType | undefined>(undefined);
@@ -125,12 +126,14 @@ async function fetchList(path: string): Promise<any[]> {
 
 export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [patients, setPatients] = useState<GlobalPatientRecord[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [hasLoaded, setHasLoaded] = useState(false);
 
   // Load the real registered-patient directory (New + Quick + Emergency)
   // from the API. This is the single source of truth shared by the IPD
   // admission picker, appointment search, billing and insurance screens.
   const refreshPatients = useCallback(async () => {
+    if (hasLoaded) return;
     setLoading(true);
     const [neu, quick, emergency] = await Promise.allSettled([
       fetchList('patients/'),
@@ -152,11 +155,10 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
 
     setPatients(merged);
     setLoading(false);
-  }, []);
+    setHasLoaded(true);
+  }, [hasLoaded]);
 
-  useEffect(() => {
-    refreshPatients();
-  }, [refreshPatients]);
+  // Removed automatic useEffect for refreshPatients
 
   // Optimistic local add — the actual persistence happens in the
   // registration/booking flow that calls this; keeping it local means the
@@ -187,7 +189,7 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, [patients]);
 
   return (
-    <PatientContext.Provider value={{ patients, loading, refreshPatients, addPatient, updatePatient, getPatientByUhid, generateUhid }}>
+    <PatientContext.Provider value={{ patients, loading, refreshPatients, addPatient, updatePatient, getPatientByUhid, generateUhid, hasLoaded }}>
       {children}
     </PatientContext.Provider>
   );
@@ -198,5 +200,28 @@ export const usePatients = () => {
   if (!context) {
     throw new Error('usePatients must be used within a PatientProvider');
   }
+
+  // Depend on the values actually used, not the context object: the provider
+
+  // builds a new object every render, so [context] re-fired this effect on each
+
+  // one. The ref stops a second request while the first is still in flight —
+
+  // hasLoaded only flips once the fetches resolve, so it cannot guard that gap.
+
+  const { hasLoaded, loading, refreshPatients } = context as any;
+
+  const requested = useRef(false);
+
+  useEffect(() => {
+
+    if (hasLoaded || loading || requested.current) return;
+
+    requested.current = true;
+
+    Promise.resolve(refreshPatients?.()).finally(() => { requested.current = false; });
+
+  }, [hasLoaded, loading, refreshPatients]);
+
   return context;
 };

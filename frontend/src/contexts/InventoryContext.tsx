@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode, useRef } from 'react';
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
 const INV = `${API_BASE}/inventory`;
@@ -203,6 +203,7 @@ interface InventoryContextType {
   error: string | null;
   clearError: () => void;
   refresh: () => Promise<void>;
+  hasLoaded: boolean;
   /** Lots issuable from a store, nearest expiry first. */
   getIssuableLots: (storeId: number) => Promise<IssuableLot[]>;
   postDocument: (input: PostDocumentInput) => Promise<{ docNumber: string } | null>;
@@ -223,7 +224,8 @@ export const InventoryProvider = ({ children }: { children: ReactNode }) => {
   const [expiring, setExpiring] = useState<ExpiringRow[]>([]);
   const [valuation, setValuation] = useState<ValuationRow[]>([]);
   const [dashboard, setDashboard] = useState<InventoryDashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const clearError = () => setError(null);
@@ -231,6 +233,7 @@ export const InventoryProvider = ({ children }: { children: ReactNode }) => {
   // Everything is owned by the backend (inventory schema). Stock, ledger and
   // documents always move together because the SP posts them in one call.
   const refresh = useCallback(async () => {
+    if (hasLoaded) return;
     setLoading(true);
     const get = (path: string) => fetch(`${INV}/${path}`).then(r => r.json());
     const [st, it, lots, docs, led, low, exp, val, dash] = await Promise.allSettled([
@@ -251,9 +254,10 @@ export const InventoryProvider = ({ children }: { children: ReactNode }) => {
     if (dash.status === 'fulfilled' && dash.value && !Array.isArray(dash.value)) setDashboard(dash.value);
     if (lots.status === 'rejected') console.error('[Inventory] stock load failed', lots.reason);
     setLoading(false);
-  }, []);
+    setHasLoaded(true);
+  }, [hasLoaded]);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  // Removed automatic useEffect for refresh
 
   const getIssuableLots = useCallback(async (storeId: number): Promise<IssuableLot[]> => {
     try {
@@ -307,7 +311,7 @@ export const InventoryProvider = ({ children }: { children: ReactNode }) => {
     <InventoryContext.Provider
       value={{
         stores, items, stock, documents, ledger, lowStock, expiring, valuation, dashboard,
-        loading, error, clearError, refresh, getIssuableLots, postDocument, deleteDocument,
+        loading, hasLoaded, error, clearError, refresh, getIssuableLots, postDocument, deleteDocument,
       }}
     >
       {children}
@@ -320,5 +324,28 @@ export const useInventory = () => {
   if (!context) {
     throw new Error('useInventory must be used within an InventoryProvider');
   }
+  
+  // Depend on the values actually used, not the context object: the provider
+  
+  // builds a new object every render, so [context] re-fired this effect on each
+  
+  // one. The ref stops a second request while the first is still in flight —
+  
+  // hasLoaded only flips once the fetches resolve, so it cannot guard that gap.
+  
+  const { hasLoaded, loading, refresh } = context as any;
+  
+  const requested = useRef(false);
+  
+  useEffect(() => {
+  
+    if (hasLoaded || loading || requested.current) return;
+  
+    requested.current = true;
+  
+    Promise.resolve(refresh?.()).finally(() => { requested.current = false; });
+  
+  }, [hasLoaded, loading, refresh]);
+
   return context;
 };

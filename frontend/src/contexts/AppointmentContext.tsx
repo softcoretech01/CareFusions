@@ -40,6 +40,8 @@ interface AppointmentContextType {
   queryAppointments: (params: AppointmentQuery) => Promise<AppointmentRecord[]>;
   apiError: string | null;
   clearError: () => void;
+  hasLoaded?: boolean;
+  loadAppointments?: () => Promise<void>;
 }
 
 const AppointmentContext = createContext<AppointmentContextType | undefined>(undefined);
@@ -234,24 +236,30 @@ function toBody(a: Partial<AppointmentRecord>) {
 export const AppointmentProvider = ({ children }: { children: ReactNode }) => {
   const [appointments, setAppointments] = useState<AppointmentRecord[]>([]);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasLoaded, setHasLoaded] = useState(false);
   // Use a ref so generateAppointmentNumber never has a stale counter value
   const counterRef = useRef<number>(initCounter());
 
   const clearError = useCallback(() => setApiError(null), []);
 
-  // Re-fetch the authoritative list from the server (used on mount and to
-  // re-sync the UI whenever an optimistic update fails).
+  // Re-sync the UI whenever an optimistic update fails.
   const loadAppointments = useCallback(async () => {
+    if (hasLoaded) return;
+    setIsLoading(true);
     try {
       const res = await fetch(`${API_BASE}/appointments/`);
       if (res.ok) {
         const data = await res.json();
         setAppointments((Array.isArray(data) ? data : []).map(mapApi));
       }
-    } catch { /* API unreachable — keep current state */ }
-  }, []);
+    } catch { /* API unreachable — keep current state */ } finally {
+      setIsLoading(false);
+      setHasLoaded(true);
+    }
+  }, [hasLoaded]);
 
-  useEffect(() => { loadAppointments(); }, [loadAppointments]);
+  // Removed automatic useEffect for loading appointments on mount
 
   // Server-side filtered fetch — returns matching rows WITHOUT touching the
   // shared `appointments` array (which stays complete for the booking wizards).
@@ -394,6 +402,8 @@ export const AppointmentProvider = ({ children }: { children: ReactNode }) => {
         queryAppointments,
         apiError,
         clearError,
+        hasLoaded,
+        loadAppointments
       }}
     >
       {children}
@@ -406,5 +416,28 @@ export const useAppointments = () => {
   if (context === undefined) {
     throw new Error('useAppointments must be used within an AppointmentProvider');
   }
+  
+  // Depend on the values actually used, not the context object: the provider
+  
+  // builds a new object every render, so [context] re-fired this effect on each
+  
+  // one. The ref stops a second request while the first is still in flight —
+  
+  // hasLoaded only flips once the fetches resolve, so it cannot guard that gap.
+  
+  const { hasLoaded, loading, loadAppointments } = context as any;
+  
+  const requested = useRef(false);
+  
+  useEffect(() => {
+  
+    if (hasLoaded || loading || requested.current) return;
+  
+    requested.current = true;
+  
+    Promise.resolve(loadAppointments?.()).finally(() => { requested.current = false; });
+  
+  }, [hasLoaded, loading, loadAppointments]);
+
   return context;
 };

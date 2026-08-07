@@ -1,4 +1,4 @@
-import { createContext, useState, useContext, useCallback, useEffect, type ReactNode } from 'react';
+import { createContext, useState, useContext, useCallback, useEffect, type ReactNode, useRef } from 'react';
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
 const PHARM = `${API_BASE}/pharmacy`;
@@ -62,7 +62,8 @@ interface PharmacyBillingContextType {
   addRetailBill: (bill: Bill) => void;
   updateBillStatus: (billId: string, status: string) => void;
   updateRetailBill: (updatedBill: Bill) => void;
-  refresh: () => Promise<void>;
+  refresh?: () => Promise<void>;
+  hasLoaded?: boolean;
 }
 
 const PharmacyBillingContext = createContext<PharmacyBillingContextType | undefined>(undefined);
@@ -90,9 +91,13 @@ export const PharmacyBillingProvider = ({ children }: { children: ReactNode }) =
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [bills, setBills] = useState<Bill[]>([]);
   const [currentBillItems, setCurrentBillItems] = useState<BillItem[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasLoaded, setHasLoaded] = useState(false);
 
   // Live inventory + sales are owned by the backend (hospital.Pharmacy_*).
   const refresh = useCallback(async () => {
+    if (hasLoaded) return;
+    setIsLoading(true);
     try {
       const [m, s] = await Promise.all([
         fetch(`${PHARM}/medicines`).then(r => r.json()),
@@ -102,10 +107,13 @@ export const PharmacyBillingProvider = ({ children }: { children: ReactNode }) =
       setBills(Array.isArray(s) ? s : []);
     } catch (e) {
       console.error('[Pharmacy] load failed', e);
+    } finally {
+      setIsLoading(false);
+      setHasLoaded(true);
     }
-  }, []);
+  }, [hasLoaded]);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  // Removed automatic useEffect for refresh
 
   const saleIdFor = (billId: string) => bills.find(b => b.billId === billId)?.saleId;
 
@@ -258,7 +266,7 @@ export const PharmacyBillingProvider = ({ children }: { children: ReactNode }) =
         checkLowStock, checkExpiry, updateStock,
         bills, currentBillItems, createNewBill, addItemToBill, removeItemFromBill,
         finalizeBill, cancelBill, searchBillHistory, refundBill, addRetailBill,
-        updateBillStatus, updateRetailBill, refresh,
+        updateBillStatus, updateRetailBill, refresh, hasLoaded
       }}
     >
       {children}
@@ -268,8 +276,31 @@ export const PharmacyBillingProvider = ({ children }: { children: ReactNode }) =
 
 export const usePharmacyBilling = () => {
   const context = useContext(PharmacyBillingContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('usePharmacyBilling must be used within a PharmacyBillingProvider');
   }
+  
+  // Depend on the values actually used, not the context object: the provider
+  
+  // builds a new object every render, so [context] re-fired this effect on each
+  
+  // one. The ref stops a second request while the first is still in flight —
+  
+  // hasLoaded only flips once the fetches resolve, so it cannot guard that gap.
+  
+  const { hasLoaded, loading, refresh } = context as any;
+  
+  const requested = useRef(false);
+  
+  useEffect(() => {
+  
+    if (hasLoaded || loading || requested.current) return;
+  
+    requested.current = true;
+  
+    Promise.resolve(refresh?.()).finally(() => { requested.current = false; });
+  
+  }, [hasLoaded, loading, refresh]);
+
   return context;
 };

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode, useRef } from 'react';
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
 const INS = `${API_BASE}/insurance`;
@@ -100,6 +100,7 @@ interface InsuranceContextType {
   providers: Provider[];
   policies: Policy[];
   loading: boolean;
+  hasLoaded: boolean;
   refresh: () => Promise<void>;
   addClaim: (claim: Claim) => void;
   markClaimDenied: (claimId: string, reason?: string) => void;
@@ -130,7 +131,8 @@ export const InsuranceProvider = ({ children }: { children: ReactNode }) => {
   const [preAuths, setPreAuths] = useState<PreAuth[]>([]);
   const [providers, setProviders] = useState<Provider[]>([]);
   const [policies, setPolicies] = useState<Policy[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [hasLoaded, setHasLoaded] = useState(false);
 
   // All insurance records are owned by the backend (hospital.Ins_*). Denying a
   // claim raises its appeal and settling one raises its settlement, server-side.
@@ -152,9 +154,8 @@ export const InsuranceProvider = ({ children }: { children: ReactNode }) => {
     if (pr.status === 'fulfilled' && Array.isArray(pr.value)) setProviders(pr.value);
     if (po.status === 'fulfilled' && Array.isArray(po.value)) setPolicies(po.value);
     setLoading(false);
+    setHasLoaded(true);
   }, []);
-
-  useEffect(() => { refresh(); }, [refresh]);
 
   // Screens address records by document number; resolve that to the server PK.
   const claimPk = (id: string) => claims.find(c => c.id === id)?.claimId;
@@ -334,7 +335,7 @@ export const InsuranceProvider = ({ children }: { children: ReactNode }) => {
   return (
     <InsuranceContext.Provider
       value={{
-        claims, appeals, settlements, preAuths, providers, policies, loading, refresh,
+        claims, appeals, settlements, preAuths, providers, policies, loading, hasLoaded, refresh,
         addClaim, markClaimDenied, markClaimSettled, fileAppeal, updatePreAuthStatus,
         deleteClaim, updateClaim, deletePreAuth, updatePreAuth, resolveAppeal,
         reconcileSettlement, addPreAuth, savePolicy, searchPolicy,
@@ -350,5 +351,28 @@ export const useInsurance = () => {
   if (!context) {
     throw new Error('useInsurance must be used within an InsuranceProvider');
   }
+
+  // Depend on the values actually used, not the context object: the provider
+
+  // builds a new object every render, so [context] re-fired this effect on each
+
+  // one. The ref stops a second request while the first is still in flight —
+
+  // hasLoaded only flips once the fetches resolve, so it cannot guard that gap.
+
+  const { hasLoaded, loading, refresh } = context as any;
+
+  const requested = useRef(false);
+
+  useEffect(() => {
+
+    if (hasLoaded || loading || requested.current) return;
+
+    requested.current = true;
+
+    Promise.resolve(refresh?.()).finally(() => { requested.current = false; });
+
+  }, [hasLoaded, loading, refresh]);
+
   return context;
 };
