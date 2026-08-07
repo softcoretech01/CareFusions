@@ -220,64 +220,85 @@ export const OPDVisitProvider = ({ children }: { children: ReactNode }) => {
     return `OPD-${yr}${mo}${String(visitCounter).padStart(2, '0')}`;
   }, []);
 
-  const addVisit = (visit: OPDVisit) =>
-    setVisits(prev => [visit, ...prev]);
+  const syncToBackend = async (visit: OPDVisit) => {
+    try {
+      const payload = {
+        appointmentId: visit.appointmentId || visit.id,
+        uhid: visit.uhid,
+        isFinalized: visit.isFinalized || false,
+        finalizedBy: visit.finalizedBy || "System",
+        vitals: visit.vitals,
+        triageInfo: visit.triageInfo,
+        diagnoses: visit.diagnoses,
+        prescriptions: visit.prescriptions,
+        labOrders: visit.labOrders,
+        radiologyOrders: visit.radiologyOrders,
+        procedures: visit.procedures,
+      };
+      const res = await fetch(`${API_BASE}/opd-visits/save-clinical`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) console.error("Failed to sync to backend", await res.text());
+    } catch (e) {
+      console.error("Failed to sync to backend", e);
+    }
+  };
 
-  const updateVisit = (id: number, updates: Partial<OPDVisit>) =>
-    setVisits(prev => prev.map(v => v.id === id ? { ...v, ...updates } : v));
+  const applyUpdateAndSync = (visitId: number, updater: (v: OPDVisit) => OPDVisit) => {
+    setVisits(prev => {
+      const next = prev.map(v => v.id === visitId ? updater(v) : v);
+      const updatedVisit = next.find(v => v.id === visitId);
+      if (updatedVisit) {
+        setTimeout(() => syncToBackend(updatedVisit), 0);
+      }
+      return next;
+    });
+  };
 
-  const updateVisitStatus = (id: number, status: OPDVisitStatus) =>
-    setVisits(prev => prev.map(v => v.id === id ? { ...v, status } : v));
+  const addVisit = (visit: OPDVisit) => setVisits(prev => [visit, ...prev]);
+
+  const updateVisit = (id: number, updates: Partial<OPDVisit>) => applyUpdateAndSync(id, v => ({ ...v, ...updates }));
+  const updateVisitStatus = (id: number, status: OPDVisitStatus) => applyUpdateAndSync(id, v => ({ ...v, status }));
 
   const saveTriage = (id: number, vitals: Vitals, triageInfo: TriageInfo) =>
-    setVisits(prev => prev.map(v => v.id === id
-      ? { ...v, vitals, triageInfo, status: 'Waiting for Doctor', triageCompletedAt: new Date().toISOString() }
-      : v));
+    applyUpdateAndSync(id, v => ({ ...v, vitals, triageInfo, status: 'Waiting for Doctor', triageCompletedAt: new Date().toISOString() }));
 
   const saveConsultation = useCallback((visitId: number, diagnoses: Diagnosis[]) => {
-    setVisits(prev => prev.map(v => v.id === visitId ? { ...v, diagnoses, status: 'Consulting' } : v));
+    applyUpdateAndSync(visitId, v => ({ ...v, diagnoses, status: 'Consulting' }));
   }, []);
 
   const addDiagnosis = (visitId: number, diagnosis: Diagnosis) =>
-    setVisits(prev => prev.map(v => v.id === visitId
-      ? { ...v, diagnoses: [...v.diagnoses, diagnosis] } : v));
+    applyUpdateAndSync(visitId, v => ({ ...v, diagnoses: [...v.diagnoses, diagnosis] }));
 
   const removeDiagnosis = (visitId: number, diagnosisId: string) =>
-    setVisits(prev => prev.map(v => v.id === visitId
-      ? { ...v, diagnoses: v.diagnoses.filter(d => d.id !== diagnosisId) } : v));
+    applyUpdateAndSync(visitId, v => ({ ...v, diagnoses: v.diagnoses.filter(d => d.id !== diagnosisId) }));
 
   const addPrescription = (visitId: number, item: PrescriptionItem) =>
-    setVisits(prev => prev.map(v => v.id === visitId
-      ? { ...v, prescriptions: [...v.prescriptions, item] } : v));
+    applyUpdateAndSync(visitId, v => ({ ...v, prescriptions: [...v.prescriptions, item] }));
 
   const removePrescription = (visitId: number, itemId: string) =>
-    setVisits(prev => prev.map(v => v.id === visitId
-      ? { ...v, prescriptions: v.prescriptions.filter(p => p.id !== itemId) } : v));
+    applyUpdateAndSync(visitId, v => ({ ...v, prescriptions: v.prescriptions.filter(p => p.id !== itemId) }));
 
   const addLabOrder = (visitId: number, order: LabOrder) =>
-    setVisits(prev => prev.map(v => v.id === visitId
-      ? { ...v, labOrders: [...v.labOrders, order] } : v));
+    applyUpdateAndSync(visitId, v => ({ ...v, labOrders: [...v.labOrders, order] }));
 
   const removeLabOrder = (visitId: number, orderId: string) =>
-    setVisits(prev => prev.map(v => v.id === visitId
-      ? { ...v, labOrders: v.labOrders.filter(l => l.id !== orderId) } : v));
+    applyUpdateAndSync(visitId, v => ({ ...v, labOrders: v.labOrders.filter(l => l.id !== orderId) }));
 
   const addRadiologyOrder = (visitId: number, order: RadiologyOrder) =>
-    setVisits(prev => prev.map(v => v.id === visitId
-      ? { ...v, radiologyOrders: [...v.radiologyOrders, order] } : v));
+    applyUpdateAndSync(visitId, v => ({ ...v, radiologyOrders: [...v.radiologyOrders, order] }));
 
   const removeRadiologyOrder = useCallback((visitId: number, orderId: string) => {
-    setVisits(prev => prev.map(v => v.id === visitId ? { ...v, radiologyOrders: v.radiologyOrders.filter(r => r.id !== orderId) } : v));
+    applyUpdateAndSync(visitId, v => ({ ...v, radiologyOrders: v.radiologyOrders.filter(r => r.id !== orderId) }));
   }, []);
 
   const addProcedure = (visitId: number, procedure: Procedure) =>
-    setVisits(prev => prev.map(v => v.id === visitId
-      ? { ...v, procedures: [...v.procedures, procedure] } : v));
+    applyUpdateAndSync(visitId, v => ({ ...v, procedures: [...v.procedures, procedure] }));
 
   const finalizeVisit = (id: number, by: string) =>
-    setVisits(prev => prev.map(v => v.id === id
-      ? { ...v, isFinalized: true, status: 'Completed', finalizedAt: new Date().toISOString(), finalizedBy: by }
-      : v));
+    applyUpdateAndSync(id, v => ({ ...v, isFinalized: true, status: 'Completed', finalizedAt: new Date().toISOString(), finalizedBy: by }));
 
   const getVisitById = (id: number) => visits.find(v => v.id === id);
 

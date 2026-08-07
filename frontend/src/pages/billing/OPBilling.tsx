@@ -1,9 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { Search, Plus, X, User, CheckCircle } from 'lucide-react';
-import { usePharmacyBilling } from '../../contexts/PharmacyBillingContext';
-import { usePatients } from '../../contexts/PatientContext';
+import axios from 'axios';
 
-import type { Bill } from '../../contexts/PharmacyBillingContext';
+const API_BASE = import.meta.env.VITE_API_URL as string;
 
 interface BillItem {
   id: string;
@@ -13,28 +12,54 @@ interface BillItem {
   total: number;
 }
 
-export const OPBilling = () => {
-  const { bills, addRetailBill } = usePharmacyBilling();
-  const { patients } = usePatients();
+interface OpdVisit {
+  queueToken: string;
+  appointmentNumber: string;
+  uhid: string;
+  patientName: string;
+  mobileNumber?: string;
+  billingStatus: string;
+  department: string;
+  doctorName: string;
+  labOrders: any[];
+  radiologyOrders: any[];
+}
 
-  // Only OP patients (0001–0005)
-  const opPatients = patients.filter(p =>
-    ['UHID-2026-0001','UHID-2026-0002','UHID-2026-0003','UHID-2026-0004','UHID-2026-0005'].includes(p.uhid)
-  );
+interface BillResponse {
+  OpBillId: number;
+  BillNumber: string;
+  Uhid: string;
+  PatientName: string;
+  MobileNumber: string;
+  BillDate: string;
+  TotalAmount: number;
+  Discount: number;
+  Tax: number;
+  NetAmount: number;
+  PaymentMode: string;
+  PaymentStatus: string;
+  Items: any[];
+}
+
+export const OPBilling = () => {
+  const [bills, setBills] = useState<BillResponse[]>([]);
+  const [patients, setPatients] = useState<OpdVisit[]>([]);
   const [searchId, setSearchId] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [items, setItems] = useState<BillItem[]>([]);
+  
   const [patientName, setPatientName] = useState('');
   const [selectedPatientId, setSelectedPatientId] = useState('');
+  const [mobileNumber, setMobileNumber] = useState('');
+  const [selectedVisitNo, setSelectedVisitNo] = useState('');
+  
   const [successMsg, setSuccessMsg] = useState('');
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  const filteredSuggestions = opPatients.filter(p =>
-    p.uhid.toLowerCase().includes(searchId.toLowerCase()) ||
-    (p.patientName || '').toLowerCase().includes(searchId.toLowerCase())
-  );
-
   useEffect(() => {
+    fetchBills();
+    fetchVisits();
+
     const handleClickOutside = (event: MouseEvent) => {
       if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
         setShowSuggestions(false);
@@ -44,29 +69,93 @@ export const OPBilling = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const selectPatient = (patient: typeof opPatients[0]) => {
-    setSearchId(patient.uhid);
-    setPatientName(patient.patientName || '');
-    setSelectedPatientId(patient.uhid);
+  const fetchBills = async () => {
+    try {
+      const response = await axios.get(`${API_BASE}/op-billing/`);
+      setBills(response.data);
+    } catch (error) {
+      console.error("Failed to fetch bills", error);
+    }
+  };
+
+  const fetchVisits = async () => {
+    try {
+      const response = await axios.get(`${API_BASE}/opd-visits/schedule`);
+      setPatients(response.data);
+    } catch (error) {
+      console.error("Failed to fetch OPD visits", error);
+    }
+  };
+
+  const filteredSuggestions = patients.filter(p => {
+    const sId = (searchId || '').toLowerCase();
+    return (p.queueToken?.toLowerCase() || '').includes(sId) ||
+           (p.uhid?.toLowerCase() || '').includes(sId) ||
+           (p.patientName?.toLowerCase() || '').includes(sId);
+  });
+
+  const selectPatient = (visit: OpdVisit) => {
+    if (visit.billingStatus === 'Paid' || visit.billingStatus === 'Billed') {
+      alert(`This visit (${visit.queueToken}) has already been billed.`);
+      return;
+    }
+
+    const uhid = visit.uhid;
+    const name = visit.patientName;
+    const mobile = visit.mobileNumber || '9999999999';
+
+    setSearchId(visit.queueToken || '');
+    setPatientName(name || '');
+    setSelectedPatientId(uhid || '');
+    setSelectedVisitNo(visit.queueToken || '');
+    setMobileNumber(mobile);
     setShowSuggestions(false);
-    setItems([
-      { id: '1', description: 'Consultation Fee', price: 500, qty: 1, total: 500 },
-      { id: '2', description: 'Paracetamol 500mg (10 tabs)', price: 30, qty: 1, total: 30 },
-      { id: '3', description: 'Complete Blood Count (CBC)', price: 350, qty: 1, total: 350 },
-    ]);
+    
+    // Auto populate items
+    const newItems: BillItem[] = [
+      { id: 'ITM-CONSULT', description: `Consultation Fee (${visit.doctorName || 'General'})`, price: 500, qty: 1, total: 500 },
+    ];
+    
+    if (visit.labOrders && visit.labOrders.length > 0) {
+      visit.labOrders.forEach((lab, idx) => {
+        newItems.push({
+          id: `LAB-${idx}`,
+          description: `Lab Test: ${lab.testName || 'General Lab'}`,
+          price: 250,
+          qty: 1,
+          total: 250
+        });
+      });
+    }
+    
+    if (visit.radiologyOrders && visit.radiologyOrders.length > 0) {
+      visit.radiologyOrders.forEach((rad, idx) => {
+        newItems.push({
+          id: `RAD-${idx}`,
+          description: `Radiology: ${rad.testName || 'Scan'}`,
+          price: 1500,
+          qty: 1,
+          total: 1500
+        });
+      });
+    }
+
+    setItems(newItems);
   };
 
   const handleSearch = () => {
-    const found = opPatients.find(p =>
-      p.uhid.toLowerCase() === searchId.toLowerCase() ||
-      (p.patientName || '').toLowerCase() === searchId.toLowerCase()
+    const sId = (searchId || '').toLowerCase();
+    const found = patients.find(p =>
+      (p.queueToken?.toLowerCase() || '') === sId ||
+      (p.uhid?.toLowerCase() || '') === sId ||
+      (p.patientName?.toLowerCase() || '') === sId
     );
     if (found) selectPatient(found);
-    else alert('Patient not found. Try UHID-2026-0001 to UHID-2026-0005');
+    else alert('Pending OPD Visit not found.');
   };
 
   const handleAddItem = () => {
-    setItems([...items, { id: Date.now().toString(), description: 'New Item', price: 0, qty: 1, total: 0 }]);
+    setItems([...items, { id: `ITM-${Date.now()}`, description: 'New Item', price: 0, qty: 1, total: 0 }]);
   };
 
   const handleRemoveItem = (id: string) => setItems(items.filter(item => item.id !== id));
@@ -75,55 +164,67 @@ export const OPBilling = () => {
     setItems(items.map(item => {
       if (item.id !== id) return item;
       const updated = { ...item, [field]: value };
-      if (field === 'price' || field === 'qty') updated.total = Number(updated.price) * Number(updated.qty);
+      if (field === 'price' || field === 'qty') {
+        updated.total = Number(updated.price) * Number(updated.qty);
+      }
       return updated;
     }));
   };
 
   const totalAmount = items.reduce((sum, item) => sum + item.total, 0);
 
-  const handleGenerateBill = () => {
+  const handleGenerateBill = async () => {
     if (!patientName || items.length === 0) {
       alert('Please select a patient and add items first.');
       return;
     }
-    const newBill: Bill = {
-      billId: `BILL-${String(bills.length + 1).padStart(4, '0')}`,
-      patientName,
-      patientId: selectedPatientId,
-      date: new Date().toISOString(),
-      items: items.map(i => ({
-        medicineId: i.id,
-        medicineName: i.description,
-        quantity: i.qty,
-        unitPrice: i.price,
-        subtotal: i.total,
-      })),
-      totalAmount,
-      discount: 0,
-      tax: 0,
-      netAmount: totalAmount,
-      paymentMode: 'Pending',
-      paymentStatus: 'Unpaid',
-    };
-    addRetailBill(newBill);
-    setSuccessMsg(`Bill ${newBill.billId} generated successfully for ${patientName}!`);
-    setPatientName('');
-    setSearchId('');
-    setSelectedPatientId('');
-    setItems([]);
-    setTimeout(() => setSuccessMsg(''), 4000);
-  };
+    
+    // Fallback to valid 10 digit number if the one from DB is missing or invalid
+    let validMobile = mobileNumber;
+    if (!validMobile || validMobile.length !== 10) {
+      validMobile = "9999999999"; 
+    }
 
-  // Show all OP bills — both pre-loaded and newly generated
-  const recentOPBills = bills
-    .filter(b => {
-      const id = b.patientId || '';
-      return id.startsWith('UHID-2026-0001') || id.startsWith('UHID-2026-0002') ||
-             id.startsWith('UHID-2026-0003') || id.startsWith('UHID-2026-0004') ||
-             id.startsWith('UHID-2026-0005') || id.startsWith('OP-');
-    })
-    .slice(0, 10);
+    const payload = {
+      BillNumber: `BILL-${String(bills.length + 1).padStart(4, '0')}`,
+      Uhid: selectedPatientId,
+      PatientName: patientName,
+      MobileNumber: validMobile,
+      TotalAmount: totalAmount,
+      Discount: 0,
+      Tax: 0,
+      NetAmount: totalAmount,
+      PaymentMode: 'Cash',
+      PaymentStatus: 'Paid',
+      Items: items.map(i => ({
+        ItemCode: i.id,
+        ItemDescription: i.description,
+        Quantity: i.qty,
+        UnitPrice: i.price,
+        Subtotal: i.total,
+      }))
+    };
+
+    try {
+      const response = await axios.post(`${API_BASE}/op-billing/`, payload);
+      setSuccessMsg(`Bill ${response.data.BillNumber} generated successfully for ${patientName}!`);
+      
+      setPatientName('');
+      setSearchId('');
+      setSelectedPatientId('');
+      setSelectedVisitNo('');
+      setMobileNumber('');
+      setItems([]);
+      
+      fetchBills(); // Refresh bills list
+      fetchVisits(); // Refresh visits to reflect updated billing status (if backend updates it)
+      
+      setTimeout(() => setSuccessMsg(''), 4000);
+    } catch (error: any) {
+      console.error("Error generating bill:", error);
+      alert("Failed to generate bill. " + (error.response?.data?.detail || error.message));
+    }
+  };
 
   return (
     <div className="flex flex-col space-y-6 w-full">
@@ -162,19 +263,28 @@ export const OPBilling = () => {
               {showSuggestions && searchId && (
                 <div className="absolute top-full left-0 right-14 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden z-50">
                   {filteredSuggestions.length > 0 ? (
-                    <ul>
-                      {filteredSuggestions.map(p => (
-                        <li key={p.uhid} onClick={() => selectPatient(p)}
-                          className="px-4 py-3 hover:bg-primary/5 cursor-pointer flex items-center gap-3 border-b border-slate-50 last:border-0 transition-colors">
-                          <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                            <User className="w-4 h-4" />
+                    <ul className="max-h-60 overflow-y-auto">
+                      {filteredSuggestions.map((p, idx) => {
+                        const isBilled = p.billingStatus === 'Paid' || p.billingStatus === 'Billed';
+                        return (
+                        <li key={p.queueToken || idx} onClick={() => selectPatient(p)}
+                          className={`px-4 py-3 cursor-pointer flex items-center justify-between border-b border-slate-50 last:border-0 transition-colors ${isBilled ? 'opacity-50 hover:bg-slate-50' : 'hover:bg-primary/5'}`}>
+                          <div className="flex items-center gap-3">
+                            <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${isBilled ? 'bg-slate-200 text-slate-500' : 'bg-primary/10 text-primary'}`}>
+                              <User className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold text-slate-800">{p.patientName}</p>
+                              <p className="text-xs text-slate-500">{p.queueToken} · {p.uhid}</p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-sm font-bold text-slate-800">{p.patientName}</p>
-                            <p className="text-xs text-slate-500">{p.uhid} · Age: {p.age} · {p.department}</p>
-                          </div>
+                          {isBilled && (
+                            <span className="text-[10px] font-bold bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                              Billed
+                            </span>
+                          )}
                         </li>
-                      ))}
+                      )})}
                     </ul>
                   ) : (
                     <div className="px-4 py-3 text-sm text-slate-500">No matching patients found.</div>
@@ -197,7 +307,7 @@ export const OPBilling = () => {
                 </div>
                 <div>
                   <p className="font-bold text-slate-900">{patientName}</p>
-                  <p className="text-xs text-slate-500">{selectedPatientId}</p>
+                  <p className="text-xs text-slate-500">{selectedVisitNo} • {selectedPatientId}</p>
                 </div>
               </div>
 
@@ -263,29 +373,27 @@ export const OPBilling = () => {
             <tr>
               <th className="px-6 py-4">Bill ID</th>
               <th className="px-6 py-4">UHID</th>
-              <th className="px-6 py-4">Patient ID</th>
               <th className="px-6 py-4">Patient Name</th>
+              <th className="px-6 py-4">Mobile</th>
               <th className="px-6 py-4">Date</th>
-              <th className="px-6 py-4">Items</th>
               <th className="px-6 py-4">Amount</th>
               <th className="px-6 py-4">Status</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {recentOPBills.length === 0 ? (
+            {bills.length === 0 ? (
               <tr><td colSpan={7} className="px-6 py-10 text-center text-slate-400">No recent OP bills found.</td></tr>
-            ) : recentOPBills.map(bill => (
-              <tr key={bill.billId} className="hover:bg-slate-50">
-                <td className="px-6 py-4 font-mono font-medium text-slate-900">{bill.billId}</td>
-                <td className="px-6 py-4 font-mono text-slate-500 text-xs">UHID-{bill.patientId?.replace('OP-', '') || 'XXX'}</td>
-                <td className="px-6 py-4 font-mono text-slate-600 text-xs">{bill.patientId || '-'}</td>
-                <td className="px-6 py-4 text-slate-700">{bill.patientName}</td>
-                <td className="px-6 py-4 text-slate-500 text-xs">{new Date(bill.date).toLocaleDateString()}</td>
-                <td className="px-6 py-4 text-slate-600 text-xs">{bill.items.length} items</td>
-                <td className="px-6 py-4 font-bold text-slate-800">₹{bill.netAmount.toFixed(2)}</td>
+            ) : bills.map((bill, idx) => (
+              <tr key={bill.OpBillId || idx} className="hover:bg-slate-50">
+                <td className="px-6 py-4 font-mono font-medium text-slate-900">{bill.BillNumber}</td>
+                <td className="px-6 py-4 font-mono text-slate-500 text-xs">{bill.Uhid}</td>
+                <td className="px-6 py-4 text-slate-700">{bill.PatientName}</td>
+                <td className="px-6 py-4 text-slate-500 text-xs">{bill.MobileNumber}</td>
+                <td className="px-6 py-4 text-slate-500 text-xs">{new Date(bill.BillDate).toLocaleDateString()}</td>
+                <td className="px-6 py-4 font-bold text-slate-800">₹{bill.NetAmount.toFixed(2)}</td>
                 <td className="px-6 py-4">
-                  <span className={`px-2 py-1 text-xs font-bold rounded-md ${bill.paymentStatus === 'Paid' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                    {bill.paymentStatus}
+                  <span className={`px-2 py-1 text-xs font-bold rounded-md ${bill.PaymentStatus === 'Paid' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                    {bill.PaymentStatus}
                   </span>
                 </td>
               </tr>

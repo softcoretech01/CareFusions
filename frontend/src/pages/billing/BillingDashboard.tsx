@@ -1,17 +1,31 @@
-import { useState } from 'react';
-import { usePharmacyBilling } from '../../contexts/PharmacyBillingContext';
+import { useState, useEffect } from 'react';
 import { IndianRupee, TrendingUp, FileText, CreditCard, CheckCircle, Clock } from 'lucide-react';
 import Chart from 'react-apexcharts';
 import { DateFilter } from '../../components/ui/DateFilter';
+import axios from 'axios';
+
+const API_BASE = import.meta.env.VITE_API_URL as string;
 
 export const BillingDashboard = () => {
-  const { bills } = usePharmacyBilling();
-
+  const [bills, setBills] = useState<any[]>([]);
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
 
+  useEffect(() => {
+    fetchBills();
+  }, []);
+
+  const fetchBills = async () => {
+    try {
+      const response = await axios.get(`${API_BASE}/billing-reports/`);
+      setBills(response.data);
+    } catch (error) {
+      console.error("Failed to fetch dashboard billing data", error);
+    }
+  };
+
   const filteredBills = bills.filter(bill => {
-    const billDate = new Date(bill.date);
+    const billDate = new Date(bill.Date);
     const startDate = fromDate ? new Date(fromDate) : null;
     const endDate = toDate ? new Date(toDate) : null;
     if (startDate) startDate.setHours(0,0,0,0);
@@ -22,33 +36,46 @@ export const BillingDashboard = () => {
     return matchesFrom && matchesTo;
   });
 
-  const isIPBill = (patientId?: string) => {
-    if (!patientId) return false;
-    return patientId.startsWith('UHID-2026-0006') || patientId.startsWith('UHID-2026-0007') ||
-           patientId.startsWith('UHID-2026-0008') || patientId.startsWith('UHID-2026-0009') ||
-           patientId.startsWith('UHID-2026-0010') || patientId.startsWith('IP-');
-  };
-  const isOPBill = (patientId?: string) => {
-    if (!patientId) return false;
-    return patientId.startsWith('UHID-2026-0001') || patientId.startsWith('UHID-2026-0002') ||
-           patientId.startsWith('UHID-2026-0003') || patientId.startsWith('UHID-2026-0004') ||
-           patientId.startsWith('UHID-2026-0005') || patientId.startsWith('OP-');
-  };
-
-
-  const totalBills = filteredBills.filter(b => isIPBill(b.patientId) || isOPBill(b.patientId)).length;
-  const opBills = filteredBills.filter(b => isOPBill(b.patientId)).length;
-  const ipBills = filteredBills.filter(b => isIPBill(b.patientId)).length;
-  const paidBills = filteredBills.filter(b => b.paymentStatus === 'Paid').length;
-  const unpaidBills = filteredBills.filter(b => b.paymentStatus === 'Unpaid').length;
+  const totalBills = filteredBills.length;
+  const opBills = filteredBills.filter(b => b.Type === 'OP').length;
+  const ipBills = filteredBills.filter(b => b.Type === 'IP').length;
+  const paidBills = filteredBills.filter(b => b.PaymentStatus === 'Paid').length;
+  const unpaidBills = filteredBills.filter(b => b.PaymentStatus !== 'Paid').length;
 
   const today = new Date().toDateString();
-  const todaysRevenue = bills.filter(b => new Date(b.date).toDateString() === today && b.paymentStatus === 'Paid').reduce((acc, b) => acc + b.netAmount, 0);
+  const todaysRevenue = bills
+    .filter(b => new Date(b.Date).toDateString() === today && b.PaymentStatus === 'Paid')
+    .reduce((acc, b) => acc + b.NetAmount, 0);
   
   const currentMonth = new Date().getMonth();
-  const thisMonthRevenue = bills.filter(b => new Date(b.date).getMonth() === currentMonth && b.paymentStatus === 'Paid').reduce((acc, b) => acc + b.netAmount, 0);
+  const thisMonthRevenue = bills
+    .filter(b => new Date(b.Date).getMonth() === currentMonth && b.PaymentStatus === 'Paid')
+    .reduce((acc, b) => acc + b.NetAmount, 0);
 
   const isFiltered = fromDate || toDate;
+
+  const monthsList: string[] = [];
+  const currentDate = new Date();
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+    monthsList.push(d.toLocaleString('default', { month: 'short' }));
+  }
+
+  const opData = [0, 0, 0, 0, 0, 0];
+  const ipData = [0, 0, 0, 0, 0, 0];
+
+  bills.forEach(bill => {
+    if (bill.PaymentStatus === 'Paid') {
+      const billDate = new Date(bill.Date);
+      const monthDiff = (currentDate.getFullYear() - billDate.getFullYear()) * 12 + (currentDate.getMonth() - billDate.getMonth());
+      
+      if (monthDiff >= 0 && monthDiff <= 5) {
+        const idx = 5 - monthDiff;
+        if (bill.Type === 'OP') opData[idx] += bill.NetAmount;
+        else if (bill.Type === 'IP') ipData[idx] += bill.NetAmount;
+      }
+    }
+  });
 
   const areaOptions = {
     chart: { type: 'area' as const, fontFamily: 'inherit', toolbar: { show: false }, zoom: { enabled: false } },
@@ -56,36 +83,36 @@ export const BillingDashboard = () => {
     dataLabels: { enabled: false },
     stroke: { curve: 'smooth' as const, width: 2 },
     xaxis: {
-      categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+      categories: monthsList,
       axisBorder: { show: false },
       axisTicks: { show: false },
     },
-    yaxis: { labels: { formatter: (v: number) => `₹${v}k` } },
+    yaxis: { labels: { formatter: (v: number) => `₹${v.toLocaleString()}` } },
     grid: { borderColor: '#f1f5f9', strokeDashArray: 4 },
     fill: {
       type: 'gradient',
       gradient: { shadeIntensity: 1, opacityFrom: 0.35, opacityTo: 0.02, stops: [0, 90, 100] }
     },
-    tooltip: { y: { formatter: (v: number) => `₹${v},000` } },
+    tooltip: { y: { formatter: (v: number) => `₹${v.toLocaleString()}` } },
     legend: { position: 'top' as const, horizontalAlign: 'right' as const }
   };
 
   const areaSeries = [
-    { name: 'OP Revenue', data: [31, 40, 28, 51, 42, 109] },
-    { name: 'IP Revenue', data: [11, 32, 45, 32, 34, 52] }
+    { name: 'OP Revenue', data: opData },
+    { name: 'IP Revenue', data: ipData }
   ];
 
   const donutOptions = {
     chart: { type: 'donut' as const, fontFamily: 'inherit' },
     colors: ['#10b981', '#ef4444', '#f59e0b'],
-    labels: ['Paid', 'Unpaid', 'Refunded'],
+    labels: ['Paid', 'Pending', 'Refunded'],
     legend: { position: 'bottom' as const },
     dataLabels: { enabled: true },
     plotOptions: { pie: { donut: { size: '65%' } } },
     stroke: { show: false }
   };
 
-  const donutSeries = [paidBills || 2, unpaidBills || 1, 0];
+  const donutSeries = [paidBills || 0, unpaidBills || 0, 0];
 
   const stats = [
     { label: 'Total Bills', value: totalBills, icon: FileText, color: 'bg-blue-100 text-blue-600', sub: isFiltered ? 'Filtered' : 'All time' },
@@ -175,24 +202,24 @@ export const BillingDashboard = () => {
           </thead>
           <tbody className="divide-y divide-slate-100">
             {filteredBills.slice(0, 10).map(bill => {
-              const isIP = ['UHID-2026-0006','UHID-2026-0007','UHID-2026-0008','UHID-2026-0009','UHID-2026-0010'].some(u => bill.patientId?.startsWith(u)) || bill.patientId?.startsWith('IP-');
-              const isPaid = bill.paymentStatus === 'Paid';
+              const isIP = bill.Type === 'IP';
+              const isPaid = bill.PaymentStatus === 'Paid';
               return (
-                <tr key={bill.billId} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-6 py-3 font-mono font-medium text-slate-900">{bill.billId}</td>
+                <tr key={bill.BillNumber} className="hover:bg-slate-50 transition-colors">
+                  <td className="px-6 py-3 font-mono font-medium text-slate-900">{bill.BillNumber}</td>
                   <td className="px-6 py-3">
                     <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${isIP ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
-                      {isIP ? 'IP' : 'OP'}
+                      {bill.Type}
                     </span>
                   </td>
-                  <td className="px-6 py-3 text-slate-700">{bill.patientName}</td>
-                  <td className="px-6 py-3 font-bold text-slate-800">₹{bill.netAmount.toLocaleString()}</td>
+                  <td className="px-6 py-3 text-slate-700">{bill.PatientName}</td>
+                  <td className="px-6 py-3 font-bold text-slate-800">₹{bill.NetAmount.toLocaleString()}</td>
                   <td className="px-6 py-3">
                     <span className={`px-2 py-0.5 text-xs font-bold rounded-md ${isPaid ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                      {bill.paymentStatus}
+                      {bill.PaymentStatus}
                     </span>
                   </td>
-                  <td className="px-6 py-3 text-slate-500">{bill.paymentMode}</td>
+                  <td className="px-6 py-3 text-slate-500">{bill.PaymentMode}</td>
                 </tr>
               );
             })}

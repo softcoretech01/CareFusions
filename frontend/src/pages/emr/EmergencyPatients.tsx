@@ -1,23 +1,26 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, Printer, Eye, X } from 'lucide-react';
-import { MOCK_EMR_RECORDS } from '../../data/mockEMRData';
+import { Search, Printer, Eye, X, Loader2 } from 'lucide-react';
 import { EMRPrintTemplate } from '../../components/emr/EMRPrintTemplate';
 import { OPDPrintTemplate } from '../../components/emr/OPDPrintTemplate';
 import { IPDPrintTemplate } from '../../components/emr/IPDPrintTemplate';
 import type { EMRRecord } from '../../components/emr/EMRPrintTemplate';
 import { DateFilter } from '../../components/ui/DateFilter';
 
+const API_BASE = 'http://127.0.0.1:8000/api/v1';
+
 export const EmergencyPatients = () => {
   const visitType = 'Emergency' as const;
   const title = 'Emergency Records';
 
+  const [records, setRecords] = useState<EMRRecord[]>([]);
   const [searchText, setSearchText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [viewRecord, setViewRecord] = useState<EMRRecord | null>(null);
   const [printRecord, setPrintRecord] = useState<EMRRecord | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const defaultHospitalInfo = {
     name: 'Care Fusions Hospital',
@@ -29,15 +32,104 @@ export const EmergencyPatients = () => {
     logoText: 'CF',
   };
 
+  useEffect(() => {
+    const fetchRecords = async () => {
+      setIsLoading(true);
+      try {
+        const res = await fetch(`${API_BASE}/opd-visits/schedule`);
+        if (res.ok) {
+          const data = await res.json();
+          // Filter to only emergency patients since we are fetching from opd schedule
+          const emergencyData = data.filter((d: any) => d.visitType === 'Emergency');
+          
+          const mapped: EMRRecord[] = emergencyData.map((d: any) => ({
+            uhid: d.uhid,
+            patientName: d.patientName,
+            age: d.age || 0,
+            gender: d.gender || 'Unknown',
+            bloodGroup: 'Unknown',
+            contact: d.mobileNumber || '',
+            visitType: 'Emergency',
+            visitId: d.id.toString(), // Using DB ID
+            visitDate: d.date ? new Date(d.date).toLocaleDateString('en-GB') : '',
+            visitDateValue: d.date || '',
+            doctor: d.doctorName || 'Unassigned',
+            specialty: d.department || '',
+            department: d.department || '',
+            dischargeStatus: '',
+            billingStatus: 'Pending',
+            chiefComplaint: '',
+            diagnosis: '',
+            clinicalNotes: '',
+            vitals: {},
+            investigations: [],
+            prescriptions: []
+          }));
+          setRecords(mapped);
+        }
+      } catch (e) {
+        console.error("Failed to fetch EMR records", e);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchRecords();
+  }, []);
+
+  const fetchFullRecord = async (record: EMRRecord): Promise<EMRRecord> => {
+    try {
+      const res = await fetch(`${API_BASE}/opd-visits/${record.visitId}/details`);
+      if (res.ok) {
+        const details = await res.json();
+        if (details.status === "NOT_FOUND") return record;
+        
+        return {
+          ...record,
+          chiefComplaint: details.triageInfo?.ChiefComplaint || '',
+          diagnosis: (details.diagnoses || []).map((d: any) => d.Description).join(', ') || '',
+          clinicalNotes: details.triageInfo?.Observations || '',
+          vitals: details.vitals ? {
+            bp: `${details.vitals.BpSystolic || ''}/${details.vitals.BpDiastolic || ''}`,
+            pulse: details.vitals.Pulse ? details.vitals.Pulse.toString() : '',
+            temp: details.vitals.Temp ? details.vitals.Temp.toString() : '',
+            spo2: details.vitals.Spo2 ? details.vitals.Spo2.toString() : '',
+            weight: details.vitals.Weight ? details.vitals.Weight.toString() : '',
+            height: details.vitals.Height ? details.vitals.Height.toString() : ''
+          } : undefined,
+          investigations: [
+            ...(details.labOrders || []).map((l: any) => ({
+              test: l.TestName,
+              result: l.Result || 'Pending',
+              normalRange: ''
+            })),
+            ...(details.radiologyOrders || []).map((r: any) => ({
+              test: `${r.Modality} - ${r.BodyPart}`,
+              result: r.Status,
+              normalRange: ''
+            }))
+          ],
+          prescriptions: (details.prescriptions || []).map((p: any) => ({
+            medicine: p.MedicineName,
+            dosage: p.Quantity?.toString() || '',
+            frequency: p.Type,
+            duration: '',
+            instructions: p.Alerts
+          }))
+        };
+      }
+    } catch (e) {
+      console.error("Failed to fetch full record details", e);
+    }
+    return record;
+  };
+
   const renderPrintTemplate = (record: EMRRecord) => {
     if (record.visitType === 'OP') {
       return <OPDPrintTemplate hospital={defaultHospitalInfo} record={record} />;
     }
-
     if (record.visitType === 'IP') {
       return <IPDPrintTemplate hospital={defaultHospitalInfo} record={record} />;
     }
-
     return <EMRPrintTemplate record={record} />;
   };
 
@@ -52,8 +144,6 @@ export const EmergencyPatients = () => {
     window.addEventListener('afterprint', handleAfterPrint);
     return () => window.removeEventListener('afterprint', handleAfterPrint);
   }, []);
-
-  const records = MOCK_EMR_RECORDS.filter(r => r.visitType === visitType);
 
   const filtered = records
     .filter(r => {
@@ -70,6 +160,8 @@ export const EmergencyPatients = () => {
       const visitDate = new Date(r.visitDateValue || r.visitDate);
       const startDate = fromDate ? new Date(fromDate) : null;
       const endDate = toDate ? new Date(toDate) : null;
+      if (endDate) endDate.setHours(23, 59, 59, 999);
+      
       const matchesFrom = !startDate || visitDate >= startDate;
       const matchesTo = !endDate || visitDate <= endDate;
 
@@ -91,14 +183,19 @@ export const EmergencyPatients = () => {
     setToDate('');
   };
 
-  const handlePrint = (record: EMRRecord) => {
-    if (printRecord?.visitId === record.visitId) {
+  const handleView = async (record: EMRRecord) => {
+    const full = await fetchFullRecord(record);
+    setViewRecord(full);
+  };
+
+  const handlePrint = async (record: EMRRecord) => {
+    const full = await fetchFullRecord(record);
+    if (printRecord?.visitId === full.visitId) {
       setPrintRecord(null);
-      setTimeout(() => setPrintRecord(record), 50);
+      setTimeout(() => setPrintRecord(full), 50);
       return;
     }
-
-    setPrintRecord(record);
+    setPrintRecord(full);
   };
 
   const badgeColors: Record<string, string> = {
@@ -125,7 +222,7 @@ export const EmergencyPatients = () => {
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                placeholder="Search by name, UHID, department, doctor, or gender..."
+                placeholder="Search by name, UHID, department, doctor..."
                 value={searchText}
                 onChange={e => setSearchText(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') setSearchQuery(searchText); }}
@@ -143,7 +240,15 @@ export const EmergencyPatients = () => {
           />
         </div>
 
-        <div className="flex-1 overflow-x-auto">
+        <div className="flex-1 overflow-x-auto relative min-h-[200px]">
+          {isLoading && (
+            <div className="absolute inset-0 bg-white/50 backdrop-blur-sm flex items-center justify-center z-20">
+              <div className="flex flex-col items-center gap-2 text-indigo-600">
+                <Loader2 className="w-8 h-8 animate-spin" />
+                <span className="text-sm font-semibold">Loading records...</span>
+              </div>
+            </div>
+          )}
           <table className="w-full text-sm text-left">
             <thead className="bg-white text-xs font-semibold text-slate-500 uppercase tracking-wider sticky top-0 shadow-sm z-10 border-b border-slate-100">
               <tr>
@@ -157,7 +262,7 @@ export const EmergencyPatients = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filtered.length === 0 ? (
+              {!isLoading && filtered.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-6 py-16 text-center text-slate-400">
                     No records found.
@@ -171,7 +276,7 @@ export const EmergencyPatients = () => {
                       <p className="text-xs text-slate-500">{record.age}y / {record.gender}</p>
                     </td>
                     <td className="px-6 py-4 font-mono text-xs text-slate-700">{record.uhid}</td>
-                    <td className="px-6 py-4 text-slate-700 font-medium text-sm">{record.department || 'â€”'}</td>
+                    <td className="px-6 py-4 text-slate-700 font-medium text-sm">{record.department || '—'}</td>
                     <td className="px-6 py-4">
                       <p className="font-semibold text-slate-700">{record.doctor}</p>
                     </td>
@@ -184,7 +289,7 @@ export const EmergencyPatients = () => {
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-center gap-2">
                         <button
-                          onClick={() => setViewRecord(record)}
+                          onClick={() => handleView(record)}
                           className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
                           title="View EMR"
                         >
@@ -213,7 +318,7 @@ export const EmergencyPatients = () => {
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white z-10">
               <div>
                 <h2 className="text-lg font-bold text-slate-800">{viewRecord.patientName}</h2>
-                <p className="text-xs text-slate-500">{viewRecord.uhid} &bull; {viewRecord.visitId}</p>
+                <p className="text-xs text-slate-500">{viewRecord.uhid} &bull; Visit ID: {viewRecord.visitId}</p>
               </div>
               <div className="flex items-center gap-2">
                 <button

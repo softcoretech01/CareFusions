@@ -7,7 +7,7 @@ import toast from 'react-hot-toast';
 import { DateFilter } from '../../components/ui/DateFilter';
 
 export const RadiologyQC = () => {
-  const { qcLogs, addQCLog } = useInvestigations();
+  const { qcLogs, addRadiologyQCLog } = useInvestigations();
   const [showAddForm, setShowAddForm] = useState(false);
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
@@ -28,7 +28,7 @@ export const RadiologyQC = () => {
     status: 'Pass'
   });
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.expectedValue || !formData.actualValue) {
       toast.error('Please fill all required fields');
       return;
@@ -37,26 +37,29 @@ export const RadiologyQC = () => {
     const deviationVal = parseFloat(formData.actualValue) - parseFloat(formData.expectedValue);
     const deviationStr = deviationVal > 0 ? `+${deviationVal.toFixed(2)}` : deviationVal.toFixed(2);
     
-    addQCLog({
-      id: `R-QC-${Math.floor(1000 + Math.random() * 9000)}`,
-      date: formData.date || new Date().toISOString().split('T')[0],
-      machineName: formData.machineName || '',
-      testName: formData.testName || '',
-      expectedValue: formData.expectedValue,
-      actualValue: formData.actualValue,
-      deviation: deviationStr,
-      status: Math.abs(deviationVal) > 1.0 ? 'Fail' : 'Pass', // Mock simple rule
-      remarks: formData.remarks
-    });
-    
-    toast.success('Calibration Log saved successfully');
-    setShowAddForm(false);
-    setFormData({
-      date: new Date().toISOString().split('T')[0],
-      machineName: 'MRI Scanner (Suite A)',
-      testName: 'Daily Phantom Calibration',
-      status: 'Pass'
-    });
+    try {
+      await addRadiologyQCLog({
+        date: formData.date || new Date().toISOString().split('T')[0],
+        machineName: formData.machineName || '',
+        testName: formData.testName || '',
+        expectedValue: formData.expectedValue,
+        actualValue: formData.actualValue,
+        deviation: deviationStr,
+        status: Math.abs(deviationVal) > 1.0 ? 'Fail' : 'Pass', // Mock simple rule
+        remarks: formData.remarks
+      });
+      
+      toast.success('Calibration Log saved successfully');
+      setShowAddForm(false);
+      setFormData({
+        date: new Date().toISOString().split('T')[0],
+        machineName: 'MRI Scanner (Suite A)',
+        testName: 'Daily Phantom Calibration',
+        status: 'Pass'
+      });
+    } catch (err) {
+      toast.error('Failed to save log');
+    }
   };
 
   const chartOptions: ApexOptions = {
@@ -116,15 +119,15 @@ export const RadiologyQC = () => {
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Equipment</label>
-              <input type="text" value={formData.machineName} onChange={e => setFormData({...formData, machineName: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm" />
+              <input type="text" value={formData.machineName} onChange={e => setFormData({...formData, machineName: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm" maxLength={150} />
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Test Type</label>
-              <input type="text" value={formData.testName} onChange={e => setFormData({...formData, testName: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm" />
+              <input type="text" value={formData.testName} onChange={e => setFormData({...formData, testName: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm" maxLength={200} />
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Remarks</label>
-              <input type="text" value={formData.remarks || ''} onChange={e => setFormData({...formData, remarks: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Optional" />
+              <input type="text" value={formData.remarks || ''} onChange={e => setFormData({...formData, remarks: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Optional" maxLength={500} />
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Expected Baseline</label>

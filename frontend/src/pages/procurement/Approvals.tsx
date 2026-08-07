@@ -1,14 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Search, CheckCircle, XCircle, Eye, AlertCircle, FileText, ShoppingCart, RotateCcw } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 
-// Hooks
-import { useLocalStorage } from '../../utils/useLocalStorage';
-import type { PRRecord } from './PurchaseRequisitions';
-import type { PORecord } from './PurchaseOrders';
-import type { ReturnRecord } from './PurchaseReturn';
+const API_BASE = import.meta.env.VITE_API_URL as string;
 
 interface ApprovalRecord {
   id: string; // Composite ID
@@ -24,77 +20,28 @@ interface ApprovalRecord {
 }
 
 export const Approvals = () => {
-  const [prs, setPrs] = useLocalStorage<PRRecord[]>('procurement_prs_v2', []);
-  const [pos, setPos] = useLocalStorage<PORecord[]>('procurement_pos_v2', []);
-  const [returns, setReturns] = useLocalStorage<ReturnRecord[]>('procurement_returns_v2', []);
-  
+  const [pendingRecords, setPendingRecords] = useState<ApprovalRecord[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('All');
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<ApprovalRecord | null>(null);
+  const [selectedDocDetails, setSelectedDocDetails] = useState<any>(null);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
   const tabs = ['All', 'Purchase Requisition', 'Purchase Order', 'Purchase Return'];
 
-  // Aggregate pending records
-  const pendingRecords = useMemo<ApprovalRecord[]>(() => {
-    const list: ApprovalRecord[] = [];
-    
-    // Add pending PRs
-    prs.forEach(pr => {
-      if (pr.approvalStatus === 'Submitted' || pr.approvalStatus === 'Pending Department Approval') {
-        list.push({
-          id: `PR-${pr.id}`,
-          originalId: pr.id,
-          documentType: 'Purchase Requisition',
-          refNo: pr.prNo,
-          date: pr.requisitionDate,
-          departmentOrVendor: pr.department,
-          amount: pr.items.reduce((sum, item) => sum + (item.requestedQty * item.estimatedPrice), 0),
-          requestedBy: pr.createdBy || 'Unknown',
-          priority: pr.priority,
-          status: pr.approvalStatus
-        });
-      }
-    });
+  const fetchApprovals = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/approvals`);
+      if (res.ok) setPendingRecords(await res.json());
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
-    // Add pending POs
-    pos.forEach(po => {
-      if (po.status === 'Submitted' || po.status === 'Pending Approval') {
-        list.push({
-          id: `PO-${po.id}`,
-          originalId: po.id,
-          documentType: 'Purchase Order',
-          refNo: po.poNumber,
-          date: po.poDate,
-          departmentOrVendor: po.vendorName,
-          amount: po.totalAmount,
-          requestedBy: 'System', // Could be populated if added to PO schema
-          priority: 'Normal',
-          status: po.status
-        });
-      }
-    });
-
-    // Add pending Returns
-    returns.forEach(ret => {
-      if (ret.status === 'Submitted' || ret.status === 'Pending Approval') {
-        list.push({
-          id: `RET-${ret.id}`,
-          originalId: ret.id,
-          documentType: 'Purchase Return',
-          refNo: ret.returnNo,
-          date: ret.returnDate,
-          departmentOrVendor: ret.vendorName,
-          amount: 0, // Not tracked on return currently
-          requestedBy: 'System',
-          priority: 'Normal',
-          status: ret.status
-        });
-      }
-    });
-
-    return list;
-  }, [prs, pos, returns]);
+  useEffect(() => {
+    fetchApprovals();
+  }, []);
 
   const processedData = useMemo(() => {
     return pendingRecords.filter(record => {
@@ -106,18 +53,42 @@ export const Approvals = () => {
     });
   }, [pendingRecords, searchTerm, activeTab]);
 
-  const handleAction = (record: ApprovalRecord, action: 'Approved' | 'Rejected') => {
-    if (record.documentType === 'Purchase Requisition') {
-      const updated = prs.map(pr => pr.id === record.originalId ? { ...pr, approvalStatus: action, currentStage: action === 'Approved' ? 'Approved' : 'Rejected' } : pr);
-      setPrs(updated);
-    } else if (record.documentType === 'Purchase Order') {
-      const updated = pos.map(po => po.id === record.originalId ? { ...po, status: action } : po);
-      setPos(updated);
-    } else if (record.documentType === 'Purchase Return') {
-      const updated = returns.map(ret => ret.id === record.originalId ? { ...ret, status: action } : ret);
-      setReturns(updated);
+  const handleAction = async (record: ApprovalRecord, action: 'Approved' | 'Rejected') => {
+    try {
+      const res = await fetch(`${API_BASE}/approvals/${encodeURIComponent(record.documentType)}/${record.originalId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: action })
+      });
+      if (res.ok) {
+        alert(`Document ${record.refNo} has been ${action}!`);
+        fetchApprovals();
+      }
+    } catch (err) {
+      console.error(err);
     }
-    alert(`Document ${record.refNo} has been ${action}!`);
+  };
+
+  const handleView = async (record: ApprovalRecord) => {
+    setSelectedRecord(record);
+    setIsViewOpen(true);
+    setIsLoadingDetails(true);
+    setSelectedDocDetails(null);
+    try {
+      let endpoint = '';
+      if (record.documentType === 'Purchase Requisition') endpoint = `${API_BASE}/purchase-requisitions/${record.originalId}`;
+      else if (record.documentType === 'Purchase Order') endpoint = `${API_BASE}/purchase-orders/${record.originalId}`;
+      else if (record.documentType === 'Purchase Return') endpoint = `${API_BASE}/purchase-returns/${record.originalId}`;
+      
+      const res = await fetch(endpoint);
+      if (res.ok) {
+        setSelectedDocDetails(await res.json());
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoadingDetails(false);
+    }
   };
 
   const getDocIcon = (type: string) => {
@@ -218,10 +189,7 @@ export const Approvals = () => {
                   </td>
                   <td className="py-3 px-4 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <Button variant="outline" size="sm" icon={Eye} className="!p-2" onClick={() => {
-                        setSelectedRecord(record);
-                        setIsViewOpen(true);
-                      }} />
+                      <Button variant="outline" size="sm" icon={Eye} className="!p-2" onClick={() => handleView(record)} />
                       <Button variant="filled" color="primary" size="sm" icon={CheckCircle} onClick={() => handleAction(record, 'Approved')}>Approve</Button>
                       <Button variant="outline" size="sm" icon={XCircle} onClick={() => handleAction(record, 'Rejected')} className="text-red-500 hover:bg-red-50 hover:border-red-200 border-slate-200">Reject</Button>
                     </div>
@@ -250,10 +218,10 @@ export const Approvals = () => {
             </div>
 
             {/* Item Details */}
-            {(() => {
+            {isLoadingDetails ? (
+              <div className="py-8 text-center text-slate-500">Loading details...</div>
+            ) : selectedDocDetails && (() => {
               if (selectedRecord.documentType === 'Purchase Requisition') {
-                const pr = prs.find(p => p.id === selectedRecord.originalId);
-                if (!pr) return null;
                 return (
                   <div className="mt-6">
                     <h3 className="font-semibold text-slate-800 mb-3">Requested Items</h3>
@@ -269,8 +237,8 @@ export const Approvals = () => {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                          {pr.items.map(item => (
-                            <tr key={item.id} className="bg-white">
+                          {selectedDocDetails.items?.map((item: any) => (
+                            <tr key={item.id || item.itemId} className="bg-white">
                               <td className="py-2 px-3">{item.itemName}</td>
                               <td className="py-2 px-3 text-right">{item.requestedQty}</td>
                               <td className="py-2 px-3">{item.uom || '-'}</td>
@@ -285,8 +253,6 @@ export const Approvals = () => {
                 );
               }
               if (selectedRecord.documentType === 'Purchase Order') {
-                const po = pos.find(p => p.id === selectedRecord.originalId);
-                if (!po) return null;
                 return (
                   <div className="mt-6">
                     <h3 className="font-semibold text-slate-800 mb-3">Ordered Items</h3>
@@ -302,8 +268,8 @@ export const Approvals = () => {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                          {po.items.map(item => (
-                            <tr key={item.id} className="bg-white">
+                          {selectedDocDetails.items?.map((item: any) => (
+                            <tr key={item.id || item.itemId} className="bg-white">
                               <td className="py-2 px-3">{item.itemName}</td>
                               <td className="py-2 px-3 text-right">{item.orderedQty}</td>
                               <td className="py-2 px-3">{item.uom || '-'}</td>
@@ -318,8 +284,6 @@ export const Approvals = () => {
                 );
               }
               if (selectedRecord.documentType === 'Purchase Return') {
-                const ret = returns.find(r => r.id === selectedRecord.originalId);
-                if (!ret) return null;
                 return (
                   <div className="mt-6">
                     <h3 className="font-semibold text-slate-800 mb-3">Returned Items</h3>
@@ -334,8 +298,8 @@ export const Approvals = () => {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                          {ret.items.map((item: any) => (
-                            <tr key={item.id} className="bg-white">
+                          {selectedDocDetails.items?.map((item: any) => (
+                            <tr key={item.id || item.itemId} className="bg-white">
                               <td className="py-2 px-3">{item.itemName}</td>
                               <td className="py-2 px-3 text-right">{item.receivedQty}</td>
                               <td className="py-2 px-3 text-right font-bold text-red-500">{item.returnQty}</td>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Activity, Plus, Trash2, Clock } from 'lucide-react';
+import { Activity, Plus, Trash2, Clock, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export interface VitalsEntry {
@@ -14,19 +14,14 @@ export interface VitalsEntry {
 }
 
 interface NursingFlowsheetProps {
-  patientId: number;
+  patientId: number; // This is the AdmissionId
 }
 
+const API_BASE = import.meta.env.VITE_API_URL as string;
+
 export const NursingFlowsheet: React.FC<NursingFlowsheetProps> = ({ patientId }) => {
-  // Persist per patient so recorded vitals survive navigation/refresh.
-  const storageKey = `ipd_flowsheet_${patientId}`;
-  const [entries, setEntries] = useState<VitalsEntry[]>(() => {
-    try {
-      const saved = localStorage.getItem(storageKey);
-      if (saved) return JSON.parse(saved);
-    } catch { /* ignore */ }
-    return [];
-  });
+  const [entries, setEntries] = useState<VitalsEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -38,31 +33,84 @@ export const NursingFlowsheet: React.FC<NursingFlowsheetProps> = ({ patientId })
     notes: '',
   });
 
-  useEffect(() => {
-    try { localStorage.setItem(storageKey, JSON.stringify(entries)); } catch { /* ignore */ }
-  }, [entries, storageKey]);
+  const fetchVitals = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/ipd-visits/${patientId}/details`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.vitals) {
+          const mapped = data.vitals.map((v: any) => ({
+            id: String(v.VitalsId),
+            timestamp: v.RecordedAt,
+            temperature: v.Temperature || '',
+            pulse: v.Pulse || '',
+            bloodPressure: v.BloodPressure || '',
+            respiratoryRate: v.RespiratoryRate || '',
+            spO2: v.SpO2 || '',
+            notes: v.Notes || ''
+          }));
+          setEntries(mapped);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to load vitals');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    fetchVitals();
+  }, [patientId]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.temperature && !formData.pulse && !formData.bloodPressure && !formData.respiratoryRate && !formData.spO2) {
       toast.error('Please enter at least one vital sign');
       return;
     }
-    const newEntry: VitalsEntry = { id: Date.now().toString(), timestamp: new Date().toISOString(), ...formData };
-    setEntries([newEntry, ...entries]);
-    setIsAdding(false);
-    setFormData({ temperature: '', pulse: '', bloodPressure: '', respiratoryRate: '', spO2: '', notes: '' });
-    toast.success('Vitals entry added');
+    
+    const payload = {
+      admissionId: patientId,
+      vitals: formData
+    };
+
+    try {
+      const res = await fetch(`${API_BASE}/ipd-visits/save-clinical`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        toast.success('Vitals entry added');
+        setIsAdding(false);
+        setFormData({ temperature: '', pulse: '', bloodPressure: '', respiratoryRate: '', spO2: '', notes: '' });
+        fetchVitals();
+      } else {
+        toast.error('Failed to save vitals');
+      }
+    } catch (e) {
+      toast.error('Failed to save vitals');
+    }
   };
 
   const handleDelete = (id: string) => {
+    // We do not have a delete API currently mapped. 
+    // Usually clinical records are immutable, so we just remove locally for now 
+    // or ideally don't allow delete. I'll just remove it from state to match original behavior.
     setEntries(entries.filter(e => e.id !== id));
     if (selectedId === id) setSelectedId(null);
-    toast.success('Vitals entry removed');
+    toast.success('Vitals entry removed locally');
   };
 
   const inputCls = 'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20';
   const shown = selectedId ? entries.filter(e => e.id === selectedId) : entries;
+
+  if (isLoading) {
+    return <div className="flex justify-center py-10"><Loader2 className="w-8 h-8 animate-spin text-slate-400" /></div>;
+  }
 
   return (
     <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 space-y-4">
@@ -86,7 +134,7 @@ export const NursingFlowsheet: React.FC<NursingFlowsheetProps> = ({ patientId })
           <form onSubmit={handleSubmit}>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-3">
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Temp (Â°F/Â°C)</label>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Temp (°F/°C)</label>
                 <input type="text" placeholder="e.g. 98.6" value={formData.temperature} onChange={e => setFormData({ ...formData, temperature: e.target.value })} className={inputCls} />
               </div>
               <div>
@@ -149,7 +197,7 @@ export const NursingFlowsheet: React.FC<NursingFlowsheetProps> = ({ patientId })
                       </span>
                     </div>
                     <div className="text-[11px] text-slate-500 mt-1">
-                      T {entry.temperature || '-'} Â· P {entry.pulse || '-'} Â· BP {entry.bloodPressure || '-'} Â· SpO2 {entry.spO2 || '-'}
+                      T {entry.temperature || '-'} · P {entry.pulse || '-'} · BP {entry.bloodPressure || '-'} · SpO2 {entry.spO2 || '-'}
                     </div>
                   </button>
                 );

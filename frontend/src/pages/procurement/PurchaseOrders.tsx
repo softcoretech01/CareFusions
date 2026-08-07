@@ -1,21 +1,16 @@
-import { useState, useMemo } from 'react';
-import { Plus, Search, Filter, Edit2, Eye, Printer, CheckCircle, ShoppingBag, Trash2, Download } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Plus, Search, Filter, Edit2, Eye, Printer, CheckCircle, ShoppingBag, Trash2, Download, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { DateFilter } from '../../components/ui/DateFilter';
 
-// Mock Data Imports
-import { mockData as vendorsMock } from '../admin/purchase-inventory/VendorMaster';
-import { mockData as departmentsMock } from '../admin/organization-masters/DepartmentMaster';
-import { mockData as paymentTermsMock } from '../admin/purchase-inventory/PaymentTermsMaster';
-import { mockData as warehousesMock } from '../admin/purchase-inventory/WarehouseMaster';
-import { mockData as currencyMock } from '../admin/financial-masters/CurrencyMaster';
-import { initialQuotations, type QuotationRecord } from './VendorQuotation';
-import { initialPRs, type PRRecord } from './PurchaseRequisitions';
-import { initialRFQs, type RFQRecord } from './RequestForQuotation';
-import { useLocalStorage } from '../../utils/useLocalStorage';
+import type { QuotationRecord } from './VendorQuotation';
+import type { PRRecord } from './PurchaseRequisitions';
+import type { RFQRecord } from './RequestForQuotation';
 import { exportToExcel } from '../../utils/exportToExcel';
+
+const API_BASE = import.meta.env.VITE_API_URL as string;
 
 interface POItem {
   id: string;
@@ -53,11 +48,51 @@ export interface PORecord {
 export const initialPOs: PORecord[] = [];
 
 export const PurchaseOrders = () => {
-  const [records, setRecords] = useLocalStorage<PORecord[]>('procurement_pos_v2', initialPOs);
-  const [allQtns] = useLocalStorage<QuotationRecord[]>('procurement_qtns_v2', initialQuotations);
-  const [prs] = useLocalStorage<PRRecord[]>('procurement_prs_v2', initialPRs);
-  const [rfqs] = useLocalStorage<RFQRecord[]>('procurement_rfqs_v2', initialRFQs);
-  
+  const [records, setRecords] = useState<PORecord[]>([]);
+  const [allQtns, setAllQtns] = useState<QuotationRecord[]>([]);
+  const [prs, setPrs] = useState<PRRecord[]>([]);
+  const [rfqs, setRfqs] = useState<RFQRecord[]>([]);
+  const [vendorsMock, setVendorsMock] = useState<any[]>([]);
+  const [departmentsMock, setDepartmentsMock] = useState<any[]>([]);
+  const [paymentTermsMock, setPaymentTermsMock] = useState<any[]>([]);
+  const [warehousesMock, setWarehousesMock] = useState<any[]>([]);
+  const [currencyMock, setCurrencyMock] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+      const [posRes, prsRes, rfqsRes, qtnsRes, venRes, deptRes, ptRes, whRes, curRes] = await Promise.all([
+        fetch(`${API_BASE}/purchase-orders`),
+        fetch(`${API_BASE}/purchase-requisitions`),
+        fetch(`${API_BASE}/rfqs`),
+        fetch(`${API_BASE}/vendor-quotations`),
+        fetch(`${API_BASE}/vendors`),
+        fetch(`${API_BASE}/departments`),
+        fetch(`${API_BASE}/payment-terms`),
+        fetch(`${API_BASE}/stores`),
+        fetch(`${API_BASE}/currencies`)
+      ]);
+      
+      if (posRes.ok) setRecords(await posRes.json());
+      if (prsRes.ok) setPrs(await prsRes.json());
+      if (rfqsRes.ok) setRfqs(await rfqsRes.json());
+      if (qtnsRes.ok) setAllQtns(await qtnsRes.json());
+      if (venRes.ok) setVendorsMock(await venRes.json());
+      if (deptRes.ok) setDepartmentsMock(await deptRes.json());
+      if (ptRes.ok) setPaymentTermsMock(await ptRes.json());
+      if (whRes.ok) setWarehousesMock(await whRes.json());
+      if (curRes.ok) setCurrencyMock(await curRes.json());
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
@@ -128,24 +163,51 @@ export const PurchaseOrders = () => {
     setIsViewOpen(true);
   };
 
-  const handleSave = (status: string) => {
+  const handleSave = async (status: string) => {
     if (validateForm()) {
-      if (selectedRecord) {
-        setRecords(records.map(r => r.id === selectedRecord.id ? { ...formData, status, id: r.id } : r));
-      } else {
-        const newId = records.length > 0 ? Math.max(...records.map(r => r.id)) + 1 : 1;
-        setRecords([{ ...formData, status, id: newId }, ...records]);
+      const payload = { ...formData, status };
+      try {
+        const url = selectedRecord ? `${API_BASE}/purchase-orders/${selectedRecord.id}` : `${API_BASE}/purchase-orders`;
+        const method = selectedRecord ? 'PUT' : 'POST';
+        const res = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          fetchData();
+          setIsFormOpen(false);
+        }
+      } catch (err) {
+        console.error(err);
       }
-      setIsFormOpen(false);
     }
   };
 
-  const handleAction = (action: string) => {
+  const handleAction = async (action: string) => {
     if (action === 'Print') {
       window.print();
-    } else if (action === 'Approve') {
-      setRecords(records.map(r => r.id === selectedRecord?.id ? { ...r, status: 'Approved' } : r));
-      setIsViewOpen(false);
+    } else if (action === 'Approve' && selectedRecord) {
+      try {
+        const res = await fetch(`${API_BASE}/purchase-orders/${selectedRecord.id}/approve`, { method: 'PUT' });
+        if (res.ok) {
+          fetchData();
+          setIsViewOpen(false);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  };
+
+  const handleDelete = async (record: PORecord) => {
+    if (window.confirm(`Are you sure you want to delete ${record.poNumber}?`)) {
+      try {
+        const res = await fetch(`${API_BASE}/purchase-orders/${record.id}`, { method: 'DELETE' });
+        if (res.ok) fetchData();
+      } catch (err) {
+        console.error(err);
+      }
     }
   };
 
@@ -228,6 +290,9 @@ export const PurchaseOrders = () => {
           <Button variant="outline" icon={Download} onClick={() => exportToExcel(processedData, 'Purchase_Orders')} className="h-[38px] !px-3 text-sm whitespace-nowrap">
             Export Excel
           </Button>
+          <button onClick={fetchData} className="p-2 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 transition-colors" title="Refresh">
+            <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
+          </button>
           <Button variant="filled" color="primary" icon={Plus} onClick={handleCreateNew} className="h-[38px] !px-3 text-sm whitespace-nowrap">
             Create PO
           </Button>
@@ -306,7 +371,7 @@ export const PurchaseOrders = () => {
                       <button onClick={() => { setSelectedRecord(record); setIsViewOpen(true); setTimeout(() => window.print(), 500); }} className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"><Printer className="w-4 h-4" /></button>
                       <button onClick={() => handleView(record)} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"><Eye className="w-4 h-4" /></button>
                       {(record.status === 'Draft' || record.status === 'Pending Approval') && <button onClick={() => handleEdit(record)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"><Edit2 className="w-4 h-4" /></button>}
-                      <button onClick={() => setRecords(records.filter(r => r.id !== record.id))} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
+                      <button onClick={() => handleDelete(record)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
                     </div>
                   </td>
                 </tr>
@@ -450,7 +515,7 @@ export const PurchaseOrders = () => {
               <label className="block text-xs font-medium text-slate-500 mb-1">Payment Terms</label>
               <select value={formData.paymentTerms} onChange={(e) => setFormData({...formData, paymentTerms: e.target.value})} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm">
                 <option value="">Select Terms</option>
-                {paymentTermsMock.map(p => <option key={p.id} value={p.termName}>{p.termName}</option>)}
+                {paymentTermsMock.map(p => <option key={p.id} value={p.paymentTermName}>{p.paymentTermName}</option>)}
               </select>
             </div>
             <div><label className="block text-xs font-medium text-slate-500 mb-1">Delivery Terms</label><input type="text" value={formData.deliveryTerms} onChange={(e) => setFormData({...formData, deliveryTerms: e.target.value})} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm" /></div>

@@ -2,12 +2,16 @@ import { useMemo } from 'react';
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
 import { TrendingUp, Users, Activity } from 'lucide-react';
-import { MOCK_EMR_RECORDS } from '../../data/mockEMRData';
+import type { EMRRecord } from './EMRPrintTemplate';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const SHORT_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-export const WeeklyEMRTrendCard = () => {
+interface WeeklyEMRTrendCardProps {
+  records: EMRRecord[];
+}
+
+export const WeeklyEMRTrendCard = ({ records }: WeeklyEMRTrendCardProps) => {
   // Calculate current week's dates (Monday to Sunday)
   const { opData, ipData, emData, totals } = useMemo(() => {
     const today = new Date();
@@ -22,23 +26,23 @@ export const WeeklyEMRTrendCard = () => {
 
     const op = dates.map(date => {
       const dateStr = date.toISOString().split('T')[0];
-      return MOCK_EMR_RECORDS.filter(r => r.visitType === 'OP' && r.visitDateValue === dateStr).length;
+      return records.filter(r => r.visitType === 'OP' && (r.visitDateValue === dateStr || (r.visitDate && r.visitDate.includes(dateStr)))).length;
     });
 
     const ip = dates.map(date => {
       const dateStr = date.toISOString().split('T')[0];
-      return MOCK_EMR_RECORDS.filter(r => r.visitType === 'IP' && r.visitDateValue === dateStr).length;
+      return records.filter(r => r.visitType === 'IP' && (r.visitDateValue === dateStr || (r.visitDate && r.visitDate.includes(dateStr)))).length;
     });
 
     const em = dates.map(date => {
       const dateStr = date.toISOString().split('T')[0];
-      return MOCK_EMR_RECORDS.filter(r => r.visitType === 'Emergency' && r.visitDateValue === dateStr).length;
+      return records.filter(r => r.visitType === 'Emergency' && (r.visitDateValue === dateStr || (r.visitDate && r.visitDate.includes(dateStr)))).length;
     });
 
     const dayTotals = dates.map((_, i) => op[i] + ip[i] + em[i]);
 
     return { opData: op, ipData: ip, emData: em, totals: dayTotals };
-  }, []); // timeframe is used just to trigger re-renders if we added real data later
+  }, [records]);
 
   // Analytics Calculations
   const getHighestDay = (data: number[]) => {
@@ -69,7 +73,7 @@ export const WeeklyEMRTrendCard = () => {
   
   const totalWeekPatients = totals.reduce((a, b) => a + b, 0);
   const averagePatients = Math.round(totalWeekPatients / 7);
-  const mockGrowth = 14.2; // Mock percentage
+  const mockGrowth = 14.2; // Keep mock percentage
 
   // Chart Configuration
   const options: ApexOptions = {
@@ -95,7 +99,7 @@ export const WeeklyEMRTrendCard = () => {
         colors: ['#64748b'],
         fontWeight: 600,
       },
-      formatter: (val) => val === 0 ? '' : val.toString() // Hide 0s for cleaner look
+      formatter: (val) => val === 0 ? '' : val.toString()
     },
     stroke: { show: true, width: 2, colors: ['transparent'] },
     xaxis: {

@@ -5,8 +5,7 @@ import toast from 'react-hot-toast';
 import { DateFilter } from '../../components/ui/DateFilter';
 
 export const RadiologyAlerts = () => {
-  const { orders } = useInvestigations();
-  const [acknowledgedIds, setAcknowledgedIds] = useState<Set<string>>(new Set());
+  const { orders, acknowledgeRadiologyAlert } = useInvestigations();
 
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
@@ -21,7 +20,7 @@ export const RadiologyAlerts = () => {
     })
     .flatMap(order => 
       order.tests
-        .filter(test => test.isCritical && !acknowledgedIds.has(test.id))
+        .filter(test => test.isCritical && !test.acknowledgedAt)
         .map(test => ({
           testId: test.id,
           orderId: order.id,
@@ -33,12 +32,8 @@ export const RadiologyAlerts = () => {
     )
     .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
 
-  const handleAcknowledge = (testId: string) => {
-    setAcknowledgedIds(prev => {
-      const newSet = new Set(prev);
-      newSet.add(testId);
-      return newSet;
-    });
+  const handleAcknowledge = async (testId: string) => {
+    await acknowledgeRadiologyAlert(testId);
     toast.success('Alert acknowledged');
   };
 

@@ -1,10 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Search, Plus, X, Bed, CheckCircle, Printer, FileText } from 'lucide-react';
-import { usePharmacyBilling } from '../../contexts/PharmacyBillingContext';
-import { useInsurance } from '../../contexts/InsuranceContext';
-import { useIPD } from '../../contexts/IPDContext';
-import type { Bill } from '../../contexts/PharmacyBillingContext';
+import axios from 'axios';
+
+const API_BASE = import.meta.env.VITE_API_URL as string;
 
 interface BillItem {
   id: string;
@@ -14,30 +13,50 @@ interface BillItem {
   total: number;
 }
 
-
+interface BillResponse {
+  IpBillId: number;
+  BillNumber: string;
+  Uhid: string;
+  PatientName: string;
+  MobileNumber: string;
+  BillDate: string;
+  TotalAmount: number;
+  Discount: number;
+  Tax: number;
+  NetAmount: number;
+  PaymentMode: string;
+  PaymentStatus: string;
+  InsuranceClaimedAmount: number;
+  PatientBalance: number;
+  IsInsurancePaid: boolean;
+  Items: any[];
+}
 
 export const IPBilling = () => {
   const { state } = useLocation();
-  const { bills, addRetailBill } = usePharmacyBilling();
-  const { patients } = useIPD();
-  const { claims } = useInsurance();
+  const [bills, setBills] = useState<BillResponse[]>([]);
+  
+  // From IPD
+  const [admissions, setAdmissions] = useState<any[]>([]);
+  
   const [searchId, setSearchId] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [items, setItems] = useState<BillItem[]>([]);
+  
   const [patientName, setPatientName] = useState('');
   const [selectedPatientId, setSelectedPatientId] = useState('');
+  const [mobileNumber, setMobileNumber] = useState('');
+  
   const [successMsg, setSuccessMsg] = useState('');
+  
   const [isInsurancePaid, setIsInsurancePaid] = useState(false);
   const [insuranceDetails, setInsuranceDetails] = useState<any>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  const filteredSuggestions = patients.filter(p =>
-    p.uhid.toLowerCase().includes(searchId.toLowerCase()) ||
-    p.patientName.toLowerCase().includes(searchId.toLowerCase()) ||
-    p.admissionNumber.toLowerCase().includes(searchId.toLowerCase())
-  );
-
   useEffect(() => {
+    fetchBills();
+    fetchAdmissions();
+
     const handleClickOutside = (event: MouseEvent) => {
       if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
         setShowSuggestions(false);
@@ -45,21 +64,24 @@ export const IPBilling = () => {
     };
     document.addEventListener('mousedown', handleClickOutside);
     
-    // Check for passed claim data
+    // Check for passed claim data (e.g., from Insurance screen)
     if (state?.claimData && state?.dischargeCosts && !patientName) {
       const { claimData, dischargeCosts } = state;
-      setPatientName(claimData.patient);
+      setPatientName(claimData.patient || claimData.patientName);
       setSelectedPatientId(claimData.uhid);
       setSearchId(claimData.uhid);
+      
+      // Attempt to get mobile number from patient API just in case it wasn't passed
+      fetchPatientMobile(claimData.uhid);
       
       const newItems = [];
       let idCounter = 1;
       
-      if (Number(dischargeCosts.operation) > 0) newItems.push({ id: `${idCounter++}`, description: 'Operation Cost', price: Number(dischargeCosts.operation), qty: 1, total: Number(dischargeCosts.operation) });
-      if (Number(dischargeCosts.medication) > 0) newItems.push({ id: `${idCounter++}`, description: 'Medication Cost', price: Number(dischargeCosts.medication), qty: 1, total: Number(dischargeCosts.medication) });
-      if (Number(dischargeCosts.dischargeMedication) > 0) newItems.push({ id: `${idCounter++}`, description: 'Discharge Medication', price: Number(dischargeCosts.dischargeMedication), qty: 1, total: Number(dischargeCosts.dischargeMedication) });
-      if (Number(dischargeCosts.ward) > 0) newItems.push({ id: `${idCounter++}`, description: 'Ward Cost', price: Number(dischargeCosts.ward), qty: 1, total: Number(dischargeCosts.ward) });
-      if (Number(dischargeCosts.other) > 0) newItems.push({ id: `${idCounter++}`, description: 'Other Costs', price: Number(dischargeCosts.other), qty: 1, total: Number(dischargeCosts.other) });
+      if (Number(dischargeCosts.operation) > 0) newItems.push({ id: `ITM-${idCounter++}`, description: 'Operation Cost', price: Number(dischargeCosts.operation), qty: 1, total: Number(dischargeCosts.operation) });
+      if (Number(dischargeCosts.medication) > 0) newItems.push({ id: `ITM-${idCounter++}`, description: 'Medication Cost', price: Number(dischargeCosts.medication), qty: 1, total: Number(dischargeCosts.medication) });
+      if (Number(dischargeCosts.dischargeMedication) > 0) newItems.push({ id: `ITM-${idCounter++}`, description: 'Discharge Medication', price: Number(dischargeCosts.dischargeMedication), qty: 1, total: Number(dischargeCosts.dischargeMedication) });
+      if (Number(dischargeCosts.ward) > 0) newItems.push({ id: `ITM-${idCounter++}`, description: 'Ward Cost', price: Number(dischargeCosts.ward), qty: 1, total: Number(dischargeCosts.ward) });
+      if (Number(dischargeCosts.other) > 0) newItems.push({ id: `ITM-${idCounter++}`, description: 'Other Costs', price: Number(dischargeCosts.other), qty: 1, total: Number(dischargeCosts.other) });
       
       setItems(newItems);
       
@@ -76,53 +98,83 @@ export const IPBilling = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [state, patientName]);
 
+  const fetchBills = async () => {
+    try {
+      const response = await axios.get(`${API_BASE}/ip-billing/`);
+      setBills(response.data);
+    } catch (error) {
+      console.error("Failed to fetch bills", error);
+    }
+  };
+
+  const fetchAdmissions = async () => {
+    try {
+      const response = await axios.get(`${API_BASE}/ipd/admissions`);
+      setAdmissions(response.data);
+    } catch (error) {
+      console.error("Failed to fetch admissions", error);
+    }
+  };
+  
+  const fetchPatientMobile = async (uhid: string) => {
+    try {
+      // Find patient from registration
+      const response = await axios.get(`${API_BASE}/patients/`);
+      const patient = response.data.find((p: any) => p.uhid === uhid || p.Uhid === uhid);
+      if (patient) {
+        const mobile = patient.mobileNumber || patient.MobileNumber;
+        if (mobile) setMobileNumber(mobile);
+      }
+    } catch (e) {
+      console.error("Failed to get mobile number", e);
+    }
+  };
+
+  const filteredSuggestions = admissions.filter(p => {
+    const sId = (searchId || '').toLowerCase();
+    return (p.uhid?.toLowerCase() || '').includes(sId) ||
+           (p.patientName?.toLowerCase() || '').includes(sId) ||
+           (p.admissionNumber?.toLowerCase() || '').includes(sId);
+  });
+
   const selectPatient = (patient: any) => {
-    setSearchId(patient.uhid);
+    setSearchId(patient.uhid || '');
     handleSearch(patient.uhid);
     setShowSuggestions(false);
   };
 
   const handleSearch = (idToSearch?: any) => {
-    const query = typeof idToSearch === 'string' ? idToSearch : searchId;
-    const foundIPD = patients.find(p => p.uhid.toLowerCase() === query.toLowerCase());
+    const query = (typeof idToSearch === 'string' ? idToSearch : searchId || '').toLowerCase();
+    const foundIPD = admissions.find(p => 
+      (p.uhid?.toLowerCase() || '') === query ||
+      (p.patientName?.toLowerCase() || '') === query ||
+      (p.admissionNumber?.toLowerCase() || '') === query
+    );
     if (foundIPD) {
-      setSearchId(foundIPD.uhid);
+      setSearchId(foundIPD.uhid || '');
       setPatientName(foundIPD.patientName);
       setSelectedPatientId(foundIPD.uhid);
       
-      const claimData = claims.find(c => c.uhid.toLowerCase() === foundIPD.uhid.toLowerCase());
+      fetchPatientMobile(foundIPD.uhid);
       
       const stayDays = foundIPD.expectedStayDays || 1;
       const newItems = [
-        { id: '1', description: `Room Charges (${stayDays} Days)`, price: 1500, qty: stayDays, total: 1500 * stayDays },
-        { id: '2', description: 'Nursing Charges (Per Day)', price: 500, qty: stayDays, total: 500 * stayDays },
-        { id: '3', description: 'Doctor Visit Fees', price: 900, qty: stayDays, total: 900 * stayDays },
+        { id: 'ITM-001', description: `Room Charges (${stayDays} Days)`, price: 1500, qty: stayDays, total: 1500 * stayDays },
+        { id: 'ITM-002', description: 'Nursing Charges (Per Day)', price: 500, qty: stayDays, total: 500 * stayDays },
+        { id: 'ITM-003', description: 'Doctor Visit Fees', price: 900, qty: stayDays, total: 900 * stayDays },
       ];
       setItems(newItems);
 
-      if (claimData) {
-        if (claimData.balance <= 0) {
-          setIsInsurancePaid(true);
-        } else {
-          setIsInsurancePaid(false);
-        }
-        setInsuranceDetails({
-          total: claimData.amount,
-          claimed: (claimData as any).claimedAmount || (claimData.amount - claimData.balance),
-          balance: claimData.balance
-        });
-      } else {
-         setIsInsurancePaid(false);
-         setInsuranceDetails(null);
-      }
+      setIsInsurancePaid(false);
+      setInsuranceDetails(null);
       return;
     }
 
-    alert('Patient not found. Please enter a valid UHID (e.g. UHID-2026-0006)');
+    alert('Patient not found in active admissions.');
   };
 
   const handleAddItem = () => {
-    setItems([...items, { id: Date.now().toString(), description: 'New Item', price: 0, qty: 1, total: 0 }]);
+    setItems([...items, { id: `ITM-${Date.now()}`, description: 'New Item', price: 0, qty: 1, total: 0 }]);
   };
 
   const handleRemoveItem = (id: string) => setItems(items.filter(item => item.id !== id));
@@ -138,52 +190,60 @@ export const IPBilling = () => {
 
   const totalAmount = items.reduce((sum, item) => sum + item.total, 0);
 
-  const handleGenerateBill = () => {
+  const handleGenerateBill = async () => {
     if (!patientName || items.length === 0) {
       alert('Please select a patient and add items first.');
       return;
     }
-    const newBill: Bill = {
-      billId: `BILL-${String(bills.length + 1).padStart(4, '0')}`,
-      patientName,
-      patientId: selectedPatientId,
-      date: new Date().toISOString(),
-      items: items.map(i => ({
-        medicineId: i.id,
-        medicineName: i.description,
-        quantity: i.qty,
-        unitPrice: i.price,
-        subtotal: i.total,
-      })),
-      totalAmount,
-      discount: 0,
-      tax: 0,
-      netAmount: totalAmount,
-      paymentMode: 'Pending',
-      paymentStatus: 'Unpaid',
+    
+    let validMobile = mobileNumber;
+    if (!validMobile || validMobile.length !== 10) {
+      validMobile = "9999999999"; 
+    }
+
+    const payload = {
+      BillNumber: `IPB-${String(bills.length + 1).padStart(4, '0')}`,
+      Uhid: selectedPatientId,
+      PatientName: patientName,
+      MobileNumber: validMobile,
+      TotalAmount: totalAmount,
+      Discount: 0,
+      Tax: 0,
+      NetAmount: totalAmount,
+      PaymentMode: isInsurancePaid ? 'Insurance' : 'Cash',
+      PaymentStatus: isInsurancePaid ? 'Paid' : 'Pending',
+      InsuranceClaimedAmount: insuranceDetails?.claimed || 0,
+      PatientBalance: insuranceDetails?.balance || totalAmount,
+      IsInsurancePaid: isInsurancePaid,
+      Items: items.map(i => ({
+        ItemCode: i.id,
+        ItemDescription: i.description,
+        Quantity: i.qty,
+        UnitPrice: i.price,
+        Subtotal: i.total,
+      }))
     };
-    addRetailBill(newBill);
-    setSuccessMsg(`Bill ${newBill.billId} generated successfully for ${patientName}!`);
-    setPatientName('');
-    setSearchId('');
-    setSelectedPatientId('');
-    setItems([]);
-    setIsInsurancePaid(false);
-    setInsuranceDetails(null);
-    setTimeout(() => setSuccessMsg(''), 4000);
+
+    try {
+      const response = await axios.post(`${API_BASE}/ip-billing/`, payload);
+      setSuccessMsg(`Bill ${response.data.BillNumber} generated successfully for ${patientName}!`);
+      
+      setPatientName('');
+      setSearchId('');
+      setSelectedPatientId('');
+      setMobileNumber('');
+      setItems([]);
+      setIsInsurancePaid(false);
+      setInsuranceDetails(null);
+      
+      fetchBills();
+      
+      setTimeout(() => setSuccessMsg(''), 4000);
+    } catch (error: any) {
+      console.error("Error generating IP bill:", error);
+      alert("Failed to generate IP bill. " + (error.response?.data?.detail || error.message));
+    }
   };
-
-  // Show all IP bills — both pre-loaded and newly generated, newest first
-  const recentIPBills = [...bills]
-    .filter(b => {
-      const id = b.patientId || '';
-      return id.startsWith('UHID-2026-0006') || id.startsWith('UHID-2026-0007') ||
-             id.startsWith('UHID-2026-0008') || id.startsWith('UHID-2026-0009') ||
-             id.startsWith('UHID-2026-0010') || id.startsWith('IP-');
-    })
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    .slice(0, 10);
-
 
   return (
     <div className="flex flex-col space-y-6 w-full">
@@ -222,7 +282,7 @@ export const IPBilling = () => {
               {showSuggestions && searchId && (
                 <div className="absolute top-full left-0 right-14 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden z-50">
                   {filteredSuggestions.length > 0 ? (
-                    <ul>
+                    <ul className="max-h-60 overflow-y-auto">
                       {filteredSuggestions.map(p => (
                         <li key={p.uhid} onClick={() => selectPatient(p)}
                           className="px-4 py-3 hover:bg-primary/5 cursor-pointer flex items-center gap-3 border-b border-slate-50 last:border-0 transition-colors">
@@ -257,7 +317,7 @@ export const IPBilling = () => {
                 </div>
                 <div>
                   <p className="font-bold text-slate-900">{patientName}</p>
-                  <p className="text-xs text-slate-500">{selectedPatientId}</p>
+                  <p className="text-xs text-slate-500">{selectedPatientId} • {mobileNumber}</p>
                 </div>
               </div>
 
@@ -369,8 +429,8 @@ export const IPBilling = () => {
             <tr>
               <th className="px-6 py-4">Bill ID</th>
               <th className="px-6 py-4">UHID</th>
-              <th className="px-6 py-4">Patient ID</th>
               <th className="px-6 py-4">Patient Name</th>
+              <th className="px-6 py-4">Mobile</th>
               <th className="px-6 py-4">Date</th>
               <th className="px-6 py-4">Items</th>
               <th className="px-6 py-4">Amount</th>
@@ -378,20 +438,20 @@ export const IPBilling = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {recentIPBills.length === 0 ? (
-              <tr><td colSpan={7} className="px-6 py-10 text-center text-slate-400">No recent IP bills found.</td></tr>
-            ) : recentIPBills.map(bill => (
-              <tr key={bill.billId} className="hover:bg-slate-50">
-                <td className="px-6 py-4 font-mono font-medium text-slate-900">{bill.billId}</td>
-                <td className="px-6 py-4 font-mono text-slate-500 text-xs">UHID-{bill.patientId?.replace('IP-', '') || 'XXX'}</td>
-                <td className="px-6 py-4 font-mono text-slate-600 text-xs">{bill.patientId || '-'}</td>
-                <td className="px-6 py-4 text-slate-700">{bill.patientName}</td>
-                <td className="px-6 py-4 text-slate-500 text-xs">{new Date(bill.date).toLocaleDateString()}</td>
-                <td className="px-6 py-4 text-slate-600 text-xs">{bill.items.length} items</td>
-                <td className="px-6 py-4 font-bold text-slate-800">₹{bill.netAmount.toFixed(2)}</td>
+            {bills.length === 0 ? (
+              <tr><td colSpan={8} className="px-6 py-10 text-center text-slate-400">No recent IP bills found.</td></tr>
+            ) : bills.map((bill, idx) => (
+              <tr key={bill.IpBillId || idx} className="hover:bg-slate-50">
+                <td className="px-6 py-4 font-mono font-medium text-slate-900">{bill.BillNumber}</td>
+                <td className="px-6 py-4 font-mono text-slate-500 text-xs">{bill.Uhid}</td>
+                <td className="px-6 py-4 text-slate-700">{bill.PatientName}</td>
+                <td className="px-6 py-4 text-slate-500 text-xs">{bill.MobileNumber}</td>
+                <td className="px-6 py-4 text-slate-500 text-xs">{new Date(bill.BillDate).toLocaleDateString()}</td>
+                <td className="px-6 py-4 text-slate-600 text-xs">{(bill.Items || []).length} items</td>
+                <td className="px-6 py-4 font-bold text-slate-800">₹{bill.NetAmount.toFixed(2)}</td>
                 <td className="px-6 py-4">
-                  <span className={`px-2 py-1 text-xs font-bold rounded-md ${bill.paymentStatus === 'Paid' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                    {bill.paymentStatus}
+                  <span className={`px-2 py-1 text-xs font-bold rounded-md ${bill.PaymentStatus === 'Paid' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                    {bill.PaymentStatus}
                   </span>
                 </td>
               </tr>
