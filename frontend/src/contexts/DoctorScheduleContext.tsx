@@ -24,6 +24,8 @@ interface DoctorScheduleContextType {
   getDoctorsForDept: (dept: string) => DoctorScheduleRecord[];
   isDoctorAvailableOn: (name: string, dateString: string) => boolean;
   getDoctorsWithAvailability: (dept: string, dateString: string) => { name: string; dept: string; available: boolean }[];
+  hasLoaded?: boolean;
+  loadSchedules?: () => Promise<void>;
 }
 
 const DoctorScheduleContext = createContext<DoctorScheduleContextType | undefined>(undefined);
@@ -35,13 +37,15 @@ const DAY_MAP: Record<string, number> = {
 
 export const DoctorScheduleProvider = ({ children }: { children: ReactNode }) => {
   const [doctorSchedules, setDoctorSchedules] = useState<DoctorScheduleRecord[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
 
   const clearError = useCallback(() => setApiError(null), []);
 
   // Load all doctors + their schedules from the API.
   const loadSchedules = useCallback(async () => {
+    if (hasLoaded) return;
     setIsLoading(true);
     try {
       const res = await fetch(`${API_BASE}/doctor-schedules/`);
@@ -55,10 +59,11 @@ export const DoctorScheduleProvider = ({ children }: { children: ReactNode }) =>
       setApiError('Could not load doctor schedules: the server is unreachable.');
     } finally {
       setIsLoading(false);
+      setHasLoaded(true);
     }
-  }, []);
+  }, [hasLoaded]);
 
-  useEffect(() => { loadSchedules(); }, [loadSchedules]);
+  // Removed automatic useEffect for loadSchedules
 
   // Local (unsaved) edit — kept in state until the user clicks Save.
   const updateDoctorSchedule = (id: number, updates: Partial<DoctorScheduleRecord>) => {
@@ -135,6 +140,8 @@ export const DoctorScheduleProvider = ({ children }: { children: ReactNode }) =>
         getDoctorsForDept,
         isDoctorAvailableOn,
         getDoctorsWithAvailability,
+        hasLoaded,
+        loadSchedules,
       }}
     >
       {children}
@@ -145,5 +152,12 @@ export const DoctorScheduleProvider = ({ children }: { children: ReactNode }) =>
 export const useDoctorSchedules = () => {
   const ctx = useContext(DoctorScheduleContext);
   if (!ctx) throw new Error('useDoctorSchedules must be used within DoctorScheduleProvider');
+  
+  useEffect(() => {
+    if (!ctx.hasLoaded && !ctx.isLoading && ctx.loadSchedules) {
+      ctx.loadSchedules();
+    }
+  }, [ctx]);
+
   return ctx;
 };

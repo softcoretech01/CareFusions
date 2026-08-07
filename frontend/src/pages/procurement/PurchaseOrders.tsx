@@ -1,13 +1,29 @@
+<<<<<<< HEAD
+import { useState, useMemo } from 'react';
+import { Pagination } from '@/components/ui/Pagination';
+import { usePagination } from '@/hooks/usePagination';
+import { Plus, Search, Filter, Edit2, Eye, Printer, CheckCircle, ShoppingBag, Trash2, Download } from 'lucide-react';
+=======
 import { useState, useMemo, useEffect } from 'react';
 import { Plus, Search, Filter, Edit2, Eye, Printer, CheckCircle, ShoppingBag, Trash2, Download, RefreshCw } from 'lucide-react';
+>>>>>>> origin/main
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { DateFilter } from '../../components/ui/DateFilter';
 
+<<<<<<< HEAD
+// Mock Data Imports
+import { useCurrencies, useDepartments, usePaymentTerms, useVendors, useWarehouses } from '../../hooks/useMasterOptions';
+import { initialQuotations, type QuotationRecord } from './VendorQuotation';
+import { initialPRs, type PRRecord } from './PurchaseRequisitions';
+import { initialRFQs, type RFQRecord } from './RequestForQuotation';
+import { useLocalStorage } from '../../utils/useLocalStorage';
+=======
 import type { QuotationRecord } from './VendorQuotation';
 import type { PRRecord } from './PurchaseRequisitions';
 import type { RFQRecord } from './RequestForQuotation';
+>>>>>>> origin/main
 import { exportToExcel } from '../../utils/exportToExcel';
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
@@ -48,6 +64,21 @@ export interface PORecord {
 export const initialPOs: PORecord[] = [];
 
 export const PurchaseOrders = () => {
+<<<<<<< HEAD
+  // Live from the admin masters. These used to be hardcoded mockData
+  // arrays, so anything added in a master never reached these pickers.
+  const { options: vendors } = useVendors();
+  const { options: departments } = useDepartments();
+  const { options: warehouses } = useWarehouses();
+  const { options: currencies } = useCurrencies();
+  // Live from Payment Terms Master, so a term added there shows up here.
+  const { options: paymentTerms } = usePaymentTerms();
+  const [records, setRecords] = useLocalStorage<PORecord[]>('procurement_pos_v2', initialPOs);
+  const [allQtns] = useLocalStorage<QuotationRecord[]>('procurement_qtns_v2', initialQuotations);
+  const [prs] = useLocalStorage<PRRecord[]>('procurement_prs_v2', initialPRs);
+  const [rfqs] = useLocalStorage<RFQRecord[]>('procurement_rfqs_v2', initialRFQs);
+  
+=======
   const [records, setRecords] = useState<PORecord[]>([]);
   const [allQtns, setAllQtns] = useState<QuotationRecord[]>([]);
   const [prs, setPrs] = useState<PRRecord[]>([]);
@@ -93,6 +124,7 @@ export const PurchaseOrders = () => {
   useEffect(() => {
     fetchData();
   }, []);
+>>>>>>> origin/main
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
@@ -268,6 +300,8 @@ export const PurchaseOrders = () => {
     }
   };
 
+  const { page, setPage, pageSize, total, paged } = usePagination(availablePRs);
+
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="h-full flex flex-col">
       <div className="mb-6">
@@ -323,7 +357,7 @@ export const PurchaseOrders = () => {
               <div className="p-4 flex gap-4">
                 <select value={filterVendor} onChange={(e) => { setFilterVendor(e.target.value); setCurrentPage(1); }} className="px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none">
                   <option value="">All Vendors</option>
-                  {vendorsMock.map(v => <option key={v.id} value={v.vendorName}>{v.vendorName}</option>)}
+                  {vendors.map(v => <option key={v.id} value={v.vendorName}>{v.vendorName}</option>)}
                 </select>
                 <select value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setCurrentPage(1); }} className="px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none">
                   <option value="">All Statuses</option>
@@ -379,6 +413,7 @@ export const PurchaseOrders = () => {
             </tbody>
           </table>
         </div>
+        <Pagination page={page} pageSize={pageSize} totalItems={total} onPageChange={setPage} />
       </div>
 
       <Modal isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} title={`${selectedRecord ? 'Edit' : 'New'} Purchase Order`} size="7xl">
@@ -444,7 +479,7 @@ export const PurchaseOrders = () => {
                 }
               }} disabled={!!selectedRecord} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm">
                 <option value="">Select PR</option>
-                {availablePRs.map(p => <option key={p.id} value={p.prNo}>{p.prNo} - {p.department}</option>)}
+                {paged.map(p => <option key={p.id} value={p.prNo}>{p.prNo} - {p.department}</option>)}
               </select>
             </div>
             <div>
@@ -485,11 +520,11 @@ export const PurchaseOrders = () => {
             <div className="col-span-2">
               <label className="block text-xs font-medium text-slate-500 mb-1">Vendor*</label>
               <select value={formData.vendorId} onChange={(e) => {
-                const vendor = vendorsMock.find(v => v.id === Number(e.target.value));
+                const vendor = vendors.find(v => v.id === Number(e.target.value));
                 setFormData({...formData, vendorId: vendor?.id || 0, vendorName: vendor?.vendorName || '', paymentTerms: vendor?.paymentTerms || ''});
               }} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-primary">
                 <option value="">Select Vendor</option>
-                {vendorsMock.map(v => <option key={v.id} value={v.id}>{v.vendorName}</option>)}
+                {vendors.map(v => <option key={v.id} value={v.id}>{v.vendorName}</option>)}
               </select>
               {errors.vendorId && <span className="text-xs text-red-500">{errors.vendorId}</span>}
             </div>
@@ -498,7 +533,7 @@ export const PurchaseOrders = () => {
               <label className="block text-xs font-medium text-slate-500 mb-1">Department*</label>
               <select value={formData.department} onChange={(e) => setFormData({...formData, department: e.target.value})} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-primary">
                 <option value="">Select Dept</option>
-                {departmentsMock.map(d => <option key={d.id} value={d.departmentName}>{d.departmentName}</option>)}
+                {departments.map(d => <option key={d.id} value={d.departmentName}>{d.departmentName}</option>)}
               </select>
               {errors.department && <span className="text-xs text-red-500">{errors.department}</span>}
             </div>
@@ -506,7 +541,7 @@ export const PurchaseOrders = () => {
             <div className="col-span-2"><label className="block text-xs font-medium text-slate-500 mb-1">Shipping Address</label>
               <select value={formData.shippingAddress} onChange={(e) => setFormData({...formData, shippingAddress: e.target.value})} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm">
                 <option value="">Select Store</option>
-                {warehousesMock.map(w => <option key={w.id} value={w.storeName}>{w.storeName} - {w.location}</option>)}
+                {warehouses.map(w => <option key={w.id} value={w.storeName}>{w.storeName} - {w.location}</option>)}
               </select>
             </div>
             <div className="col-span-2"><label className="block text-xs font-medium text-slate-500 mb-1">Billing Address</label><input type="text" value={formData.billingAddress} onChange={(e) => setFormData({...formData, billingAddress: e.target.value})} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm" /></div>
@@ -515,7 +550,11 @@ export const PurchaseOrders = () => {
               <label className="block text-xs font-medium text-slate-500 mb-1">Payment Terms</label>
               <select value={formData.paymentTerms} onChange={(e) => setFormData({...formData, paymentTerms: e.target.value})} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm">
                 <option value="">Select Terms</option>
+<<<<<<< HEAD
+                {paymentTerms.map(p => <option key={p.id} value={p.paymentTermName}>{p.paymentTermName}</option>)}
+=======
                 {paymentTermsMock.map(p => <option key={p.id} value={p.paymentTermName}>{p.paymentTermName}</option>)}
+>>>>>>> origin/main
               </select>
             </div>
             <div><label className="block text-xs font-medium text-slate-500 mb-1">Delivery Terms</label><input type="text" value={formData.deliveryTerms} onChange={(e) => setFormData({...formData, deliveryTerms: e.target.value})} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm" /></div>
@@ -525,7 +564,7 @@ export const PurchaseOrders = () => {
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Currency</label>
               <select value={formData.currency} onChange={(e) => setFormData({...formData, currency: e.target.value})} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm">
-                {currencyMock.map(c => <option key={c.id} value={c.currencyCode}>{c.currencyCode}</option>)}
+                {currencies.map(c => <option key={c.id} value={c.currencyCode}>{c.currencyCode}</option>)}
               </select>
             </div>
           </div>

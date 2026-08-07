@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useIPD } from '../../contexts/IPDContext';
 import { usePatients } from '../../contexts/PatientContext';
+import { useDoctorSchedules } from '../../contexts/DoctorScheduleContext';
 import type { GlobalPatientRecord } from '../../contexts/PatientContext';
 import { UserPlus, Save, ArrowLeft, CheckCircle2, Bed, Stethoscope, BedDouble, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -11,6 +12,7 @@ export const NewAdmission = () => {
   const navigate = useNavigate();
   const { admitPatient, updateAdmissionRequestStatus, wards, beds } = useIPD();
   const { patients: registeredPatients } = usePatients();
+  const { doctorSchedules } = useDoctorSchedules();
 
   // Searchable UHID picker (registered patients only)
   const [uhidSearch, setUhidSearch] = useState('');
@@ -98,6 +100,10 @@ export const NewAdmission = () => {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  const isRegisteredPatient = useMemo(() => {
+    return registeredPatients.some(p => p.uhid && p.uhid === form.uhid);
+  }, [form.uhid, registeredPatients]);
+
   const validate = () => {
     const e: Record<string, string> = {};
     if (!form.uhid.trim()) e.uhid = 'UHID is required';
@@ -106,7 +112,6 @@ export const NewAdmission = () => {
     if (!String(form.age).trim()) e.age = 'Age is required';
     else if (Number(form.age) < 0 || Number(form.age) > 150) e.age = 'Age must be between 0 and 150';
     if (!form.admittingDoctor.trim()) e.admittingDoctor = 'Admitting doctor is required';
-    else if (!/^[A-Za-z\s.\-]+$/.test(form.admittingDoctor.trim())) e.admittingDoctor = "Letters, spaces, '.' and '-' only";
     if (!form.specialty.trim()) e.specialty = 'Specialty is required';
     if (!form.wardId) e.wardId = 'Select a ward';
     if (!form.roomNumber) e.roomNumber = 'Select a room';
@@ -150,7 +155,7 @@ export const NewAdmission = () => {
   };
 
   const labelCls = 'block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5';
-  const base = 'w-full px-3 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all font-medium';
+  const base = 'w-full px-3 py-1.5 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all font-medium disabled:opacity-70 disabled:cursor-not-allowed disabled:bg-slate-100';
   const fieldCls = (field?: string) =>
     `${base} ${field && errors[field] ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'}`;
   const Err = ({ f }: { f: string }) => (errors[f] ? <p className="text-red-500 text-xs mt-1">{errors[f]}</p> : null);
@@ -164,7 +169,7 @@ export const NewAdmission = () => {
         <h1 className="text-2xl font-bold text-slate-800">New Admission</h1>
       </div>
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5 space-y-5">
+      <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-5">
 
         {/* Patient Details */}
         <div>
@@ -212,17 +217,17 @@ export const NewAdmission = () => {
             </div>
             <div>
               <label className={labelCls}>Patient Name <span className="text-red-500">*</span></label>
-              <input type="text" maxLength={150} value={form.patientName} onChange={e => setForm({ ...form, patientName: e.target.value.replace(/[^A-Za-z\s]/g, '') })} className={fieldCls('patientName')} placeholder="Letters only" />
+              <input type="text" maxLength={150} value={form.patientName} onChange={e => setForm({ ...form, patientName: e.target.value.replace(/[^A-Za-z\s]/g, '') })} className={fieldCls('patientName')} placeholder="Letters only" disabled={isRegisteredPatient} />
               <Err f="patientName" />
             </div>
             <div>
               <label className={labelCls}>Age <span className="text-red-500">*</span></label>
-              <input type="number" min="0" max="150" value={form.age} onChange={e => setForm({ ...form, age: e.target.value.replace(/\D/g, '').slice(0, 3) })} className={fieldCls('age')} placeholder="Years" />
+              <input type="number" min="0" max="150" value={form.age} onChange={e => setForm({ ...form, age: e.target.value.replace(/\D/g, '').slice(0, 3) })} className={fieldCls('age')} placeholder="Years" disabled={isRegisteredPatient} />
               <Err f="age" />
             </div>
             <div>
               <label className={labelCls}>Gender</label>
-              <select value={form.gender} onChange={e => setForm({ ...form, gender: e.target.value })} className={fieldCls()}>
+              <select value={form.gender} onChange={e => setForm({ ...form, gender: e.target.value })} className={fieldCls()} disabled={isRegisteredPatient}>
                 <option>Male</option><option>Female</option><option>Other</option>
               </select>
             </div>
@@ -237,12 +242,29 @@ export const NewAdmission = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className={labelCls}>Admitting Doctor <span className="text-red-500">*</span></label>
-              <input type="text" maxLength={150} value={form.admittingDoctor} onChange={e => setForm({ ...form, admittingDoctor: e.target.value.replace(/[^A-Za-z\s.\-]/g, '') })} className={fieldCls('admittingDoctor')} placeholder="e.g. Dr. Sarah Jenkins" />
+              <select 
+                value={form.admittingDoctor} 
+                onChange={e => {
+                  const docName = e.target.value;
+                  const doc = doctorSchedules.find(d => d.name === docName);
+                  setForm({ 
+                    ...form, 
+                    admittingDoctor: docName,
+                    specialty: doc ? doc.dept : form.specialty
+                  });
+                }} 
+                className={fieldCls('admittingDoctor')}
+              >
+                <option value="">Select Doctor</option>
+                {doctorSchedules.map(doc => (
+                  <option key={doc.id} value={doc.name}>{doc.name}</option>
+                ))}
+              </select>
               <Err f="admittingDoctor" />
             </div>
             <div>
               <label className={labelCls}>Specialty <span className="text-red-500">*</span></label>
-              <input type="text" maxLength={100} value={form.specialty} onChange={e => setForm({ ...form, specialty: e.target.value })} className={fieldCls('specialty')} />
+              <input type="text" maxLength={100} value={form.specialty} onChange={e => setForm({ ...form, specialty: e.target.value })} className={fieldCls('specialty')} disabled={!!form.admittingDoctor} />
               <Err f="specialty" />
             </div>
             <div>
@@ -268,7 +290,12 @@ export const NewAdmission = () => {
               <label className={labelCls}>Select Ward <span className="text-red-500">*</span></label>
               <select value={form.wardId} onChange={e => setForm({ ...form, wardId: e.target.value, roomNumber: '', bedId: '' })} className={fieldCls('wardId')}>
                 <option value="">Select Ward</option>
-                {wards.map(w => <option key={w.id} value={w.id}>{w.name} ({w.type})</option>)}
+                {wards.filter(w => {
+                  if (w.genderRestriction !== 'Any' && w.genderRestriction !== form.gender) return false;
+                  if (form.admissionType === 'ICU') return w.type.includes('ICU') || w.type === 'HDU';
+                  if (form.admissionType === 'General') return ['General', 'Semi-Private', 'Private', 'Deluxe'].includes(w.type);
+                  return true;
+                }).map(w => <option key={w.id} value={w.id}>{w.name} ({w.type})</option>)}
               </select>
               <Err f="wardId" />
             </div>

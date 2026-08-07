@@ -1,43 +1,75 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ClipboardCheck, Ban, Clock, CheckCircle, IndianRupee, TrendingUp } from 'lucide-react';
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
 
-const kpis = [
-  { label: 'Pending Pre-Auths', value: '18', icon: ClipboardCheck, color: 'text-amber-500', bg: 'bg-amber-500/10' },
-  { label: 'Claims Under Review', value: '124', icon: Clock, color: 'text-purple-500', bg: 'bg-purple-500/10' },
-  { label: 'Pending Appeals', value: '8', icon: Ban, color: 'text-orange-500', bg: 'bg-orange-500/10' },
-  { label: 'Total Revenue MTD', value: '₹4.2M', icon: IndianRupee, color: 'text-teal-500', bg: 'bg-teal-500/10' },
-];
+const API_BASE = import.meta.env.VITE_API_URL as string;
 
-const barOptions: ApexOptions = {
-  chart: { type: 'bar', toolbar: { show: false }, fontFamily: 'Inter' },
-  colors: ['#22C55E', '#EF4444'],
-  plotOptions: { bar: { borderRadius: 4, columnWidth: '50%' } },
-  xaxis: { categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'] },
-  dataLabels: { enabled: false },
-  stroke: { show: true, width: 2, colors: ['transparent'] },
-  legend: { position: 'top' },
-};
+interface DashboardData {
+  pendingPreAuths: number;
+  claimsUnderReview: number;
+  pendingAppeals: number;
+  reconciledMtd: number;
+  totalOutstanding: number;
+  byInsurer: { name: string; claims: number; amount: number }[];
+  monthly: { month: string; approved: number; denied: number }[];
+  recentSettlements: {
+    id: string; claimId: string; patient: string; insurer: string;
+    claimed: number; settled: number; status: string; date: string;
+  }[];
+}
 
-const barSeries = [
-  { name: 'Approved Claims', data: [120, 150, 180, 160, 210, 190] },
-  { name: 'Denied Claims', data: [15, 20, 12, 25, 18, 14] }
-];
-
-const donutOptions: ApexOptions = {
-  chart: { type: 'donut', fontFamily: 'Inter' },
-  colors: ['#2563EB', '#8b5cf6', '#F59E0B', '#06B6D4', '#22C55E'],
-  labels: ['Star Health', 'HDFC ERGO', 'ICICI Lombard', 'Care Health', 'Others'],
-  dataLabels: { enabled: false },
-  legend: { position: 'bottom' },
-  stroke: { width: 0 }
-};
+const inr = (n: number) => `₹${(n ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
 
 export const InsuranceDashboard = () => {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
+  const [data, setData] = useState<DashboardData | null>(null);
+
+  // Real KPIs and charts — every figure on this page used to be hardcoded.
+  useEffect(() => {
+    fetch(`${API_BASE}/insurance/dashboard`)
+      .then(r => r.json())
+      .then(setData)
+      .catch(e => console.error('[Insurance] dashboard load failed', e));
+  }, []);
+
+  const kpis = [
+    { label: 'Pending Pre-Auths', value: String(data?.pendingPreAuths ?? 0), icon: ClipboardCheck, color: 'text-amber-500', bg: 'bg-amber-500/10' },
+    { label: 'Claims Under Review', value: String(data?.claimsUnderReview ?? 0), icon: Clock, color: 'text-purple-500', bg: 'bg-purple-500/10' },
+    { label: 'Pending Appeals', value: String(data?.pendingAppeals ?? 0), icon: Ban, color: 'text-orange-500', bg: 'bg-orange-500/10' },
+    { label: 'Reconciled MTD', value: inr(data?.reconciledMtd ?? 0), icon: IndianRupee, color: 'text-teal-500', bg: 'bg-teal-500/10' },
+  ];
+
+  const monthLabel = (m: string) => {
+    const [y, mm] = m.split('-');
+    return new Date(Number(y), Number(mm) - 1, 1).toLocaleDateString('en-US', { month: 'short' });
+  };
+
+  const barOptions: ApexOptions = {
+    chart: { type: 'bar', toolbar: { show: false }, fontFamily: 'Inter' },
+    colors: ['#22C55E', '#EF4444'],
+    plotOptions: { bar: { borderRadius: 4, columnWidth: '50%' } },
+    xaxis: { categories: (data?.monthly ?? []).map(m => monthLabel(m.month)) },
+    dataLabels: { enabled: false },
+    stroke: { show: true, width: 2, colors: ['transparent'] },
+    legend: { position: 'top' },
+  };
+
+  const barSeries = [
+    { name: 'Settled Claims', data: (data?.monthly ?? []).map(m => m.approved) },
+    { name: 'Denied Claims', data: (data?.monthly ?? []).map(m => m.denied) },
+  ];
+
+  const donutOptions: ApexOptions = {
+    chart: { type: 'donut', fontFamily: 'Inter' },
+    colors: ['#2563EB', '#8b5cf6', '#F59E0B', '#06B6D4', '#22C55E'],
+    labels: (data?.byInsurer ?? []).map(i => i.name),
+    dataLabels: { enabled: false },
+    legend: { position: 'bottom' },
+    stroke: { width: 0 },
+  };
 
   const handleClearFilters = () => {
     setFromDate('');
@@ -45,8 +77,8 @@ export const InsuranceDashboard = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-start mb-6">
+    <div className="space-y-4">
+      <div className="flex justify-between items-start mb-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Insurance & Claims Dashboard</h1>
         </div>
@@ -108,7 +140,7 @@ export const InsuranceDashboard = () => {
       </div>
 
       {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
           className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 p-6 shadow-sm"
@@ -152,22 +184,19 @@ export const InsuranceDashboard = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {[
-                { id: 'CLM-2023-0891', patient: 'Rahul Sharma', insurer: 'Star Health', claimed: '₹45,000', settled: '₹42,500', status: 'Settled' },
-                { id: 'CLM-2023-0885', patient: 'Priya Patel', insurer: 'HDFC ERGO', claimed: '₹1,20,000', settled: '₹1,10,000', status: 'Settled' },
-                { id: 'CLM-2023-0882', patient: 'Amit Kumar', insurer: 'ICICI Lombard', claimed: '₹35,000', settled: '₹35,000', status: 'Settled' },
-                { id: 'CLM-2023-0879', patient: 'Sneha Gupta', insurer: 'Care Health', claimed: '₹85,000', settled: '₹80,000', status: 'Settled' },
-              ].map((row, i) => (
+              {(data?.recentSettlements ?? []).map((row, i) => (
                 <tr key={i} className="hover:bg-slate-50/70 transition-colors">
-                  <td className="px-6 py-4">
-                    <span className="font-bold text-primary">{row.id}</span>
+                  <td className="px-4 py-3">
+                    <span className="font-bold text-primary">{row.claimId}</span>
                   </td>
-                  <td className="px-6 py-4 font-bold text-slate-800">{row.patient}</td>
-                  <td className="px-6 py-4 font-medium text-slate-600">{row.insurer}</td>
-                  <td className="px-6 py-4 text-slate-600">{row.claimed}</td>
-                  <td className="px-6 py-4 font-bold text-emerald-600">{row.settled}</td>
-                  <td className="px-6 py-4">
-                    <span className="px-2.5 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-lg flex items-center gap-1 w-max">
+                  <td className="px-4 py-3 font-bold text-slate-800">{row.patient}</td>
+                  <td className="px-4 py-3 font-medium text-slate-600">{row.insurer}</td>
+                  <td className="px-4 py-3 text-slate-600">{inr(row.claimed)}</td>
+                  <td className="px-4 py-3 font-bold text-emerald-600">{inr(row.settled)}</td>
+                  <td className="px-4 py-3">
+                    <span className={`px-2.5 py-1 text-xs font-bold rounded-lg flex items-center gap-1 w-max ${
+                      row.status === 'Reconciled' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                    }`}>
                       <CheckCircle className="w-3 h-3" />
                       {row.status}
                     </span>

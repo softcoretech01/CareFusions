@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { Pagination } from '@/components/ui/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 import { 
   Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle, 
   Save, RefreshCw, Upload, CheckCircle2, X
@@ -26,6 +28,11 @@ interface FacilityManagementRecord {
   supervisor: string;
   status: string;
   remarks: string;
+  profilePhoto?: string;
+  idProof?: string;
+  qualificationCertificate?: string;
+  licenseCertificate?: string;
+  policeVerification?: string;
 }
 
 const emptyData: Omit<FacilityManagementRecord, 'id'> = {
@@ -46,8 +53,6 @@ const emptyData: Omit<FacilityManagementRecord, 'id'> = {
   status: 'Active',
   remarks: ''
 };
-
-const mockData: FacilityManagementRecord[] = [];
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
 
@@ -297,6 +302,8 @@ export const FacilityManagementMaster = () => {
   const _page = Math.min(currentPage, _totalPages);
   const pagedRecords = filteredRecords.slice((_page - 1) * itemsPerPage, _page * itemsPerPage);
 
+  const { page, setPage, pageSize, total, paged } = usePagination(staffCategories);
+
   return (
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
@@ -357,7 +364,7 @@ export const FacilityManagementMaster = () => {
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     >
                       <option value="">All Categories</option>
-                      {staffCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                      {paged.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                     </select>
                     <select
                       value={filterShift}
@@ -437,13 +444,14 @@ export const FacilityManagementMaster = () => {
                   ) : (
                     <tr>
                       <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
-                        No records found matching your criteria.
+                        {isLoading ? 'Loading records...' : 'No records found matching your criteria.'}
                       </td>
                     </tr>
                   )}
                 </tbody>
               </table>
             </div>
+        <Pagination page={page} pageSize={pageSize} totalItems={total} onPageChange={setPage} />
             <div className="flex flex-wrap items-center justify-between gap-3 p-4 border-t border-slate-100 text-sm text-slate-500">
               <div className="flex items-center gap-2">
                 <span>Show</span>
@@ -659,7 +667,7 @@ export const FacilityManagementMaster = () => {
                 <Button variant="outline" color="secondary" onClick={() => setIsFormOpen(false)}>
                   Cancel
                 </Button>
-                <Button variant="filled" color="primary" onClick={handleSaveForm} icon={Save}>
+                <Button variant="filled" color="primary" onClick={handleSaveForm} icon={Save} isLoading={isSaving}>
                   {selectedRecord ? 'Update' : 'Save'}
                 </Button>
               </div>

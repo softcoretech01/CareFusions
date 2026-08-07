@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { Pagination } from '@/components/ui/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 import {
   Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle,
   Save, RefreshCw, X
@@ -254,6 +256,8 @@ export const BankMaster = () => {
   const _page = Math.min(currentPage, _totalPages);
   const pagedRecords = filteredRecords.slice((_page - 1) * itemsPerPage, _page * itemsPerPage);
 
+  const { page, setPage, pageSize, total, paged } = usePagination(allCurrencies);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -393,6 +397,7 @@ export const BankMaster = () => {
                 </tbody>
               </table>
             </div>
+        <Pagination page={page} pageSize={pageSize} totalItems={total} onPageChange={setPage} />
             <div className="flex flex-wrap items-center justify-between gap-3 p-4 border-t border-slate-100 text-sm text-slate-500">
               <div className="flex items-center gap-2">
                 <span>Show</span>
@@ -481,7 +486,7 @@ export const BankMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Currency</label>
                     <select value={formData.currency} onChange={e => setFormData({...formData, currency: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
                       {allCurrencies.length === 0 && <option value="INR">INR</option>}
-                      {allCurrencies.map(cur => <option key={cur} value={cur}>{cur}</option>)}
+                      {paged.map(cur => <option key={cur} value={cur}>{cur}</option>)}
                     </select>
                   </div>
                   <div>

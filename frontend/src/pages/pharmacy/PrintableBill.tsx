@@ -33,7 +33,7 @@ export const PrintableBill = () => {
   return (
     <div className="bg-white min-h-screen p-8 text-black">
       {/* Hide print button when printing */}
-      <div className="print:hidden mb-6 flex justify-between items-center bg-slate-100 p-4 rounded-lg">
+      <div className="print:hidden mb-4 flex justify-between items-center bg-slate-100 p-4 rounded-lg">
         <p className="text-sm text-slate-600">Print preview generated. If prompt didn't appear, click Print.</p>
         <div className="flex gap-4">
           <button onClick={() => navigate(-1)} className="px-4 py-2 bg-slate-300 hover:bg-slate-400 rounded text-slate-800 font-bold transition-colors">Close</button>
@@ -44,7 +44,7 @@ export const PrintableBill = () => {
       <div className="max-w-3xl mx-auto border border-slate-300 rounded-xl p-8 shadow-sm print:border-none print:shadow-none print:p-0">
         
         {/* Header */}
-        <div className="flex justify-between items-start border-b border-slate-200 pb-6 mb-6">
+        <div className="flex justify-between items-start border-b border-slate-200 pb-6 mb-4">
           <div className="flex items-center gap-3">
             <div className="relative flex items-center justify-center">
               <Heart className="w-10 h-10 fill-[#086450] text-[#086450]" />

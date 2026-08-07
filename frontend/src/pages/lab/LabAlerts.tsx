@@ -1,18 +1,20 @@
-import { useState } from 'react';
+import { useEffect } from 'react';
 import { useInvestigations } from '../../contexts/InvestigationContext';
 import { AlertTriangle, Check, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export const LabAlerts = () => {
-  const { orders } = useInvestigations();
-  const [acknowledgedIds, setAcknowledgedIds] = useState<Set<string>>(new Set());
+  const { orders, acknowledgeAlert, refresh } = useInvestigations();
 
-  // Extract critical alerts from all lab orders
+  useEffect(() => { refresh(); }, [refresh]);
+
+  // Critical alerts across all lab orders. Acknowledgement is persisted
+  // server-side, so an acknowledged alert stays acknowledged after a refresh.
   const criticalAlerts = orders
     .filter(o => o.category === 'Lab')
-    .flatMap(order => 
+    .flatMap(order =>
       order.tests
-        .filter(test => test.isCritical && !acknowledgedIds.has(test.id))
+        .filter(test => test.isCritical && !test.acknowledgedAt)
         .map(test => ({
           testId: test.id,
           orderId: order.id,
@@ -25,21 +27,17 @@ export const LabAlerts = () => {
     .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
 
   const handleAcknowledge = (testId: string) => {
-    setAcknowledgedIds(prev => {
-      const newSet = new Set(prev);
-      newSet.add(testId);
-      return newSet;
-    });
+    acknowledgeAlert(testId);
     toast.success('Alert acknowledged');
   };
 
   return (
-    <div className="h-full flex flex-col space-y-6">
+    <div className="h-full flex flex-col space-y-4">
       <div>
         <h2 className="text-2xl font-bold text-slate-800">Critical Alerts</h2>
       </div>
       
-      <div className="flex-1 bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+      <div className="flex-1 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
         <div className="p-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="flex h-3 w-3 relative">
@@ -83,7 +81,7 @@ export const LabAlerts = () => {
                     </button>
                   </div>
                   
-                  <div className="bg-white p-4 rounded-xl border border-red-100 mt-3 flex flex-wrap gap-6 items-center">
+                  <div className="bg-white p-4 rounded-xl border border-red-100 mt-3 flex flex-wrap gap-4 items-center">
                     <div>
                       <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Test Name</p>
                       <p className="font-semibold text-slate-800">{alert.testName}</p>

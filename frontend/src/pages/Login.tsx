@@ -105,7 +105,7 @@ export const Login = () => {
       <motion.div
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
-        className="hidden lg:flex w-[50%] relative h-full"
+        className="hidden lg:flex lg:w-[60%] relative h-full"
       >
         {/* Modern Hospital Image Background */}
         <div className="absolute inset-0 z-0">
@@ -172,7 +172,7 @@ export const Login = () => {
         initial={{ opacity: 0, x: "100vw" }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ type: "spring", damping: 25, stiffness: 120 }}
-        className="w-full lg:w-[50%] bg-white flex items-center justify-center p-4 lg:p-10 relative z-20 h-full overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+        className="w-full lg:w-[40%] bg-white flex items-center justify-center p-4 lg:p-10 relative z-20 h-full overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
       >
         <motion.div
           className="w-full max-w-[600px]"
@@ -241,7 +241,7 @@ export const Login = () => {
             <div className="flex-grow border-t border-slate-200"></div>
           </motion.div>
 
-          <motion.form variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }} onSubmit={handleLogin} className="space-y-3 mt-1">
+          <motion.form variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }} onSubmit={handleLogin} className="space-y-3 mt-1 max-w-[400px] mx-auto">
             {error && (
               <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700 font-medium">
                 {error}

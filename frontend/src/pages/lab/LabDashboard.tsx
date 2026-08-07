@@ -84,7 +84,7 @@ export const LabDashboard = () => {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Laboratory Dashboard</h1>
@@ -121,8 +121,8 @@ export const LabDashboard = () => {
       </div>
 
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
           <h3 className="text-base font-bold text-slate-800 mb-4">Order Status</h3>
           <div className="h-64">
             <Chart options={donutOptions} series={donutSeries} type="donut" height="100%" />
@@ -130,7 +130,7 @@ export const LabDashboard = () => {
         </div>
 
         <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+          <div className="px-4 py-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
             <h3 className="text-base font-bold text-slate-800">
               {activeFilter === 'Total Orders' ? 'All Orders' : 
                activeFilter === 'Critical Alerts' ? 'Orders with Critical Alerts' :
@@ -185,15 +185,15 @@ export const LabDashboard = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
           <h3 className="text-base font-bold text-slate-800 mb-4">Average Turnaround Time (TAT)</h3>
           <div className="h-64">
             <Chart options={tatOptions} series={tatSeries} type="bar" height="100%" />
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
           <h3 className="text-base font-bold text-slate-800 mb-4">Test Volume Trend</h3>
           <div className="h-64">
             <Chart options={volumeOptions} series={volumeSeries} type="area" height="100%" />

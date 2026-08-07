@@ -51,7 +51,7 @@ export const LabReports = () => {
 
 
   return (
-    <div className="h-full flex flex-col space-y-6">
+    <div className="h-full flex flex-col space-y-4">
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Laboratory Reports</h2>
@@ -90,7 +90,7 @@ export const LabReports = () => {
 
 
 
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex-1 flex flex-col min-h-[300px]">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex-1 flex flex-col min-h-[300px]">
         <div className="p-4 border-b border-slate-100 bg-slate-50">
           <h3 className="font-bold text-slate-800">Lab Test Report List</h3>
         </div>
@@ -98,13 +98,13 @@ export const LabReports = () => {
           <table className="w-full text-sm text-left">
             <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200 text-xs uppercase sticky top-0">
               <tr>
-                <th className="px-6 py-4">Order ID</th>
-                <th className="px-6 py-4">Patient Name</th>
-                <th className="px-6 py-4">Ordered By</th>
-                <th className="px-6 py-4">Test Count</th>
-                <th className="px-6 py-4">Date</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4 text-center">Action</th>
+                <th className="px-4 py-3">Order ID</th>
+                <th className="px-4 py-3">Patient Name</th>
+                <th className="px-4 py-3">Ordered By</th>
+                <th className="px-4 py-3">Test Count</th>
+                <th className="px-4 py-3">Date</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3 text-center">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -150,7 +150,7 @@ export const LabReports = () => {
       {selectedOrder && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+            <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50">
               <h3 className="font-bold text-slate-800 text-lg">Patient Details</h3>
               <button onClick={() => setSelectedOrder(null)} className="p-2 hover:bg-slate-200 rounded-xl transition-colors">
                 <X className="w-5 h-5 text-slate-500" />
@@ -204,7 +204,7 @@ export const LabReports = () => {
                 </div>
               </div>
             </div>
-            <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-end">
+            <div className="px-4 py-3 border-t border-slate-100 bg-slate-50 flex justify-end">
               <button onClick={() => setSelectedOrder(null)} className="px-6 py-2 bg-slate-200 text-slate-700 font-bold rounded-xl text-sm hover:bg-slate-300 transition-colors">
                 Close
               </button>

@@ -8,12 +8,15 @@ import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
 import { exportToExcel } from '../../../utils/exportToExcel';
 
-export enum LaboratoryEnum {
-  MAIN_LAB = 'Main Lab',
-  PATHOLOGY_LAB = 'Pathology Lab',
-  MICROBIOLOGY_LAB = 'Microbiology Lab',
-  BIOCHEMISTRY_LAB = 'Biochemistry Lab',
-}
+// A const object rather than an enum: enums emit runtime code, which this
+// project's `erasableSyntaxOnly` setting disallows. Object.values() is unchanged.
+export const LaboratoryEnum = {
+  MAIN_LAB: 'Main Lab',
+  PATHOLOGY_LAB: 'Pathology Lab',
+  MICROBIOLOGY_LAB: 'Microbiology Lab',
+  BIOCHEMISTRY_LAB: 'Biochemistry Lab',
+} as const;
+export type LaboratoryEnum = typeof LaboratoryEnum[keyof typeof LaboratoryEnum];
 
 interface LabTechnicianRecord {
   id: number;
@@ -34,6 +37,10 @@ interface LabTechnicianRecord {
   manager: string;
   status: string;
   remarks: string;
+  profilePhoto?: string;
+  qualificationCertificate?: string;
+  idProof?: string;
+  licenseCertificate?: string;
 }
 
 const emptyData: Omit<LabTechnicianRecord, 'id'> = {
@@ -55,8 +62,6 @@ const emptyData: Omit<LabTechnicianRecord, 'id'> = {
   status: 'Active',
   remarks: ''
 };
-
-const mockData: LabTechnicianRecord[] = [];
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
 
@@ -100,7 +105,7 @@ export const LabTechnicianMaster = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<LabTechnicianRecord | null>(null);
-  const [formData, setFormData] = useState<Omit<LabTechnicianRecord, 'id'> & { profilePhoto?: string, qualificationCertificate?: string, idProof?: string }>(emptyData);
+  const [formData, setFormData] = useState<Omit<LabTechnicianRecord, 'id'> & { technicianCode?: string; profilePhoto?: string; qualificationCertificate?: string; idProof?: string }>(emptyData);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [isLoading, setIsLoading] = useState(true);
@@ -339,6 +344,14 @@ export const LabTechnicianMaster = () => {
             </div>
           </div>
 
+          {/* The load failure used to be swallowed, leaving an empty table that
+              looked like 'no data' rather than 'the server is unreachable'. */}
+          {apiError && (
+            <div className="mb-4 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+              <span>{apiError}</span>
+            </div>
+          )}
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden">
             <div className="p-4 border-b border-slate-100 flex flex-wrap gap-4 items-center justify-between">
               <div className="relative flex-1 max-w-md">
@@ -461,7 +474,7 @@ export const LabTechnicianMaster = () => {
                   ) : (
                     <tr>
                       <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
-                        No lab technicians found matching your criteria.
+                        {isLoading ? 'Loading records...' : 'No lab technicians found matching your criteria.'}
                       </td>
                     </tr>
                   )}
@@ -696,7 +709,7 @@ export const LabTechnicianMaster = () => {
                 <Button variant="outline" color="secondary" onClick={() => setIsFormOpen(false)}>
                   Cancel
                 </Button>
-                <Button variant="filled" color="primary" onClick={handleSaveForm} icon={Save}>
+                <Button variant="filled" color="primary" onClick={handleSaveForm} icon={Save} isLoading={isSaving}>
                   {selectedRecord ? 'Update' : 'Save'}
                 </Button>
               </div>

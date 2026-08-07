@@ -77,7 +77,7 @@ export const LabQualityControl = () => {
   }];
 
   return (
-    <div className="h-full flex flex-col space-y-6">
+    <div className="h-full flex flex-col space-y-4">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div className="flex items-center gap-4">
           <h2 className="text-2xl font-bold text-slate-800">Quality Control</h2>
@@ -101,7 +101,7 @@ export const LabQualityControl = () => {
       </div>
 
       {showAddForm && (
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
           <div className="flex justify-between items-center mb-4">
             <h3 className="font-bold text-slate-800 flex items-center gap-2"><Beaker className="w-5 h-5 text-blue-500"/> New QC Log</h3>
             <button onClick={() => setShowAddForm(false)} className="p-1 hover:bg-slate-100 rounded-lg"><X className="w-5 h-5 text-slate-500"/></button>
@@ -140,8 +140,8 @@ export const LabQualityControl = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
-        <div className="lg:col-span-2 bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1 min-h-0">
+        <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
           <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
             <h3 className="font-bold text-slate-700 flex items-center gap-2"><FileSpreadsheet className="w-4 h-4 text-slate-500"/> QC History</h3>
           </div>
@@ -185,7 +185,7 @@ export const LabQualityControl = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 flex flex-col">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col">
           <h3 className="font-bold text-slate-800 mb-4">Deviation Trend (L-J Chart)</h3>
           <p className="text-xs text-slate-500 mb-4">Tracking {filteredLogs[0]?.testName || 'test'} on {filteredLogs[0]?.machineName || 'machine'}</p>
           <div className="flex-1 min-h-[300px]">

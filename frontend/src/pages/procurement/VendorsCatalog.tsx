@@ -1,9 +1,32 @@
 import { useState, useMemo, useEffect } from 'react';
 import { 
+<<<<<<< HEAD
+  Search, Filter, BookOpen, Package, Clock, TrendingUp
+=======
   Search, Filter, BookOpen, Star, Package, Clock, TrendingUp, RefreshCw
+>>>>>>> origin/main
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useItemCategories, useItems, useVendors } from '../../hooks/useMasterOptions';
 
+<<<<<<< HEAD
+
+
+export const VendorsCatalog = () => {
+  // Live from the admin masters. These used to be hardcoded mockData
+  // arrays, so anything added in a master never reached these pickers.
+  const { options: items } = useItems();
+  const { options: vendors } = useVendors();
+  const { options: itemCategories } = useItemCategories();
+
+  // Which items a vendor actually supplies comes from Item Master's Vendor
+  // field. Star ratings, contract counts, catalogue prices and contract dates
+  // have no source in the system, so they are not shown rather than invented.
+  const catalog = useMemo(() => vendors.map(vendor => ({
+    ...vendor,
+    itemsSupplied: items.filter(i => i.vendor === vendor.vendorName),
+  })), [vendors, items]);
+=======
 const API_BASE = import.meta.env.VITE_API_URL as string;
 
 export const VendorsCatalog = () => {
@@ -32,6 +55,7 @@ export const VendorsCatalog = () => {
     fetchData();
   }, []);
 
+>>>>>>> origin/main
   const [searchTerm, setSearchTerm] = useState('');
   
   const [showFilters, setShowFilters] = useState(false);
@@ -40,9 +64,15 @@ export const VendorsCatalog = () => {
   const [selectedVendor, setSelectedVendor] = useState<any | null>(null);
 
   const processedData = useMemo(() => {
+<<<<<<< HEAD
+    let result = catalog.filter(vendor => {
+      const matchesSearch = vendor.vendorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            vendor.vendorCode.toLowerCase().includes(searchTerm.toLowerCase());
+=======
     let result = catalogs.filter(vendor => {
       const matchesSearch = vendor.vendorName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             vendor.vendorCode?.toLowerCase().includes(searchTerm.toLowerCase());
+>>>>>>> origin/main
       
       const hasCategoryItems = filterCategory 
         ? vendor.items.some((item: any) => item.category === filterCategory)
@@ -51,7 +81,13 @@ export const VendorsCatalog = () => {
       return matchesSearch && hasCategoryItems;
     });
     return result;
+<<<<<<< HEAD
+    // `catalog` belongs here: it was a module constant before, but now it
+    // arrives from the API, so omitting it leaves the list empty after load.
+  }, [catalog, searchTerm, filterCategory]);
+=======
   }, [catalogs, searchTerm, filterCategory]);
+>>>>>>> origin/main
 
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="h-full flex flex-col">
@@ -96,7 +132,11 @@ export const VendorsCatalog = () => {
                 <div className="p-3">
                   <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none">
                     <option value="">Filter by Category</option>
+<<<<<<< HEAD
+                    {itemCategories.map(c => <option key={c.id} value={c.categoryName}>{c.categoryName}</option>)}
+=======
                     {categories.map(c => <option key={c.id} value={c.categoryName}>{c.categoryName}</option>)}
+>>>>>>> origin/main
                   </select>
                 </div>
               </motion.div>
@@ -112,14 +152,16 @@ export const VendorsCatalog = () => {
               >
                 <div className="flex justify-between items-start mb-1">
                   <h3 className="font-bold text-slate-800">{vendor.vendorName}</h3>
-                  <div className="flex items-center gap-1 text-sm font-medium text-amber-500">
-                    <Star className="w-3.5 h-3.5 fill-amber-500" /> {vendor.rating}
-                  </div>
                 </div>
                 <div className="text-sm text-slate-500 mb-3">{vendor.city}</div>
                 <div className="flex gap-4 text-xs font-medium text-slate-600">
+<<<<<<< HEAD
+                  <div className="flex items-center gap-1.5"><Package className="w-3.5 h-3.5 text-primary" /> {vendor.itemsSupplied.length} Items</div>
+                  <div className="flex items-center gap-1.5"><BookOpen className="w-3.5 h-3.5 text-blue-500" /> {vendor.vendorCode}</div>
+=======
                   <div className="flex items-center gap-1.5"><Package className="w-3.5 h-3.5 text-primary" /> {vendor.items?.length || 0} Items</div>
                   <div className="flex items-center gap-1.5"><BookOpen className="w-3.5 h-3.5 text-blue-500" /> {vendor.activeContracts} Contracts</div>
+>>>>>>> origin/main
                 </div>
               </div>
             ))}
@@ -141,7 +183,7 @@ export const VendorsCatalog = () => {
                     </div>
                   </div>
                   <div className="px-4 py-2 bg-blue-100 text-blue-800 rounded-xl font-bold text-lg text-center">
-                    {selectedVendor.rating} <span className="text-xs font-medium block">Rating</span>
+                    <span className="text-xs font-medium block">No rating source</span>
                   </div>
                 </div>
               </div>
@@ -172,11 +214,19 @@ export const VendorsCatalog = () => {
                         <td className="py-3 px-4 text-slate-800">{item.itemName}</td>
                         <td className="py-3 px-4 text-slate-600 text-sm">{item.category}</td>
                         <td className="py-3 px-4 text-slate-600 text-sm flex items-center gap-2">
+<<<<<<< HEAD
+                          <Clock className="w-4 h-4 text-orange-500"/> {item.uom || '—'}
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <div className="font-bold text-slate-400 text-sm">No contract price</div>
+                          <div className="text-[10px] text-slate-400 flex items-center justify-end gap-1 mt-0.5"><TrendingUp className="w-3 h-3"/> needs Vendor Price List</div>
+=======
                           <Clock className="w-4 h-4 text-orange-500"/> {item.contractValidUntil || '-'}
                         </td>
                         <td className="py-3 px-4 text-right">
                           <div className="font-bold text-emerald-600">₹{item.catalogPrice}</div>
                           <div className="text-[10px] text-slate-400 flex items-center justify-end gap-1 mt-0.5"><TrendingUp className="w-3 h-3"/> Last up: {item.lastUpdate || '-'}</div>
+>>>>>>> origin/main
                         </td>
                       </tr>
                     ))}

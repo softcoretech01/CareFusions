@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Pill, Receipt, LayoutDashboard, FileText, AlertOctagon, TrendingUp } from 'lucide-react';
 import { usePharmacyBilling } from '../../contexts/PharmacyBillingContext';
 import Chart from 'react-apexcharts';
@@ -6,18 +6,27 @@ import type { ApexOptions } from 'apexcharts';
 import { DateFilter } from '../../components/ui/DateFilter';
 
 export const PharmacySummary = () => {
-  const { medicines, bills, checkLowStock } = usePharmacyBilling();
+  const { medicines, bills, checkLowStock, refresh } = usePharmacyBilling();
+
+  // Pull the latest sales/stock every time the dashboard is opened, so paying
+  // a bill or making a sale on another screen is reflected here immediately.
+  useEffect(() => { refresh?.(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [activeTab, setActiveTab] = useState<'bills' | 'lowStock' | 'outOfStock'>('bills');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
 
+  // Compare on local calendar days (YYYY-MM-DD). Using Date objects here is
+  // unsafe: `new Date('2026-08-05')` is parsed as UTC midnight while the bill
+  // timestamp is parsed as local time, and a bare end date would also exclude
+  // everything after 00:00 on that day.
+  const toLocalDay = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
   const filteredBills = bills.filter(b => {
-    const bDate = new Date(b.date);
-    const startDate = fromDate ? new Date(fromDate) : null;
-    const endDate = toDate ? new Date(toDate) : null;
-    const matchesFrom = !startDate || bDate >= startDate;
-    const matchesTo = !endDate || bDate <= endDate;
-    return matchesFrom && matchesTo;
+    const day = toLocalDay(new Date(b.date));
+    if (fromDate && day < fromDate) return false;
+    if (toDate && day > toDate) return false;
+    return true;
   });
 
   const lowStockItems = checkLowStock();
@@ -31,8 +40,11 @@ export const PharmacySummary = () => {
   const todaysBills = bills.filter(b => new Date(b.date).toDateString() === today && b.paymentStatus === 'Paid');
   const todaysRevenue = todaysBills.reduce((acc, b) => acc + b.netAmount, 0);
   
-  const currentMonth = new Date().getMonth();
-  const thisMonthBills = bills.filter(b => new Date(b.date).getMonth() === currentMonth && b.paymentStatus === 'Paid');
+  const now = new Date();
+  const thisMonthBills = bills.filter(b => {
+    const d = new Date(b.date);
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() && b.paymentStatus === 'Paid';
+  });
   const thisMonthRevenue = thisMonthBills.reduce((acc, b) => acc + b.netAmount, 0);
 
   // Revenue Trend Logic
@@ -44,33 +56,76 @@ export const PharmacySummary = () => {
   });
 
   const trendLabels = trendDates.map(date => date.toLocaleDateString('en-US', { weekday: 'short' }));
+  // "Last 7 Days" is its own fixed window, so it reads all bills rather than
+  // the date-filtered subset (which would flatten the chart to zero).
   const trendData = trendDates.map(date => {
-    const dateStr = date.toDateString();
-    return filteredBills
-      .filter(b => new Date(b.date).toDateString() === dateStr && b.paymentStatus === 'Paid')
+    const day = toLocalDay(date);
+    return bills
+      .filter(b => toLocalDay(new Date(b.date)) === day && b.paymentStatus === 'Paid')
       .reduce((sum, b) => sum + b.netAmount, 0);
   });
 
   const trendSeries = [{ name: 'Revenue (₹)', data: trendData }];
   const trendOptions: ApexOptions = {
-    chart: { type: 'area', toolbar: { show: false }, zoom: { enabled: false }, fontFamily: 'Inter' },
-    stroke: { curve: 'smooth', width: 2 },
-    fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.05, stops: [0, 90, 100] } },
+    chart: { 
+      type: 'area', 
+      toolbar: { show: false }, 
+      zoom: { enabled: false }, 
+      fontFamily: 'Inter',
+      dropShadow: {
+        enabled: true,
+        color: '#10b981',
+        top: 4,
+        left: 0,
+        blur: 4,
+        opacity: 0.15
+      }
+    },
+    stroke: { curve: 'smooth', width: 3 },
+    fill: { 
+      type: 'gradient', 
+      gradient: { 
+        shadeIntensity: 1, 
+        type: 'vertical',
+        opacityFrom: 0.6, 
+        opacityTo: 0.0, 
+        stops: [0, 100]
+      } 
+    },
     dataLabels: { enabled: false },
-    xaxis: { categories: trendLabels, axisBorder: { show: false }, axisTicks: { show: false } },
-    yaxis: { labels: { formatter: (val) => `₹${val.toFixed(0)}` } },
+    xaxis: { 
+      categories: trendLabels, 
+      axisBorder: { show: false }, 
+      axisTicks: { show: false },
+      labels: { style: { colors: '#94a3b8', fontWeight: 500 } }
+    },
+    yaxis: { 
+      labels: { 
+        formatter: (val) => `₹${val.toFixed(0)}`,
+        style: { colors: '#94a3b8', fontWeight: 500 }
+      } 
+    },
+    grid: {
+      borderColor: '#f1f5f9',
+      strokeDashArray: 4,
+      yaxis: { lines: { show: true } },
+      xaxis: { lines: { show: false } }
+    },
     colors: ['#10b981'],
-    tooltip: { theme: 'light' }
+    tooltip: { 
+      theme: 'light',
+      style: { fontSize: '12px', fontFamily: 'Inter' }
+    }
   };
 
   return (
-    <div className="h-full flex flex-col space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="h-full flex flex-col space-y-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800">Overview Dashboard</h2>
-          <p className="text-slate-500 text-sm">Summary of pharmacy stock and billing revenue</p>
+          <h2 className="text-xl font-bold text-slate-800">Overview Dashboard</h2>
+          <p className="text-slate-500 text-xs">Summary of pharmacy stock and billing revenue</p>
         </div>
-        <div className="bg-white rounded-3xl border border-slate-100 p-3 shadow-sm">
+        <div className="bg-white rounded-2xl border border-slate-100 p-2 shadow-sm">
           <DateFilter
             dateFrom={fromDate}
             dateTo={toDate}
@@ -82,80 +137,80 @@ export const PharmacySummary = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <div 
           onClick={() => setActiveTab('bills')}
-          className={`p-6 rounded-2xl shadow-sm border flex flex-col justify-center cursor-pointer transition-colors ${
+          className={`p-4 rounded-2xl shadow-sm border flex flex-col justify-center cursor-pointer transition-colors ${
             activeTab === 'bills' ? 'border-primary ring-2 ring-primary/20 bg-primary/5' : 'bg-white border-slate-100 hover:border-primary/30'
           }`}
         >
-          <div className="flex items-center gap-3 mb-2">
+          <div className="flex items-center gap-3 mb-1.5">
             <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
               <FileText className="w-5 h-5" />
             </div>
             <h3 className="font-medium text-slate-600">Total Bills</h3>
           </div>
-          <p className="text-3xl font-bold text-slate-800">{totalBillsCount}</p>
-          <p className="text-sm text-slate-500 mt-1">Lifetime generated</p>
+          <p className="text-2xl font-bold text-slate-800">{totalBillsCount}</p>
+          <p className="text-sm text-slate-500 mt-1">{fromDate || toDate ? 'In selected range' : 'Lifetime generated'}</p>
         </div>
 
         <div 
           onClick={() => setActiveTab('lowStock')}
-          className={`p-6 rounded-2xl shadow-sm border flex flex-col justify-center cursor-pointer transition-colors ${
+          className={`p-4 rounded-2xl shadow-sm border flex flex-col justify-center cursor-pointer transition-colors ${
             activeTab === 'lowStock' ? 'border-amber-500 ring-2 ring-amber-500/20 bg-amber-50/50' : 'bg-white border-amber-200 bg-amber-50/30 hover:border-amber-400'
           }`}
         >
-          <div className="flex items-center gap-3 mb-2">
+          <div className="flex items-center gap-3 mb-1.5">
             <div className="p-2 bg-amber-100 text-amber-700 rounded-lg">
               <Pill className="w-5 h-5" />
             </div>
             <h3 className="font-medium text-slate-800">Low Stock Alerts</h3>
           </div>
-          <p className="text-3xl font-bold text-amber-700">{lowStockCount}</p>
+          <p className="text-2xl font-bold text-amber-700">{lowStockCount}</p>
           <p className="text-sm text-amber-600 mt-1">Items need restocking</p>
         </div>
 
         <div 
           onClick={() => setActiveTab('outOfStock')}
-          className={`p-6 rounded-2xl shadow-sm border flex flex-col justify-center cursor-pointer transition-colors ${
+          className={`p-4 rounded-2xl shadow-sm border flex flex-col justify-center cursor-pointer transition-colors ${
             activeTab === 'outOfStock' ? 'border-red-500 ring-2 ring-red-500/20 bg-red-50/50' : 'bg-white border-red-200 bg-red-50/30 hover:border-red-400'
           }`}
         >
-          <div className="flex items-center gap-3 mb-2">
+          <div className="flex items-center gap-3 mb-1.5">
             <div className="p-2 bg-red-100 text-red-700 rounded-lg">
               <AlertOctagon className="w-5 h-5" />
             </div>
             <h3 className="font-medium text-slate-800">Out of Stock</h3>
           </div>
-          <p className="text-3xl font-bold text-red-700">{outOfStockCount}</p>
+          <p className="text-2xl font-bold text-red-700">{outOfStockCount}</p>
           <p className="text-sm text-red-600 mt-1">Zero inventory</p>
         </div>
         
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-center">
-          <div className="flex items-center gap-3 mb-2">
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-center">
+          <div className="flex items-center gap-3 mb-1.5">
             <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
               <Receipt className="w-5 h-5" />
             </div>
             <h3 className="font-medium text-slate-600">Today's Revenue</h3>
           </div>
-          <p className="text-3xl font-bold text-slate-800">₹{todaysRevenue.toFixed(2)}</p>
+          <p className="text-2xl font-bold text-slate-800">₹{todaysRevenue.toFixed(2)}</p>
           <p className="text-sm text-slate-500 mt-1">From {todaysBills.length} bills</p>
         </div>
 
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-center">
-          <div className="flex items-center gap-3 mb-2">
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-center">
+          <div className="flex items-center gap-3 mb-1.5">
             <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
               <LayoutDashboard className="w-5 h-5" />
             </div>
             <h3 className="font-medium text-slate-600">Monthly Revenue</h3>
           </div>
-          <p className="text-3xl font-bold text-slate-800">₹{thisMonthRevenue.toFixed(2)}</p>
+          <p className="text-2xl font-bold text-slate-800">₹{thisMonthRevenue.toFixed(2)}</p>
           <p className="text-sm text-slate-500 mt-1">From {thisMonthBills.length} bills</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1">
-        <div className="bg-white rounded-3xl shadow-sm border border-slate-100 flex flex-col overflow-hidden">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col overflow-hidden">
           <div className="p-6 border-b border-slate-100">
             <h3 className="text-lg font-bold text-slate-800">
               {activeTab === 'bills' && 'Recent Bills'}
@@ -164,7 +219,7 @@ export const PharmacySummary = () => {
             </h3>
           </div>
           {activeTab === 'bills' ? (
-            <div className="flex-1 overflow-x-auto p-6 pt-0">
+            <div className="flex-1 overflow-x-auto p-4 pt-0">
               <table className="w-full text-left text-sm">
                 <thead className="bg-slate-50 text-slate-600">
                   <tr>
@@ -176,14 +231,18 @@ export const PharmacySummary = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredBills.slice(-5).reverse().map(bill => (
+                  {filteredBills.slice(0, 5).map(bill => (
                     <tr key={bill.billId}>
-                      <td className="px-4 py-3 font-medium text-primary">{bill.billId}</td>
-                      <td className="px-4 py-3 text-slate-800">{bill.patientName}</td>
-                      <td className="px-4 py-3 text-slate-600">{new Date(bill.date).toLocaleString()}</td>
-                      <td className="px-4 py-3 text-right font-medium text-slate-800">₹{bill.netAmount.toFixed(2)}</td>
-                      <td className="px-4 py-3 text-center">
-                        <span className="inline-flex px-2 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-600 border border-emerald-200">
+                      <td className="px-4 py-2.5 font-medium text-primary">{bill.billId}</td>
+                      <td className="px-4 py-2.5 text-slate-800">{bill.patientName}</td>
+                      <td className="px-4 py-2.5 text-slate-600">{new Date(bill.date).toLocaleString()}</td>
+                      <td className="px-4 py-2.5 text-right font-medium text-slate-800">₹{bill.netAmount.toFixed(2)}</td>
+                      <td className="px-4 py-2.5 text-center">
+                        <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium border ${
+                          bill.paymentStatus === 'Paid' ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                          : bill.paymentStatus === 'Refunded' ? 'bg-red-50 text-red-600 border-red-200'
+                          : 'bg-amber-50 text-amber-600 border-amber-200'
+                        }`}>
                           {bill.paymentStatus}
                         </span>
                       </td>
@@ -200,7 +259,7 @@ export const PharmacySummary = () => {
               </table>
             </div>
           ) : (
-            <div className="flex-1 overflow-x-auto p-6 pt-0">
+            <div className="flex-1 overflow-x-auto p-4 pt-0">
               <table className="w-full text-left text-sm">
                 <thead className="bg-slate-50 text-slate-600">
                   <tr>
@@ -236,14 +295,14 @@ export const PharmacySummary = () => {
           )}
         </div>
 
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-100 flex flex-col p-6">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col p-6">
         <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-2">
           <h3 className="text-lg font-bold text-slate-800">Revenue Trend</h3>
           <div className="flex items-center gap-1.5 px-2 py-1 bg-emerald-50 text-emerald-600 rounded-lg text-xs font-semibold">
             <TrendingUp className="w-3.5 h-3.5" /> Last 7 Days
           </div>
         </div>
-        <div className="flex-1 min-h-[300px]">
+        <div className="flex-1 min-h-[240px]">
           <Chart options={trendOptions} series={trendSeries} type="area" height="100%" />
         </div>
       </div>

@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { Pagination } from '@/components/ui/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 import { Search, Receipt, CheckCircle, Clock, CheckSquare, Download, Calendar, ArrowRightLeft } from 'lucide-react';
 import { useInsurance } from '../../contexts/InsuranceContext';
 
@@ -29,9 +31,11 @@ export const SettlementReconciliation = () => {
     reconcileSettlement(id);
   };
 
+  const { page, setPage, pageSize, total, paged } = usePagination(filteredSettlements);
+
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center mb-6">
+    <div className="space-y-4">
+      <div className="flex justify-between items-center mb-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Settlements & Reconciliation</h1>
         </div>
@@ -46,7 +50,7 @@ export const SettlementReconciliation = () => {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm flex items-center gap-4">
           <div className="p-4 rounded-xl bg-blue-100 text-blue-600">
             <ArrowRightLeft className="w-6 h-6" />
@@ -109,42 +113,42 @@ export const SettlementReconciliation = () => {
           <table className="w-full">
             <thead className="bg-slate-50 text-xs font-semibold text-slate-500 uppercase tracking-wider">
               <tr>
-                <th className="px-6 py-4 text-left">Settlement ID</th>
-                <th className="px-6 py-4 text-left">Claim Ref / Patient</th>
-                <th className="px-6 py-4 text-left">Insurer</th>
-                <th className="px-6 py-4 text-left">Approved Amt</th>
-                <th className="px-6 py-4 text-left">TDS (10%)</th>
-                <th className="px-6 py-4 text-left">Net Receivable</th>
-                <th className="px-6 py-4 text-left">Status</th>
-                <th className="px-6 py-4 text-left">Action</th>
+                <th className="px-4 py-3 text-left">Settlement ID</th>
+                <th className="px-4 py-3 text-left">Claim Ref / Patient</th>
+                <th className="px-4 py-3 text-left">Insurer</th>
+                <th className="px-4 py-3 text-left">Approved Amt</th>
+                <th className="px-4 py-3 text-left">TDS (10%)</th>
+                <th className="px-4 py-3 text-left">Net Receivable</th>
+                <th className="px-4 py-3 text-left">Status</th>
+                <th className="px-4 py-3 text-left">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredSettlements.map((row) => (
+              {paged.map((row) => (
                 <tr key={row.id} className="hover:bg-slate-50/70 transition-colors">
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-3">
                     <span className="font-bold text-primary">{row.id}</span>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-3">
                     <div className="font-bold text-slate-800">{row.patient}</div>
                     <div className="text-xs text-slate-500">Ref: {row.claimId}</div>
                   </td>
-                  <td className="px-6 py-4 font-medium text-slate-600">{row.insurer}</td>
-                  <td className="px-6 py-4 font-medium text-slate-600">
+                  <td className="px-4 py-3 font-medium text-slate-600">{row.insurer}</td>
+                  <td className="px-4 py-3 font-medium text-slate-600">
                     ₹{row.approvedAmt.toLocaleString()}
                   </td>
-                  <td className="px-6 py-4 font-medium text-rose-600">
+                  <td className="px-4 py-3 font-medium text-rose-600">
                     -₹{row.tds.toLocaleString()}
                   </td>
-                  <td className="px-6 py-4 font-bold text-slate-800">
+                  <td className="px-4 py-3 font-bold text-slate-800">
                     <div className="flex items-center gap-1 text-emerald-600">
                       ₹{(row.approvedAmt - row.tds).toLocaleString()}
                     </div>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-3">
                     {getStatusBadge(row.status)}
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-3">
                     {row.status === 'Pending' ? (
                       <button 
                         onClick={() => handleReconcile(row.id)}
@@ -170,6 +174,7 @@ export const SettlementReconciliation = () => {
             </tbody>
           </table>
         </div>
+        <Pagination page={page} pageSize={pageSize} totalItems={total} onPageChange={setPage} />
       </div>
     </div>
   );

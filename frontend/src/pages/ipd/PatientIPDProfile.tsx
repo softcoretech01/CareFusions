@@ -63,7 +63,7 @@ export const PatientIPDProfile = () => {
   };
 
   return (
-    <div className="flex h-[calc(100vh-2rem)] gap-6 overflow-hidden">
+    <div className="flex h-[calc(100vh-2rem)] gap-4 overflow-hidden">
       
       {/* â”€â”€ LEFT PANEL â€” Patient info â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="w-72 shrink-0 flex flex-col gap-4 overflow-y-auto custom-scrollbar">
@@ -71,7 +71,7 @@ export const PatientIPDProfile = () => {
           <ArrowLeft className="w-4 h-4" /> Back to Ward
         </button>
 
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-5">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
           <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center border border-primary/20 mx-auto mb-3">
             <User className="w-8 h-8 text-primary" />
           </div>
@@ -82,7 +82,7 @@ export const PatientIPDProfile = () => {
           <div className="mt-4 pt-4 border-t border-slate-100 text-center">
             <p className="text-xs font-bold text-slate-400 uppercase mb-1">Current Location</p>
             <p className="font-bold text-slate-800">{ward?.name}</p>
-            <p className="text-sm font-bold text-primary mt-1">Room no {bed?.roomNumber} â€¢ Bed {bed?.bedNumber}</p>
+            <p className="text-sm font-bold text-primary mt-1">Room no {bed?.roomNumber} &bull; Bed {bed?.bedNumber}</p>
           </div>
           
           <div className="mt-4 pt-4 border-t border-slate-100">
@@ -137,7 +137,7 @@ export const PatientIPDProfile = () => {
 
           {/* DISCHARGE TAB */}
           {activeTab === 'discharge' && (
-            <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 space-y-4">
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                 <div>
                   <h3 className="font-bold text-slate-800 text-xl flex items-center gap-2">

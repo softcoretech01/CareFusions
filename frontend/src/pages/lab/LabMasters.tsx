@@ -31,16 +31,16 @@ export const LabMasters = () => {
   ];
 
   return (
-    <div className="h-full flex flex-col space-y-6">
+    <div className="h-full flex flex-col space-y-4">
       <div>
         <h2 className="text-2xl font-bold text-slate-800">Laboratory Masters</h2>
         <p className="text-slate-500 text-sm mt-1">Configure lab master data and test setups.</p>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {masterLinks.map((link, idx) => (
-          <Link key={idx} to={link.path} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-200 transition-all group flex flex-col h-full">
-            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-6 ${link.bgColor} ${link.color}`}>
+          <Link key={idx} to={link.path} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-200 transition-all group flex flex-col h-full">
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-4 ${link.bgColor} ${link.color}`}>
               <link.icon className="w-7 h-7" />
             </div>
             <h3 className="text-lg font-bold text-slate-800 mb-2 group-hover:text-blue-600 transition-colors">{link.title}</h3>

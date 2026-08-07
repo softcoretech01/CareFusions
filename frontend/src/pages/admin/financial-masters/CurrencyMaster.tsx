@@ -15,6 +15,8 @@ export interface CurrencyRecord {
   currencyCode: string;
   currencyName: string;
   symbol: string;
+  exchangeRate: number;
+  baseCurrency: boolean;
   status: string;
   createdBy?: string;
   createdDate?: string;
@@ -22,17 +24,25 @@ export interface CurrencyRecord {
   updatedDate?: string;
 }
 
-type CurrencyForm = { currencyCode: string; currencyName: string; symbol: string; status: string };
+type CurrencyForm = { currencyCode: string; currencyName: string; symbol: string; exchangeRate: string; baseCurrency: boolean; status: string };
 
-const emptyData: CurrencyForm = { currencyCode: '', currencyName: '', symbol: '', status: 'Active' };
+const emptyData: CurrencyForm = { currencyCode: '', currencyName: '', symbol: '', exchangeRate: '1', baseCurrency: false, status: 'Active' };
 
 const LIMITS = { currencyCode: 10, currencyName: 100, symbol: 10 };
+
+// Digits and a single decimal point; anything else would not survive the
+// DECIMAL(14,6) column the API writes to.
+const rateChars = (v: string) => {
+  const cleaned = v.replace(/[^0-9.]/g, '');
+  const [head, ...rest] = cleaned.split('.');
+  return rest.length ? `${head}.${rest.join('').slice(0, 6)}` : head;
+};
 
 // NOTE: Retained ONLY for legacy pages (e.g. PurchaseOrders) that import it as
 // sample data. The Currency Master page itself now loads from the live API.
 export const mockData: CurrencyRecord[] = [
-  { id: 1, currencyCode: 'INR', currencyName: 'Indian Rupee', symbol: '₹', status: 'Active' },
-  { id: 2, currencyCode: 'USD', currencyName: 'US Dollar', symbol: '$', status: 'Active' }
+  { id: 1, currencyCode: 'INR', currencyName: 'Indian Rupee', symbol: '₹', exchangeRate: 1, baseCurrency: true, status: 'Active' },
+  { id: 2, currencyCode: 'USD', currencyName: 'US Dollar', symbol: '$', exchangeRate: 88.25, baseCurrency: false, status: 'Active' }
 ];
 
 const mapApiToRecord = (item: Record<string, unknown>): CurrencyRecord => ({
@@ -40,6 +50,9 @@ const mapApiToRecord = (item: Record<string, unknown>): CurrencyRecord => ({
   currencyCode: item.currencyCode as string,
   currencyName: item.currencyName as string,
   symbol:       item.symbol       as string,
+  // DECIMAL(14,6) arrives as a string so JSON does not lose precision.
+  exchangeRate: Number(item.exchangeRate ?? 1),
+  baseCurrency: Boolean(item.baseCurrency),
   status:       item.status       as string,
   createdBy:    (item.createdBy   as string) ?? undefined,
   createdDate:  item.createdDate ? String(item.createdDate).split('T')[0] : undefined,
@@ -90,6 +103,10 @@ export const CurrencyMaster = () => {
     if (!formData.currencyCode.trim()) newErrors.currencyCode = 'Currency Code is required';
     if (!formData.currencyName.trim()) newErrors.currencyName = 'Currency Name is required';
     if (!formData.symbol.trim()) newErrors.symbol = 'Symbol is required';
+    // The base currency is 1 by definition, so only the others need a rate.
+    // Zero or less would silently zero out every amount converted through it.
+    if (!formData.baseCurrency && !(Number(formData.exchangeRate) > 0))
+      newErrors.exchangeRate = 'Exchange Rate must be greater than zero';
 
     if (records.some(r => r.currencyCode.toLowerCase() === formData.currencyCode.trim().toLowerCase() && r.id !== selectedRecord?.id))
       newErrors.currencyCode = 'Currency Code must be unique';
@@ -109,7 +126,14 @@ export const CurrencyMaster = () => {
 
   const handleEdit = (record: CurrencyRecord) => {
     setSelectedRecord(record);
-    setFormData({ currencyCode: record.currencyCode, currencyName: record.currencyName, symbol: record.symbol, status: record.status });
+    setFormData({
+      currencyCode: record.currencyCode,
+      currencyName: record.currencyName,
+      symbol:       record.symbol,
+      exchangeRate: String(record.exchangeRate ?? 1),
+      baseCurrency: record.baseCurrency ?? false,
+      status:       record.status,
+    });
     setErrors({});
     setIsFormOpen(true);
   };
@@ -143,6 +167,8 @@ export const CurrencyMaster = () => {
         currencyCode: formData.currencyCode.trim().toUpperCase(),
         currencyName: formData.currencyName.trim(),
         symbol:       formData.symbol.trim(),
+        exchangeRate: formData.baseCurrency ? 1 : Number(formData.exchangeRate),
+        baseCurrency: formData.baseCurrency,
         status:       formData.status,
       };
 
@@ -274,20 +300,26 @@ export const CurrencyMaster = () => {
                 <th className="text-left py-4 px-6 font-medium text-slate-500 text-sm">Currency Code</th>
                 <th className="text-left py-4 px-6 font-medium text-slate-500 text-sm">Currency Name</th>
                 <th className="text-left py-4 px-6 font-medium text-slate-500 text-sm">Symbol</th>
+                <th className="text-right py-4 px-6 font-medium text-slate-500 text-sm">Exchange Rate</th>
                 <th className="text-left py-4 px-6 font-medium text-slate-500 text-sm">Status</th>
                 <th className="text-right py-4 px-6 font-medium text-slate-500 text-sm w-24">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {isLoading ? (
-                <tr><td colSpan={5} className="py-8 text-center text-slate-500">Loading currencies...</td></tr>
+                <tr><td colSpan={6} className="py-8 text-center text-slate-500">Loading currencies...</td></tr>
               ) : filteredRecords.length === 0 ? (
-                <tr><td colSpan={5} className="py-8 text-center text-slate-500">No records found</td></tr>
+                <tr><td colSpan={6} className="py-8 text-center text-slate-500">No records found</td></tr>
               ) : pagedRecords.map((record) => (
                 <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="py-4 px-6 text-slate-800 font-medium">{record.currencyCode}</td>
                   <td className="py-4 px-6 text-slate-800">{record.currencyName}</td>
                   <td className="py-4 px-6 text-slate-800">{record.symbol}</td>
+                  <td className="py-4 px-6 text-right text-slate-800 tabular-nums">
+                    {record.baseCurrency
+                      ? <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">Base</span>
+                      : record.exchangeRate.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 6 })}
+                  </td>
                   <td className="py-4 px-6">
                     <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
                       record.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'
@@ -373,6 +405,40 @@ export const CurrencyMaster = () => {
               placeholder="e.g. ₹, $"
             />
             {errors.symbol && <p className="text-red-500 text-xs mt-1">{errors.symbol}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Exchange Rate <span className="text-red-500">*</span>
+            </label>
+            {/* The base currency is 1 by definition, so its rate is locked. */}
+            <input
+              type="text"
+              inputMode="decimal"
+              value={formData.baseCurrency ? '1' : formData.exchangeRate}
+              disabled={formData.baseCurrency}
+              onChange={(e) => setFormData({ ...formData, exchangeRate: rateChars(e.target.value) })}
+              className={`w-full px-4 py-2 border rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all disabled:bg-slate-100 disabled:text-slate-500 ${errors.exchangeRate ? 'border-red-500' : 'border-slate-200'}`}
+              placeholder="e.g. 88.25"
+            />
+            <p className="text-[11px] text-slate-400 mt-1">Units per 1 base currency</p>
+            {errors.exchangeRate && <p className="text-red-500 text-xs mt-1">{errors.exchangeRate}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Base Currency</label>
+            <label className="flex items-center gap-2 px-4 py-2 border border-slate-200 rounded-xl text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.baseCurrency}
+                onChange={(e) => setFormData({
+                  ...formData,
+                  baseCurrency: e.target.checked,
+                  exchangeRate: e.target.checked ? '1' : formData.exchangeRate,
+                })}
+                className="rounded border-slate-300 text-primary focus:ring-primary/30"
+              />
+              <span className="text-slate-600">This is the base currency</span>
+            </label>
+            <p className="text-[11px] text-slate-400 mt-1">Marking this demotes the current base</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>

@@ -2,12 +2,23 @@ import { useState, useEffect } from 'react';
 import { BarChart2, PieChart, TrendingUp, Activity, ShoppingCart, FileText, Package } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { DateFilter } from '../../components/ui/DateFilter';
+<<<<<<< HEAD
+import { initialPRs } from './PurchaseRequisitions';
+import { initialPOs } from './PurchaseOrders';
+import { initialGRNs } from './GoodsReceipt';
+import { useLocalStorage } from '../../utils/useLocalStorage';
+=======
+>>>>>>> origin/main
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
+import { useItems } from '../../hooks/useMasterOptions';
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
 
 export const ProcurementDashboard = () => {
+  // Live from the admin masters. These used to be hardcoded mockData
+  // arrays, so anything added in a master never reached these pickers.
+  const { options: items } = useItems();
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [loading, setLoading] = useState(true);
@@ -41,6 +52,32 @@ export const ProcurementDashboard = () => {
       if (startDate) params.append('fromDate', startDate);
       if (endDate) params.append('toDate', endDate);
 
+<<<<<<< HEAD
+  // Spend by Category
+  const categorySpend = pos.reduce((acc: any, po: any) => {
+    po.items.forEach((item: any) => {
+      const itm = items.find((i: any) => i.id === item.itemId);
+      const cat = itm?.category || 'Other';
+      acc[cat] = (acc[cat] || 0) + item.amount;
+    });
+    return acc;
+  }, {});
+
+  const totalCatSpend = Object.values(categorySpend).reduce((a: any, b: any) => a + b, 0) || 1;
+  const categoryColors = ['bg-blue-500', 'bg-emerald-500', 'bg-purple-500', 'bg-amber-500', 'bg-slate-400', 'bg-pink-500', 'bg-indigo-500'];
+  const spendByCategoryData = Object.entries(categorySpend)
+    .sort((a: any, b: any) => b[1] - a[1])
+    .map(([label, value]: [string, any], index) => ({
+      label,
+      value: Math.round(((value as number) / (totalCatSpend as number)) * 100),
+      color: categoryColors[index % categoryColors.length]
+    }));
+
+  // Vendor Performance
+  const vendorStats = pos.reduce((acc: any, po: any) => {
+    if (!acc[po.vendorName]) {
+      acc[po.vendorName] = { name: po.vendorName, po: 0, fulfill: 95 + Math.floor(Math.random() * 5), qs: (4.0 + Math.random()).toFixed(1) };
+=======
       const res = await fetch(`${API_BASE}/procurement-dashboard?${params.toString()}`);
       const result = await res.json();
       setData(result);
@@ -48,6 +85,7 @@ export const ProcurementDashboard = () => {
       console.error('Failed to fetch dashboard data', err);
     } finally {
       setLoading(false);
+>>>>>>> origin/main
     }
   };
 

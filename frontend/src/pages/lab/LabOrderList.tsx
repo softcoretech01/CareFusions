@@ -28,18 +28,21 @@ export const LabOrderList = () => {
     setActiveOrder(null);
   };
 
-  const handleSaveResult = (testId: string, resultValue: string, resultFile?: string) => {
+  const handleSaveResult = async (testId: string, resultValue: string, resultFile?: string) => {
     if (!activeOrder) return;
 
-    // Basic mock validation for critical values (e.g. if Hemoglobin < 7 or > 18)
-    let isCritical = false;
-    const valueNum = parseFloat(resultValue);
-    if (!isNaN(valueNum) && (valueNum < 7 || valueNum > 18)) {
-      isCritical = true;
-      toast.error('Critical value detected!', { icon: '⚠️' });
-    }
+    // Abnormal/critical flagging is decided by the backend from the test's own
+    // reference range and its critical-value flag in the test master, so the
+    // result of the save tells us whether to warn.
+    updateTestResult(activeOrder.id, testId, resultValue, resultFile);
 
-    updateTestResult(activeOrder.id, testId, resultValue, resultFile, isCritical);
+    const test = activeOrder.tests.find(t => t.id === testId);
+    const range = test?.normalRange;
+    const value = parseFloat(resultValue);
+    const bounds = range?.match(/^(-?\d+(?:\.\d+)?)\s*-\s*(-?\d+(?:\.\d+)?)$/);
+    if (bounds && !isNaN(value) && (value < parseFloat(bounds[1]) || value > parseFloat(bounds[2]))) {
+      toast.error(`Out of reference range (${range})`, { icon: '⚠️' });
+    }
     toast.success('Result saved successfully');
   };
 
@@ -73,7 +76,7 @@ export const LabOrderList = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold text-slate-800">Test Orders</h1>
       </div>
@@ -105,13 +108,13 @@ export const LabOrderList = () => {
         <table className="w-full text-sm text-left">
           <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200 text-xs uppercase tracking-wider">
             <tr>
-              <th className="px-6 py-4">Order ID</th>
-              <th className="px-6 py-4">Type</th>
-              <th className="px-6 py-4">Patient</th>
-              <th className="px-6 py-4">Ordered By</th>
-              <th className="px-6 py-4">Test Name</th>
-              <th className="px-6 py-4">Status</th>
-              <th className="px-6 py-4 text-center">Action</th>
+              <th className="px-4 py-3">Order ID</th>
+              <th className="px-4 py-3">Type</th>
+              <th className="px-4 py-3">Patient</th>
+              <th className="px-4 py-3">Ordered By</th>
+              <th className="px-4 py-3">Test Name</th>
+              <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3 text-center">Action</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -123,19 +126,19 @@ export const LabOrderList = () => {
               </tr>
             ) : filteredOrders.map(order => (
               <tr key={order.id} className="hover:bg-slate-50/60 transition-colors">
-                <td className="px-6 py-4 font-mono font-semibold text-slate-900">{order.id}</td>
-                <td className="px-6 py-4">
+                <td className="px-4 py-3 font-mono font-semibold text-slate-900">{order.id}</td>
+                <td className="px-4 py-3">
                   <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${order.type === 'IP' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
                     {order.type}
                   </span>
                 </td>
-                <td className="px-6 py-4">
+                <td className="px-4 py-3">
                   <div className="text-slate-700 font-medium">{order.patientName}</div>
                   <div className="text-xs text-slate-500">{order.patientId}</div>
                 </td>
-                <td className="px-6 py-4 text-slate-500 text-xs">{order.orderedBy}</td>
-                <td className="px-6 py-4 text-slate-700 text-sm font-medium">{order.tests.map(t => t.name).join(', ')}</td>
-                <td className="px-6 py-4">
+                <td className="px-4 py-3 text-slate-500 text-xs">{order.orderedBy}</td>
+                <td className="px-4 py-3 text-slate-700 text-sm font-medium">{order.tests.map(t => t.name).join(', ')}</td>
+                <td className="px-4 py-3">
                   <span className={`px-2.5 py-1 text-xs font-bold rounded-md ${order.status === 'Completed' ? 'bg-green-100 text-green-700' :
                       order.status === 'Partial' ? 'bg-amber-100 text-amber-700' :
                         'bg-slate-100 text-slate-600'
@@ -143,7 +146,7 @@ export const LabOrderList = () => {
                     {order.status}
                   </span>
                 </td>
-                <td className="px-6 py-4 text-center">
+                <td className="px-4 py-3 text-center">
                   <button
                     onClick={() => handleActionClick(order)}
                     className="px-3 py-1.5 text-xs font-bold bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg transition-colors flex items-center gap-1.5 mx-auto"
@@ -160,7 +163,7 @@ export const LabOrderList = () => {
       {activeOrder && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+            <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50">
               <div>
                 <h3 className="font-bold text-slate-800 text-lg">Upload Results</h3>
                 <p className="text-xs text-slate-500 mt-0.5">Order {activeOrder.id} • {activeOrder.patientName} ({activeOrder.patientId})</p>
@@ -261,7 +264,7 @@ export const LabOrderList = () => {
               ))}
             </div>
 
-            <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-end">
+            <div className="px-4 py-3 border-t border-slate-100 bg-slate-50 flex justify-end">
               <button onClick={handleCloseModal} className="px-6 py-2 bg-blue-600 text-white font-bold rounded-xl text-sm hover:bg-blue-700 transition-colors">
                 Done
               </button>

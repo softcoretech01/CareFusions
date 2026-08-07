@@ -35,8 +35,6 @@ const emptyData: Omit<AppointmentStatusRecord, 'id'> = {
   remarks: ''
 };
 
-const mockData: AppointmentStatusRecord[] = [];
-
 const API_BASE = import.meta.env.VITE_API_URL as string;
 
 const mapApiToRecord = (item: any): AppointmentStatusRecord => ({
@@ -54,7 +52,7 @@ const mapApiToRecord = (item: any): AppointmentStatusRecord => ({
 });
 
 export const AppointmentStatusMaster = () => {
-  const [records, setRecords] = useState<AppointmentStatusRecord[]>(mockData);
+  const [records, setRecords] = useState<AppointmentStatusRecord[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -343,7 +341,7 @@ export const AppointmentStatusMaster = () => {
                   {filteredRecords.length === 0 && (
                     <tr>
                       <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
-                        No appointment statuses found matching your criteria.
+                        {isLoading ? 'Loading records...' : 'No appointment statuses found matching your criteria.'}
                       </td>
                     </tr>
                   )}
@@ -472,7 +470,7 @@ export const AppointmentStatusMaster = () => {
                 <Button variant="outline" color="secondary" onClick={() => setIsFormOpen(false)}>
                   Cancel
                 </Button>
-                <Button variant="filled" color="primary" onClick={handleSaveForm} icon={Save}>
+                <Button variant="filled" color="primary" onClick={handleSaveForm} icon={Save} isLoading={isSaving}>
                   {selectedRecord ? 'Update' : 'Save'}
                 </Button>
               </div>

@@ -6,7 +6,14 @@ import { Modal } from '../../components/ui/Modal';
 import { DateFilter } from '../../components/ui/DateFilter';
 import type { RFQRecord } from './RequestForQuotation';
 
+<<<<<<< HEAD
+// Mock Data Imports
+import { usePaymentTerms, useVendors } from '../../hooks/useMasterOptions';
+import { initialRFQs, type RFQRecord } from './RequestForQuotation';
+import { useLocalStorage } from '../../utils/useLocalStorage';
+=======
 const API_BASE = import.meta.env.VITE_API_URL as string;
+>>>>>>> origin/main
 
 interface QuotationItem {
   id: string;
@@ -39,6 +46,15 @@ export interface QuotationRecord {
 export const initialQuotations: QuotationRecord[] = [];
 
 export const VendorQuotation = () => {
+<<<<<<< HEAD
+  // Live from the admin masters. These used to be hardcoded mockData
+  // arrays, so anything added in a master never reached these pickers.
+  const { options: vendors } = useVendors();
+  // Live from Payment Terms Master, so a term added there shows up here.
+  const { options: paymentTerms } = usePaymentTerms();
+  const [records, setRecords] = useLocalStorage<QuotationRecord[]>('procurement_qtns_v2', initialQuotations);
+  const [allRFQs] = useLocalStorage<RFQRecord[]>('procurement_rfqs_v2', initialRFQs);
+=======
   const [records, setRecords] = useState<QuotationRecord[]>([]);
   const [allRFQs, setAllRFQs] = useState<RFQRecord[]>([]);
   const [vendorsList, setVendorsList] = useState<any[]>([]);
@@ -76,6 +92,7 @@ export const VendorQuotation = () => {
       console.error(err);
     }
   };
+>>>>>>> origin/main
   
   const availableRFQs = useMemo(() => {
     return allRFQs.filter(rfq => {
@@ -118,10 +135,17 @@ export const VendorQuotation = () => {
       .filter(r => r.rfqNo === formData.rfqNo && r.id !== selectedRecord?.id)
       .map(r => r.vendorId);
       
+<<<<<<< HEAD
+    return vendors.filter(v => 
+      rfq.vendors.includes(v.id) && !existingVendorIds.includes(v.id)
+    );
+  }, [formData.rfqNo, allRFQs, records, selectedRecord]);
+=======
       return vendorsList.filter(v => 
         rfq.vendors.includes(v.id) && !existingVendorIds.includes(v.id)
       );
     }, [formData.rfqNo, allRFQs, records, selectedRecord, vendorsList]);
+>>>>>>> origin/main
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -302,7 +326,11 @@ export const VendorQuotation = () => {
               <div className="p-4 flex gap-4">
                 <select value={filterVendor} onChange={(e) => { setFilterVendor(e.target.value); setCurrentPage(1); }} className="px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none">
                   <option value="">All Vendors</option>
+<<<<<<< HEAD
+                  {vendors.map(v => <option key={v.id} value={v.vendorName}>{v.vendorName}</option>)}
+=======
                   {vendorsList.map(v => <option key={v.id} value={v.vendorName}>{v.vendorName}</option>)}
+>>>>>>> origin/main
                 </select>
                 <select value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setCurrentPage(1); }} className="px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none">
                   <option value="">All Statuses</option>
@@ -397,7 +425,11 @@ export const VendorQuotation = () => {
                 setFormData({...formData, vendorId: vendor?.id || 0, vendorName: vendor?.vendorName || '', paymentTerms: vendor?.paymentTerms || ''});
               }} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-primary disabled:bg-slate-100 disabled:text-slate-500">
                 <option value="">Select Vendor</option>
+<<<<<<< HEAD
+                {(selectedRecord ? [vendors.find(v => v.id === selectedRecord.vendorId)].filter(Boolean) as any[] : availableVendorsForRfq).map(v => (
+=======
                 {(selectedRecord ? [vendorsList.find(v => v.id === selectedRecord.vendorId)].filter(Boolean) as any[] : availableVendorsForRfq).map(v => (
+>>>>>>> origin/main
                   <option key={v.id} value={v.id}>{v.vendorName}</option>
                 ))}
               </select>
@@ -410,7 +442,11 @@ export const VendorQuotation = () => {
               <label className="block text-xs font-medium text-slate-500 mb-1">Payment Terms</label>
               <select value={formData.paymentTerms} onChange={(e) => setFormData({...formData, paymentTerms: e.target.value})} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm">
                 <option value="">Select Terms</option>
+<<<<<<< HEAD
+                {paymentTerms.map(p => <option key={p.id} value={p.paymentTermName}>{p.paymentTermName}</option>)}
+=======
                 {paymentTermsList.map(p => <option key={p.id} value={p.paymentTermName}>{p.paymentTermName}</option>)}
+>>>>>>> origin/main
               </select>
             </div>
             <div><label className="block text-xs font-medium text-slate-500 mb-1">Delivery Days</label><input type="number" value={formData.deliveryDays} onChange={(e) => setFormData({...formData, deliveryDays: Number(e.target.value)})} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm" /></div>
@@ -488,7 +524,11 @@ export const VendorQuotation = () => {
               <h3 className="font-semibold text-slate-800 mb-3">Vendor Details</h3>
               <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-sm">
                 {(() => {
+<<<<<<< HEAD
+                  const v = vendors.find(vm => vm.id === selectedRecord.vendorId);
+=======
                   const v = vendorsList.find(vm => vm.id === selectedRecord.vendorId);
+>>>>>>> origin/main
                   return v ? (
                     <div className="grid grid-cols-2 gap-4">
                       <div><span className="text-slate-500">Contact Person:</span> <span className="font-medium">{v.contactPerson}</span></div>

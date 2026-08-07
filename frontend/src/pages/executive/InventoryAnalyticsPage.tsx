@@ -1,118 +1,174 @@
-import { useState } from 'react';
-import { DateFilter } from '../../components/ui/DateFilter';
-import { useExecutiveData } from './hooks/useExecutiveData';
-import { TrendingUp, TrendingDown, Package, AlertCircle, ShieldAlert, CheckCircle, Activity } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Package, IndianRupee, PackageX, CalendarClock, TrendingDown } from 'lucide-react';
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
+import { Pagination } from '../../components/ui/Pagination';
+import { NoDataNotice } from '../../components/ui/NoDataNotice';
 
-const InventoryKPICard = ({ title, value, subValue, trend, trendValue, icon: Icon }: any) => (
-  <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm hover:border-primary/50 transition-colors group">
-    <div className="flex justify-between items-start mb-4">
-      <div className="p-2.5 rounded-lg bg-slate-50 text-slate-500 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
-        <Icon className="w-5 h-5" />
-      </div>
-      {trend && (
-        <div className={`flex items-center gap-1 text-sm font-semibold ${trend === 'up' ? 'text-emerald-600' : 'text-rose-600'}`}>
-          {trend === 'up' ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-          {trendValue}%
-        </div>
-      )}
+const API_BASE = import.meta.env.VITE_API_URL as string;
+const inr = (n: number) => `₹${(n ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+
+const KPI = ({ title, value, sub, icon: Icon, cls }: any) => (
+  <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+    <div className={`w-9 h-9 rounded-lg flex items-center justify-center mb-2 ${cls}`}>
+      <Icon className="w-5 h-5" />
     </div>
-    
-    <div>
-      <h4 className="text-slate-500 text-sm font-medium mb-1">{title}</h4>
-      <div className="flex items-baseline gap-2">
-        <span className="text-2xl font-bold text-slate-800">{value}</span>
-        {subValue && <span className="text-sm font-medium text-slate-400">{subValue}</span>}
-      </div>
-    </div>
+    <p className="text-2xl font-bold text-slate-800">{value}</p>
+    <p className="text-xs text-slate-500 mt-0.5">{title}</p>
+    {sub && <p className="text-[11px] text-slate-400 mt-0.5">{sub}</p>}
   </div>
 );
 
-const formatINR = (value: number) => {
-  if (value >= 10000000) return `₹${(value / 10000000).toFixed(2)} Cr`;
-  if (value >= 100000) return `₹${(value / 100000).toFixed(2)} L`;
-  return `₹${value.toLocaleString('en-IN')}`;
-};
-
 export const InventoryAnalyticsPage = () => {
-  const data = useExecutiveData();
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
-  const inventory = data.inventory;
+  const [valuation, setValuation] = useState<{ category: string; itemCount: number; totalQty: number; totalValue: number }[]>([]);
+  const [low, setLow] = useState<any[]>([]);
+  const [expiring, setExpiring] = useState<any[]>([]);
+  const [ledger, setLedger] = useState<any[]>([]);
+  const [dash, setDash] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-  const areaOptions: ApexOptions = {
-    chart: { type: 'area', stacked: true, toolbar: { show: false }, fontFamily: 'Inter' },
-    colors: ['#01684c', '#0ea5e9', '#f5a623'],
-    fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.6, opacityTo: 0.1, stops: [0, 90, 100] } },
-    dataLabels: { enabled: false },
-    stroke: { curve: 'smooth', width: 2 },
-    xaxis: { categories: inventory.consumptionTrend.map((t: any) => t.month), labels: { style: { colors: '#64748b' } } },
-    yaxis: { labels: { formatter: (val) => `₹${(val / 100000).toFixed(0)}L`, style: { colors: '#64748b' } } },
-    legend: { position: 'top' }
-  };
+  // Every figure comes from the inventory backend. The prototype hardcoded the
+  // ₹85.4M total and generated the consumption trend with Math.random().
+  useEffect(() => {
+    const get = (p: string) => fetch(`${API_BASE}/inventory/${p}`).then(r => r.json());
+    Promise.allSettled([
+      get('stock/valuation'), get('stock/low'), get('stock/expiring?days=90'),
+      get('ledger'), get('dashboard'),
+    ]).then(([v, l, e, lg, d]) => {
+      if (v.status === 'fulfilled' && Array.isArray(v.value)) setValuation(v.value);
+      if (l.status === 'fulfilled' && Array.isArray(l.value)) setLow(l.value);
+      if (e.status === 'fulfilled' && Array.isArray(e.value)) setExpiring(e.value);
+      if (lg.status === 'fulfilled' && Array.isArray(lg.value)) setLedger(lg.value);
+      if (d.status === 'fulfilled' && d.value && !Array.isArray(d.value)) setDash(d.value);
+      setLoading(false);
+    });
+  }, []);
+
+  const totalValue = valuation.reduce((s, v) => s + v.totalValue, 0);
+  const expiredValue = expiring.filter(e => e.daysToExpiry < 0).length;
+
+  // Real monthly consumption from issue/write-off movements.
+  const consumption = useMemo(() => {
+    const acc: Record<string, number> = {};
+    ledger.filter(l => l.quantity < 0).forEach(l => {
+      const d = new Date(l.txnDate);
+      const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      acc[k] = (acc[k] || 0) + Math.abs(l.value);
+    });
+    return Object.entries(acc).sort(([a], [b]) => a.localeCompare(b)).slice(-12)
+      .map(([month, value]) => ({ month, value }));
+  }, [ledger]);
 
   const donutOptions: ApexOptions = {
     chart: { type: 'donut', fontFamily: 'Inter' },
-    labels: ['Medicines', 'Surgicals', 'Consumables', 'Implants', 'Others'],
-    colors: ['#01684c', '#0ea5e9', '#f5a623', '#8b5cf6', '#94a3b8'],
+    labels: valuation.map(v => v.category),
+    colors: ['#2563EB', '#8b5cf6', '#F59E0B', '#06B6D4', '#22C55E', '#ef4444'],
     dataLabels: { enabled: false },
     legend: { position: 'bottom' },
-    stroke: { width: 0 }
+    stroke: { width: 0 },
   };
 
+  const consumptionOptions: ApexOptions = {
+    chart: { type: 'area', toolbar: { show: false }, fontFamily: 'Inter' },
+    stroke: { curve: 'smooth', width: 2 },
+    fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.35, opacityTo: 0.05 } },
+    dataLabels: { enabled: false },
+    xaxis: {
+      categories: consumption.map(c => {
+        const [y, m] = c.month.split('-');
+        return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
+      }),
+      axisBorder: { show: false }, axisTicks: { show: false },
+    },
+    yaxis: { labels: { formatter: v => inr(v) } },
+    colors: ['#f43f5e'],
+  };
+
+  const PAGE_SIZE = 10;
+  const [page, setPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(low.length / PAGE_SIZE));
+  useEffect(() => { if (page > totalPages) setPage(1); }, [page, totalPages]);
+  const paged = low.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   return (
-    <div className="space-y-6">
-      <div className="flex justify-end">
-        <DateFilter
-          dateFrom={fromDate}
-          dateTo={toDate}
-          onDateFromChange={setFromDate}
-          onDateToChange={setToDate}
-        />
+    <div className="space-y-3">
+      <div>
+        <h1 className="text-xl font-bold text-slate-800">Inventory Analytics</h1>
+        <p className="text-xs text-slate-500">Stock position and consumption at moving-average cost</p>
       </div>
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Inventory Analytics</h1>
-          <p className="text-sm text-slate-500 mt-1">Track stock levels, consumption trends, and wastage across the hospital.</p>
+
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+        <KPI title="Total Stock Value" value={inr(totalValue)} icon={IndianRupee} cls="text-emerald-600 bg-emerald-50" />
+        <KPI title="Items in Stock" value={dash?.totalItems ?? 0} icon={Package} cls="text-blue-600 bg-blue-50" />
+        <KPI title="Below Reorder Level" value={low.length} icon={TrendingDown} cls="text-amber-600 bg-amber-50" />
+        <KPI title="Out of Stock" value={dash?.outOfStock ?? 0} icon={PackageX} cls="text-rose-600 bg-rose-50" />
+        <KPI title="Expiring / Expired" value={expiring.length}
+             sub={`${expiredValue} already expired`} icon={CalendarClock} cls="text-purple-600 bg-purple-50" />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+          <h3 className="font-bold text-slate-800 mb-2">Consumption Value by Month</h3>
+          {consumption.length > 0
+            ? <Chart options={consumptionOptions} series={[{ name: 'Consumed', data: consumption.map(c => c.value) }]} type="area" height={260} />
+            : <div className="h-[260px] flex items-center justify-center text-sm text-slate-400">
+                {loading ? 'Loading…' : 'No stock has been issued yet.'}
+              </div>}
+        </div>
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+          <h3 className="font-bold text-slate-800 mb-2">Value by Category</h3>
+          {valuation.length > 0
+            ? <Chart options={donutOptions} series={valuation.map(v => v.totalValue)} type="donut" height={260} />
+            : <div className="h-[260px] flex items-center justify-center text-sm text-slate-400">
+                {loading ? 'Loading…' : 'No stock to value.'}
+              </div>}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-        <InventoryKPICard title="Total Inventory Value" value={formatINR(inventory.totalValue)} trend="up" trendValue={1.2} icon={Package} />
-        <InventoryKPICard title="Low Stock Items" value={inventory.lowStockItems} trend="up" trendValue={5.4} icon={AlertCircle} />
-        <InventoryKPICard title="Out of Stock" value={inventory.outOfStockItems} trend="up" trendValue={2.1} icon={ShieldAlert} />
-        <InventoryKPICard title="Stock Accuracy" value={`${inventory.stockAccuracy}%`} trend="up" trendValue={0.5} icon={CheckCircle} />
-        <InventoryKPICard title="Expiry Loss (MTD)" value={formatINR(inventory.expiredStockValue)} trend="down" trendValue={18.4} icon={Activity} />
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+        <div className="px-4 py-2.5 border-b border-slate-100">
+          <h3 className="font-bold text-slate-800">Items Below Reorder Level</h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <tr>
+                <th className="px-3 py-2 text-left">Item</th>
+                <th className="px-3 py-2 text-left">Category</th>
+                <th className="px-3 py-2 text-right">On Hand</th>
+                <th className="px-3 py-2 text-right">Reorder Level</th>
+                <th className="px-3 py-2 text-right">Deficit</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {paged.map(r => (
+                <tr key={r.itemId} className="hover:bg-slate-50/70">
+                  <td className="px-3 py-2">
+                    <div className="font-medium text-slate-800">{r.itemName}</div>
+                    <div className="text-xs text-slate-500">{r.itemCode}</div>
+                  </td>
+                  <td className="px-3 py-2 text-slate-600">{r.category || '—'}</td>
+                  <td className="px-3 py-2 text-right text-slate-700">{r.quantity} {r.uom}</td>
+                  <td className="px-3 py-2 text-right text-slate-600">{r.reorderLevel}</td>
+                  <td className="px-3 py-2 text-right font-bold text-rose-600">{r.deficit}</td>
+                </tr>
+              ))}
+              {low.length === 0 && (
+                <tr><td colSpan={5} className="px-3 py-8 text-center text-slate-400">
+                  {loading ? 'Loading…' : 'No items are below their reorder level.'}
+                </td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        <Pagination page={page} pageSize={PAGE_SIZE} totalItems={low.length} onPageChange={setPage} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-          <h3 className="text-lg font-bold text-slate-800 mb-6">Consumption Trend (Last 12 Months)</h3>
-          <Chart 
-            options={areaOptions} 
-            series={[
-              { name: 'Medicines', data: inventory.consumptionTrend.map((t: any) => t.medicines) },
-              { name: 'Surgicals', data: inventory.consumptionTrend.map((t: any) => t.surgical) },
-              { name: 'Consumables', data: inventory.consumptionTrend.map((t: any) => t.consumables) }
-            ]} 
-            type="area" 
-            height={360} 
-          />
-        </div>
-        
-        <div className="lg:col-span-1 bg-white rounded-xl border border-slate-200 p-6 shadow-sm flex flex-col">
-          <h3 className="text-lg font-bold text-slate-800 mb-6">Inventory Value Distribution</h3>
-          <div className="flex-1 flex items-center justify-center">
-            <Chart 
-              options={donutOptions} 
-              series={[45000000, 22000000, 8400000, 6500000, 3500000]} 
-              type="donut" 
-              height={320} 
-            />
-          </div>
-        </div>
-      </div>
+      <NoDataNotice
+        title="Stock accuracy and pending GRN / transfers"
+        needs="Procurement"
+        detail="Stock accuracy needs a physical-count cycle, and GRN counts need purchase orders; the prototype showed 98.5% and 24 pending GRNs with no source."
+      />
     </div>
   );
 };

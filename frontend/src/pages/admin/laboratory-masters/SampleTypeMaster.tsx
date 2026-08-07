@@ -31,8 +31,6 @@ const emptyData: Omit<SampleTypeRecord, 'id'> = {
   remarks: ''
 };
 
-const mockData: SampleTypeRecord[] = [];
-
 const API_BASE = import.meta.env.VITE_API_URL as string;
 
 const mapApiToRecord = (item: any): SampleTypeRecord => ({
@@ -48,7 +46,7 @@ const mapApiToRecord = (item: any): SampleTypeRecord => ({
 });
 
 export const SampleTypeMaster = () => {
-  const [records, setRecords] = useState<SampleTypeRecord[]>(mockData);
+  const [records, setRecords] = useState<SampleTypeRecord[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -325,7 +323,7 @@ export const SampleTypeMaster = () => {
                   ) : (
                     <tr>
                       <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
-                        No sample types found matching your criteria.
+                        {isLoading ? 'Loading records...' : 'No sample types found matching your criteria.'}
                       </td>
                     </tr>
                   )}
@@ -438,7 +436,7 @@ export const SampleTypeMaster = () => {
                 <Button variant="outline" color="secondary" onClick={() => setIsFormOpen(false)}>
                   Cancel
                 </Button>
-                <Button variant="filled" color="primary" onClick={handleSaveForm} icon={Save}>
+                <Button variant="filled" color="primary" onClick={handleSaveForm} icon={Save} isLoading={isSaving}>
                   {selectedRecord ? 'Update' : 'Save'}
                 </Button>
               </div>
