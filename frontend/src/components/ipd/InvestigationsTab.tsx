@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FlaskConical, Plus, Search, FileText, Loader2, CheckCircle, Clock } from 'lucide-react';
+import { FlaskConical, Plus, Loader2, CheckCircle, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export interface InvestigationOrder {
@@ -21,7 +21,7 @@ interface InvestigationsTabProps {
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
 
-export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({ admissionId, patientName }) => {
+export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({ admissionId }) => {
   const [orders, setOrders] = useState<InvestigationOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);

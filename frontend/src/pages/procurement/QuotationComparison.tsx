@@ -1,12 +1,5 @@
-<<<<<<< HEAD
-import { useState, useMemo } from 'react';
-import { Pagination } from '@/components/ui/Pagination';
-import { usePagination } from '@/hooks/usePagination';
-import { Search, CheckCircle, FileText, ArrowLeft, GitCompare, Award } from 'lucide-react';
-=======
 import { useState, useMemo, useEffect } from 'react';
 import { Search, CheckCircle, FileText, ArrowLeft, GitCompare, Award, RefreshCw } from 'lucide-react';
->>>>>>> origin/main
 import { motion } from 'framer-motion';
 import { Button } from '../../components/ui/Button';
 import { DateFilter } from '../../components/ui/DateFilter';
@@ -134,10 +127,6 @@ export const QuotationComparison = () => {
       alert('An error occurred during approval.');
     }
   };
-
-  // Paginates the RFQ card grid below. Declared here, above the detail-view
-  // early return, so the hook order stays identical on every render.
-  const { page, setPage, pageSize, total, paged } = usePagination(filteredComparisons);
 
   if (selectedRfq) {
     // Calculate bests
@@ -330,7 +319,7 @@ export const QuotationComparison = () => {
 
         <div className="flex-1 overflow-auto p-4">
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {paged.map((comp) => (
+            {filteredComparisons.map((comp) => (
               <div key={comp.rfqNo} className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow group">
                 <div className="p-3 border-b border-slate-100 bg-slate-50 group-hover:bg-primary/5 transition-colors">
                   <div className="flex justify-between items-start mb-2">
@@ -386,7 +375,6 @@ export const QuotationComparison = () => {
             )}
           </div>
         </div>
-        <Pagination page={page} pageSize={pageSize} totalItems={total} onPageChange={setPage} />
       </div>
     </motion.div>
   );

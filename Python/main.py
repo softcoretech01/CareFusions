@@ -18,15 +18,11 @@ from app.routers import (
     patient_registration, quick_registration, emergency_registration, patient_documents,
     patient_visit, opd_visit, ipd_visit,
     appointment, permission, auth,
-<<<<<<< HEAD
-    patient_visit,
-    appointment, permission, auth, doctor_schedule, ipd, ipd_clinical, pharmacy, lab, insurance, inventory, executive,
+    doctor_schedule, ipd, ipd_clinical, pharmacy, lab, insurance, inventory, executive,
     doctor_specialization, housekeeping,
-=======
-    doctor_schedule, ipd, op_billing, ip_billing, billing_reports, radiology_orders, radiology_qc,
+    op_billing, ip_billing, billing_reports, radiology_orders, radiology_qc,
     purchase_requisition, rfq, vendor_quotation, purchase_order, goods_receipt, purchase_return,
     vendor_catalog, approval, procurement_dashboard
->>>>>>> origin/main
 )
 
 # ── Logging ──────────────────────────────────────────────────
