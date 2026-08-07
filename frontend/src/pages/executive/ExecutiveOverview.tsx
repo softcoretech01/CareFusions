@@ -3,7 +3,7 @@ import {
   IndianRupee, Users, BedDouble, CalendarCheck, Package, FlaskConical,
   AlertTriangle, ShieldCheck, Receipt,
 } from 'lucide-react';
-import { NoDataNotice } from './components/NoDataNotice';
+import { NoDataNotice } from '../../components/ui/NoDataNotice';
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
 const inr = (n: number) => `₹${(n ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;

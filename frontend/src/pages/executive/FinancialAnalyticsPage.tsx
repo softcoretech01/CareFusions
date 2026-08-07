@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { IndianRupee, Receipt, ShieldCheck, Package, Clock, TrendingUp } from 'lucide-react';
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
-import { NoDataNotice } from './components/NoDataNotice';
+import { NoDataNotice } from '../../components/ui/NoDataNotice';
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
 const inr = (n: number) => `₹${(n ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;

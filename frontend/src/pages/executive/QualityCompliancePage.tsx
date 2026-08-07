@@ -1,4 +1,4 @@
-import { NoDataNotice } from './components/NoDataNotice';
+import { NoDataNotice } from '../../components/ui/NoDataNotice';
 
 /**
  * Quality & Compliance

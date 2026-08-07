@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Download, Printer, FileText, ChevronRight, CheckCircle2, Activity, DollarSign, Users, Package, FileCheck, Stethoscope, HeartPulse, Building2, BarChart3, ShieldCheck, Sparkles, Filter } from 'lucide-react';
 import Chart from 'react-apexcharts';
-import { NoDataNotice } from './components/NoDataNotice';
+import { NoDataNotice } from '../../components/ui/NoDataNotice';
 
 type Step = 'select-analysis' | 'configure' | 'generating' | 'preview';
 

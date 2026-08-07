@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { CalendarCheck, Clock, FlaskConical, Pill, XCircle, Hourglass } from 'lucide-react';
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
-import { NoDataNotice } from './components/NoDataNotice';
+import { NoDataNotice } from '../../components/ui/NoDataNotice';
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
 

@@ -1,29 +1,26 @@
 import { useState, useMemo } from 'react';
 import { 
-  Search, Filter, BookOpen, Star, Package, Clock, TrendingUp
+  Search, Filter, BookOpen, Package, Clock, TrendingUp
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useItemCategories, useItems, useVendors } from '../../hooks/useMasterOptions';
 
 
-// Mock Data Imports
-import { mockData as itemsMock } from '../admin/purchase-inventory/ItemMaster';
-import { mockData as vendorsMock } from '../admin/purchase-inventory/VendorMaster';
-import { mockData as categoriesMock } from '../admin/purchase-inventory/CategoryMaster';
-
-// We'll generate a mock catalog by mapping items to vendors.
-const mockCatalog = vendorsMock.map(vendor => ({
-  ...vendor,
-  rating: (Math.random() * 2 + 3).toFixed(1), // Random rating between 3.0 and 5.0
-  activeContracts: Math.floor(Math.random() * 5),
-  itemsSupplied: itemsMock.slice(0, Math.floor(Math.random() * itemsMock.length) + 2).map(item => ({
-    ...item,
-    catalogPrice: (Math.random() * 50 + 10).toFixed(2), // Random price
-    lastUpdate: '2024-01-10',
-    contractValidUntil: '2024-12-31'
-  }))
-}));
 
 export const VendorsCatalog = () => {
+  // Live from the admin masters. These used to be hardcoded mockData
+  // arrays, so anything added in a master never reached these pickers.
+  const { options: items } = useItems();
+  const { options: vendors } = useVendors();
+  const { options: itemCategories } = useItemCategories();
+
+  // Which items a vendor actually supplies comes from Item Master's Vendor
+  // field. Star ratings, contract counts, catalogue prices and contract dates
+  // have no source in the system, so they are not shown rather than invented.
+  const catalog = useMemo(() => vendors.map(vendor => ({
+    ...vendor,
+    itemsSupplied: items.filter(i => i.vendor === vendor.vendorName),
+  })), [vendors, items]);
   const [searchTerm, setSearchTerm] = useState('');
   
   const [showFilters, setShowFilters] = useState(false);
@@ -32,7 +29,7 @@ export const VendorsCatalog = () => {
   const [selectedVendor, setSelectedVendor] = useState<any | null>(null);
 
   const processedData = useMemo(() => {
-    let result = mockCatalog.filter(vendor => {
+    let result = catalog.filter(vendor => {
       const matchesSearch = vendor.vendorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             vendor.vendorCode.toLowerCase().includes(searchTerm.toLowerCase());
       
@@ -43,7 +40,9 @@ export const VendorsCatalog = () => {
       return matchesSearch && hasCategoryItems;
     });
     return result;
-  }, [searchTerm, filterCategory]);
+    // `catalog` belongs here: it was a module constant before, but now it
+    // arrives from the API, so omitting it leaves the list empty after load.
+  }, [catalog, searchTerm, filterCategory]);
 
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="h-full flex flex-col">
@@ -83,7 +82,7 @@ export const VendorsCatalog = () => {
                 <div className="p-3">
                   <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none">
                     <option value="">Filter by Category</option>
-                    {categoriesMock.map(c => <option key={c.id} value={c.categoryName}>{c.categoryName}</option>)}
+                    {itemCategories.map(c => <option key={c.id} value={c.categoryName}>{c.categoryName}</option>)}
                   </select>
                 </div>
               </motion.div>
@@ -99,14 +98,11 @@ export const VendorsCatalog = () => {
               >
                 <div className="flex justify-between items-start mb-1">
                   <h3 className="font-bold text-slate-800">{vendor.vendorName}</h3>
-                  <div className="flex items-center gap-1 text-sm font-medium text-amber-500">
-                    <Star className="w-3.5 h-3.5 fill-amber-500" /> {vendor.rating}
-                  </div>
                 </div>
                 <div className="text-sm text-slate-500 mb-3">{vendor.city}</div>
                 <div className="flex gap-4 text-xs font-medium text-slate-600">
                   <div className="flex items-center gap-1.5"><Package className="w-3.5 h-3.5 text-primary" /> {vendor.itemsSupplied.length} Items</div>
-                  <div className="flex items-center gap-1.5"><BookOpen className="w-3.5 h-3.5 text-blue-500" /> {vendor.activeContracts} Contracts</div>
+                  <div className="flex items-center gap-1.5"><BookOpen className="w-3.5 h-3.5 text-blue-500" /> {vendor.vendorCode}</div>
                 </div>
               </div>
             ))}
@@ -128,7 +124,7 @@ export const VendorsCatalog = () => {
                     </div>
                   </div>
                   <div className="px-4 py-2 bg-blue-100 text-blue-800 rounded-xl font-bold text-lg text-center">
-                    {selectedVendor.rating} <span className="text-xs font-medium block">Rating</span>
+                    <span className="text-xs font-medium block">No rating source</span>
                   </div>
                 </div>
               </div>
@@ -159,11 +155,11 @@ export const VendorsCatalog = () => {
                         <td className="py-3 px-4 text-slate-800">{item.itemName}</td>
                         <td className="py-3 px-4 text-slate-600 text-sm">{item.category}</td>
                         <td className="py-3 px-4 text-slate-600 text-sm flex items-center gap-2">
-                          <Clock className="w-4 h-4 text-orange-500"/> {item.contractValidUntil}
+                          <Clock className="w-4 h-4 text-orange-500"/> {item.uom || '—'}
                         </td>
                         <td className="py-3 px-4 text-right">
-                          <div className="font-bold text-emerald-600">₹{item.catalogPrice}</div>
-                          <div className="text-[10px] text-slate-400 flex items-center justify-end gap-1 mt-0.5"><TrendingUp className="w-3 h-3"/> Last up: {item.lastUpdate}</div>
+                          <div className="font-bold text-slate-400 text-sm">No contract price</div>
+                          <div className="text-[10px] text-slate-400 flex items-center justify-end gap-1 mt-0.5"><TrendingUp className="w-3 h-3"/> needs Vendor Price List</div>
                         </td>
                       </tr>
                     ))}

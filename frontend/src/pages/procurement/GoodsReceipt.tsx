@@ -7,11 +7,10 @@ import { DateFilter } from '../../components/ui/DateFilter';
 
 // Mock Data Imports
 
-import { mockData as vendorsMock } from '../admin/purchase-inventory/VendorMaster';
-import { mockData as warehousesMock } from '../admin/purchase-inventory/WarehouseMaster';
 import { initialPOs, type PORecord } from './PurchaseOrders';
 import { useLocalStorage } from '../../utils/useLocalStorage';
 import { exportToExcel } from '../../utils/exportToExcel';
+import { useVendors, useWarehouses } from '../../hooks/useMasterOptions';
 
 interface GRNItem {
   id: string;
@@ -51,6 +50,10 @@ export interface GRNRecord {
 export const initialGRNs: GRNRecord[] = [];
 
 export const GoodsReceipt = () => {
+  // Live from the admin masters. These used to be hardcoded mockData
+  // arrays, so anything added in a master never reached these pickers.
+  const { options: vendors } = useVendors();
+  const { options: warehouses } = useWarehouses();
   const [records, setRecords] = useLocalStorage<GRNRecord[]>('procurement_grns_v2', initialGRNs);
   const [allPOs] = useLocalStorage<PORecord[]>('procurement_pos_v2', initialPOs);
   
@@ -266,7 +269,7 @@ export const GoodsReceipt = () => {
               <div className="p-4 flex gap-4">
                 <select value={filterVendor} onChange={(e) => { setFilterVendor(e.target.value); setCurrentPage(1); }} className="px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none">
                   <option value="">All Vendors</option>
-                  {vendorsMock.map(v => <option key={v.id} value={v.vendorName}>{v.vendorName}</option>)}
+                  {vendors.map(v => <option key={v.id} value={v.vendorName}>{v.vendorName}</option>)}
                 </select>
                 <select value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setCurrentPage(1); }} className="px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none">
                   <option value="">All Statuses</option>
@@ -324,11 +327,11 @@ export const GoodsReceipt = () => {
             <div className="col-span-2">
               <label className="block text-xs font-medium text-slate-500 mb-1">Vendor*</label>
               <select value={formData.vendorId} onChange={(e) => {
-                const vendor = vendorsMock.find(v => v.id === Number(e.target.value));
+                const vendor = vendors.find(v => v.id === Number(e.target.value));
                 setFormData({...formData, vendorId: vendor?.id || 0, vendorName: vendor?.vendorName || '', poNumber: '', items: []});
               }} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-primary">
                 <option value="">Select Vendor</option>
-                {vendorsMock.map(v => <option key={v.id} value={v.id}>{v.vendorName}</option>)}
+                {vendors.map(v => <option key={v.id} value={v.id}>{v.vendorName}</option>)}
               </select>
             </div>
             <div>
@@ -379,7 +382,7 @@ export const GoodsReceipt = () => {
               <label className="block text-xs font-medium text-slate-500 mb-1">Receiving Store*</label>
               <select value={formData.store} onChange={(e) => setFormData({...formData, store: e.target.value})} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-primary">
                 <option value="">Select Store</option>
-                {warehousesMock.map(w => <option key={w.id} value={w.storeName}>{w.storeName}</option>)}
+                {warehouses.map(w => <option key={w.id} value={w.storeName}>{w.storeName}</option>)}
               </select>
               {errors.store && <span className="text-xs text-red-500">{errors.store}</span>}
             </div>

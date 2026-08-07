@@ -6,11 +6,9 @@ import { Modal } from '../../components/ui/Modal';
 import { DateFilter } from '../../components/ui/DateFilter';
 
 // Mock Data Imports
-import { mockData as itemsMock } from '../admin/purchase-inventory/ItemMaster';
-import { mockData as departmentsMock } from '../admin/organization-masters/DepartmentMaster';
-import { mockData as warehousesMock } from '../admin/purchase-inventory/WarehouseMaster';
 import { useLocalStorage } from '../../utils/useLocalStorage';
 import { exportToExcel } from '../../utils/exportToExcel';
+import { useDepartments, useItems, useWarehouses } from '../../hooks/useMasterOptions';
 
 export interface PRItem {
   id: string;
@@ -49,6 +47,11 @@ export interface PRRecord {
 export const initialPRs: PRRecord[] = [];
 
 export const PurchaseRequisitions = () => {
+  // Live from the admin masters. These used to be hardcoded mockData
+  // arrays, so anything added in a master never reached these pickers.
+  const { options: items } = useItems();
+  const { options: departments } = useDepartments();
+  const { options: warehouses } = useWarehouses();
   const [records, setRecords] = useLocalStorage<PRRecord[]>('procurement_prs_v2', initialPRs);
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -152,7 +155,7 @@ export const PurchaseRequisitions = () => {
   };
 
   const handleItemChange = (index: number, itemId: number) => {
-    const selectedItem = itemsMock.find(i => i.id === itemId);
+    const selectedItem = items.find(i => i.id === itemId);
     if (!selectedItem) return;
 
     const newItems = [...formData.items];
@@ -332,7 +335,7 @@ export const PurchaseRequisitions = () => {
               <div className="p-4 flex gap-4">
                 <select value={filterDepartment} onChange={(e) => { setFilterDepartment(e.target.value); setCurrentPage(1); }} className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none">
                   <option value="">All Departments</option>
-                  {departmentsMock.map(d => <option key={d.id} value={d.departmentName}>{d.departmentName}</option>)}
+                  {departments.map(d => <option key={d.id} value={d.departmentName}>{d.departmentName}</option>)}
                 </select>
                 <select value={filterPriority} onChange={(e) => { setFilterPriority(e.target.value); setCurrentPage(1); }} className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none">
                   <option value="">All Priorities</option>
@@ -448,7 +451,7 @@ export const PurchaseRequisitions = () => {
               <label className="block text-xs font-medium text-slate-500 mb-1">Department*</label>
               <select value={formData.department} onChange={(e) => setFormData({...formData, department: e.target.value})} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-primary">
                 <option value="">Select Dept</option>
-                {departmentsMock.map(d => <option key={d.id} value={d.departmentName}>{d.departmentName}</option>)}
+                {departments.map(d => <option key={d.id} value={d.departmentName}>{d.departmentName}</option>)}
               </select>
               {errors.department && <span className="text-xs text-red-500">{errors.department}</span>}
             </div>
@@ -502,7 +505,7 @@ export const PurchaseRequisitions = () => {
                           className={`w-full p-1.5 border rounded-lg text-sm outline-none ${errors[`item_${index}`] ? 'border-red-300' : 'border-slate-200 focus:border-primary'}`}
                         >
                           <option value="">Select Item</option>
-                          {itemsMock.map(i => <option key={i.id} value={i.id}>{i.itemCode} - {i.itemName}</option>)}
+                          {items.map(i => <option key={i.id} value={i.id}>{i.itemCode} - {i.itemName}</option>)}
                         </select>
                       </td>
                       <td className="py-2 px-3 text-xs text-slate-500 leading-tight">
@@ -531,7 +534,7 @@ export const PurchaseRequisitions = () => {
                           className={`w-full p-1.5 border rounded-lg text-sm outline-none ${errors[`store_${index}`] ? 'border-red-300' : 'border-slate-200 focus:border-primary'}`}
                         >
                           <option value="">Select Store</option>
-                          {warehousesMock.map(w => <option key={w.id} value={w.storeName}>{w.storeName}</option>)}
+                          {warehouses.map(w => <option key={w.id} value={w.storeName}>{w.storeName}</option>)}
                         </select>
                       </td>
                       <td className="py-2 px-3 text-center">

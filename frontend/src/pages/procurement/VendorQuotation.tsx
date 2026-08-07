@@ -6,8 +6,7 @@ import { Modal } from '../../components/ui/Modal';
 import { DateFilter } from '../../components/ui/DateFilter';
 
 // Mock Data Imports
-import { mockData as vendorsMock } from '../admin/purchase-inventory/VendorMaster';
-import { usePaymentTerms } from '../../hooks/useMasterOptions';
+import { usePaymentTerms, useVendors } from '../../hooks/useMasterOptions';
 import { initialRFQs, type RFQRecord } from './RequestForQuotation';
 import { useLocalStorage } from '../../utils/useLocalStorage';
 
@@ -42,6 +41,9 @@ export interface QuotationRecord {
 export const initialQuotations: QuotationRecord[] = [];
 
 export const VendorQuotation = () => {
+  // Live from the admin masters. These used to be hardcoded mockData
+  // arrays, so anything added in a master never reached these pickers.
+  const { options: vendors } = useVendors();
   // Live from Payment Terms Master, so a term added there shows up here.
   const { options: paymentTerms } = usePaymentTerms();
   const [records, setRecords] = useLocalStorage<QuotationRecord[]>('procurement_qtns_v2', initialQuotations);
@@ -88,7 +90,7 @@ export const VendorQuotation = () => {
       .filter(r => r.rfqNo === formData.rfqNo && r.id !== selectedRecord?.id)
       .map(r => r.vendorId);
       
-    return vendorsMock.filter(v => 
+    return vendors.filter(v => 
       rfq.vendors.includes(v.id) && !existingVendorIds.includes(v.id)
     );
   }, [formData.rfqNo, allRFQs, records, selectedRecord]);
@@ -249,7 +251,7 @@ export const VendorQuotation = () => {
               <div className="p-4 flex gap-4">
                 <select value={filterVendor} onChange={(e) => { setFilterVendor(e.target.value); setCurrentPage(1); }} className="px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none">
                   <option value="">All Vendors</option>
-                  {vendorsMock.map(v => <option key={v.id} value={v.vendorName}>{v.vendorName}</option>)}
+                  {vendors.map(v => <option key={v.id} value={v.vendorName}>{v.vendorName}</option>)}
                 </select>
                 <select value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setCurrentPage(1); }} className="px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none">
                   <option value="">All Statuses</option>
@@ -344,7 +346,7 @@ export const VendorQuotation = () => {
                 setFormData({...formData, vendorId: vendor?.id || 0, vendorName: vendor?.vendorName || '', paymentTerms: vendor?.paymentTerms || ''});
               }} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-primary disabled:bg-slate-100 disabled:text-slate-500">
                 <option value="">Select Vendor</option>
-                {(selectedRecord ? [vendorsMock.find(v => v.id === selectedRecord.vendorId)].filter(Boolean) as any[] : availableVendorsForRfq).map(v => (
+                {(selectedRecord ? [vendors.find(v => v.id === selectedRecord.vendorId)].filter(Boolean) as any[] : availableVendorsForRfq).map(v => (
                   <option key={v.id} value={v.id}>{v.vendorName}</option>
                 ))}
               </select>
@@ -435,7 +437,7 @@ export const VendorQuotation = () => {
               <h3 className="font-semibold text-slate-800 mb-3">Vendor Details</h3>
               <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-sm">
                 {(() => {
-                  const v = vendorsMock.find(vm => vm.id === selectedRecord.vendorId);
+                  const v = vendors.find(vm => vm.id === selectedRecord.vendorId);
                   return v ? (
                     <div className="grid grid-cols-2 gap-4">
                       <div><span className="text-slate-500">Contact Person:</span> <span className="font-medium">{v.contactPerson}</span></div>

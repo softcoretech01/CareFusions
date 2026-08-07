@@ -6,10 +6,13 @@ import toast from 'react-hot-toast';
 import { initialPRs } from './PurchaseRequisitions';
 import { initialPOs } from './PurchaseOrders';
 import { initialGRNs } from './GoodsReceipt';
-import { mockData as itemsMock } from '../admin/purchase-inventory/ItemMaster';
 import { useLocalStorage } from '../../utils/useLocalStorage';
+import { useItems } from '../../hooks/useMasterOptions';
 
 export const ProcurementReports = () => {
+  // Live from the admin masters. These used to be hardcoded mockData
+  // arrays, so anything added in a master never reached these pickers.
+  const { options: items } = useItems();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [dateRange, setDateRange] = useState('This Month');
 
@@ -44,7 +47,7 @@ export const ProcurementReports = () => {
   // Spend by Category
   const categorySpend = pos.reduce((acc: any, po: any) => {
     po.items.forEach((item: any) => {
-      const itm = itemsMock.find((i: any) => i.id === item.itemId);
+      const itm = items.find((i: any) => i.id === item.itemId);
       const cat = itm?.category || 'Other';
       acc[cat] = (acc[cat] || 0) + item.amount;
     });

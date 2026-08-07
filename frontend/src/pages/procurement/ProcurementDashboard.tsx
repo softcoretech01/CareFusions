@@ -5,12 +5,15 @@ import { DateFilter } from '../../components/ui/DateFilter';
 import { initialPRs } from './PurchaseRequisitions';
 import { initialPOs } from './PurchaseOrders';
 import { initialGRNs } from './GoodsReceipt';
-import { mockData as itemsMock } from '../admin/purchase-inventory/ItemMaster';
 import { useLocalStorage } from '../../utils/useLocalStorage';
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
+import { useItems } from '../../hooks/useMasterOptions';
 
 export const ProcurementDashboard = () => {
+  // Live from the admin masters. These used to be hardcoded mockData
+  // arrays, so anything added in a master never reached these pickers.
+  const { options: items } = useItems();
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
 
@@ -31,7 +34,7 @@ export const ProcurementDashboard = () => {
   // Spend by Category
   const categorySpend = pos.reduce((acc: any, po: any) => {
     po.items.forEach((item: any) => {
-      const itm = itemsMock.find((i: any) => i.id === item.itemId);
+      const itm = items.find((i: any) => i.id === item.itemId);
       const cat = itm?.category || 'Other';
       acc[cat] = (acc[cat] || 0) + item.amount;
     });

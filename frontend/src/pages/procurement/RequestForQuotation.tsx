@@ -6,11 +6,9 @@ import { Modal } from '../../components/ui/Modal';
 import { DateFilter } from '../../components/ui/DateFilter';
 
 // Mock Data Imports
-import { mockData as departmentsMock } from '../admin/organization-masters/DepartmentMaster';
-import { mockData as vendorsMock } from '../admin/purchase-inventory/VendorMaster';
 import { initialPRs, type PRRecord } from './PurchaseRequisitions';
-import { mockData as warehousesMock } from '../admin/purchase-inventory/WarehouseMaster';
 import { useLocalStorage } from '../../utils/useLocalStorage';
+import { useDepartments, useVendors, useWarehouses } from '../../hooks/useMasterOptions';
 
 interface RFQItem {
   id: string;
@@ -48,6 +46,11 @@ export const initialRFQs: RFQRecord[] = [];
 // We will use initialPRs imported from PurchaseRequisitions
 
 export const RequestForQuotation = () => {
+  // Live from the admin masters. These used to be hardcoded mockData
+  // arrays, so anything added in a master never reached these pickers.
+  const { options: departments } = useDepartments();
+  const { options: vendors } = useVendors();
+  const { options: warehouses } = useWarehouses();
   const [records, setRecords] = useLocalStorage<RFQRecord[]>('procurement_rfqs_v2', initialRFQs);
   const [allPRs] = useLocalStorage<PRRecord[]>('procurement_prs_v2', initialPRs);
   
@@ -230,7 +233,7 @@ export const RequestForQuotation = () => {
               <div className="p-4 flex gap-4">
                 <select value={filterDepartment} onChange={(e) => { setFilterDepartment(e.target.value); setCurrentPage(1); }} className="px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none">
                   <option value="">All Departments</option>
-                  {departmentsMock.map(d => <option key={d.id} value={d.departmentName}>{d.departmentName}</option>)}
+                  {departments.map(d => <option key={d.id} value={d.departmentName}>{d.departmentName}</option>)}
                 </select>
                 <select value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setCurrentPage(1); }} className="px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none">
                   <option value="">All Statuses</option>
@@ -329,7 +332,7 @@ export const RequestForQuotation = () => {
               <label className="block text-xs font-medium text-slate-500 mb-1">Delivery Location</label>
               <select value={formData.deliveryLocation} onChange={(e) => setFormData({...formData, deliveryLocation: e.target.value})} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm">
                 <option value="">Select Location</option>
-                {warehousesMock.map(w => <option key={w.id} value={w.storeName}>{w.storeName}</option>)}
+                {warehouses.map(w => <option key={w.id} value={w.storeName}>{w.storeName}</option>)}
               </select>
             </div>
           </div>
@@ -339,7 +342,7 @@ export const RequestForQuotation = () => {
               <h3 className="font-semibold text-slate-800 mb-3 flex items-center gap-2">Vendor Selection</h3>
               {errors.vendors && <div className="text-xs text-red-500 mb-2">{errors.vendors}</div>}
               <div className="border border-slate-200 rounded-xl overflow-y-auto h-48 bg-white p-2">
-                {vendorsMock.map(vendor => (
+                {vendors.map(vendor => (
                   <label key={vendor.id} className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg cursor-pointer">
                     <input type="checkbox" checked={formData.vendors.includes(vendor.id)} onChange={() => handleVendorSelect(vendor.id)} className="w-4 h-4 text-primary rounded border-slate-300" />
                     <div>
@@ -438,7 +441,7 @@ export const RequestForQuotation = () => {
               <h3 className="font-semibold text-slate-800 mb-3">Requested Vendors</h3>
               <div className="flex flex-wrap gap-2">
                 {selectedRecord.vendors && selectedRecord.vendors.length > 0 ? selectedRecord.vendors.map(vId => {
-                  const v = vendorsMock.find(vm => vm.id === vId);
+                  const v = vendors.find(vm => vm.id === vId);
                   return v ? <span key={vId} className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm font-medium">{v.vendorName}</span> : null;
                 }) : <span className="text-sm text-slate-500">No vendors selected</span>}
               </div>

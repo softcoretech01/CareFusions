@@ -8,11 +8,7 @@ import { Modal } from '../../components/ui/Modal';
 import { DateFilter } from '../../components/ui/DateFilter';
 
 // Mock Data Imports
-import { mockData as vendorsMock } from '../admin/purchase-inventory/VendorMaster';
-import { mockData as departmentsMock } from '../admin/organization-masters/DepartmentMaster';
-import { usePaymentTerms } from '../../hooks/useMasterOptions';
-import { mockData as warehousesMock } from '../admin/purchase-inventory/WarehouseMaster';
-import { mockData as currencyMock } from '../admin/financial-masters/CurrencyMaster';
+import { useCurrencies, useDepartments, usePaymentTerms, useVendors, useWarehouses } from '../../hooks/useMasterOptions';
 import { initialQuotations, type QuotationRecord } from './VendorQuotation';
 import { initialPRs, type PRRecord } from './PurchaseRequisitions';
 import { initialRFQs, type RFQRecord } from './RequestForQuotation';
@@ -55,6 +51,12 @@ export interface PORecord {
 export const initialPOs: PORecord[] = [];
 
 export const PurchaseOrders = () => {
+  // Live from the admin masters. These used to be hardcoded mockData
+  // arrays, so anything added in a master never reached these pickers.
+  const { options: vendors } = useVendors();
+  const { options: departments } = useDepartments();
+  const { options: warehouses } = useWarehouses();
+  const { options: currencies } = useCurrencies();
   // Live from Payment Terms Master, so a term added there shows up here.
   const { options: paymentTerms } = usePaymentTerms();
   const [records, setRecords] = useLocalStorage<PORecord[]>('procurement_pos_v2', initialPOs);
@@ -264,7 +266,7 @@ export const PurchaseOrders = () => {
               <div className="p-4 flex gap-4">
                 <select value={filterVendor} onChange={(e) => { setFilterVendor(e.target.value); setCurrentPage(1); }} className="px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none">
                   <option value="">All Vendors</option>
-                  {vendorsMock.map(v => <option key={v.id} value={v.vendorName}>{v.vendorName}</option>)}
+                  {vendors.map(v => <option key={v.id} value={v.vendorName}>{v.vendorName}</option>)}
                 </select>
                 <select value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setCurrentPage(1); }} className="px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none">
                   <option value="">All Statuses</option>
@@ -427,11 +429,11 @@ export const PurchaseOrders = () => {
             <div className="col-span-2">
               <label className="block text-xs font-medium text-slate-500 mb-1">Vendor*</label>
               <select value={formData.vendorId} onChange={(e) => {
-                const vendor = vendorsMock.find(v => v.id === Number(e.target.value));
+                const vendor = vendors.find(v => v.id === Number(e.target.value));
                 setFormData({...formData, vendorId: vendor?.id || 0, vendorName: vendor?.vendorName || '', paymentTerms: vendor?.paymentTerms || ''});
               }} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-primary">
                 <option value="">Select Vendor</option>
-                {vendorsMock.map(v => <option key={v.id} value={v.id}>{v.vendorName}</option>)}
+                {vendors.map(v => <option key={v.id} value={v.id}>{v.vendorName}</option>)}
               </select>
               {errors.vendorId && <span className="text-xs text-red-500">{errors.vendorId}</span>}
             </div>
@@ -440,7 +442,7 @@ export const PurchaseOrders = () => {
               <label className="block text-xs font-medium text-slate-500 mb-1">Department*</label>
               <select value={formData.department} onChange={(e) => setFormData({...formData, department: e.target.value})} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-primary">
                 <option value="">Select Dept</option>
-                {departmentsMock.map(d => <option key={d.id} value={d.departmentName}>{d.departmentName}</option>)}
+                {departments.map(d => <option key={d.id} value={d.departmentName}>{d.departmentName}</option>)}
               </select>
               {errors.department && <span className="text-xs text-red-500">{errors.department}</span>}
             </div>
@@ -448,7 +450,7 @@ export const PurchaseOrders = () => {
             <div className="col-span-2"><label className="block text-xs font-medium text-slate-500 mb-1">Shipping Address</label>
               <select value={formData.shippingAddress} onChange={(e) => setFormData({...formData, shippingAddress: e.target.value})} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm">
                 <option value="">Select Store</option>
-                {warehousesMock.map(w => <option key={w.id} value={w.storeName}>{w.storeName} - {w.location}</option>)}
+                {warehouses.map(w => <option key={w.id} value={w.storeName}>{w.storeName} - {w.location}</option>)}
               </select>
             </div>
             <div className="col-span-2"><label className="block text-xs font-medium text-slate-500 mb-1">Billing Address</label><input type="text" value={formData.billingAddress} onChange={(e) => setFormData({...formData, billingAddress: e.target.value})} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm" /></div>
@@ -467,7 +469,7 @@ export const PurchaseOrders = () => {
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Currency</label>
               <select value={formData.currency} onChange={(e) => setFormData({...formData, currency: e.target.value})} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm">
-                {currencyMock.map(c => <option key={c.id} value={c.currencyCode}>{c.currencyCode}</option>)}
+                {currencies.map(c => <option key={c.id} value={c.currencyCode}>{c.currencyCode}</option>)}
               </select>
             </div>
           </div>

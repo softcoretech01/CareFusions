@@ -3,7 +3,7 @@ import { Users, BedDouble, Activity, CalendarCheck, LogOut, Clock } from 'lucide
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
 import { Pagination } from '../../components/ui/Pagination';
-import { NoDataNotice } from './components/NoDataNotice';
+import { NoDataNotice } from '../../components/ui/NoDataNotice';
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
 

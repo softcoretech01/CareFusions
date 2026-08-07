@@ -76,3 +76,68 @@ export interface CategoryOption {
 
 export const useItemCategories = () =>
   useMasterList<CategoryOption>('/categories/');
+
+export interface VendorOption {
+  id: number;
+  vendorCode: string;
+  vendorName: string;
+  contactPerson?: string;
+  mobileNumber?: string;
+  email?: string;
+  gstNumber?: string;
+  panNumber?: string;
+  drugLicenseNumber?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  pinCode?: string;
+  paymentTerms?: string;
+  creditDays?: number;
+  status: string;
+}
+
+export const useVendors = () =>
+  useMasterList<VendorOption>('/vendors/');
+
+export interface ItemOption {
+  id: number;
+  itemCode: string;
+  itemName: string;
+  category?: string;
+  subCategory?: string;
+  department?: string;
+  brand?: string;
+  manufacturer?: string;
+  /** The vendor named on the item in Item Master. */
+  vendor?: string;
+  uom?: string;
+  gstPercentage?: number;
+  status: string;
+}
+
+export const useItems = () =>
+  useMasterList<ItemOption>('/items/');
+
+export interface WarehouseOption {
+  id: number;
+  storeCode: string;
+  storeName: string;
+  storeType?: string;
+  location?: string;
+  status: string;
+}
+
+/** Procurement calls these "warehouses"; the master behind them is Store Master. */
+export const useWarehouses = () =>
+  useMasterList<WarehouseOption>('/stores/');
+
+export interface DepartmentOption {
+  id: number;
+  departmentCode: string;
+  departmentName: string;
+  status: string;
+}
+
+export const useDepartments = () =>
+  useMasterList<DepartmentOption>('/departments/');
