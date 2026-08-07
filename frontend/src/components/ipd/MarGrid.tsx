@@ -1,201 +1,236 @@
-import { useState } from 'react';
-import { Pill, Plus, Check } from 'lucide-react';
-import { medicinesData } from '../../data/medicinesData';
+import { useState, useEffect, useCallback } from 'react';
+import { Pill, Plus, Check, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { freeText } from '../../utils/inputRules';
+
+const API_BASE = import.meta.env.VITE_API_URL as string;
 
 export interface MarMedication {
   id: string;
-  medicineId: number;
+  medicineId: number | null;
   medicineName: string;
   dosage: string;
   frequency: string;
   route: string;
-  administrations: Record<string, boolean>; // e.g. "Morning": true
+  administrations: Record<string, boolean>;
+}
+
+interface MasterMedicine {
+  id: number;
+  brandName: string;
+  genericName: string;
+  strength: string;
 }
 
 interface MarGridProps {
+  /** IPD AdmissionId — the MAR is recorded against the admission. */
   patientId: number;
 }
 
-export const MarGrid: React.FC<MarGridProps> = () => {
+const TIME_SLOTS = ['Morning', 'Afternoon', 'Evening', 'Night'];
+const FREQUENCIES = ['Once Daily', 'Twice Daily', 'Three Times Daily', 'Four Times Daily', 'SOS'];
+const ROUTES = ['Oral', 'IV', 'IM', 'Subcutaneous', 'Topical', 'Inhalation'];
+
+export const MarGrid: React.FC<MarGridProps> = ({ patientId }) => {
+  // The MAR lives in hospital.IpdMedication and the drug list comes from the
+  // real medicine master. Previously both were in-memory: medications were
+  // component state and the picker read a hardcoded mock file.
   const [medications, setMedications] = useState<MarMedication[]>([]);
+  const [catalogue, setCatalogue] = useState<MasterMedicine[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
-  const [formData, setFormData] = useState({
-    medicineId: '',
-    dosage: '',
-    frequency: 'Once Daily',
-    route: 'Oral'
-  });
+  const [form, setForm] = useState({ medicineId: '', dosage: '', frequency: 'Once Daily', route: 'Oral' });
 
-  const timeSlots = ['Morning', 'Afternoon', 'Evening', 'Night'];
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [meds, cat] = await Promise.all([
+        fetch(`${API_BASE}/ipd/admissions/${patientId}/medications`).then(r => r.json()),
+        fetch(`${API_BASE}/medicines/`).then(r => r.json()),
+      ]);
+      setMedications(Array.isArray(meds) ? meds : []);
+      setCatalogue(Array.isArray(cat) ? cat : []);
+    } catch (e) {
+      console.error('[MAR] load failed', e);
+    }
+    setLoading(false);
+  }, [patientId]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => { load(); }, [load]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.medicineId || !formData.dosage) {
-      toast.error('Please fill all required fields');
+    const med = catalogue.find(m => String(m.id) === form.medicineId);
+    if (!med || !form.dosage.trim()) {
+      toast.error('Select a medicine and enter the dosage');
       return;
     }
-
-    const med = medicinesData.find(m => m.id === Number(formData.medicineId));
-    if (!med) return;
-
-    const newMed: MarMedication = {
-      id: Date.now().toString(),
-      medicineId: med.id,
-      medicineName: `${med.brandName} (${med.strength})`,
-      dosage: formData.dosage,
-      frequency: formData.frequency,
-      route: formData.route,
-      administrations: {}
-    };
-
-    setMedications([...medications, newMed]);
-    setIsAdding(false);
-    setFormData({ medicineId: '', dosage: '', frequency: 'Once Daily', route: 'Oral' });
-    toast.success('Medication added to MAR');
+    setSaving(true);
+    try {
+      const res = await fetch(`${API_BASE}/ipd/admissions/${patientId}/medications`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          medicineId: med.id,
+          medicineName: `${med.brandName}${med.strength ? ` (${med.strength})` : ''}`,
+          dosage: form.dosage.trim(),
+          frequency: form.frequency,
+          route: form.route,
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      toast.success('Medication added to the chart');
+      setForm({ medicineId: '', dosage: '', frequency: 'Once Daily', route: 'Oral' });
+      setIsAdding(false);
+      await load();
+    } catch (err) {
+      console.error('[MAR] save failed', err);
+      toast.error('Failed to add medication');
+    }
+    setSaving(false);
   };
 
-  const toggleAdministration = (medId: string, slot: string) => {
-    setMedications(meds => meds.map(med => {
-      if (med.id === medId) {
-        const currentlyAdministered = !!med.administrations[slot];
-        return {
-          ...med,
-          administrations: {
-            ...med.administrations,
-            [slot]: !currentlyAdministered
-          }
-        };
-      }
-      return med;
-    }));
-    toast.success('Administration logged');
+  // Toggling a slot persists immediately — a given dose must survive a refresh.
+  const toggleSlot = async (med: MarMedication, slot: string) => {
+    const next = { ...med.administrations, [slot]: !med.administrations[slot] };
+    setMedications(prev => prev.map(m => (m.id === med.id ? { ...m, administrations: next } : m)));
+    try {
+      await fetch(`${API_BASE}/ipd/medications/${med.id}/administer`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ administrations: next }),
+      });
+      if (next[slot]) toast.success(`${slot} dose recorded`);
+    } catch (e) {
+      console.error('[MAR] administer failed', e);
+      toast.error('Failed to record the dose');
+      await load();
+    }
   };
 
-  const inputCls = "w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20";
+  const handleDelete = async (id: string) => {
+    try {
+      await fetch(`${API_BASE}/ipd/medications/${id}`, { method: 'DELETE' });
+      toast.success('Medication removed');
+      await load();
+    } catch (e) {
+      console.error('[MAR] delete failed', e);
+      toast.error('Failed to remove medication');
+    }
+  };
+
+  const inputCls = 'w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20';
 
   return (
-    <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 space-y-6">
-      <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-        <h3 className="font-bold text-slate-800 text-xl flex items-center gap-2">
-          <Pill className="w-5 h-5 text-primary" /> MAR (Medications)
+    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 space-y-3">
+      <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+        <h3 className="font-bold text-slate-800 flex items-center gap-2">
+          <Pill className="w-5 h-5 text-primary" /> Medication Administration Record
         </h3>
         {!isAdding && (
-          <button 
-            onClick={() => setIsAdding(true)}
-            className="px-4 py-2 bg-primary/10 text-primary font-bold rounded-xl text-sm flex items-center gap-2 hover:bg-primary hover:text-white transition-colors"
-          >
+          <button onClick={() => setIsAdding(true)}
+            className="px-3 py-1.5 bg-primary/10 text-primary font-bold rounded-lg text-sm flex items-center gap-2 hover:bg-primary hover:text-white transition-colors">
             <Plus className="w-4 h-4" /> Add Medication
           </button>
         )}
       </div>
 
       {isAdding && (
-        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 mb-6">
-          <h4 className="font-bold text-slate-800 mb-4">Prescribe Medication</h4>
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-2">
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Medicine <span className="text-red-500">*</span></label>
-              <select 
-                value={formData.medicineId}
-                onChange={e => setFormData({...formData, medicineId: e.target.value})}
-                className={inputCls}
-              >
-                <option value="">-- Select Medicine --</option>
-                {medicinesData.map(m => (
-                  <option key={m.id} value={m.id}>{m.brandName} - {m.genericName}</option>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Medicine *</label>
+              <select value={form.medicineId} onChange={e => setForm({ ...form, medicineId: e.target.value })}
+                className={inputCls}>
+                <option value="">Select medicine…</option>
+                {catalogue.map(m => (
+                  <option key={m.id} value={m.id}>
+                    {m.brandName}{m.strength ? ` (${m.strength})` : ''}
+                  </option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Dosage <span className="text-red-500">*</span></label>
-              <input 
-                type="text" 
-                placeholder="e.g. 1 Tablet, 5ml" 
-                value={formData.dosage} 
-                onChange={e => setFormData({...formData, dosage: e.target.value})} 
-                className={inputCls} 
-              />
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Dosage *</label>
+              <input type="text" placeholder="1 tablet" value={form.dosage} maxLength={50}
+                onChange={e => setForm({ ...form, dosage: freeText(e.target.value, 50) })}
+                className={inputCls} />
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Frequency</label>
-              <select 
-                value={formData.frequency}
-                onChange={e => setFormData({...formData, frequency: e.target.value})}
-                className={inputCls}
-              >
-                <option>Once Daily</option>
-                <option>Twice Daily (BD)</option>
-                <option>Thrice Daily (TDS)</option>
-                <option>Four Times Daily (QID)</option>
-                <option>SOS (As Needed)</option>
+              <select value={form.frequency} onChange={e => setForm({ ...form, frequency: e.target.value })}
+                className={inputCls}>
+                {FREQUENCIES.map(f => <option key={f} value={f}>{f}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Route</label>
-              <select 
-                value={formData.route}
-                onChange={e => setFormData({...formData, route: e.target.value})}
-                className={inputCls}
-              >
-                <option>Oral</option>
-                <option>IV (Intravenous)</option>
-                <option>IM (Intramuscular)</option>
-                <option>SC (Subcutaneous)</option>
-                <option>Topical</option>
-                <option>Inhalation</option>
+              <select value={form.route} onChange={e => setForm({ ...form, route: e.target.value })}
+                className={inputCls}>
+                {ROUTES.map(r => <option key={r} value={r}>{r}</option>)}
               </select>
             </div>
-            <div className="md:col-span-2 flex justify-end gap-2 pt-2">
-              <button type="button" onClick={() => setIsAdding(false)} className="px-4 py-2 bg-slate-200 text-slate-700 font-bold rounded-xl text-sm hover:bg-slate-300 transition-colors">Cancel</button>
-              <button type="submit" className="px-4 py-2 bg-primary text-white font-bold rounded-xl text-sm hover:bg-primary/90 transition-colors">Add to MAR</button>
-            </div>
-          </form>
-        </div>
+          </div>
+          {catalogue.length === 0 && !loading && (
+            <p className="text-[11px] text-amber-700 mb-2">
+              No medicines in the master yet — add them under Admin → Masters → Medicine.
+            </p>
+          )}
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={() => setIsAdding(false)}
+              className="px-3 py-1.5 bg-slate-200 text-slate-700 font-bold rounded-lg text-sm hover:bg-slate-300">Cancel</button>
+            <button type="submit" disabled={saving}
+              className="px-3 py-1.5 bg-primary text-white font-bold rounded-lg text-sm hover:bg-primary/90 disabled:opacity-60">
+              {saving ? 'Saving…' : 'Add to Chart'}
+            </button>
+          </div>
+        </form>
       )}
 
       {medications.length === 0 ? (
-        <div className="text-center py-12 text-slate-400 font-medium">
-          <Pill className="w-12 h-12 mx-auto text-slate-200 mb-3" />
-          No active medications for this patient.
+        <div className="text-center py-8 text-slate-400 font-medium">
+          <Pill className="w-8 h-8 mx-auto text-slate-200 mb-2" />
+          {loading ? 'Loading medication chart…' : 'No medications charted for this admission yet.'}
         </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
             <thead className="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200">
               <tr>
-                <th className="px-4 py-3 font-bold">Medication</th>
-                <th className="px-4 py-3 font-bold">Instructions</th>
-                {timeSlots.map(slot => (
-                  <th key={slot} className="px-4 py-3 font-bold text-center">{slot}</th>
-                ))}
+                <th className="px-3 py-2 font-bold">Medicine</th>
+                <th className="px-3 py-2 font-bold">Dosage</th>
+                <th className="px-3 py-2 font-bold">Frequency</th>
+                <th className="px-3 py-2 font-bold">Route</th>
+                {TIME_SLOTS.map(s => <th key={s} className="px-3 py-2 font-bold text-center">{s}</th>)}
+                <th className="px-3 py-2 text-right">Action</th>
               </tr>
             </thead>
             <tbody>
               {medications.map(med => (
                 <tr key={med.id} className="border-b border-slate-100 hover:bg-slate-50/50">
-                  <td className="px-4 py-4">
-                    <p className="font-bold text-slate-800">{med.medicineName}</p>
-                    <p className="text-xs text-slate-500">{med.route}</p>
+                  <td className="px-3 py-2 font-medium text-slate-800">{med.medicineName}</td>
+                  <td className="px-3 py-2">{med.dosage}</td>
+                  <td className="px-3 py-2">{med.frequency}</td>
+                  <td className="px-3 py-2">{med.route}</td>
+                  {TIME_SLOTS.map(slot => {
+                    const given = !!med.administrations[slot];
+                    return (
+                      <td key={slot} className="px-3 py-2 text-center">
+                        <button onClick={() => toggleSlot(med, slot)}
+                          title={given ? `${slot} dose given — click to undo` : `Mark ${slot} dose as given`}
+                          className={`w-7 h-7 rounded-lg border flex items-center justify-center mx-auto transition-colors ${
+                            given ? 'bg-emerald-500 border-emerald-500 text-white'
+                                  : 'border-slate-300 text-transparent hover:border-primary hover:text-primary/40'
+                          }`}>
+                          <Check className="w-4 h-4" />
+                        </button>
+                      </td>
+                    );
+                  })}
+                  <td className="px-3 py-2 text-right">
+                    <button onClick={() => handleDelete(med.id)} className="text-red-400 hover:text-red-600 p-1">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </td>
-                  <td className="px-4 py-4">
-                    <p className="font-medium text-slate-700">{med.dosage}</p>
-                    <p className="text-xs text-slate-500">{med.frequency}</p>
-                  </td>
-                  {timeSlots.map(slot => (
-                    <td key={slot} className="px-4 py-4 text-center">
-                      <button 
-                        onClick={() => toggleAdministration(med.id, slot)}
-                        className={`w-8 h-8 rounded-lg flex items-center justify-center mx-auto transition-colors ${
-                          med.administrations[slot] 
-                            ? 'bg-green-100 text-green-600 border border-green-200' 
-                            : 'bg-white text-slate-300 border border-slate-200 hover:border-primary hover:text-primary'
-                        }`}
-                      >
-                        {med.administrations[slot] && <Check className="w-4 h-4" />}
-                      </button>
-                    </td>
-                  ))}
                 </tr>
               ))}
             </tbody>

@@ -19,7 +19,7 @@ from app.routers import (
     patient_visit, opd_visit,
     appointment, permission, auth,
     patient_visit,
-    appointment, permission, auth, doctor_schedule, ipd, pharmacy, lab, insurance, inventory, executive,
+    appointment, permission, auth, doctor_schedule, ipd, ipd_clinical, pharmacy, lab, insurance, inventory, executive,
 )
 
 # ── Logging ──────────────────────────────────────────────────
@@ -116,6 +116,7 @@ app.include_router(sample_type.router,           prefix="/api/v1")
 app.include_router(appointment.router,           prefix="/api/v1")
 app.include_router(doctor_schedule.router,       prefix="/api/v1")
 app.include_router(ipd.router,                   prefix="/api/v1")
+app.include_router(ipd_clinical.router,          prefix="/api/v1")
 app.include_router(pharmacy.router,              prefix="/api/v1")
 app.include_router(lab.router,                   prefix="/api/v1")
 app.include_router(insurance.router,              prefix="/api/v1")
