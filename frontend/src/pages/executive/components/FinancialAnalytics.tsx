@@ -18,15 +18,61 @@ const FinCard = ({ title, value, icon: Icon, color }: any) => (
 
 export const FinancialAnalytics = ({ revenue, detailed = false }: { revenue: any, detailed?: boolean }) => {
   const trendOptions = {
-    chart: { type: 'area', toolbar: { show: false }, zoom: { enabled: false }, sparkline: { enabled: !detailed } },
+    chart: { 
+      type: 'area' as const, 
+      toolbar: { show: false }, 
+      zoom: { enabled: false }, 
+      sparkline: { enabled: !detailed },
+      dropShadow: {
+        enabled: true,
+        color: '#4f46e5',
+        top: 8,
+        left: 0,
+        blur: 8,
+        opacity: 0.25
+      }
+    },
     colors: ['#4f46e5'],
-    fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0, stops: [0, 90, 100] } },
+    fill: { 
+      type: 'gradient', 
+      gradient: { 
+        shadeIntensity: 1, 
+        type: 'vertical',
+        opacityFrom: 0.6, 
+        opacityTo: 0.0, 
+        stops: [0, 100] 
+      } 
+    },
     dataLabels: { enabled: false },
-    stroke: { curve: 'smooth', width: 2 },
-    xaxis: { categories: revenue.trend.map((t: any) => t.date), labels: { show: detailed } },
-    yaxis: { show: detailed },
-    grid: { show: detailed, borderColor: '#f1f5f9', strokeDashArray: 4 },
-    tooltip: { theme: 'light' }
+    stroke: { curve: 'smooth' as const, width: 4 },
+    xaxis: { 
+      categories: revenue.trend.map((t: any) => t.date), 
+      labels: { show: detailed, style: { colors: '#94a3b8', fontWeight: 500 } },
+      axisBorder: { show: false },
+      axisTicks: { show: false },
+      crosshairs: { show: false },
+      tooltip: { enabled: false }
+    },
+    yaxis: { 
+      show: detailed,
+      labels: { style: { colors: '#94a3b8', fontWeight: 500 } }
+    },
+    grid: { 
+      show: detailed, 
+      borderColor: '#f1f5f9', 
+      strokeDashArray: 4,
+      padding: { left: 15, right: 15 },
+      xaxis: { lines: { show: false } },
+      yaxis: { lines: { show: true } }
+    },
+    markers: {
+      size: 0,
+      hover: { size: 6, sizeOffset: 3, colors: ['#ffffff'], strokeWidth: 3 }
+    },
+    tooltip: { 
+      theme: 'light',
+      style: { fontSize: '12px' }
+    }
   };
 
   const deptOptions = {

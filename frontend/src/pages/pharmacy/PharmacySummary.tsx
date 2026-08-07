@@ -75,21 +75,22 @@ export const PharmacySummary = () => {
       dropShadow: {
         enabled: true,
         color: '#10b981',
-        top: 4,
+        top: 8,
         left: 0,
-        blur: 4,
-        opacity: 0.15
+        blur: 8,
+        opacity: 0.25
       }
     },
-    stroke: { curve: 'smooth', width: 3 },
+    stroke: { curve: 'smooth', width: 4 },
     fill: { 
       type: 'gradient', 
       gradient: { 
         shadeIntensity: 1, 
         type: 'vertical',
-        opacityFrom: 0.6, 
-        opacityTo: 0.0, 
-        stops: [0, 100]
+        colorStops: [
+          { offset: 0, color: '#34d399', opacity: 0.6 },
+          { offset: 100, color: '#047857', opacity: 0.0 }
+        ]
       } 
     },
     dataLabels: { enabled: false },
@@ -97,7 +98,9 @@ export const PharmacySummary = () => {
       categories: trendLabels, 
       axisBorder: { show: false }, 
       axisTicks: { show: false },
-      labels: { style: { colors: '#94a3b8', fontWeight: 500 } }
+      labels: { style: { colors: '#94a3b8', fontWeight: 500 } },
+      crosshairs: { show: false },
+      tooltip: { enabled: false }
     },
     yaxis: { 
       labels: { 
@@ -108,10 +111,15 @@ export const PharmacySummary = () => {
     grid: {
       borderColor: '#f1f5f9',
       strokeDashArray: 4,
+      padding: { left: 15, right: 15 },
       yaxis: { lines: { show: true } },
       xaxis: { lines: { show: false } }
     },
     colors: ['#10b981'],
+    markers: {
+      size: 0,
+      hover: { size: 6, sizeOffset: 3, colors: ['#ffffff'], strokeColors: '#10b981', strokeWidth: 3 }
+    },
     tooltip: { 
       theme: 'light',
       style: { fontSize: '12px', fontFamily: 'Inter' }
