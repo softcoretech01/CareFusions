@@ -191,6 +191,9 @@ export const DoctorMaster = () => {
   const [hospitals, setHospitals] = useState<{name: string}[]>([]);
   const [branches, setBranches] = useState<{name: string}[]>([]);
   const [departments, setDepartments] = useState<{departmentName: string}[]>([]);
+  // Specialization was a free-text box, so "Cardiologist" and "cardiologist"
+  // became separate values and the filter below listed three hardcoded ones.
+  const [specializations, setSpecializations] = useState<{specializationName: string, status: string}[]>([]);
   
   const fetchDoctors = async () => {
     setIsLoading(true);
@@ -209,14 +212,16 @@ export const DoctorMaster = () => {
 
   const fetchDropdowns = async () => {
     try {
-      const [hRes, bRes, dRes] = await Promise.all([
+      const [hRes, bRes, dRes, sRes] = await Promise.all([
         fetch(`${API_BASE}/hospitals/`),
         fetch(`${API_BASE}/branches/`),
-        fetch(`${API_BASE}/departments/`)
+        fetch(`${API_BASE}/departments/`),
+        fetch(`${API_BASE}/doctor-specializations/`)
       ]);
       if (hRes.ok) setHospitals(await hRes.json());
       if (bRes.ok) setBranches(await bRes.json());
       if (dRes.ok) setDepartments(await dRes.json());
+      if (sRes.ok) setSpecializations(await sRes.json());
     } catch {}
   };
 
@@ -577,9 +582,11 @@ export const DoctorMaster = () => {
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     >
                       <option value="">All Specializations</option>
-                      <option value="Cardiology">Cardiology</option>
-                      <option value="Neurology">Neurology</option>
-                      <option value="Orthopedics">Orthopedics</option>
+                      {specializations.map(sp => (
+                        <option key={sp.specializationName} value={sp.specializationName}>
+                          {sp.specializationName}
+                        </option>
+                      ))}
                     </select>
                     <select
                       value={filterDept}
@@ -924,14 +931,24 @@ export const DoctorMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">
                       Specialization <span className="text-red-500">*</span>
                     </label>
-                    <input
-                      type="text"
-                      value={formData.specialization} maxLength={50}
+                    <select
+                      value={formData.specialization}
                       onChange={e => setFormData({...formData, specialization: e.target.value})}
                       className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${
                         errors.specialization ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
                       }`}
-                    />
+                    >
+                      <option value="">Select Specialization</option>
+                      {/* Retired specializations stay listed while a doctor on
+                          file still holds one, so editing them does not blank it. */}
+                      {specializations
+                        .filter(sp => sp.status === 'Active' || sp.specializationName === formData.specialization)
+                        .map(sp => (
+                          <option key={sp.specializationName} value={sp.specializationName}>
+                            {sp.specializationName}
+                          </option>
+                        ))}
+                    </select>
                     {errors.specialization && <p className="text-red-500 text-xs mt-1">{errors.specialization}</p>}
                   </div>
                   <div>

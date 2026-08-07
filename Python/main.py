@@ -20,6 +20,7 @@ from app.routers import (
     appointment, permission, auth,
     patient_visit,
     appointment, permission, auth, doctor_schedule, ipd, ipd_clinical, pharmacy, lab, insurance, inventory, executive,
+    doctor_specialization,
 )
 
 # ── Logging ──────────────────────────────────────────────────
@@ -115,6 +116,7 @@ app.include_router(lab_test.router,              prefix="/api/v1")
 app.include_router(sample_type.router,           prefix="/api/v1")
 app.include_router(appointment.router,           prefix="/api/v1")
 app.include_router(doctor_schedule.router,       prefix="/api/v1")
+app.include_router(doctor_specialization.router, prefix="/api/v1")
 app.include_router(ipd.router,                   prefix="/api/v1")
 app.include_router(ipd_clinical.router,          prefix="/api/v1")
 app.include_router(pharmacy.router,              prefix="/api/v1")
