@@ -38,13 +38,62 @@ export const IPDDashboard = () => {
 
   // Chart Options
   const barOptions: ApexOptions = {
-    chart: { type: 'bar', toolbar: { show: false }, fontFamily: 'Inter' },
-    colors: ['#22C55E', '#EF4444'],
-    plotOptions: { bar: { borderRadius: 4, columnWidth: '50%' } },
-    xaxis: { categories: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] },
+    chart: { 
+      type: 'bar', 
+      toolbar: { show: false }, 
+      fontFamily: 'Inter',
+      dropShadow: {
+        enabled: true,
+        color: '#000',
+        top: 2,
+        left: 0,
+        blur: 4,
+        opacity: 0.05
+      }
+    },
+    colors: ['#047857', '#E11D48'],
+    fill: {
+      type: 'gradient',
+      gradient: {
+        shade: 'light',
+        type: 'vertical',
+        shadeIntensity: 0.5,
+        gradientToColors: ['#34D399', '#FB7185'],
+        inverseColors: true,
+        opacityFrom: 1,
+        opacityTo: 0.85,
+        stops: [0, 100]
+      }
+    },
+    plotOptions: { 
+      bar: { 
+        borderRadius: 6, 
+        columnWidth: '40%',
+        borderRadiusApplication: 'end'
+      } 
+    },
+    xaxis: { 
+      categories: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+      axisBorder: { show: false },
+      axisTicks: { show: false },
+      labels: { style: { colors: '#94a3b8', fontWeight: 500 } }
+    },
+    yaxis: {
+      labels: { style: { colors: '#94a3b8', fontWeight: 500 } }
+    },
+    grid: {
+      borderColor: '#f1f5f9',
+      strokeDashArray: 4,
+      yaxis: { lines: { show: true } }
+    },
     dataLabels: { enabled: false },
     legend: { show: false },
-    stroke: { show: true, width: 2, colors: ['transparent'] }
+    stroke: { show: true, width: 3, colors: ['transparent'] },
+    tooltip: {
+      theme: 'light',
+      y: { formatter: (val) => `${val} patients` },
+      style: { fontSize: '12px', fontFamily: 'Inter' }
+    }
   };
 
   const donutOptions: ApexOptions = {
@@ -138,6 +187,7 @@ export const IPDDashboard = () => {
             ]} 
             type="bar" 
             height={300} 
+            width="100%"
           />
         </div>
 

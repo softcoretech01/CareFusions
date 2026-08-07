@@ -16,11 +16,17 @@ from app.routers import (
     patient_category, blood_group, diagnosis, procedure, procedure_type, consultation_type,
     appointment_status, allergy, medicine, medicine_category, lab_test, sample_type,
     patient_registration, quick_registration, emergency_registration, patient_documents,
-    patient_visit, opd_visit,
+    patient_visit, opd_visit, ipd_visit,
     appointment, permission, auth,
+<<<<<<< HEAD
     patient_visit,
     appointment, permission, auth, doctor_schedule, ipd, ipd_clinical, pharmacy, lab, insurance, inventory, executive,
     doctor_specialization, housekeeping,
+=======
+    doctor_schedule, ipd, op_billing, ip_billing, billing_reports, radiology_orders, radiology_qc,
+    purchase_requisition, rfq, vendor_quotation, purchase_order, goods_receipt, purchase_return,
+    vendor_catalog, approval, procurement_dashboard
+>>>>>>> origin/main
 )
 
 # ── Logging ──────────────────────────────────────────────────
@@ -37,7 +43,7 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# ── CORS ──────────────────────────────────────────────────────
+# ── CORS ────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -60,6 +66,11 @@ app.include_router(branch.router,      prefix="/api/v1")
 app.include_router(department.router,  prefix="/api/v1")
 app.include_router(radiology_service.router, prefix="/api/v1")
 app.include_router(equipment.router, prefix="/api/v1")
+app.include_router(op_billing.router, prefix="/api/v1")
+app.include_router(ip_billing.router, prefix="/api/v1")
+app.include_router(billing_reports.router, prefix="/api/v1")
+app.include_router(radiology_orders.router, prefix="/api/v1")
+app.include_router(radiology_qc.router, prefix="/api/v1")
 app.include_router(service.router, prefix="/api/v1")
 app.include_router(tax.router, prefix="/api/v1")
 app.include_router(payment_mode.router, prefix="/api/v1")
@@ -110,6 +121,7 @@ app.include_router(emergency_registration.router, prefix="/api/v1")
 app.include_router(patient_documents.router,      prefix="/api/v1")
 app.include_router(patient_visit.router,          prefix="/api/v1")
 app.include_router(opd_visit.router,              prefix="/api/v1")
+app.include_router(ipd_visit.router,              prefix="/api/v1")
 app.include_router(medicine.router,              prefix="/api/v1")
 app.include_router(medicine_category.router,     prefix="/api/v1")
 app.include_router(lab_test.router,              prefix="/api/v1")
@@ -127,6 +139,16 @@ app.include_router(inventory.router,              prefix="/api/v1")
 app.include_router(executive.router,              prefix="/api/v1")
 app.include_router(permission.router,            prefix="/api/v1")
 app.include_router(auth.router,                  prefix="/api/v1")
+app.include_router(op_billing.router,            prefix="/api/v1")
+app.include_router(purchase_requisition.router,  prefix="/api/v1")
+app.include_router(rfq.router,                   prefix="/api/v1")
+app.include_router(vendor_quotation.router,      prefix="/api/v1")
+app.include_router(purchase_order.router,        prefix="/api/v1")
+app.include_router(goods_receipt.router,         prefix="/api/v1")
+app.include_router(purchase_return.router,       prefix="/api/v1")
+app.include_router(vendor_catalog.router,        prefix="/api/v1")
+app.include_router(approval.router,              prefix="/api/v1")
+app.include_router(procurement_dashboard.router, prefix="/api/v1")
 
 
 @app.get("/", tags=["Health"])

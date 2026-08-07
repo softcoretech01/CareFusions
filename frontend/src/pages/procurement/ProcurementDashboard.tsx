@@ -1,14 +1,19 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { BarChart2, PieChart, TrendingUp, Activity, ShoppingCart, FileText, Package } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { DateFilter } from '../../components/ui/DateFilter';
+<<<<<<< HEAD
 import { initialPRs } from './PurchaseRequisitions';
 import { initialPOs } from './PurchaseOrders';
 import { initialGRNs } from './GoodsReceipt';
 import { useLocalStorage } from '../../utils/useLocalStorage';
+=======
+>>>>>>> origin/main
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
 import { useItems } from '../../hooks/useMasterOptions';
+
+const API_BASE = import.meta.env.VITE_API_URL as string;
 
 export const ProcurementDashboard = () => {
   // Live from the admin masters. These used to be hardcoded mockData
@@ -16,21 +21,38 @@ export const ProcurementDashboard = () => {
   const { options: items } = useItems();
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<any>({
+    totalPRs: 0,
+    totalPOs: 0,
+    totalGRNs: 0,
+    totalSpend: 0,
+    spendByCategory: [],
+    topVendors: [],
+    trendSeries: []
+  });
 
   const handleClearFilters = () => {
     setFromDate('');
     setToDate('');
+    fetchDashboardData('', '');
   };
 
-  const [prs] = useLocalStorage('procurement_prs', initialPRs);
-  const [pos] = useLocalStorage('procurement_pos', initialPOs);
-  const [grns] = useLocalStorage('procurement_grns', initialGRNs);
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
 
-  const totalPRs = prs.length;
-  const totalPOs = pos.length;
-  const totalGRNs = grns.length;
-  const totalSpend = pos.reduce((sum: number, po: any) => sum + po.totalAmount, 0);
+  const fetchDashboardData = async (fDate?: string, tDate?: string) => {
+    try {
+      setLoading(true);
+      const startDate = fDate !== undefined ? fDate : fromDate;
+      const endDate = tDate !== undefined ? tDate : toDate;
+      
+      const params = new URLSearchParams();
+      if (startDate) params.append('fromDate', startDate);
+      if (endDate) params.append('toDate', endDate);
 
+<<<<<<< HEAD
   // Spend by Category
   const categorySpend = pos.reduce((acc: any, po: any) => {
     po.items.forEach((item: any) => {
@@ -55,17 +77,38 @@ export const ProcurementDashboard = () => {
   const vendorStats = pos.reduce((acc: any, po: any) => {
     if (!acc[po.vendorName]) {
       acc[po.vendorName] = { name: po.vendorName, po: 0, fulfill: 95 + Math.floor(Math.random() * 5), qs: (4.0 + Math.random()).toFixed(1) };
+=======
+      const res = await fetch(`${API_BASE}/procurement-dashboard?${params.toString()}`);
+      const result = await res.json();
+      setData(result);
+    } catch (err) {
+      console.error('Failed to fetch dashboard data', err);
+    } finally {
+      setLoading(false);
+>>>>>>> origin/main
     }
-    acc[po.vendorName].po += 1;
-    return acc;
-  }, {});
-  const topVendors = Object.values(vendorStats).sort((a: any, b: any) => b.po - a.po).slice(0, 5);
+  };
+
+  const totalPRs = data.totalPRs || 0;
+  const totalPOs = data.totalPOs || 0;
+  const totalGRNs = data.totalGRNs || 0;
+  const totalSpend = data.totalSpend || 0;
+
+  const totalCatSpend = data.spendByCategory?.reduce((a: any, b: any) => a + (Number(b.value) || 0), 0) || 1;
+  const categoryColors = ['bg-blue-500', 'bg-emerald-500', 'bg-purple-500', 'bg-amber-500', 'bg-slate-400', 'bg-pink-500', 'bg-indigo-500'];
+  const spendByCategoryData = (data.spendByCategory || []).map((item: any, index: number) => ({
+    label: item.label,
+    value: Math.round(((Number(item.value) || 0) / (totalCatSpend as number)) * 100),
+    color: categoryColors[index % categoryColors.length]
+  }));
+
+  const topVendors = data.topVendors || [];
 
   const trendOptions: ApexOptions = {
     chart: { type: 'area', toolbar: { show: false }, fontFamily: 'Inter' },
     colors: ['#3b82f6', '#10b981'],
     stroke: { curve: 'smooth', width: 2 },
-    xaxis: { categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'] },
+    xaxis: { categories: (data.trendSeries || []).map((t: any) => t.month) },
     dataLabels: { enabled: false },
     legend: { position: 'top' },
     fill: {
@@ -80,8 +123,8 @@ export const ProcurementDashboard = () => {
   };
   
   const trendSeries = [
-    { name: 'POs Issued', data: [12, 19, 15, 25, 22, 30] },
-    { name: 'GRNs Received', data: [10, 15, 14, 20, 20, 28] }
+    { name: 'POs Issued', data: (data.trendSeries || []).map((t: any) => t.pos) },
+    { name: 'GRNs Received', data: (data.trendSeries || []).map((t: any) => t.grns) }
   ];
 
   return (
@@ -101,7 +144,7 @@ export const ProcurementDashboard = () => {
             dateTo={toDate}
             onDateFromChange={setFromDate}
             onDateToChange={setToDate}
-            onSearch={() => {}}
+            onSearch={() => fetchDashboardData()}
             onReset={handleClearFilters}
           />
         </div>
@@ -170,7 +213,7 @@ export const ProcurementDashboard = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        <div className="lg:col-span-2 bg-white rounded-3xl border border-slate-100 shadow-sm p-6 flex flex-col">
+        <div className="lg:col-span-2 bg-white rounded-3xl border border-slate-100 shadow-sm p-6 flex flex-col min-w-0 overflow-hidden">
           <div className="flex justify-between items-center mb-6">
             <div>
               <h3 className="text-lg font-bold text-slate-800">Monthly Procurement Trend</h3>
@@ -178,8 +221,10 @@ export const ProcurementDashboard = () => {
             </div>
             <Activity className="w-5 h-5 text-slate-400" />
           </div>
-          <div className="flex-1 min-h-[300px]">
-            <Chart options={trendOptions} series={trendSeries} type="area" height="100%" />
+          <div className="flex-1 min-h-[300px] w-full relative">
+            <div className="absolute inset-0">
+              <Chart options={trendOptions} series={trendSeries} type="area" height="100%" width="100%" />
+            </div>
           </div>
         </div>
 

@@ -68,8 +68,15 @@ export const Discharges = () => {
 
     let matchesDate = true;
     if (appliedDateFrom && appliedDateTo) {
-      const pDate = new Date(p.admissionDate).toISOString().split('T')[0];
-      matchesDate = pDate >= appliedDateFrom && pDate <= appliedDateTo;
+      if (p.status === 'Discharge Requested') {
+        // Pending requests should always be visible so they aren't missed
+        matchesDate = true;
+      } else {
+        const pDate = p.dischargeInfo?.dischargeDate
+          ? new Date(p.dischargeInfo.dischargeDate).toISOString().split('T')[0]
+          : new Date(p.admissionDate).toISOString().split('T')[0];
+        matchesDate = pDate >= appliedDateFrom && pDate <= appliedDateTo;
+      }
     }
 
     return matchesSearch && matchesDate;

@@ -1,14 +1,19 @@
-import { useState, useMemo } from 'react';
-import { Plus, Search, Filter, Edit2, Trash2, Eye, Send, FileSignature } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Plus, Search, Filter, Edit2, Trash2, Eye, Send, FileSignature, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { DateFilter } from '../../components/ui/DateFilter';
+import type { PRRecord } from './PurchaseRequisitions';
 
+<<<<<<< HEAD
 // Mock Data Imports
 import { initialPRs, type PRRecord } from './PurchaseRequisitions';
 import { useLocalStorage } from '../../utils/useLocalStorage';
 import { useDepartments, useVendors, useWarehouses } from '../../hooks/useMasterOptions';
+=======
+const API_BASE = import.meta.env.VITE_API_URL as string;
+>>>>>>> origin/main
 
 interface RFQItem {
   id: string;
@@ -46,6 +51,7 @@ export const initialRFQs: RFQRecord[] = [];
 // We will use initialPRs imported from PurchaseRequisitions
 
 export const RequestForQuotation = () => {
+<<<<<<< HEAD
   // Live from the admin masters. These used to be hardcoded mockData
   // arrays, so anything added in a master never reached these pickers.
   const { options: departments } = useDepartments();
@@ -54,6 +60,49 @@ export const RequestForQuotation = () => {
   const [records, setRecords] = useLocalStorage<RFQRecord[]>('procurement_rfqs_v2', initialRFQs);
   const [allPRs] = useLocalStorage<PRRecord[]>('procurement_prs_v2', initialPRs);
   
+=======
+  const [records, setRecords] = useState<RFQRecord[]>([]);
+  const [allPRs, setAllPRs] = useState<PRRecord[]>([]);
+  const [departmentsList, setDepartmentsList] = useState<any[]>([]);
+  const [vendorsList, setVendorsList] = useState<any[]>([]);
+  const [warehousesList, setWarehousesList] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    fetchRFQs();
+    fetchMasters();
+  }, []);
+
+  const fetchRFQs = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/rfqs`);
+      if (res.ok) setRecords(await res.json());
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchMasters = async () => {
+    try {
+      const [prsRes, deptRes, vendRes, storeRes] = await Promise.all([
+        fetch(`${API_BASE}/purchase-requisitions`),
+        fetch(`${API_BASE}/departments`),
+        fetch(`${API_BASE}/vendors`),
+        fetch(`${API_BASE}/stores`)
+      ]);
+      if (prsRes.ok) setAllPRs(await prsRes.json());
+      if (deptRes.ok) setDepartmentsList(await deptRes.json());
+      if (vendRes.ok) setVendorsList(await vendRes.json());
+      if (storeRes.ok) setWarehousesList(await storeRes.json());
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+>>>>>>> origin/main
   // Filter only Approved PRs that don't already have an RFQ
   const availablePRs = useMemo(() => {
     return allPRs.filter(pr => 
@@ -117,15 +166,35 @@ export const RequestForQuotation = () => {
     setIsViewOpen(true);
   };
 
-  const handleSave = (status: string) => {
+  const handleSave = async (status: string) => {
     if (validateForm()) {
-      if (selectedRecord) {
-        setRecords(records.map(r => r.id === selectedRecord.id ? { ...formData, status, vendorCount: formData.vendors.length, id: r.id } : r));
-      } else {
-        const newId = records.length > 0 ? Math.max(...records.map(r => r.id)) + 1 : 1;
-        setRecords([{ ...formData, status, vendorCount: formData.vendors.length, id: newId }, ...records]);
+      const payload = { ...formData, status, vendorCount: formData.vendors.length };
+      try {
+        const url = selectedRecord ? `${API_BASE}/rfqs/${selectedRecord.id}` : `${API_BASE}/rfqs`;
+        const method = selectedRecord ? 'PUT' : 'POST';
+        const res = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          fetchRFQs();
+          setIsFormOpen(false);
+        }
+      } catch (err) {
+        console.error(err);
       }
-      setIsFormOpen(false);
+    }
+  };
+
+  const handleDelete = async (record: RFQRecord) => {
+    if (window.confirm(`Are you sure you want to delete ${record.rfqNo}?`)) {
+      try {
+        const res = await fetch(`${API_BASE}/rfqs/${record.id}`, { method: 'DELETE' });
+        if (res.ok) fetchRFQs();
+      } catch (err) {
+        console.error(err);
+      }
     }
   };
 
@@ -224,6 +293,9 @@ export const RequestForQuotation = () => {
               onClick={() => setShowFilters(!showFilters)}
               className={`p-2 border rounded-lg transition-colors ${showFilters ? 'border-primary bg-primary/5 text-primary' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
             ><Filter className="w-4 h-4" /></button>
+            <button onClick={() => { fetchRFQs(); fetchMasters(); }} className="p-2 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 transition-colors" title="Refresh">
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            </button>
           </div>
         </div>
 
@@ -233,7 +305,11 @@ export const RequestForQuotation = () => {
               <div className="p-4 flex gap-4">
                 <select value={filterDepartment} onChange={(e) => { setFilterDepartment(e.target.value); setCurrentPage(1); }} className="px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none">
                   <option value="">All Departments</option>
+<<<<<<< HEAD
                   {departments.map(d => <option key={d.id} value={d.departmentName}>{d.departmentName}</option>)}
+=======
+                  {departmentsList.map(d => <option key={d.id} value={d.departmentName}>{d.departmentName}</option>)}
+>>>>>>> origin/main
                 </select>
                 <select value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setCurrentPage(1); }} className="px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none">
                   <option value="">All Statuses</option>
@@ -280,7 +356,7 @@ export const RequestForQuotation = () => {
                     <div className="flex items-center justify-end gap-1">
                       <button onClick={() => handleView(record)} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"><Eye className="w-4 h-4" /></button>
                       {record.status !== 'Closed' && <button onClick={() => handleEdit(record)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"><Edit2 className="w-4 h-4" /></button>}
-                      <button onClick={() => setRecords(records.filter(r => r.id !== record.id))} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
+                      <button onClick={() => handleDelete(record)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
                     </div>
                   </td>
                 </tr>
@@ -322,17 +398,21 @@ export const RequestForQuotation = () => {
               </select>
               {errors.prNumber && <span className="text-xs text-red-500">{errors.prNumber}</span>}
             </div>
-            <div><label className="block text-xs font-medium text-slate-500 mb-1">Department</label><input type="text" value={formData.department} disabled className="w-full px-3 py-1.5 border border-slate-200 bg-slate-100 rounded-lg text-sm" /></div>
+            <div><label className="block text-xs font-medium text-slate-500 mb-1">Department</label><input type="text" value={formData.department || ''} disabled className="w-full px-3 py-1.5 border border-slate-200 bg-slate-100 rounded-lg text-sm" /></div>
             
-            <div><label className="block text-xs font-medium text-slate-500 mb-1">Required Date</label><input type="date" value={formData.requiredDate} onChange={(e) => setFormData({...formData, requiredDate: e.target.value})} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm" /></div>
-            <div><label className="block text-xs font-medium text-slate-500 mb-1">Quotation Due Date*</label><input type="date" value={formData.dueDate} onChange={(e) => setFormData({...formData, dueDate: e.target.value})} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm" />
+            <div><label className="block text-xs font-medium text-slate-500 mb-1">Required Date</label><input type="date" value={formData.requiredDate || ''} onChange={(e) => setFormData({...formData, requiredDate: e.target.value})} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm" /></div>
+            <div><label className="block text-xs font-medium text-slate-500 mb-1">Quotation Due Date*</label><input type="date" value={formData.dueDate || ''} onChange={(e) => setFormData({...formData, dueDate: e.target.value})} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm" />
               {errors.dueDate && <span className="text-xs text-red-500">{errors.dueDate}</span>}
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Delivery Location</label>
-              <select value={formData.deliveryLocation} onChange={(e) => setFormData({...formData, deliveryLocation: e.target.value})} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm">
+              <select value={formData.deliveryLocation || ''} onChange={(e) => setFormData({...formData, deliveryLocation: e.target.value})} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm">
                 <option value="">Select Location</option>
+<<<<<<< HEAD
                 {warehouses.map(w => <option key={w.id} value={w.storeName}>{w.storeName}</option>)}
+=======
+                {warehousesList.map(w => <option key={w.id} value={w.storeName}>{w.storeName}</option>)}
+>>>>>>> origin/main
               </select>
             </div>
           </div>
@@ -342,7 +422,11 @@ export const RequestForQuotation = () => {
               <h3 className="font-semibold text-slate-800 mb-3 flex items-center gap-2">Vendor Selection</h3>
               {errors.vendors && <div className="text-xs text-red-500 mb-2">{errors.vendors}</div>}
               <div className="border border-slate-200 rounded-xl overflow-y-auto h-48 bg-white p-2">
+<<<<<<< HEAD
                 {vendors.map(vendor => (
+=======
+                {vendorsList.map(vendor => (
+>>>>>>> origin/main
                   <label key={vendor.id} className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg cursor-pointer">
                     <input type="checkbox" checked={formData.vendors.includes(vendor.id)} onChange={() => handleVendorSelect(vendor.id)} className="w-4 h-4 text-primary rounded border-slate-300" />
                     <div>
@@ -355,7 +439,7 @@ export const RequestForQuotation = () => {
             </div>
             <div>
               <label className="block font-semibold text-slate-800 mb-3">Terms & Conditions</label>
-              <textarea value={formData.terms} onChange={(e) => setFormData({...formData, terms: e.target.value})} className="w-full h-48 p-3 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary resize-none" placeholder="Enter terms and conditions for vendors..." />
+              <textarea value={formData.terms || ''} onChange={(e) => setFormData({...formData, terms: e.target.value})} className="w-full h-48 p-3 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary resize-none" placeholder="Enter terms and conditions for vendors..." />
             </div>
           </div>
 
@@ -388,11 +472,11 @@ export const RequestForQuotation = () => {
                         {item.itemName}
                       </td>
                       <td className="py-2 px-3 text-slate-600">{item.category || '-'}</td>
-                      <td className="py-2 px-3"><input type="number" value={item.requestedQty} onChange={(e) => { const items = [...formData.items]; items[index].requestedQty = Number(e.target.value); setFormData({...formData, items})}} className="w-full p-1.5 border rounded-lg text-sm text-right" /></td>
+                      <td className="py-2 px-3"><input type="number" value={item.requestedQty || ''} onChange={(e) => { const items = [...formData.items]; items[index].requestedQty = Number(e.target.value); setFormData({...formData, items})}} className="w-full p-1.5 border rounded-lg text-sm text-right" /></td>
                       <td className="py-2 px-3 text-slate-600">{item.uom || '-'}</td>
-                      <td className="py-2 px-3"><input type="number" value={item.targetPrice} onChange={(e) => { const items = [...formData.items]; items[index].targetPrice = Number(e.target.value); setFormData({...formData, items})}} placeholder="Target Price" className="w-full p-1.5 border rounded-lg text-sm text-right" /></td>
-                      <td className="py-2 px-3"><input type="number" value={item.expectedDeliveryDays} onChange={(e) => { const items = [...formData.items]; items[index].expectedDeliveryDays = Number(e.target.value); setFormData({...formData, items})}} className="w-full p-1.5 border rounded-lg text-sm text-right" /></td>
-                      <td className="py-2 px-3"><input type="text" value={item.remarks} onChange={(e) => { const items = [...formData.items]; items[index].remarks = e.target.value; setFormData({...formData, items})}} className="w-full p-1.5 border rounded-lg text-sm" /></td>
+                      <td className="py-2 px-3"><input type="number" value={item.targetPrice || ''} onChange={(e) => { const items = [...formData.items]; items[index].targetPrice = Number(e.target.value); setFormData({...formData, items})}} placeholder="Target Price" className="w-full p-1.5 border rounded-lg text-sm text-right" /></td>
+                      <td className="py-2 px-3"><input type="number" value={item.expectedDeliveryDays || ''} onChange={(e) => { const items = [...formData.items]; items[index].expectedDeliveryDays = Number(e.target.value); setFormData({...formData, items})}} className="w-full p-1.5 border rounded-lg text-sm text-right" /></td>
+                      <td className="py-2 px-3"><input type="text" value={item.remarks || ''} onChange={(e) => { const items = [...formData.items]; items[index].remarks = e.target.value; setFormData({...formData, items})}} className="w-full p-1.5 border rounded-lg text-sm" /></td>
                     </tr>
                   ))}
                 </tbody>
@@ -441,7 +525,11 @@ export const RequestForQuotation = () => {
               <h3 className="font-semibold text-slate-800 mb-3">Requested Vendors</h3>
               <div className="flex flex-wrap gap-2">
                 {selectedRecord.vendors && selectedRecord.vendors.length > 0 ? selectedRecord.vendors.map(vId => {
+<<<<<<< HEAD
                   const v = vendors.find(vm => vm.id === vId);
+=======
+                  const v = vendorsList.find(vm => vm.id === vId);
+>>>>>>> origin/main
                   return v ? <span key={vId} className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm font-medium">{v.vendorName}</span> : null;
                 }) : <span className="text-sm text-slate-500">No vendors selected</span>}
               </div>

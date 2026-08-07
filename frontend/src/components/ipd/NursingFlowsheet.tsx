@@ -1,5 +1,10 @@
+<<<<<<< HEAD
 import { useState, useEffect, useCallback } from 'react';
 import { Activity, Plus, Trash2 } from 'lucide-react';
+=======
+import { useState, useEffect } from 'react';
+import { Activity, Plus, Trash2, Clock, Loader2 } from 'lucide-react';
+>>>>>>> origin/main
 import toast from 'react-hot-toast';
 import { digitsOnly, decimalOnly, freeText, LIMITS } from '../../utils/inputRules';
 
@@ -18,6 +23,7 @@ export interface VitalsEntry {
 }
 
 interface NursingFlowsheetProps {
+<<<<<<< HEAD
   /** IPD AdmissionId â€” vitals are recorded against the admission. */
   patientId: number;
 }
@@ -32,9 +38,20 @@ export const NursingFlowsheet: React.FC<NursingFlowsheetProps> = ({ patientId })
   const [entries, setEntries] = useState<VitalsEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+=======
+  patientId: number; // This is the AdmissionId
+}
+
+const API_BASE = import.meta.env.VITE_API_URL as string;
+
+export const NursingFlowsheet: React.FC<NursingFlowsheetProps> = ({ patientId }) => {
+  const [entries, setEntries] = useState<VitalsEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+>>>>>>> origin/main
   const [isAdding, setIsAdding] = useState(false);
   const [form, setForm] = useState(EMPTY);
 
+<<<<<<< HEAD
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -48,6 +65,39 @@ export const NursingFlowsheet: React.FC<NursingFlowsheetProps> = ({ patientId })
   }, [patientId]);
 
   useEffect(() => { load(); }, [load]);
+=======
+  const fetchVitals = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/ipd-visits/${patientId}/details`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.vitals) {
+          const mapped = data.vitals.map((v: any) => ({
+            id: String(v.VitalsId),
+            timestamp: v.RecordedAt,
+            temperature: v.Temperature || '',
+            pulse: v.Pulse || '',
+            bloodPressure: v.BloodPressure || '',
+            respiratoryRate: v.RespiratoryRate || '',
+            spO2: v.SpO2 || '',
+            notes: v.Notes || ''
+          }));
+          setEntries(mapped);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to load vitals');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchVitals();
+  }, [patientId]);
+>>>>>>> origin/main
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,6 +105,7 @@ export const NursingFlowsheet: React.FC<NursingFlowsheetProps> = ({ patientId })
       toast.error('Record at least one vital sign');
       return;
     }
+<<<<<<< HEAD
     setSaving(true);
     try {
       const res = await fetch(`${API_BASE}/ipd/admissions/${patientId}/vitals`, {
@@ -82,9 +133,47 @@ export const NursingFlowsheet: React.FC<NursingFlowsheetProps> = ({ patientId })
       console.error('[Flowsheet] delete failed', e);
       toast.error('Failed to remove entry');
     }
+=======
+    
+    const payload = {
+      admissionId: patientId,
+      vitals: formData
+    };
+
+    try {
+      const res = await fetch(`${API_BASE}/ipd-visits/save-clinical`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        toast.success('Vitals entry added');
+        setIsAdding(false);
+        setFormData({ temperature: '', pulse: '', bloodPressure: '', respiratoryRate: '', spO2: '', notes: '' });
+        fetchVitals();
+      } else {
+        toast.error('Failed to save vitals');
+      }
+    } catch (e) {
+      toast.error('Failed to save vitals');
+    }
+  };
+
+  const handleDelete = (id: string) => {
+    // We do not have a delete API currently mapped. 
+    // Usually clinical records are immutable, so we just remove locally for now 
+    // or ideally don't allow delete. I'll just remove it from state to match original behavior.
+    setEntries(entries.filter(e => e.id !== id));
+    if (selectedId === id) setSelectedId(null);
+    toast.success('Vitals entry removed locally');
+>>>>>>> origin/main
   };
 
   const inputCls = 'w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20';
+
+  if (isLoading) {
+    return <div className="flex justify-center py-10"><Loader2 className="w-8 h-8 animate-spin text-slate-400" /></div>;
+  }
 
   return (
     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 space-y-3">
@@ -105,10 +194,15 @@ export const NursingFlowsheet: React.FC<NursingFlowsheetProps> = ({ patientId })
           <form onSubmit={handleSubmit}>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-2">
               <div>
+<<<<<<< HEAD
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Temp</label>
                 <input type="text" inputMode="decimal" placeholder="98.6" value={form.temperature}
                   onChange={e => setForm({ ...form, temperature: decimalOnly(e.target.value, 6) })}
                   className={inputCls} />
+=======
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Temp (°F/°C)</label>
+                <input type="text" placeholder="e.g. 98.6" value={formData.temperature} onChange={e => setFormData({ ...formData, temperature: e.target.value })} className={inputCls} />
+>>>>>>> origin/main
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Pulse</label>
@@ -154,10 +248,51 @@ export const NursingFlowsheet: React.FC<NursingFlowsheetProps> = ({ patientId })
         </div>
       )}
 
+<<<<<<< HEAD
       {entries.length === 0 ? (
         <div className="text-center py-8 text-slate-400 font-medium">
           <Activity className="w-8 h-8 mx-auto text-slate-200 mb-2" />
           {loading ? 'Loading vitalsâ€¦' : 'No vitals recorded for this admission yet.'}
+=======
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Left: History timeline */}
+        <div className="lg:col-span-1 border border-slate-100 rounded-2xl bg-slate-50/50 p-3">
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">History</h4>
+            {selectedId && (
+              <button onClick={() => setSelectedId(null)} className="text-[11px] text-primary font-semibold">Show all</button>
+            )}
+          </div>
+          {entries.length === 0 ? (
+            <p className="text-sm text-slate-400 py-6 text-center">No history yet.</p>
+          ) : (
+            <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1 custom-scrollbar">
+              {entries.map(entry => {
+                const active = selectedId === entry.id;
+                return (
+                  <button
+                    key={entry.id}
+                    onClick={() => setSelectedId(active ? null : entry.id)}
+                    className={`w-full text-left rounded-xl border px-3 py-2 transition-colors ${
+                      active ? 'border-primary bg-primary/5' : 'border-slate-200 bg-white hover:border-primary/40'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-700">{new Date(entry.timestamp).toLocaleDateString()}</span>
+                      <span className="text-[11px] text-slate-400 flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-slate-500 mt-1">
+                      T {entry.temperature || '-'} · P {entry.pulse || '-'} · BP {entry.bloodPressure || '-'} · SpO2 {entry.spO2 || '-'}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+>>>>>>> origin/main
         </div>
       ) : (
         <div className="overflow-x-auto">

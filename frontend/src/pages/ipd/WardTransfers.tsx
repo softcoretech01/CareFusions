@@ -302,7 +302,10 @@ export const WardTransfers = () => {
               required
             >
               <option value="">Select Target Ward</option>
-              {wards.filter(w => w.id !== currentWard?.id).map(w => <option key={w.id} value={w.id}>{w.name} ({w.type})</option>)}
+              {wards.filter(w => 
+                w.id !== currentWard?.id && 
+                (w.genderRestriction === 'Any' || w.genderRestriction === selectedPatient?.gender)
+              ).map(w => <option key={w.id} value={w.id}>{w.name} ({w.type})</option>)}
             </select>
           </div>
 

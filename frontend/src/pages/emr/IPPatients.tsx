@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, Printer, Eye, X } from 'lucide-react';
-import { MOCK_EMR_RECORDS } from '../../data/mockEMRData';
+import { Search, Printer, Eye, X, Loader2 } from 'lucide-react';
 import { EMRPrintTemplate } from '../../components/emr/EMRPrintTemplate';
 import EMRViewTemplate from '../../components/emr/EMRViewTemplate';
 import { OPDPrintTemplate } from '../../components/emr/OPDPrintTemplate';
@@ -9,9 +8,14 @@ import { IPDPrintTemplate } from '../../components/emr/IPDPrintTemplate';
 import type { EMRRecord } from '../../components/emr/EMRPrintTemplate';
 import { DateFilter } from '../../components/ui/DateFilter';
 
+const API_BASE = import.meta.env.VITE_API_URL as string;
+
 export const IPPatients = () => {
   const visitType = 'IP' as const;
   const title = 'Inpatient (IP) Records';
+
+  const [records, setRecords] = useState<EMRRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const [searchText, setSearchText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -34,11 +38,9 @@ export const IPPatients = () => {
     if (record.visitType === 'OP') {
       return <OPDPrintTemplate hospital={defaultHospitalInfo} record={record} />;
     }
-
     if (record.visitType === 'IP') {
       return <IPDPrintTemplate hospital={defaultHospitalInfo} record={record} />;
     }
-
     return <EMRPrintTemplate record={record} />;
   };
 
@@ -54,7 +56,91 @@ export const IPPatients = () => {
     return () => window.removeEventListener('afterprint', handleAfterPrint);
   }, []);
 
-  const records = MOCK_EMR_RECORDS.filter(r => r.visitType === visitType);
+  useEffect(() => {
+    const fetchRecords = async () => {
+      setIsLoading(true);
+      try {
+        const res = await fetch(`${API_BASE}/ipd-visits/schedule`);
+        if (res.ok) {
+          const data = await res.json();
+          const mapped: EMRRecord[] = data.map((d: any) => ({
+            uhid: d.uhid,
+            patientName: d.patientName,
+            age: d.age || 0,
+            gender: d.gender || 'Unknown',
+            bloodGroup: 'Unknown',
+            contact: '',
+            visitType: 'IP',
+            visitId: String(d.admissionId || d.id),
+            visitDate: d.admissionDate || '',
+            visitDateValue: d.admissionDate || '',
+            doctor: d.doctorName || 'Unknown',
+            specialty: d.department || 'Unknown',
+            department: d.department,
+            billingStatus: d.billingStatus || 'Pending',
+            chiefComplaint: '',
+            diagnosis: '',
+            clinicalNotes: ''
+          }));
+          setRecords(mapped);
+        }
+      } catch (e) {
+        console.error("Failed to fetch IP EMR records", e);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchRecords();
+  }, []);
+
+  const fetchFullRecord = async (record: EMRRecord): Promise<EMRRecord> => {
+    try {
+      const res = await fetch(`${API_BASE}/ipd-visits/${record.visitId}/details`);
+      if (res.ok) {
+        const details = await res.json();
+        if (details.status === "NOT_FOUND") return record;
+        
+        const adm = details.admissionInfo || {};
+        const vitals = (details.vitals || [])[0]; // Get most recent vitals
+        const rounds = details.rounds || [];
+        const meds = details.medications || [];
+        const invs = details.investigations || [];
+
+        return {
+          ...record,
+          admissionDate: adm.AdmissionDate,
+          dischargeDate: adm.DischargeDate,
+          dischargeStatus: adm.Status === 'Discharged' ? 'Discharged' : 'Admitted',
+          chiefComplaint: adm.ProvisionalDiagnosis || '',
+          diagnosis: adm.ProvisionalDiagnosis || '',
+          clinicalNotes: rounds.map((r:any) => `${r.DoctorName}: ${r.Note}`).join('\n\n') || '',
+          vitals: vitals ? {
+            bp: vitals.BloodPressure || '',
+            pulse: vitals.Pulse || '',
+            temp: vitals.Temperature || '',
+            spo2: vitals.SpO2 || '',
+            weight: '',
+            height: '',
+          } : undefined,
+          investigations: invs.map((i: any) => ({ 
+            test: i.TestName, 
+            result: i.Result || i.Status || 'Ordered', 
+            normalRange: i.NormalRange || '' 
+          })),
+          prescriptions: meds.map((m: any) => ({
+             medicine: m.MedicineName || '',
+             dosage: m.Dosage || '',
+             frequency: m.Frequency || '',
+             duration: '',
+             instructions: m.Route || ''
+          }))
+        };
+      }
+    } catch (e) {
+      console.error("Failed to fetch full record details", e);
+    }
+    return record;
+  };
 
   const filtered = records
     .filter(r => {
@@ -71,6 +157,7 @@ export const IPPatients = () => {
       const visitDate = new Date(r.visitDateValue || r.visitDate);
       const startDate = fromDate ? new Date(fromDate) : null;
       const endDate = toDate ? new Date(toDate) : null;
+      if (endDate) endDate.setHours(23, 59, 59, 999);
       const matchesFrom = !startDate || visitDate >= startDate;
       const matchesTo = !endDate || visitDate <= endDate;
 
@@ -92,14 +179,22 @@ export const IPPatients = () => {
     setToDate('');
   };
 
-  const handlePrint = (record: EMRRecord) => {
+  const handleView = async (record: EMRRecord) => {
+    const fullRecord = await fetchFullRecord(record);
+    setViewRecord(fullRecord);
+  };
+
+  const handlePrint = async (record: EMRRecord) => {
     if (printRecord?.visitId === record.visitId) {
       setPrintRecord(null);
-      setTimeout(() => setPrintRecord(record), 50);
+      setTimeout(async () => {
+        const fullRecord = await fetchFullRecord(record);
+        setPrintRecord(fullRecord);
+      }, 50);
       return;
     }
-
-    setPrintRecord(record);
+    const fullRecord = await fetchFullRecord(record);
+    setPrintRecord(fullRecord);
   };
 
   const badgeColors: Record<string, string> = {
@@ -145,66 +240,74 @@ export const IPPatients = () => {
         </div>
 
         <div className="flex-1 overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-white text-xs font-semibold text-slate-500 uppercase tracking-wider sticky top-0 shadow-sm z-10 border-b border-slate-100">
-              <tr>
-                <th className="px-6 py-4">Patient Details</th>
-                <th className="px-6 py-4">UHID</th>
-                <th className="px-6 py-4">Department</th>
-                <th className="px-6 py-4">Doctor</th>
-                <th className="px-6 py-4">Visit Date</th>
-                <th className="px-6 py-4">Billing Status</th>
-                <th className="px-6 py-4 text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filtered.length === 0 ? (
+          {isLoading ? (
+            <div className="flex justify-center items-center h-full">
+              <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
+            </div>
+          ) : (
+            <table className="w-full text-sm text-left">
+              <thead className="bg-white text-xs font-semibold text-slate-500 uppercase tracking-wider sticky top-0 shadow-sm z-10 border-b border-slate-100">
                 <tr>
-                  <td colSpan={7} className="px-6 py-16 text-center text-slate-400">
-                    No records found.
-                  </td>
+                  <th className="px-6 py-4">Patient Details</th>
+                  <th className="px-6 py-4">UHID</th>
+                  <th className="px-6 py-4">Department</th>
+                  <th className="px-6 py-4">Doctor</th>
+                  <th className="px-6 py-4">Visit Date</th>
+                  <th className="px-6 py-4">Billing Status</th>
+                  <th className="px-6 py-4 text-center">Actions</th>
                 </tr>
-              ) : (
-                filtered.map(record => (
-                  <tr key={record.visitId} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="px-6 py-4">
-                      <p className="font-bold text-slate-800">{record.patientName}</p>
-                      <p className="text-xs text-slate-500">{record.age}y / {record.gender}</p>
-                    </td>
-                    <td className="px-6 py-4 font-mono text-xs text-slate-700">{record.uhid}</td>
-                    <td className="px-6 py-4 text-slate-700 font-medium text-sm">{record.department || 'â€”'}</td>
-                    <td className="px-6 py-4">
-                      <p className="font-semibold text-slate-700">{record.doctor}</p>
-                    </td>
-                    <td className="px-6 py-4 text-slate-600 font-medium text-sm">{record.visitDate}</td>
-                    <td className="px-6 py-4">
-                      <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-                        {record.billingStatus || 'Pending'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center justify-center gap-2">
-                        <button
-                          onClick={() => setViewRecord(record)}
-                          className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-                          title="View EMR"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handlePrint(record)}
-                          className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                          title="Print EMR"
-                        >
-                          <Printer className="w-4 h-4" />
-                        </button>
-                      </div>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-16 text-center text-slate-400">
+                      No records found.
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  filtered.map(record => (
+                    <tr key={record.visitId} className="hover:bg-slate-50/70 transition-colors">
+                      <td className="px-6 py-4">
+                        <p className="font-bold text-slate-800">{record.patientName}</p>
+                        <p className="text-xs text-slate-500">{record.age}y / {record.gender}</p>
+                      </td>
+                      <td className="px-6 py-4 font-mono text-xs text-slate-700">{record.uhid}</td>
+                      <td className="px-6 py-4 text-slate-700 font-medium text-sm">{record.department || '—'}</td>
+                      <td className="px-6 py-4">
+                        <p className="font-semibold text-slate-700">{record.doctor}</p>
+                      </td>
+                      <td className="px-6 py-4 text-slate-600 font-medium text-sm">
+                        {new Date(record.visitDate).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                          {record.billingStatus || 'Pending'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={() => handleView(record)}
+                            className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                            title="View EMR"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handlePrint(record)}
+                            className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                            title="Print EMR"
+                          >
+                            <Printer className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 

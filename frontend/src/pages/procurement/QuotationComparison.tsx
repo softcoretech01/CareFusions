@@ -1,21 +1,48 @@
+<<<<<<< HEAD
 import { useState, useMemo } from 'react';
 import { Pagination } from '@/components/ui/Pagination';
 import { usePagination } from '@/hooks/usePagination';
 import { Search, CheckCircle, FileText, ArrowLeft, GitCompare, Award } from 'lucide-react';
+=======
+import { useState, useMemo, useEffect } from 'react';
+import { Search, CheckCircle, FileText, ArrowLeft, GitCompare, Award, RefreshCw } from 'lucide-react';
+>>>>>>> origin/main
 import { motion } from 'framer-motion';
 import { Button } from '../../components/ui/Button';
 import { DateFilter } from '../../components/ui/DateFilter';
-import { useLocalStorage } from '../../utils/useLocalStorage';
 import type { RFQRecord } from './RequestForQuotation';
 import type { QuotationRecord } from './VendorQuotation';
 
+const API_BASE = import.meta.env.VITE_API_URL as string;
+
 export const QuotationComparison = () => {
-  const [rfqs] = useLocalStorage<RFQRecord[]>('procurement_rfqs_v2', []);
-  const [qtns, setQtns] = useLocalStorage<QuotationRecord[]>('procurement_qtns_v2', []);
+  const [rfqs, setRfqs] = useState<RFQRecord[]>([]);
+  const [qtns, setQtns] = useState<QuotationRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [selectedRfq, setSelectedRfq] = useState<any | null>(null);
+
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+      const [rfqRes, qtnsRes] = await Promise.all([
+        fetch(`${API_BASE}/rfqs`),
+        fetch(`${API_BASE}/vendor-quotations`)
+      ]);
+      if (rfqRes.ok) setRfqs(await rfqRes.json());
+      if (qtnsRes.ok) setQtns(await qtnsRes.json());
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   // Group quotations by RFQ
   const activeComparisons = useMemo(() => {
@@ -87,20 +114,25 @@ export const QuotationComparison = () => {
     }
   };
 
-  const handleApprove = (rfqNo: string, quotationNo: string) => {
-    const updatedQtns = qtns.map(q => {
-      if (q.rfqNo === rfqNo) {
-        if (q.quotationNo === quotationNo) {
-          return { ...q, status: 'Approved' };
-        } else {
-          return { ...q, status: 'Rejected' };
-        }
+  const handleApprove = async (rfqNo: string, quotationNo: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/vendor-quotations/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rfqNo, approvedQuotationNo: quotationNo })
+      });
+      if (res.ok) {
+        await fetchData(); // Refresh data from backend
+        alert(`Quotation ${quotationNo} for ${rfqNo} has been Approved!`);
+        setSelectedRfq(null);
+      } else {
+        const err = await res.json();
+        alert(`Failed to approve: ${err.detail || 'Unknown error'}`);
       }
-      return q;
-    });
-    setQtns(updatedQtns);
-    alert(`Quotation ${quotationNo} for ${rfqNo} has been Approved!`);
-    setSelectedRfq(null);
+    } catch (error) {
+      console.error(error);
+      alert('An error occurred during approval.');
+    }
   };
 
   // Paginates the RFQ card grid below. Declared here, above the detail-view
@@ -267,7 +299,12 @@ export const QuotationComparison = () => {
             <span className="mx-2">/</span>
             <span className="text-primary font-medium">Quotation Comparison</span>
           </div>
-          <h1 className="text-3xl font-bold text-slate-800">Compare Quotations</h1>
+          <div className="flex items-center gap-4">
+            <h1 className="text-3xl font-bold text-slate-800">Compare Quotations</h1>
+            <button onClick={fetchData} className="p-2 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 transition-colors" title="Refresh">
+              <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
         </div>
         <DateFilter
           dateFrom={fromDate}

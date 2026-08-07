@@ -1,7 +1,14 @@
+<<<<<<< HEAD
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode, useRef } from 'react';
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
 const LAB = `${API_BASE}/lab`;
+=======
+import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import axios from 'axios';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8001/api/v1';
+>>>>>>> origin/main
 
 export interface InvestigationTest {
   id: string;
@@ -22,6 +29,7 @@ export interface InvestigationTest {
   unit?: string;
   isAbnormal?: boolean;
   isCritical?: boolean;
+  acknowledgedAt?: string;
 }
 
 export interface InvestigationOrder {
@@ -37,6 +45,9 @@ export interface InvestigationOrder {
   clinicalNotes?: string;
   tests: InvestigationTest[];
   status: 'Pending' | 'Sample Collected' | 'Sample Accepted' | 'Processing' | 'Partial' | 'Completed' | 'Verified';
+  age?: string;
+  gender?: string;
+  mobileNumber?: string;
 }
 
 export interface QCLog {
@@ -80,6 +91,8 @@ interface InvestigationContextType {
   acknowledgeAlert: (testId: string, acknowledgedBy?: string) => void;
   getOrdersByPatient: (patientId: string) => InvestigationOrder[];
   addQCLog: (log: QCLog) => void;
+  acknowledgeRadiologyAlert: (testId: string) => void;
+  addRadiologyQCLog: (log: Omit<QCLog, 'id'>) => Promise<void>;
 }
 
 const InvestigationContext = createContext<InvestigationContextType | undefined>(undefined);
@@ -109,9 +122,79 @@ export const InvestigationProvider = ({ children }: { children: ReactNode }) => 
     setHasLoaded(true);
   }, []);
 
+<<<<<<< HEAD
   // Client-supplied order/test ids are ignored — the server assigns the
   // authoritative order number and test ids, and fills reference range/unit
   // from the test master.
+=======
+  const fetchRadiologyOrders = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/radiology/orders`);
+      const radOrders = response.data.map((order: any) => ({
+        id: order.order_id.toString(),
+        type: order.visit_type,
+        category: order.category,
+        patientId: order.uhid,
+        patientName: order.patient_name,
+        orderedBy: order.ordered_by || 'Unknown',
+        orderedAt: order.ordered_at,
+        status: order.status,
+        age: order.age,
+        gender: order.gender,
+        mobileNumber: order.mobile_number,
+        tests: order.tests.map((test: any) => ({
+          id: `TEST-${test.order_test_id}`,
+          name: test.test_name,
+          status: test.status,
+          resultValue: test.result_value || '',
+          resultFile: test.result_file || '',
+          isCritical: test.is_critical,
+          completedAt: test.completed_at,
+          verifiedAt: test.verified_at,
+          verifiedBy: test.verified_by,
+          acknowledgedAt: test.acknowledged_at
+        }))
+      }));
+      setOrders(prev => {
+        // Filter out existing radiology orders (mock ones or old fetched ones)
+        const nonRadOrders = prev.filter(o => o.category !== 'Radiology');
+        return [...nonRadOrders, ...radOrders];
+      });
+    } catch (error) {
+      console.error('Failed to fetch radiology orders', error);
+    }
+  };
+
+  const fetchRadiologyQCLogs = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/radiology/qc`);
+      const radQc = response.data.map((log: any) => ({
+        id: log.qc_number,
+        date: log.qc_date,
+        machineName: log.machine_name,
+        testName: log.test_name,
+        expectedValue: log.expected_value.toString(),
+        actualValue: log.actual_value.toString(),
+        deviation: log.deviation > 0 ? `+${log.deviation}` : log.deviation.toString(),
+        status: log.status,
+        remarks: log.remarks || ''
+      }));
+      setQcLogs(prev => {
+        // Assume QC logs starting with 'R-QC-' are from the radiology backend
+        const nonRadQc = prev.filter(q => !q.id.startsWith('R-QC-'));
+        return [...nonRadQc, ...radQc];
+      });
+    } catch (error) {
+      console.error('Failed to fetch radiology QC logs', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchRadiologyOrders();
+    fetchRadiologyQCLogs();
+  }, []);
+
+>>>>>>> origin/main
   const addOrder = (order: InvestigationOrder) => {
     (async () => {
       try {
@@ -198,6 +281,7 @@ export const InvestigationProvider = ({ children }: { children: ReactNode }) => 
     orders.filter(o => o.patientId === patientId);
 
   const addQCLog = (log: QCLog) => {
+<<<<<<< HEAD
     (async () => {
       try {
         await fetch(`${LAB}/qc`, {
@@ -224,6 +308,158 @@ export const InvestigationProvider = ({ children }: { children: ReactNode }) => 
         getOrdersByPatient, addQCLog,
       }}
     >
+=======
+    setQcLogs(prev => [log, ...prev]);
+  };
+
+  const updateOrderStatusBasedOnTests = (updatedTests: InvestigationTest[]): InvestigationOrder['status'] => {
+    const allCompleted = updatedTests.every(t => t.status === 'Completed' || t.status === 'Verified');
+    const allVerified = updatedTests.every(t => t.status === 'Verified');
+    const someCompleted = updatedTests.some(t => t.status === 'Completed' || t.status === 'Verified');
+    
+    if (allVerified) return 'Verified';
+    if (allCompleted) return 'Completed';
+    if (someCompleted) return 'Partial';
+    
+    const allCollected = updatedTests.every(t => t.status === 'Sample Collected' || t.status === 'Sample Accepted' || t.status === 'Processing');
+    if (allCollected) return 'Sample Collected';
+    
+    return 'Pending';
+  };
+
+  const updateTestResult = async (orderId: string, testId: string, resultValue?: string, resultFile?: string, isCritical?: boolean) => {
+    const order = orders.find(o => o.id === orderId);
+    
+    // Optimistic UI Update
+    setOrders(prev => prev.map(o => {
+      if (o.id !== orderId) return o;
+
+      const updatedTests = o.tests.map(test => {
+        if (test.id !== testId) return test;
+        return {
+          ...test,
+          resultValue,
+          resultFile,
+          isCritical,
+          status: 'Completed' as const,
+          completedAt: new Date().toISOString()
+        };
+      });
+
+      return {
+        ...o,
+        tests: updatedTests,
+        status: updateOrderStatusBasedOnTests(updatedTests)
+      };
+    }));
+
+    if (order?.category === 'Radiology') {
+      try {
+        await axios.put(`${API_URL}/radiology/orders/${orderId}/tests/${testId}`, {
+          result_value: resultValue,
+          result_file: resultFile,
+          is_critical: isCritical
+        });
+        // re-fetch to ensure sync with backend
+        fetchRadiologyOrders();
+      } catch (error) {
+        console.error('Failed to update radiology test', error);
+      }
+    }
+  };
+
+  const acknowledgeRadiologyAlert = async (testId: string) => {
+    try {
+      await axios.put(`${API_URL}/radiology/orders/tests/${testId}/acknowledge`);
+      fetchRadiologyOrders();
+    } catch (error) {
+      console.error('Failed to acknowledge radiology alert', error);
+    }
+  };
+
+  const addRadiologyQCLog = async (log: Omit<QCLog, 'id'>) => {
+    try {
+      await axios.post(`${API_URL}/radiology/qc`, {
+        qc_number: `R-QC-${Math.floor(1000 + Math.random() * 9000)}`,
+        qc_date: log.date,
+        machine_name: log.machineName,
+        test_name: log.testName,
+        expected_value: parseFloat(log.expectedValue),
+        actual_value: parseFloat(log.actualValue),
+        deviation: parseFloat(log.deviation),
+        status: log.status,
+        remarks: log.remarks
+      });
+      fetchRadiologyQCLogs();
+    } catch (error) {
+      console.error('Failed to add radiology QC log', error);
+      throw error;
+    }
+  };
+
+  const updateTestStatus = (orderId: string, testId: string, status: InvestigationTest['status']) => {
+    setOrders(prev => prev.map(order => {
+      if (order.id !== orderId) return order;
+
+      const updatedTests = order.tests.map(test => {
+        if (test.id !== testId) return test;
+        const now = new Date().toISOString();
+        return {
+          ...test,
+          status,
+          collectedAt: status === 'Sample Collected' ? now : test.collectedAt,
+          acceptedAt: status === 'Sample Accepted' ? now : test.acceptedAt,
+        };
+      });
+
+      return {
+        ...order,
+        tests: updatedTests,
+        status: updateOrderStatusBasedOnTests(updatedTests)
+      };
+    }));
+  };
+
+  const verifyTest = (orderId: string, testId: string, verifiedBy: string) => {
+    setOrders(prev => prev.map(order => {
+      if (order.id !== orderId) return order;
+
+      const updatedTests = order.tests.map(test => {
+        if (test.id !== testId) return test;
+        return {
+          ...test,
+          status: 'Verified' as const,
+          verifiedAt: new Date().toISOString(),
+          verifiedBy
+        };
+      });
+
+      return {
+        ...order,
+        tests: updatedTests,
+        status: updateOrderStatusBasedOnTests(updatedTests)
+      };
+    }));
+  };
+
+  const getOrdersByPatient = (patientId: string) => {
+    return orders.filter(o => o.patientId === patientId);
+  };
+
+  return (
+    <InvestigationContext.Provider value={{ 
+      orders, 
+      qcLogs,
+      addOrder, 
+      updateTestResult, 
+      updateTestStatus,
+      verifyTest,
+      getOrdersByPatient,
+      addQCLog,
+      acknowledgeRadiologyAlert,
+      addRadiologyQCLog
+    }}>
+>>>>>>> origin/main
       {children}
     </InvestigationContext.Provider>
   );

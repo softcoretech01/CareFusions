@@ -67,14 +67,55 @@ export const PharmacySummary = () => {
 
   const trendSeries = [{ name: 'Revenue (₹)', data: trendData }];
   const trendOptions: ApexOptions = {
-    chart: { type: 'area', toolbar: { show: false }, zoom: { enabled: false }, fontFamily: 'Inter' },
-    stroke: { curve: 'smooth', width: 2 },
-    fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.05, stops: [0, 90, 100] } },
+    chart: { 
+      type: 'area', 
+      toolbar: { show: false }, 
+      zoom: { enabled: false }, 
+      fontFamily: 'Inter',
+      dropShadow: {
+        enabled: true,
+        color: '#10b981',
+        top: 4,
+        left: 0,
+        blur: 4,
+        opacity: 0.15
+      }
+    },
+    stroke: { curve: 'smooth', width: 3 },
+    fill: { 
+      type: 'gradient', 
+      gradient: { 
+        shadeIntensity: 1, 
+        type: 'vertical',
+        opacityFrom: 0.6, 
+        opacityTo: 0.0, 
+        stops: [0, 100]
+      } 
+    },
     dataLabels: { enabled: false },
-    xaxis: { categories: trendLabels, axisBorder: { show: false }, axisTicks: { show: false } },
-    yaxis: { labels: { formatter: (val) => `₹${val.toFixed(0)}` } },
+    xaxis: { 
+      categories: trendLabels, 
+      axisBorder: { show: false }, 
+      axisTicks: { show: false },
+      labels: { style: { colors: '#94a3b8', fontWeight: 500 } }
+    },
+    yaxis: { 
+      labels: { 
+        formatter: (val) => `₹${val.toFixed(0)}`,
+        style: { colors: '#94a3b8', fontWeight: 500 }
+      } 
+    },
+    grid: {
+      borderColor: '#f1f5f9',
+      strokeDashArray: 4,
+      yaxis: { lines: { show: true } },
+      xaxis: { lines: { show: false } }
+    },
     colors: ['#10b981'],
-    tooltip: { theme: 'light' }
+    tooltip: { 
+      theme: 'light',
+      style: { fontSize: '12px', fontFamily: 'Inter' }
+    }
   };
 
   return (

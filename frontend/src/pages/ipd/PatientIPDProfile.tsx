@@ -133,7 +133,7 @@ export const PatientIPDProfile = () => {
           {activeTab === 'mar' && <MarGrid patientId={patient.id} />}
           
           {/* INVESTIGATIONS */}
-          {activeTab === 'investigations' && <InvestigationsTab patientId={patient.uhid} patientName={patient.patientName} />}
+          {activeTab === 'investigations' && <InvestigationsTab admissionId={patient.id} patientName={patient.patientName} />}
 
           {/* DISCHARGE TAB */}
           {activeTab === 'discharge' && (

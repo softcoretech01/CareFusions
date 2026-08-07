@@ -289,7 +289,9 @@ export const NewAdmission = () => {
             <div>
               <label className={labelCls}>Select Ward <span className="text-red-500">*</span></label>
               <select value={form.wardId} onChange={e => setForm({ ...form, wardId: e.target.value, roomNumber: '', bedId: '' })} className={fieldCls('wardId')}>
+                <option value="">Select Ward</option>
                 {wards.filter(w => {
+                  if (w.genderRestriction !== 'Any' && w.genderRestriction !== form.gender) return false;
                   if (form.admissionType === 'ICU') return w.type.includes('ICU') || w.type === 'HDU';
                   if (form.admissionType === 'General') return ['General', 'Semi-Private', 'Private', 'Deluxe'].includes(w.type);
                   return true;

@@ -1,10 +1,15 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { 
+<<<<<<< HEAD
   Search, Filter, BookOpen, Package, Clock, TrendingUp
+=======
+  Search, Filter, BookOpen, Star, Package, Clock, TrendingUp, RefreshCw
+>>>>>>> origin/main
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useItemCategories, useItems, useVendors } from '../../hooks/useMasterOptions';
 
+<<<<<<< HEAD
 
 
 export const VendorsCatalog = () => {
@@ -21,6 +26,36 @@ export const VendorsCatalog = () => {
     ...vendor,
     itemsSupplied: items.filter(i => i.vendor === vendor.vendorName),
   })), [vendors, items]);
+=======
+const API_BASE = import.meta.env.VITE_API_URL as string;
+
+export const VendorsCatalog = () => {
+  const [catalogs, setCatalogs] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+      const [catRes, ctgRes] = await Promise.all([
+        fetch(`${API_BASE}/vendor-catalogs`),
+        fetch(`${API_BASE}/categories`)
+      ]);
+      
+      if (catRes.ok) setCatalogs(await catRes.json());
+      if (ctgRes.ok) setCategories(await ctgRes.json());
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+>>>>>>> origin/main
   const [searchTerm, setSearchTerm] = useState('');
   
   const [showFilters, setShowFilters] = useState(false);
@@ -29,20 +64,30 @@ export const VendorsCatalog = () => {
   const [selectedVendor, setSelectedVendor] = useState<any | null>(null);
 
   const processedData = useMemo(() => {
+<<<<<<< HEAD
     let result = catalog.filter(vendor => {
       const matchesSearch = vendor.vendorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             vendor.vendorCode.toLowerCase().includes(searchTerm.toLowerCase());
+=======
+    let result = catalogs.filter(vendor => {
+      const matchesSearch = vendor.vendorName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            vendor.vendorCode?.toLowerCase().includes(searchTerm.toLowerCase());
+>>>>>>> origin/main
       
       const hasCategoryItems = filterCategory 
-        ? vendor.itemsSupplied.some(item => item.category === filterCategory)
+        ? vendor.items.some((item: any) => item.category === filterCategory)
         : true;
 
       return matchesSearch && hasCategoryItems;
     });
     return result;
+<<<<<<< HEAD
     // `catalog` belongs here: it was a module constant before, but now it
     // arrives from the API, so omitting it leaves the list empty after load.
   }, [catalog, searchTerm, filterCategory]);
+=======
+  }, [catalogs, searchTerm, filterCategory]);
+>>>>>>> origin/main
 
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="h-full flex flex-col">
@@ -55,6 +100,11 @@ export const VendorsCatalog = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-slate-800">Vendors Catalog</h1>
+          </div>
+          <div className="flex items-center gap-3">
+            <button onClick={fetchData} className="p-2 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 transition-colors" title="Refresh">
+              <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
+            </button>
           </div>
         </div>
       </div>
@@ -82,7 +132,11 @@ export const VendorsCatalog = () => {
                 <div className="p-3">
                   <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none">
                     <option value="">Filter by Category</option>
+<<<<<<< HEAD
                     {itemCategories.map(c => <option key={c.id} value={c.categoryName}>{c.categoryName}</option>)}
+=======
+                    {categories.map(c => <option key={c.id} value={c.categoryName}>{c.categoryName}</option>)}
+>>>>>>> origin/main
                   </select>
                 </div>
               </motion.div>
@@ -101,8 +155,13 @@ export const VendorsCatalog = () => {
                 </div>
                 <div className="text-sm text-slate-500 mb-3">{vendor.city}</div>
                 <div className="flex gap-4 text-xs font-medium text-slate-600">
+<<<<<<< HEAD
                   <div className="flex items-center gap-1.5"><Package className="w-3.5 h-3.5 text-primary" /> {vendor.itemsSupplied.length} Items</div>
                   <div className="flex items-center gap-1.5"><BookOpen className="w-3.5 h-3.5 text-blue-500" /> {vendor.vendorCode}</div>
+=======
+                  <div className="flex items-center gap-1.5"><Package className="w-3.5 h-3.5 text-primary" /> {vendor.items?.length || 0} Items</div>
+                  <div className="flex items-center gap-1.5"><BookOpen className="w-3.5 h-3.5 text-blue-500" /> {vendor.activeContracts} Contracts</div>
+>>>>>>> origin/main
                 </div>
               </div>
             ))}
@@ -149,17 +208,25 @@ export const VendorsCatalog = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {selectedVendor.itemsSupplied.map((item: any) => (
-                      <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
+                    {selectedVendor.items?.map((item: any) => (
+                      <tr key={item.itemId} className="hover:bg-slate-50/50 transition-colors">
                         <td className="py-3 px-4 text-slate-800 font-medium">{item.itemCode}</td>
                         <td className="py-3 px-4 text-slate-800">{item.itemName}</td>
                         <td className="py-3 px-4 text-slate-600 text-sm">{item.category}</td>
                         <td className="py-3 px-4 text-slate-600 text-sm flex items-center gap-2">
+<<<<<<< HEAD
                           <Clock className="w-4 h-4 text-orange-500"/> {item.uom || '—'}
                         </td>
                         <td className="py-3 px-4 text-right">
                           <div className="font-bold text-slate-400 text-sm">No contract price</div>
                           <div className="text-[10px] text-slate-400 flex items-center justify-end gap-1 mt-0.5"><TrendingUp className="w-3 h-3"/> needs Vendor Price List</div>
+=======
+                          <Clock className="w-4 h-4 text-orange-500"/> {item.contractValidUntil || '-'}
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <div className="font-bold text-emerald-600">₹{item.catalogPrice}</div>
+                          <div className="text-[10px] text-slate-400 flex items-center justify-end gap-1 mt-0.5"><TrendingUp className="w-3 h-3"/> Last up: {item.lastUpdate || '-'}</div>
+>>>>>>> origin/main
                         </td>
                       </tr>
                     ))}

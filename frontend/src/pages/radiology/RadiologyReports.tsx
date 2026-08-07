@@ -68,6 +68,7 @@ export const RadiologyReports = () => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-purple-500 shadow-sm"
+            maxLength={100}
           />
         </div>
         <div className="flex items-center">
@@ -175,11 +176,13 @@ export const RadiologyReports = () => {
                 <div className="pt-4 border-t border-slate-100 col-span-2 grid grid-cols-2 gap-4">
                   <div>
                     <span className="block text-slate-500 font-medium mb-1">Age / Gender</span>
-                    <span className="font-bold text-slate-800">34 Yrs / Male</span>
+                    <span className="font-bold text-slate-800">
+                      {selectedOrder.age ? `${selectedOrder.age} Yrs` : 'N/A'} / {selectedOrder.gender || 'N/A'}
+                    </span>
                   </div>
                   <div>
                     <span className="block text-slate-500 font-medium mb-1">Contact</span>
-                    <span className="font-bold text-slate-800">+91 9876543210</span>
+                    <span className="font-bold text-slate-800">{selectedOrder.mobileNumber || 'N/A'}</span>
                   </div>
                 </div>
 
