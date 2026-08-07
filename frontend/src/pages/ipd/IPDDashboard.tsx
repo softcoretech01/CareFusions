@@ -122,7 +122,7 @@ export const IPDDashboard = () => {
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-6 overflow-hidden flex flex-col">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-bold text-lg text-slate-800">Admissions vs Discharges</h3>
             <div className="flex gap-4 text-sm font-bold">
@@ -130,21 +130,23 @@ export const IPDDashboard = () => {
               <div className="flex items-center gap-1 text-red-500"><ArrowDownRight className="w-4 h-4"/> Discharges ({dischargesToday} today)</div>
             </div>
           </div>
-          <Chart 
-            options={barOptions} 
-            series={[
-              { name: 'Admissions', data: [12, 18, 15, 22, 14, 25, admissionsToday] },
-              { name: 'Discharges', data: [10, 15, 12, 20, 15, 18, dischargesToday] }
-            ]} 
-            type="bar" 
-            height={300} 
-          />
+          <div className="flex-1 w-full min-h-[300px]">
+            <Chart 
+              options={barOptions} 
+              series={[
+                { name: 'Admissions', data: [12, 18, 15, 22, 14, 25, admissionsToday] },
+                { name: 'Discharges', data: [10, 15, 12, 20, 15, 18, dischargesToday] }
+              ]} 
+              type="bar" 
+              height="100%" 
+            />
+          </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col overflow-hidden">
           <h3 className="font-bold text-lg text-slate-800 mb-4">Occupancy by Ward</h3>
-          <div className="flex-1 flex items-center justify-center">
-            <Chart options={donutOptions} series={wardOccupancyData} type="donut" height={300} />
+          <div className="flex-1 flex items-center justify-center min-h-[300px]">
+            <Chart options={donutOptions} series={wardOccupancyData} type="donut" height="100%" width="100%" />
           </div>
           <div className="mt-4 pt-4 border-t border-slate-100">
             <div className="flex justify-between items-center text-sm font-bold text-slate-600 mb-1">

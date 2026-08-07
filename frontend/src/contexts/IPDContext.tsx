@@ -103,6 +103,8 @@ interface IPDContextType {
   clearError: () => void;
   hasLoaded?: boolean;
   loadAll?: () => Promise<void>;
+  /** Force a reload, ignoring the load-once cache. */
+  refreshAll?: () => Promise<void>;
 }
 
 const IPDContext = createContext<IPDContextType | undefined>(undefined);
@@ -159,6 +161,20 @@ export const IPDProvider = ({ children }: { children: ReactNode }) => {
       inFlight.current = false;
     }
   }, [hasLoaded, loadWards, loadBeds, loadAdmissions, loadRequests]);
+
+  // Ward, bed and admission state changes constantly, so screens that show it
+  // re-pull on open. loadAll short-circuits once loaded, which would leave those
+  // screens showing whatever was cached when the module was first entered.
+  const refreshAll = useCallback(async () => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    try {
+      await Promise.all([loadWards(), loadBeds(), loadAdmissions(), loadRequests()]);
+      setHasLoaded(true);
+    } finally {
+      inFlight.current = false;
+    }
+  }, [loadWards, loadBeds, loadAdmissions, loadRequests]);
 
   // Removed automatic useEffect for loading all data on mount
 
@@ -305,7 +321,7 @@ export const IPDProvider = ({ children }: { children: ReactNode }) => {
         wards, beds, patients, admissionRequests,
         admitPatient, requestDischarge, dischargePatient, allocateBed,
         requestAdmission, updateAdmissionRequestStatus, updateBedStatus, generateAdmissionNumber, addWard, addBed,
-        apiError, clearError, hasLoaded, loadAll
+        apiError, clearError, hasLoaded, loadAll, refreshAll
       }}
     >
       {children}

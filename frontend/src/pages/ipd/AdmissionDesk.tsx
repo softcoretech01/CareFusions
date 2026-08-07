@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useIPD } from '../../contexts/IPDContext';
 import { useNavigate } from 'react-router-dom';
 import { Clock, CheckCircle } from 'lucide-react';
@@ -6,7 +6,12 @@ import { DateFilter } from '../../components/ui/DateFilter';
 import { IpdErrorBanner } from './IpdErrorBanner';
 
 export const AdmissionDesk = () => {
-  const { admissionRequests } = useIPD();
+  const { admissionRequests, refreshAll } = useIPD();
+
+  // Bed and admission state moves constantly — re-pull whenever this screen
+  // opens. Keyed to mount rather than the callback identity so it fires exactly
+  // once per visit; the context holds an in-flight ref that prevents overlap.
+  useEffect(() => { refreshAll?.(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const navigate = useNavigate();
 
   const today = new Date().toISOString().split('T')[0];

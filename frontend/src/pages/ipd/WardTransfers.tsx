@@ -1,4 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { Pagination } from '@/components/ui/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 import { useIPD } from '../../contexts/IPDContext';
 import { Search, Plus, Eye, Pencil, X, ArrowRightLeft } from 'lucide-react';
 import { Modal } from '../../components/ui/Modal';
@@ -26,7 +28,12 @@ interface TransferWithPatient {
 }
 
 export const WardTransfers = () => {
-  const { patients, wards, beds, allocateBed } = useIPD();
+  const { patients, wards, beds, allocateBed, refreshAll } = useIPD();
+
+  // Bed and admission state moves constantly — re-pull whenever this screen
+  // opens. Keyed to mount rather than the callback identity so it fires exactly
+  // once per visit; the context holds an in-flight ref that prevents overlap.
+  useEffect(() => { refreshAll?.(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Search state for main history table
   const [search, setSearch] = useState('');
@@ -146,6 +153,8 @@ export const WardTransfers = () => {
 
   const inputCls = "w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium";
 
+  const { page, setPage, pageSize, total, paged } = usePagination(activePatients);
+
   return (
     <div className="space-y-4">
       <IpdErrorBanner />
@@ -255,6 +264,7 @@ export const WardTransfers = () => {
             </tbody>
           </table>
         </div>
+        <Pagination page={page} pageSize={pageSize} totalItems={total} onPageChange={setPage} />
       </div>
 
       {/* New Transfer Modal */}
@@ -269,7 +279,7 @@ export const WardTransfers = () => {
               required
             >
               <option value="">-- Select Patient --</option>
-              {activePatients.map(p => (
+              {paged.map(p => (
                 <option key={p.id} value={p.id}>{p.patientName} (UHID: {p.uhid})</option>
               ))}
             </select>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useIPD } from '../../contexts/IPDContext';
 import { useInvestigations } from '../../contexts/InvestigationContext';
 import { ResultViewer } from '../../components/investigations/ResultViewer';
@@ -8,7 +8,12 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { DateFilter } from '../../components/ui/DateFilter';
 
 export const ActiveInpatients = () => {
-  const { patients, beds, wards } = useIPD();
+  const { patients, beds, wards, refreshAll } = useIPD();
+
+  // Bed and admission state moves constantly — re-pull whenever this screen
+  // opens. Keyed to mount rather than the callback identity so it fires exactly
+  // once per visit; the context holds an in-flight ref that prevents overlap.
+  useEffect(() => { refreshAll?.(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const { getOrdersByPatient } = useInvestigations();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();

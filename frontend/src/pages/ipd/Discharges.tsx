@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useIPD } from '../../contexts/IPDContext';
 import { Search, CheckCircle, Eye, Printer, AlertCircle } from 'lucide-react';
 import { IpdErrorBanner } from './IpdErrorBanner';
@@ -19,7 +19,12 @@ const MOCK_BILLING: Record<number, 'Cleared' | 'Pending' | 'Partial'> = {
 };
 
 export const Discharges = () => {
-  const { patients, beds, wards, dischargePatient } = useIPD();
+  const { patients, beds, wards, dischargePatient, refreshAll } = useIPD();
+
+  // Bed and admission state moves constantly — re-pull whenever this screen
+  // opens. Keyed to mount rather than the callback identity so it fires exactly
+  // once per visit; the context holds an in-flight ref that prevents overlap.
+  useEffect(() => { refreshAll?.(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [search, setSearch] = useState('');
   const today = new Date().toISOString().split('T')[0];
   const [dateFrom, setDateFrom] = useState(today);

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useIPD } from '../../contexts/IPDContext';
 import type { IPDPatient, Bed } from '../../contexts/IPDContext';
 import { Activity, Stethoscope, X, User, Calendar, BedDouble, Clock, Plus } from 'lucide-react';
@@ -9,7 +9,12 @@ import toast from 'react-hot-toast';
 const WARD_TYPES = ['General', 'Semi-Private', 'Private', 'Deluxe', 'ICU', 'NICU', 'PICU', 'HDU', 'OT'];
 
 export const BedManagement = () => {
-  const { wards, beds, patients, addWard, addBed } = useIPD();
+  const { wards, beds, patients, addWard, addBed, updateBedStatus, refreshAll } = useIPD();
+
+  // Bed and admission state moves constantly — re-pull whenever this screen
+  // opens. Keyed to mount rather than the callback identity so it fires exactly
+  // once per visit; the context holds an in-flight ref that prevents overlap.
+  useEffect(() => { refreshAll?.(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [selectedWard, setSelectedWard] = useState<number | 'All'>('All');
 
   // Patient detail popup
@@ -65,9 +70,16 @@ export const BedManagement = () => {
 
   const filteredWards = selectedWard === 'All' ? wards : wards.filter(w => w.id === selectedWard);
 
-  const handleBedClick = (bed: Bed) => {
+  const handleBedClick = async (bed: Bed) => {
+    if (bed.status === 'Cleaning') {
+      if (window.confirm(`Mark bed ${bed.bedNumber} as Available?`)) {
+        await updateBedStatus(bed.id, 'Available');
+        toast.success(`Bed ${bed.bedNumber} is now Available.`);
+      }
+      return;
+    }
     if (bed.status !== 'Occupied') return;
-    const patient = patients.find(p => p.currentBedId === bed.id && p.status === 'Admitted');
+    const patient = patients.find(p => p.currentBedId === bed.id && p.status !== 'Discharged');
     if (patient) {
       setPopupPatient(patient);
       setPopupBed(bed);
@@ -222,7 +234,7 @@ export const BedManagement = () => {
                     </h4>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                       {roomBeds.map(bed => {
-                        const patient = patients.find(p => p.currentBedId === bed.id && p.status === 'Admitted');
+                        const patient = patients.find(p => p.currentBedId === bed.id && p.status !== 'Discharged');
                         const isOccupied = bed.status === 'Occupied';
 
                         const cardCls = isOccupied
@@ -246,7 +258,7 @@ export const BedManagement = () => {
                             key={bed.id}
                             onClick={() => handleBedClick(bed)}
                             className={`relative p-4 rounded-2xl border transition-all ${cardCls}`}
-                            title={isOccupied ? 'Click to view patient details' : bed.status}
+                            title={isOccupied ? 'Click to view patient details' : bed.status === 'Cleaning' ? 'Click to mark as Available' : bed.status}
                           >
                             <div className="flex items-center justify-between mb-2">
                               <span className="font-bold text-slate-700 text-sm">{bed.bedNumber}</span>
