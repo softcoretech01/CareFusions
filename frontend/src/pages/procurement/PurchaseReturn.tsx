@@ -1,16 +1,13 @@
-import { useState, useMemo } from 'react';
-import { Plus, Search, Filter, Edit2, Eye, RotateCcw, Trash2 } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Plus, Search, Filter, Edit2, Eye, RotateCcw, Trash2, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { DateFilter } from '../../components/ui/DateFilter';
 
-// Mock Data Imports
-import { mockData as itemsMock } from '../admin/purchase-inventory/ItemMaster';
-import { mockData as vendorsMock } from '../admin/purchase-inventory/VendorMaster';
-import { mockData as warehousesMock } from '../admin/purchase-inventory/WarehouseMaster';
-import { initialGRNs, type GRNRecord } from './GoodsReceipt';
-import { useLocalStorage } from '../../utils/useLocalStorage';
+import type { GRNRecord } from './GoodsReceipt';
+
+const API_BASE = import.meta.env.VITE_API_URL as string;
 
 interface ReturnItem {
   id: string;
@@ -35,30 +32,40 @@ export interface ReturnRecord {
   items: ReturnItem[];
 }
 
-const initialReturns: ReturnRecord[] = [
-  {
-    id: 1,
-    returnNo: 'PRN-2024-001',
-    grnNo: 'GRN-2024-001',
-    vendorId: 1,
-    vendorName: 'Apollo Distributors',
-    store: 'Central Medical Store',
-    returnDate: '2024-01-23',
-    reason: 'Damaged in transit',
-    status: 'Approved',
-    items: [
-      {
-        id: '1-1', itemId: 1, itemName: 'Paracetamol 500 mg Tablet',
-        receivedQty: 100, returnQty: 5, reason: 'Broken packaging', remarks: 'Rejecting 5 damaged strips'
-      }
-    ]
-  }
-];
-
 export const PurchaseReturn = () => {
-  const [records, setRecords] = useLocalStorage<ReturnRecord[]>('procurement_returns', initialReturns);
-  const [allGRNs] = useLocalStorage<GRNRecord[]>('procurement_grns', initialGRNs);
-  
+  const [records, setRecords] = useState<ReturnRecord[]>([]);
+  const [allGRNs, setAllGRNs] = useState<GRNRecord[]>([]);
+  const [itemsMock, setItemsMock] = useState<any[]>([]);
+  const [vendorsMock, setVendorsMock] = useState<any[]>([]);
+  const [warehousesMock, setWarehousesMock] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+      const [prRes, grnRes, itemRes, venRes, whRes] = await Promise.all([
+        fetch(`${API_BASE}/purchase-returns`),
+        fetch(`${API_BASE}/grns`),
+        fetch(`${API_BASE}/items`),
+        fetch(`${API_BASE}/vendors`),
+        fetch(`${API_BASE}/stores`)
+      ]);
+      
+      if (prRes.ok) setRecords(await prRes.json());
+      if (grnRes.ok) setAllGRNs(await grnRes.json());
+      if (itemRes.ok) setItemsMock(await itemRes.json());
+      if (venRes.ok) setVendorsMock(await venRes.json());
+      if (whRes.ok) setWarehousesMock(await whRes.json());
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -109,15 +116,35 @@ export const PurchaseReturn = () => {
     setIsViewOpen(true);
   };
 
-  const handleSave = (status: string) => {
+  const handleSave = async (status: string) => {
     if (validateForm()) {
-      if (selectedRecord) {
-        setRecords(records.map(r => r.id === selectedRecord.id ? { ...formData, status, id: r.id } : r));
-      } else {
-        const newId = records.length > 0 ? Math.max(...records.map(r => r.id)) + 1 : 1;
-        setRecords([{ ...formData, status, id: newId }, ...records]);
+      const payload = { ...formData, status };
+      try {
+        const url = selectedRecord ? `${API_BASE}/purchase-returns/${selectedRecord.id}` : `${API_BASE}/purchase-returns`;
+        const method = selectedRecord ? 'PUT' : 'POST';
+        const res = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          fetchData();
+          setIsFormOpen(false);
+        }
+      } catch (err) {
+        console.error(err);
       }
-      setIsFormOpen(false);
+    }
+  };
+
+  const handleDelete = async (record: ReturnRecord) => {
+    if (window.confirm(`Are you sure you want to delete ${record.returnNo}?`)) {
+      try {
+        const res = await fetch(`${API_BASE}/purchase-returns/${record.id}`, { method: 'DELETE' });
+        if (res.ok) fetchData();
+      } catch (err) {
+        console.error(err);
+      }
     }
   };
 
@@ -186,6 +213,9 @@ export const PurchaseReturn = () => {
             <h1 className="text-3xl font-bold text-slate-800">Purchase Returns</h1>
           </div>
           <div className="flex items-center gap-3">
+            <button onClick={fetchData} className="p-2 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 transition-colors" title="Refresh">
+              <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
+            </button>
             <DateFilter
               dateFrom={fromDate}
               dateTo={toDate}
@@ -263,7 +293,7 @@ export const PurchaseReturn = () => {
                     <div className="flex items-center justify-end gap-1">
                       <button onClick={() => handleView(record)} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"><Eye className="w-4 h-4" /></button>
                       <button onClick={() => handleEdit(record)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"><Edit2 className="w-4 h-4" /></button>
-                      <button onClick={() => setRecords(records.filter(r => r.id !== record.id))} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
+                      <button onClick={() => handleDelete(record)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
                     </div>
                   </td>
                 </tr>

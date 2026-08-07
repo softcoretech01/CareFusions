@@ -7,17 +7,18 @@ import { DateFilter } from '../../components/ui/DateFilter';
 
 export const RadiologyDashboard = () => {
   const { orders } = useInvestigations();
-  
+
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
 
   const radOrders = orders.filter(o => o.category === 'Radiology');
-  
+
   const filteredOrders = radOrders.filter(order => {
     if (activeFilter === 'Completed' && order.status !== 'Completed') return false;
     if (activeFilter === 'Pending' && order.status === 'Completed') return false;
-    
+    if (activeFilter === 'Critical Findings' && !order.tests.some(t => t.isCritical)) return false;
+
     if (fromDate && new Date(order.orderedAt) < new Date(fromDate)) return false;
     if (toDate && new Date(order.orderedAt) > new Date(toDate + 'T23:59:59')) return false;
 
@@ -27,6 +28,10 @@ export const RadiologyDashboard = () => {
   const totalOrders = filteredOrders.length;
   const completedOrders = filteredOrders.filter(o => o.status === 'Completed').length;
   const pendingOrders = filteredOrders.filter(o => o.status !== 'Completed').length;
+
+  const criticalFindings = filteredOrders.reduce((sum, order) => {
+    return sum + order.tests.filter(test => test.isCritical).length;
+  }, 0);
 
   const donutOptions = {
     chart: { type: 'donut' as const, fontFamily: 'inherit' },
@@ -48,7 +53,7 @@ export const RadiologyDashboard = () => {
     { label: 'Total Scans', value: totalOrders, icon: ScanLine, color: 'bg-purple-100 text-purple-600' },
     { label: 'Completed', value: completedOrders, icon: CheckCircle, color: 'bg-green-100 text-green-600' },
     { label: 'Pending', value: pendingOrders, icon: Clock, color: 'bg-amber-100 text-amber-600' },
-    { label: 'Critical Findings', value: 0, icon: AlertTriangle, color: 'bg-red-100 text-red-600' },
+    { label: 'Critical Findings', value: criticalFindings, icon: AlertTriangle, color: 'bg-red-100 text-red-600' },
   ];
 
   return (
@@ -59,12 +64,12 @@ export const RadiologyDashboard = () => {
         </div>
 
         <div className="flex justify-end">
-          <DateFilter 
+          <DateFilter
             dateFrom={fromDate}
             dateTo={toDate}
             onDateFromChange={setFromDate}
             onDateToChange={setToDate}
-            onSearch={() => {}}
+            onSearch={() => { }}
             onReset={() => { setFromDate(''); setToDate(''); setActiveFilter(null); }}
           />
         </div>
@@ -72,12 +77,11 @@ export const RadiologyDashboard = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat) => (
-          <div 
-            key={stat.label} 
+          <div
+            key={stat.label}
             onClick={() => setActiveFilter(activeFilter === stat.label ? null : stat.label)}
-            className={`bg-white p-5 rounded-xl shadow-sm flex items-center justify-between cursor-pointer transition-all duration-200 border ${
-              activeFilter === stat.label ? 'border-indigo-500 ring-2 ring-indigo-100' : 'border-slate-200 hover:border-indigo-300'
-            }`}
+            className={`bg-white p-5 rounded-xl shadow-sm flex items-center justify-between cursor-pointer transition-all duration-200 border ${activeFilter === stat.label ? 'border-indigo-500 ring-2 ring-indigo-100' : 'border-slate-200 hover:border-indigo-300'
+              }`}
           >
             <div>
               <p className="text-xs font-medium text-slate-500">{stat.label}</p>
@@ -128,19 +132,17 @@ export const RadiologyDashboard = () => {
                     <div className="text-slate-500 text-xs">{order.patientId}</div>
                   </td>
                   <td className="px-6 py-3">
-                    <span className={`px-2 py-1 text-[10px] font-bold rounded-md uppercase ${
-                      order.type === 'IP' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
-                    }`}>
+                    <span className={`px-2 py-1 text-[10px] font-bold rounded-md uppercase ${order.type === 'IP' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                      }`}>
                       {order.type}
                     </span>
                   </td>
                   <td className="px-6 py-3 text-slate-500">{order.tests.length} scans</td>
                   <td className="px-6 py-3">
-                    <span className={`px-2 py-1 text-[10px] font-bold rounded-md uppercase ${
-                      order.status === 'Completed' ? 'bg-green-100 text-green-700' : 
-                      order.status === 'Partial' ? 'bg-amber-100 text-amber-700' : 
-                      'bg-slate-100 text-slate-600'
-                    }`}>
+                    <span className={`px-2 py-1 text-[10px] font-bold rounded-md uppercase ${order.status === 'Completed' ? 'bg-green-100 text-green-700' :
+                        order.status === 'Partial' ? 'bg-amber-100 text-amber-700' :
+                          'bg-slate-100 text-slate-600'
+                      }`}>
                       {order.status}
                     </span>
                   </td>

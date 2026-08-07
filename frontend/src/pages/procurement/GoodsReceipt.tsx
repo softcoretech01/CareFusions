@@ -1,17 +1,14 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Search, Filter, Plus, Edit2, Eye, PackageCheck, Trash2, Download } from 'lucide-react';
+import { Search, Filter, Plus, Edit2, Eye, PackageCheck, Trash2, Download, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { DateFilter } from '../../components/ui/DateFilter';
 
-// Mock Data Imports
-
-import { mockData as vendorsMock } from '../admin/purchase-inventory/VendorMaster';
-import { mockData as warehousesMock } from '../admin/purchase-inventory/WarehouseMaster';
-import { initialPOs, type PORecord } from './PurchaseOrders';
-import { useLocalStorage } from '../../utils/useLocalStorage';
+import type { PORecord } from './PurchaseOrders';
 import { exportToExcel } from '../../utils/exportToExcel';
+
+const API_BASE = import.meta.env.VITE_API_URL as string;
 
 interface GRNItem {
   id: string;
@@ -51,11 +48,36 @@ export interface GRNRecord {
 export const initialGRNs: GRNRecord[] = [];
 
 export const GoodsReceipt = () => {
-  const [records, setRecords] = useLocalStorage<GRNRecord[]>('procurement_grns_v2', initialGRNs);
-  const [allPOs] = useLocalStorage<PORecord[]>('procurement_pos_v2', initialPOs);
-  
+  const [records, setRecords] = useState<GRNRecord[]>([]);
+  const [allPOs, setAllPOs] = useState<PORecord[]>([]);
+  const [vendorsMock, setVendorsMock] = useState<any[]>([]);
+  const [warehousesMock, setWarehousesMock] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+      const [grnsRes, posRes, venRes, whRes] = await Promise.all([
+        fetch(`${API_BASE}/grns`),
+        fetch(`${API_BASE}/purchase-orders`),
+        fetch(`${API_BASE}/vendors`),
+        fetch(`${API_BASE}/stores`)
+      ]);
+      
+      if (grnsRes.ok) setRecords(await grnsRes.json());
+      if (posRes.ok) setAllPOs(await posRes.json());
+      if (venRes.ok) setVendorsMock(await venRes.json());
+      if (whRes.ok) setWarehousesMock(await whRes.json());
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
+  useEffect(() => {
+    fetchData();
+  }, []);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -70,33 +92,7 @@ export const GoodsReceipt = () => {
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<GRNRecord | null>(null);
 
-  useEffect(() => {
-    let migrated = false;
-    const updatedRecords = records.map(record => {
-      let recordMigrated = false;
-      const updatedItems = record.items.map(item => {
-        if (item.rate === undefined || item.totalPrice === undefined) {
-          migrated = true;
-          recordMigrated = true;
-          const po = allPOs.find(p => p.poNumber === record.poNumber);
-          const poItem = po?.items.find(pi => pi.itemId === item.itemId);
-          const rate = poItem ? poItem.rate : 20;
-          return { ...item, rate, totalPrice: item.acceptedQty * rate };
-        }
-        return item;
-      });
-      if (recordMigrated) return { ...record, items: updatedItems };
-      return record;
-    });
-    if (migrated) {
-      setRecords(updatedRecords);
-      if (selectedRecord) {
-        const updatedSelected = updatedRecords.find(r => r.id === selectedRecord.id);
-        if (updatedSelected) setSelectedRecord(updatedSelected);
-      }
-    }
-  }, [records, allPOs, setRecords, selectedRecord]);
-  
+
   const [isFormOpen, setIsFormOpen] = useState(false);
   const emptyForm: Omit<GRNRecord, 'id' | 'grnNo'> = {
     poNumber: '', vendorId: 0, vendorName: '', store: '', receivedDate: new Date().toISOString().split('T')[0],
@@ -134,7 +130,7 @@ export const GoodsReceipt = () => {
     setIsViewOpen(true);
   };
 
-  const handleSave = (status: string) => {
+  const handleSave = async (status: string) => {
     if (validateForm()) {
       let qcStatus = formData.qcStatus;
       if (status === 'Accepted') {
@@ -142,13 +138,33 @@ export const GoodsReceipt = () => {
         qcStatus = hasRejections ? 'Partial Pass' : 'Pass';
       }
 
-      if (selectedRecord) {
-        setRecords(records.map(r => r.id === selectedRecord.id ? { ...formData, status, qcStatus, id: r.id } : r));
-      } else {
-        const newId = records.length > 0 ? Math.max(...records.map(r => r.id)) + 1 : 1;
-        setRecords([{ ...formData, status, qcStatus, id: newId }, ...records]);
+      const payload = { ...formData, status, qcStatus };
+      try {
+        const url = selectedRecord ? `${API_BASE}/grns/${selectedRecord.id}` : `${API_BASE}/grns`;
+        const method = selectedRecord ? 'PUT' : 'POST';
+        const res = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          fetchData();
+          setIsFormOpen(false);
+        }
+      } catch (err) {
+        console.error(err);
       }
-      setIsFormOpen(false);
+    }
+  };
+
+  const handleDelete = async (record: GRNRecord) => {
+    if (window.confirm(`Are you sure you want to delete ${record.grnNo}?`)) {
+      try {
+        const res = await fetch(`${API_BASE}/grns/${record.id}`, { method: 'DELETE' });
+        if (res.ok) fetchData();
+      } catch (err) {
+        console.error(err);
+      }
     }
   };
 
@@ -237,6 +253,9 @@ export const GoodsReceipt = () => {
           <Button variant="outline" icon={Download} onClick={() => exportToExcel(processedData, 'Goods_Receipt')} className="h-[38px] !px-3 text-sm whitespace-nowrap">
             Export Excel
           </Button>
+          <button onClick={fetchData} className="p-2 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 transition-colors" title="Refresh">
+            <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
+          </button>
           <Button variant="filled" color="primary" icon={Plus} onClick={handleCreateNew} className="h-[38px] !px-3 text-sm whitespace-nowrap">
             Create GRN
           </Button>
@@ -307,7 +326,7 @@ export const GoodsReceipt = () => {
                     <div className="flex items-center justify-end gap-1">
                       <button onClick={() => handleView(record)} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"><Eye className="w-4 h-4" /></button>
                       {record.status === 'Draft' && <button onClick={() => handleEdit(record)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"><Edit2 className="w-4 h-4" /></button>}
-                      <button onClick={() => setRecords(records.filter(r => r.id !== record.id))} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
+                      <button onClick={() => handleDelete(record)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
                     </div>
                   </td>
                 </tr>

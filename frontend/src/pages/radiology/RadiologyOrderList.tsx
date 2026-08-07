@@ -188,6 +188,7 @@ export const RadiologyOrderList = () => {
                         onChange={(e) => handleTempChange(test.id, 'resultValue', e.target.value)}
                         placeholder="Brief summary (e.g., Normal study)"
                         className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-purple-500 mb-3"
+                        maxLength={1000}
                       />
                       <label className="flex items-center gap-2 cursor-pointer">
                         <input

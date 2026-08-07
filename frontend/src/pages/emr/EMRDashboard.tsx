@@ -1,18 +1,99 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
-import { Users, BedDouble, Siren, Activity } from 'lucide-react';
-import { MOCK_EMR_RECORDS } from '../../data/mockEMRData';
+import { Users, BedDouble, Siren, Activity, Loader2 } from 'lucide-react';
 import { DateFilter } from '../../components/ui/DateFilter';
 import { WeeklyEMRTrendCard } from '../../components/emr/WeeklyEMRTrendCard';
+import type { EMRRecord } from '../../components/emr/EMRPrintTemplate';
+
+const API_BASE = 'http://127.0.0.1:8000/api/v1';
 
 export const EMRDashboard = () => {
   const [searchText, setSearchText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
+  const [records, setRecords] = useState<EMRRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const filteredRecords = MOCK_EMR_RECORDS.filter(r => {
+  useEffect(() => {
+    const fetchAllRecords = async () => {
+      setIsLoading(true);
+      try {
+        const [opRes, ipRes] = await Promise.all([
+          fetch(`${API_BASE}/opd-visits/schedule`),
+          fetch(`${API_BASE}/ipd-visits/schedule`)
+        ]);
+
+        let merged: EMRRecord[] = [];
+
+        if (opRes.ok) {
+          const opData = await opRes.json();
+          const opMapped: EMRRecord[] = opData.map((d: any) => ({
+            uhid: d.uhid,
+            patientName: d.patientName,
+            age: d.age || 0,
+            gender: d.gender || 'Unknown',
+            bloodGroup: 'Unknown',
+            contact: d.mobileNumber || '',
+            visitType: d.visitType || 'OP', // Will be OP, Walk-In, Follow-Up, or Emergency
+            visitId: d.id?.toString() || '',
+            visitDate: d.date ? new Date(d.date).toLocaleDateString('en-GB') : '',
+            visitDateValue: d.date || '',
+            doctor: d.doctorName || 'Unassigned',
+            specialty: d.department || '',
+            department: d.department || '',
+            dischargeStatus: '',
+            billingStatus: d.billingStatus || 'Pending',
+            chiefComplaint: '',
+            diagnosis: '',
+            clinicalNotes: '',
+            vitals: {},
+            investigations: [],
+            prescriptions: []
+          }));
+          merged = [...merged, ...opMapped];
+        }
+
+        if (ipRes.ok) {
+          const ipData = await ipRes.json();
+          const ipMapped: EMRRecord[] = ipData.map((d: any) => ({
+            uhid: d.uhid,
+            patientName: d.patientName,
+            age: d.age || 0,
+            gender: d.gender || 'Unknown',
+            bloodGroup: 'Unknown',
+            contact: '',
+            visitType: 'IP',
+            visitId: d.admissionId?.toString() || d.id?.toString() || '',
+            visitDate: d.admissionDate ? new Date(d.admissionDate).toLocaleDateString('en-GB') : '',
+            visitDateValue: d.admissionDate || '',
+            doctor: d.doctorName || 'Unassigned',
+            specialty: d.department || '',
+            department: d.department || '',
+            dischargeStatus: d.status === 'Discharged' ? 'Discharged' : 'Admitted',
+            billingStatus: 'Pending',
+            chiefComplaint: '',
+            diagnosis: '',
+            clinicalNotes: '',
+            vitals: {},
+            investigations: [],
+            prescriptions: []
+          }));
+          merged = [...merged, ...ipMapped];
+        }
+
+        setRecords(merged);
+      } catch (e) {
+        console.error("Failed to fetch dashboard records", e);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchAllRecords();
+  }, []);
+
+  const filteredRecords = records.filter(r => {
     const normalizedSearch = searchQuery.trim().toLowerCase();
     const matchesSearch =
       normalizedSearch === '' ||
@@ -26,13 +107,16 @@ export const EMRDashboard = () => {
     const visitDate = new Date(r.visitDateValue || r.visitDate);
     const startDate = fromDate ? new Date(fromDate) : null;
     const endDate = toDate ? new Date(toDate) : null;
-    const matchesFrom = !startDate || visitDate >= startDate;
-    const matchesTo = !endDate || visitDate <= endDate;
+    if (endDate) endDate.setHours(23, 59, 59, 999);
+
+    const matchesFrom = !startDate || (visitDate && visitDate >= startDate);
+    const matchesTo = !endDate || (visitDate && visitDate <= endDate);
 
     return matchesSearch && matchesFrom && matchesTo;
   });
 
-  const opCount = filteredRecords.filter(r => r.visitType === 'OP').length;
+  // OP consists of anything not IP and not Emergency
+  const opCount = filteredRecords.filter(r => r.visitType !== 'IP' && r.visitType !== 'Emergency').length;
   const ipCount = filteredRecords.filter(r => r.visitType === 'IP').length;
   const emCount = filteredRecords.filter(r => r.visitType === 'Emergency').length;
   const totalRecords = filteredRecords.length;
@@ -56,7 +140,16 @@ export const EMRDashboard = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative min-h-[500px]">
+      {isLoading && (
+        <div className="absolute inset-0 bg-white/50 backdrop-blur-sm flex items-center justify-center z-20 rounded-3xl">
+          <div className="flex flex-col items-center gap-2 text-indigo-600">
+            <Loader2 className="w-8 h-8 animate-spin" />
+            <span className="text-sm font-semibold">Loading Live Data...</span>
+          </div>
+        </div>
+      )}
+      
       <div>
         <h1 className="text-3xl font-bold text-slate-800">EMR Dashboard</h1>
       </div>
@@ -125,7 +218,7 @@ export const EMRDashboard = () => {
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <div className="xl:col-span-2">
-          <WeeklyEMRTrendCard />
+          <WeeklyEMRTrendCard records={records} />
         </div>
 
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6">

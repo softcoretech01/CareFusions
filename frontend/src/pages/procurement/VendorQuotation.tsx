@@ -1,15 +1,12 @@
-import { useState, useMemo } from 'react';
-import { Plus, Search, Filter, Edit2, Trash2, Eye, ClipboardList } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Plus, Search, Filter, Edit2, Trash2, Eye, ClipboardList, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 import { DateFilter } from '../../components/ui/DateFilter';
+import type { RFQRecord } from './RequestForQuotation';
 
-// Mock Data Imports
-import { mockData as vendorsMock } from '../admin/purchase-inventory/VendorMaster';
-import { mockData as paymentTermsMock } from '../admin/purchase-inventory/PaymentTermsMaster';
-import { initialRFQs, type RFQRecord } from './RequestForQuotation';
-import { useLocalStorage } from '../../utils/useLocalStorage';
+const API_BASE = import.meta.env.VITE_API_URL as string;
 
 interface QuotationItem {
   id: string;
@@ -42,8 +39,43 @@ export interface QuotationRecord {
 export const initialQuotations: QuotationRecord[] = [];
 
 export const VendorQuotation = () => {
-  const [records, setRecords] = useLocalStorage<QuotationRecord[]>('procurement_qtns_v2', initialQuotations);
-  const [allRFQs] = useLocalStorage<RFQRecord[]>('procurement_rfqs_v2', initialRFQs);
+  const [records, setRecords] = useState<QuotationRecord[]>([]);
+  const [allRFQs, setAllRFQs] = useState<RFQRecord[]>([]);
+  const [vendorsList, setVendorsList] = useState<any[]>([]);
+  const [paymentTermsList, setPaymentTermsList] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    fetchQuotations();
+    fetchMasters();
+  }, []);
+
+  const fetchQuotations = async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/vendor-quotations`);
+      if (res.ok) setRecords(await res.json());
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const fetchMasters = async () => {
+    try {
+      const [rfqRes, vendRes, ptRes] = await Promise.all([
+        fetch(`${API_BASE}/rfqs`),
+        fetch(`${API_BASE}/vendors`),
+        fetch(`${API_BASE}/payment-terms`)
+      ]);
+      if (rfqRes.ok) setAllRFQs(await rfqRes.json());
+      if (vendRes.ok) setVendorsList(await vendRes.json());
+      if (ptRes.ok) setPaymentTermsList(await ptRes.json());
+    } catch (err) {
+      console.error(err);
+    }
+  };
   
   const availableRFQs = useMemo(() => {
     return allRFQs.filter(rfq => {
@@ -86,10 +118,10 @@ export const VendorQuotation = () => {
       .filter(r => r.rfqNo === formData.rfqNo && r.id !== selectedRecord?.id)
       .map(r => r.vendorId);
       
-    return vendorsMock.filter(v => 
-      rfq.vendors.includes(v.id) && !existingVendorIds.includes(v.id)
-    );
-  }, [formData.rfqNo, allRFQs, records, selectedRecord]);
+      return vendorsList.filter(v => 
+        rfq.vendors.includes(v.id) && !existingVendorIds.includes(v.id)
+      );
+    }, [formData.rfqNo, allRFQs, records, selectedRecord, vendorsList]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -119,15 +151,35 @@ export const VendorQuotation = () => {
     setIsViewOpen(true);
   };
 
-  const handleSave = (status: string) => {
+  const handleSave = async (status: string) => {
     if (validateForm()) {
-      if (selectedRecord) {
-        setRecords(records.map(r => r.id === selectedRecord.id ? { ...formData, status, id: r.id } : r));
-      } else {
-        const newId = records.length > 0 ? Math.max(...records.map(r => r.id)) + 1 : 1;
-        setRecords([{ ...formData, status, id: newId }, ...records]);
+      const payload = { ...formData, status };
+      try {
+        const url = selectedRecord ? `${API_BASE}/vendor-quotations/${selectedRecord.id}` : `${API_BASE}/vendor-quotations`;
+        const method = selectedRecord ? 'PUT' : 'POST';
+        const res = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          fetchQuotations();
+          setIsFormOpen(false);
+        }
+      } catch (err) {
+        console.error(err);
       }
-      setIsFormOpen(false);
+    }
+  };
+
+  const handleDelete = async (record: QuotationRecord) => {
+    if (window.confirm(`Are you sure you want to delete ${record.quotationNo}?`)) {
+      try {
+        const res = await fetch(`${API_BASE}/vendor-quotations/${record.id}`, { method: 'DELETE' });
+        if (res.ok) fetchQuotations();
+      } catch (err) {
+        console.error(err);
+      }
     }
   };
 
@@ -238,6 +290,9 @@ export const VendorQuotation = () => {
               onClick={() => setShowFilters(!showFilters)}
               className={`p-2 border rounded-lg transition-colors ${showFilters ? 'border-primary bg-primary/5 text-primary' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
             ><Filter className="w-4 h-4" /></button>
+            <button onClick={() => { fetchQuotations(); fetchMasters(); }} className="p-2 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 transition-colors" title="Refresh">
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            </button>
           </div>
         </div>
 
@@ -247,7 +302,7 @@ export const VendorQuotation = () => {
               <div className="p-4 flex gap-4">
                 <select value={filterVendor} onChange={(e) => { setFilterVendor(e.target.value); setCurrentPage(1); }} className="px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none">
                   <option value="">All Vendors</option>
-                  {vendorsMock.map(v => <option key={v.id} value={v.vendorName}>{v.vendorName}</option>)}
+                  {vendorsList.map(v => <option key={v.id} value={v.vendorName}>{v.vendorName}</option>)}
                 </select>
                 <select value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setCurrentPage(1); }} className="px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none">
                   <option value="">All Statuses</option>
@@ -292,7 +347,7 @@ export const VendorQuotation = () => {
                     <div className="flex items-center justify-end gap-1">
                       <button onClick={() => handleView(record)} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"><Eye className="w-4 h-4" /></button>
                       {record.status !== 'Approved' && record.status !== 'Rejected' && <button onClick={() => handleEdit(record)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"><Edit2 className="w-4 h-4" /></button>}
-                      <button onClick={() => setRecords(records.filter(r => r.id !== record.id))} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
+                      <button onClick={() => handleDelete(record)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
                     </div>
                   </td>
                 </tr>
@@ -342,7 +397,7 @@ export const VendorQuotation = () => {
                 setFormData({...formData, vendorId: vendor?.id || 0, vendorName: vendor?.vendorName || '', paymentTerms: vendor?.paymentTerms || ''});
               }} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-primary disabled:bg-slate-100 disabled:text-slate-500">
                 <option value="">Select Vendor</option>
-                {(selectedRecord ? [vendorsMock.find(v => v.id === selectedRecord.vendorId)].filter(Boolean) as any[] : availableVendorsForRfq).map(v => (
+                {(selectedRecord ? [vendorsList.find(v => v.id === selectedRecord.vendorId)].filter(Boolean) as any[] : availableVendorsForRfq).map(v => (
                   <option key={v.id} value={v.id}>{v.vendorName}</option>
                 ))}
               </select>
@@ -355,7 +410,7 @@ export const VendorQuotation = () => {
               <label className="block text-xs font-medium text-slate-500 mb-1">Payment Terms</label>
               <select value={formData.paymentTerms} onChange={(e) => setFormData({...formData, paymentTerms: e.target.value})} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm">
                 <option value="">Select Terms</option>
-                {paymentTermsMock.map(p => <option key={p.id} value={p.termName}>{p.termName}</option>)}
+                {paymentTermsList.map(p => <option key={p.id} value={p.paymentTermName}>{p.paymentTermName}</option>)}
               </select>
             </div>
             <div><label className="block text-xs font-medium text-slate-500 mb-1">Delivery Days</label><input type="number" value={formData.deliveryDays} onChange={(e) => setFormData({...formData, deliveryDays: Number(e.target.value)})} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm" /></div>
@@ -433,7 +488,7 @@ export const VendorQuotation = () => {
               <h3 className="font-semibold text-slate-800 mb-3">Vendor Details</h3>
               <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-sm">
                 {(() => {
-                  const v = vendorsMock.find(vm => vm.id === selectedRecord.vendorId);
+                  const v = vendorsList.find(vm => vm.id === selectedRecord.vendorId);
                   return v ? (
                     <div className="grid grid-cols-2 gap-4">
                       <div><span className="text-slate-500">Contact Person:</span> <span className="font-medium">{v.contactPerson}</span></div>
