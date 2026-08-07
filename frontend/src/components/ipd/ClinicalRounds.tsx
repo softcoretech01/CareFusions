@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Stethoscope, Plus, Trash2, User } from 'lucide-react';
+import { useDoctorSchedules } from '../../contexts/DoctorScheduleContext';
 import toast from 'react-hot-toast';
 
 export interface RoundNote {
@@ -14,6 +15,7 @@ interface ClinicalRoundsProps {
 }
 
 export const ClinicalRounds: React.FC<ClinicalRoundsProps> = () => {
+  const { doctorSchedules } = useDoctorSchedules();
   const [notes, setNotes] = useState<RoundNote[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [formData, setFormData] = useState({
@@ -69,13 +71,18 @@ export const ClinicalRounds: React.FC<ClinicalRoundsProps> = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Doctor Name <span className="text-red-500">*</span></label>
-              <input 
-                type="text" 
-                placeholder="Dr. Smith" 
+              <select 
                 value={formData.doctorName} 
                 onChange={e => setFormData({...formData, doctorName: e.target.value})} 
                 className={inputCls} 
-              />
+              >
+                <option value="">Select Doctor</option>
+                {doctorSchedules.map(doc => (
+                  <option key={doc.id} value={doc.name}>
+                    {doc.name} ({doc.dept})
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Clinical Note <span className="text-red-500">*</span></label>

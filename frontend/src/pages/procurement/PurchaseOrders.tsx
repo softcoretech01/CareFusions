@@ -1,4 +1,6 @@
 import { useState, useMemo } from 'react';
+import { Pagination } from '@/components/ui/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 import { Plus, Search, Filter, Edit2, Eye, Printer, CheckCircle, ShoppingBag, Trash2, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../components/ui/Button';
@@ -206,6 +208,8 @@ export const PurchaseOrders = () => {
     }
   };
 
+  const { page, setPage, pageSize, total, paged } = usePagination(availablePRs);
+
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="h-full flex flex-col">
       <div className="mb-6">
@@ -314,6 +318,7 @@ export const PurchaseOrders = () => {
             </tbody>
           </table>
         </div>
+        <Pagination page={page} pageSize={pageSize} totalItems={total} onPageChange={setPage} />
       </div>
 
       <Modal isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} title={`${selectedRecord ? 'Edit' : 'New'} Purchase Order`} size="7xl">
@@ -379,7 +384,7 @@ export const PurchaseOrders = () => {
                 }
               }} disabled={!!selectedRecord} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm">
                 <option value="">Select PR</option>
-                {availablePRs.map(p => <option key={p.id} value={p.prNo}>{p.prNo} - {p.department}</option>)}
+                {paged.map(p => <option key={p.id} value={p.prNo}>{p.prNo} - {p.department}</option>)}
               </select>
             </div>
             <div>

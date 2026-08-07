@@ -10,7 +10,7 @@ export const PharmacySummary = () => {
 
   // Pull the latest sales/stock every time the dashboard is opened, so paying
   // a bill or making a sale on another screen is reflected here immediately.
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => { refresh?.(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [activeTab, setActiveTab] = useState<'bills' | 'lowStock' | 'outOfStock'>('bills');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');

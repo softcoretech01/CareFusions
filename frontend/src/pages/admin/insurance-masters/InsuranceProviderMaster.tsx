@@ -1,4 +1,6 @@
 import { useState, useEffect, type KeyboardEvent } from 'react';
+import { Pagination } from '@/components/ui/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 import {
   Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle,
   Save, RefreshCw, X
@@ -325,6 +327,8 @@ export const InsuranceProviderMaster = () => {
   const _page = Math.min(currentPage, _totalPages);
   const pagedRecords = filteredRecords.slice((_page - 1) * itemsPerPage, _page * itemsPerPage);
 
+  const { page, setPage, pageSize, total, paged } = usePagination(insuranceTypes);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -468,6 +472,7 @@ export const InsuranceProviderMaster = () => {
                 </tbody>
               </table>
             </div>
+        <Pagination page={page} pageSize={pageSize} totalItems={total} onPageChange={setPage} />
             <div className="flex flex-wrap items-center justify-between gap-3 p-4 border-t border-slate-100 text-sm text-slate-500">
               <div className="flex items-center gap-2">
                 <span>Show</span>
@@ -523,7 +528,7 @@ export const InsuranceProviderMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Insurance Type <span className="text-red-500">*</span></label>
                     <select value={formData.insuranceType} onChange={e => setFormData({...formData, insuranceType: e.target.value})} className={inputCls(errors.insuranceType)}>
                       <option value="">Select Type</option>
-                      {insuranceTypes.map(type => <option key={type} value={type}>{type}</option>)}
+                      {paged.map(type => <option key={type} value={type}>{type}</option>)}
                     </select>
                     {errors.insuranceType && <p className="text-red-500 text-xs mt-1">{errors.insuranceType}</p>}
                   </div>

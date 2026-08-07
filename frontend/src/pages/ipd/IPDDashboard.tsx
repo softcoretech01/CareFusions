@@ -19,7 +19,7 @@ export const IPDDashboard = () => {
     setDateTo('');
   };
 
-  const activePatients = patients.filter(p => p.status === 'Admitted');
+  const activePatients = patients.filter(p => p.status === 'Admitted' || p.status === 'Discharge Requested');
   const occupiedBeds = beds.filter(b => b.status === 'Occupied').length;
   const totalBeds = beds.length;
   const occupancyRate = totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : 0;
@@ -122,7 +122,7 @@ export const IPDDashboard = () => {
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-6 overflow-hidden flex flex-col">
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-6 min-w-0">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-bold text-lg text-slate-800">Admissions vs Discharges</h3>
             <div className="flex gap-4 text-sm font-bold">
@@ -130,17 +130,15 @@ export const IPDDashboard = () => {
               <div className="flex items-center gap-1 text-red-500"><ArrowDownRight className="w-4 h-4"/> Discharges ({dischargesToday} today)</div>
             </div>
           </div>
-          <div className="flex-1 w-full min-h-[300px]">
-            <Chart 
-              options={barOptions} 
-              series={[
-                { name: 'Admissions', data: [12, 18, 15, 22, 14, 25, admissionsToday] },
-                { name: 'Discharges', data: [10, 15, 12, 20, 15, 18, dischargesToday] }
-              ]} 
-              type="bar" 
-              height="100%" 
-            />
-          </div>
+          <Chart 
+            options={barOptions} 
+            series={[
+              { name: 'Admissions', data: [12, 18, 15, 22, 14, 25, admissionsToday] },
+              { name: 'Discharges', data: [10, 15, 12, 20, 15, 18, dischargesToday] }
+            ]} 
+            type="bar" 
+            height={300} 
+          />
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col overflow-hidden">

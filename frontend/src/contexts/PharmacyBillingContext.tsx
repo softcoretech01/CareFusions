@@ -91,7 +91,7 @@ export const PharmacyBillingProvider = ({ children }: { children: ReactNode }) =
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [bills, setBills] = useState<Bill[]>([]);
   const [currentBillItems, setCurrentBillItems] = useState<BillItem[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [, setIsLoading] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
 
   // Live inventory + sales are owned by the backend (hospital.Pharmacy_*).

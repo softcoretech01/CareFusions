@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
+import { Pagination } from '@/components/ui/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 import { Search, Plus, FileText, CheckCircle, Clock, Ban, X, AlertCircle, Edit, Trash2, IndianRupee } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useInsurance } from '../../contexts/InsuranceContext';
@@ -177,6 +179,8 @@ export const ClaimsManagement = () => {
       errors[f] ? 'border-red-400' : 'border-slate-200 focus:border-primary'
     }`;
 
+  const { page, setPage, pageSize, total, paged } = usePagination(filteredClaims);
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3">
@@ -250,7 +254,7 @@ export const ClaimsManagement = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredClaims.map(claim => (
+              {paged.map(claim => (
                 <tr key={claim.id} className="hover:bg-slate-50/70 transition-colors">
                   <td className="px-4 py-3 font-bold text-primary whitespace-nowrap">{claim.id}</td>
                   <td className="px-4 py-3">
@@ -316,6 +320,7 @@ export const ClaimsManagement = () => {
             </tbody>
           </table>
         </div>
+        <Pagination page={page} pageSize={pageSize} totalItems={total} onPageChange={setPage} />
       </div>
 
       {/* ── New claim ── */}

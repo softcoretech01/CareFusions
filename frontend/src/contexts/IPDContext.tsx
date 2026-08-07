@@ -125,7 +125,7 @@ export const IPDProvider = ({ children }: { children: ReactNode }) => {
   const [patients, setPatients] = useState<IPDPatient[]>([]);
   const [admissionRequests, setAdmissionRequests] = useState<AdmissionRequest[]>([]);
   const [apiError, setApiError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [, setIsLoading] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
 
   const clearError = useCallback(() => setApiError(null), []);

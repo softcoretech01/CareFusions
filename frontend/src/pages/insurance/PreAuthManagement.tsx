@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
+import { Pagination } from '@/components/ui/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 import { Plus, Search, FileText, CheckCircle, Clock, Ban, X, Edit, Trash2, Shield, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { usePatients } from '../../contexts/PatientContext';
@@ -150,6 +152,8 @@ export const PreAuthManagement = () => {
       errors[f] ? 'border-red-400' : 'border-slate-200 focus:border-primary'
     }`;
 
+  const { page, setPage, pageSize, total, paged } = usePagination(filtered);
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3">
@@ -220,7 +224,7 @@ export const PreAuthManagement = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filtered.map(req => (
+              {paged.map(req => (
                 <tr key={req.id} className="hover:bg-slate-50/70 transition-colors">
                   <td className="px-4 py-3 font-bold text-primary whitespace-nowrap">{req.id}</td>
                   <td className="px-4 py-3">
@@ -287,6 +291,7 @@ export const PreAuthManagement = () => {
             </tbody>
           </table>
         </div>
+        <Pagination page={page} pageSize={pageSize} totalItems={total} onPageChange={setPage} />
       </div>
 
       {/* ── New request ── */}

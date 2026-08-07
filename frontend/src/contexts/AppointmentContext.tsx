@@ -236,7 +236,7 @@ function toBody(a: Partial<AppointmentRecord>) {
 export const AppointmentProvider = ({ children }: { children: ReactNode }) => {
   const [appointments, setAppointments] = useState<AppointmentRecord[]>([]);
   const [apiError, setApiError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [, setIsLoading] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
   // Use a ref so generateAppointmentNumber never has a stale counter value
   const counterRef = useRef<number>(initCounter());

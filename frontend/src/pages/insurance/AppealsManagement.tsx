@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { Pagination } from '@/components/ui/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 import { Search, Ban, CheckCircle, Clock, FileText, AlertTriangle, MessageSquare, RotateCcw, X } from 'lucide-react';
 import { useInsurance } from '../../contexts/InsuranceContext';
 
@@ -36,6 +38,8 @@ export const AppealsManagement = () => {
         return <span className="px-2.5 py-1 bg-slate-100 text-slate-700 text-xs font-bold rounded-lg flex items-center gap-1 w-max">{status}</span>;
     }
   };
+
+  const { page, setPage, pageSize, total, paged } = usePagination(filteredAppeals);
 
   return (
     <div className="space-y-4">
@@ -122,7 +126,7 @@ export const AppealsManagement = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredAppeals.map((row) => (
+              {paged.map((row) => (
                 <tr key={row.id} className="hover:bg-slate-50/70 transition-colors">
                   <td className="px-4 py-3">
                     <span className="font-bold text-primary">{row.claimId}</span>
@@ -187,6 +191,7 @@ export const AppealsManagement = () => {
             </tbody>
           </table>
         </div>
+        <Pagination page={page} pageSize={pageSize} totalItems={total} onPageChange={setPage} />
       </div>
 
       {/* EOB Modal */}

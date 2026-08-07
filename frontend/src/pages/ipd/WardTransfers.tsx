@@ -115,7 +115,7 @@ export const WardTransfers = () => {
   };
 
   // Modal logic
-  const activePatients = patients.filter(p => p.status === 'Admitted');
+  const activePatients = patients.filter(p => p.status === 'Admitted' || p.status === 'Discharge Requested');
   const selectedPatient = patients.find(p => p.id === selectedPatientId);
   const currentWard = wards.find(w => w.id === selectedPatient?.currentWardId);
   const currentBed = beds.find(b => b.id === selectedPatient?.currentBedId);

@@ -23,11 +23,10 @@ export const ActiveInpatients = () => {
   const [activeViewer, setActiveViewer] = useState<{ patientId: string; category: 'Lab' | 'Radiology' } | null>(null);
   
   const [search, setSearch] = useState('');
-  const today = new Date().toISOString().split('T')[0];
-  const [dateFrom, setDateFrom] = useState(today);
-  const [dateTo, setDateTo] = useState(today);
-  const [appliedDateFrom, setAppliedDateFrom] = useState(today);
-  const [appliedDateTo, setAppliedDateTo] = useState(today);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [appliedDateFrom, setAppliedDateFrom] = useState('');
+  const [appliedDateTo, setAppliedDateTo] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
   const [selectedRoom, setSelectedRoom] = useState<string>('All');
 
@@ -47,7 +46,7 @@ export const ActiveInpatients = () => {
     setSelectedRoom('All');
   };
 
-  const activePatients = patients.filter(p => p.status === 'Admitted');
+  const activePatients = patients.filter(p => p.status === 'Admitted' || p.status === 'Discharge Requested');
   
   const filteredPatients = activePatients.filter(p => {
     const matchesSearch = p.patientName.toLowerCase().includes(appliedSearch.toLowerCase()) || 

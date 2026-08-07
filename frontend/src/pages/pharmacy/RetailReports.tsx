@@ -8,7 +8,7 @@ export const RetailReports = () => {
   const navigate = useNavigate();
   const { bills, updateBillStatus, refresh } = usePharmacyBilling() as any;
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => { refresh?.(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [viewingBill, setViewingBill] = useState<any | null>(null);
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');

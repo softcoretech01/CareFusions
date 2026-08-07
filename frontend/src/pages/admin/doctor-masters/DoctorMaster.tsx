@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { Pagination } from '@/components/ui/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 import { Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle, Save, RefreshCw, Upload, CheckCircle2, X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -505,6 +507,8 @@ export const DoctorMaster = () => {
   const _page = Math.min(currentPage, _totalPages);
   const pagedRecords = filteredRecords.slice((_page - 1) * itemsPerPage, _page * itemsPerPage);
 
+  const { page, setPage, pageSize, total, paged } = usePagination(tabs);
+
   return (
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
@@ -525,6 +529,14 @@ export const DoctorMaster = () => {
             </div>
           </div>
 
+          {/* The load failure used to be swallowed, leaving an empty table that
+              looked like 'no data' rather than 'the server is unreachable'. */}
+          {apiError && (
+            <div className="mb-4 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+              <span>{apiError}</span>
+            </div>
+          )}
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden">
             <div className="p-4 border-b border-slate-100 flex flex-wrap gap-4 items-center justify-between">
               <div className="relative flex-1 max-w-md">
@@ -666,13 +678,14 @@ export const DoctorMaster = () => {
                   ) : (
                     <tr>
                       <td colSpan={9} className="px-4 py-8 text-center text-slate-500">
-                        No doctors found matching your criteria.
+                        {isLoading ? 'Loading records...' : 'No doctors found matching your criteria.'}
                       </td>
                     </tr>
                   )}
                 </tbody>
               </table>
             </div>
+        <Pagination page={page} pageSize={pageSize} totalItems={total} onPageChange={setPage} />
             <div className="flex flex-wrap items-center justify-between gap-3 p-4 border-t border-slate-100 text-sm text-slate-500">
               <div className="flex items-center gap-2">
                 <span>Show</span>
@@ -709,7 +722,7 @@ export const DoctorMaster = () => {
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden">
             {/* Tabs */}
             <div className="flex border-b border-slate-200 overflow-x-auto shrink-0 bg-slate-50/50">
-              {tabs.map((tab) => (
+              {paged.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
@@ -1358,7 +1371,7 @@ export const DoctorMaster = () => {
                 <Button variant="outline" color="secondary" onClick={() => setIsFormOpen(false)}>
                   Cancel
                 </Button>
-                <Button variant="filled" color="primary" onClick={handleSaveForm} icon={Save}>
+                <Button variant="filled" color="primary" onClick={handleSaveForm} icon={Save} isLoading={isSaving}>
                   {selectedRecord ? 'Update' : 'Save'}
                 </Button>
               </div>

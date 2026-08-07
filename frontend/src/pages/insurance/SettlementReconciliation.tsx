@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { Pagination } from '@/components/ui/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 import { Search, Receipt, CheckCircle, Clock, CheckSquare, Download, Calendar, ArrowRightLeft } from 'lucide-react';
 import { useInsurance } from '../../contexts/InsuranceContext';
 
@@ -28,6 +30,8 @@ export const SettlementReconciliation = () => {
   const handleReconcile = (id: string) => {
     reconcileSettlement(id);
   };
+
+  const { page, setPage, pageSize, total, paged } = usePagination(filteredSettlements);
 
   return (
     <div className="space-y-4">
@@ -120,7 +124,7 @@ export const SettlementReconciliation = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredSettlements.map((row) => (
+              {paged.map((row) => (
                 <tr key={row.id} className="hover:bg-slate-50/70 transition-colors">
                   <td className="px-4 py-3">
                     <span className="font-bold text-primary">{row.id}</span>
@@ -170,6 +174,7 @@ export const SettlementReconciliation = () => {
             </tbody>
           </table>
         </div>
+        <Pagination page={page} pageSize={pageSize} totalItems={total} onPageChange={setPage} />
       </div>
     </div>
   );

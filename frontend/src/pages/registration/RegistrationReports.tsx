@@ -80,7 +80,11 @@ const trendLabels = reportData?.trends?.map((t: any) => {
   const trendSeries = [{ name: 'Registrations', data: trendValues }];
 
   const demoLabels = reportData?.demographics ? Object.keys(reportData.demographics) : [];
-  const demoValues = reportData?.demographics ? Object.values(reportData.demographics) : [];
+  // Object.values on an index-signature-less shape widens to unknown[]; the
+  // donut series must be number[], so coerce each bucket count explicitly.
+  const demoValues: number[] = reportData?.demographics
+    ? Object.values(reportData.demographics).map(v => Number(v) || 0)
+    : [];
 
   const demoOptions: any = {
     chart: { type: 'donut', fontFamily: 'inherit' },

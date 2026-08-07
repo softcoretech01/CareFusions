@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { Pagination } from '@/components/ui/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 import { Search, CheckCircle, XCircle, Shield, Plus, X, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { usePatients } from '../../contexts/PatientContext';
@@ -120,6 +122,8 @@ export const EligibilityVerification = () => {
     `w-full px-3 py-1.5 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-primary ${
       errors[field] ? 'border-red-400' : 'border-slate-200 focus:border-primary'
     }`;
+
+  const { page, setPage, pageSize, total, paged } = usePagination(filtered);
 
   return (
     <div className="space-y-4 relative">
@@ -289,7 +293,7 @@ export const EligibilityVerification = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filtered.map(row => (
+              {paged.map(row => (
                 <tr key={row.policyId} className="hover:bg-slate-50/70 transition-colors">
                   <td className="px-5 py-3">
                     <div className="font-bold text-slate-800">{row.patientName}</div>
@@ -331,6 +335,7 @@ export const EligibilityVerification = () => {
             </tbody>
           </table>
         </div>
+        <Pagination page={page} pageSize={pageSize} totalItems={total} onPageChange={setPage} />
       </div>
 
       {showAddModal && (

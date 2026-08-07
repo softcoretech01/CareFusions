@@ -186,7 +186,7 @@ let visitCounter = 0;
 // ── Provider ───────────────────────────────────────────────────────────────
 export const OPDVisitProvider = ({ children }: { children: ReactNode }) => {
   const [visits, setVisits] = useState<OPDVisit[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [, setIsLoading] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
 
   const fetchSchedule = useCallback(async () => {
