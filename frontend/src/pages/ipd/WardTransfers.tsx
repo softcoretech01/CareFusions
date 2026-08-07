@@ -280,7 +280,7 @@ export const WardTransfers = () => {
             >
               <option value="">-- Select Patient --</option>
               {paged.map(p => (
-                <option key={p.id} value={p.id}>{p.patientName} (UHID: {p.uhid})</option>
+                <option key={p.id} value={p.id}>{p.patientName} ({p.uhid})</option>
               ))}
             </select>
           </div>
@@ -302,7 +302,7 @@ export const WardTransfers = () => {
               required
             >
               <option value="">Select Target Ward</option>
-              {wards.map(w => <option key={w.id} value={w.id}>{w.name} ({w.type})</option>)}
+              {wards.filter(w => w.id !== currentWard?.id).map(w => <option key={w.id} value={w.id}>{w.name} ({w.type})</option>)}
             </select>
           </div>
 

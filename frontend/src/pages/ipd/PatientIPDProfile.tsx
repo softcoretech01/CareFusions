@@ -82,7 +82,7 @@ export const PatientIPDProfile = () => {
           <div className="mt-4 pt-4 border-t border-slate-100 text-center">
             <p className="text-xs font-bold text-slate-400 uppercase mb-1">Current Location</p>
             <p className="font-bold text-slate-800">{ward?.name}</p>
-            <p className="text-sm font-bold text-primary mt-1">Room no {bed?.roomNumber} â€¢ Bed {bed?.bedNumber}</p>
+            <p className="text-sm font-bold text-primary mt-1">Room no {bed?.roomNumber} &bull; Bed {bed?.bedNumber}</p>
           </div>
           
           <div className="mt-4 pt-4 border-t border-slate-100">

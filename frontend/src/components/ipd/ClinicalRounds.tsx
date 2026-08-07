@@ -28,6 +28,7 @@ export const ClinicalRounds: React.FC<ClinicalRoundsProps> = ({ patientId }) => 
   const [saving, setSaving] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [form, setForm] = useState({ doctorName: '', note: '' });
+  const [showDocDropdown, setShowDocDropdown] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -96,16 +97,41 @@ export const ClinicalRounds: React.FC<ClinicalRoundsProps> = ({ patientId }) => 
 
       {isAdding && (
         <form onSubmit={handleSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
-          <div>
+          <div className="relative">
             <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Doctor</label>
-            <input list="round-doctors" value={form.doctorName}
-              onChange={e => setForm({ ...form, doctorName: lettersOnly(e.target.value) })}
-              placeholder="Select or type a doctor" className={inputCls} />
-            <datalist id="round-doctors">
-              {doctorSchedules.map((d: any) => (
-                <option key={d.id ?? d.doctorId} value={d.doctorName || d.name} />
-              ))}
-            </datalist>
+            <input 
+              value={form.doctorName}
+              onChange={e => {
+                setForm({ ...form, doctorName: lettersOnly(e.target.value) });
+                setShowDocDropdown(true);
+              }}
+              onFocus={() => setShowDocDropdown(true)}
+              onBlur={() => setShowDocDropdown(false)}
+              placeholder="Select or type a doctor" 
+              className={inputCls} 
+            />
+            {showDocDropdown && (
+              <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-48 overflow-y-auto overflow-x-hidden">
+                {doctorSchedules
+                  .filter((d: any) => (d.doctorName || d.name).toLowerCase().includes(form.doctorName.toLowerCase()))
+                  .map((d: any) => (
+                  <div 
+                    key={d.id ?? d.doctorId} 
+                    className="px-3 py-2 text-sm font-medium text-slate-700 hover:bg-primary/5 hover:text-primary cursor-pointer transition-colors"
+                    onMouseDown={(e) => {
+                      e.preventDefault(); // Prevent onBlur firing before click
+                      setForm({ ...form, doctorName: d.doctorName || d.name });
+                      setShowDocDropdown(false);
+                    }}
+                  >
+                    {d.doctorName || d.name}
+                  </div>
+                ))}
+                {doctorSchedules.filter((d: any) => (d.doctorName || d.name).toLowerCase().includes(form.doctorName.toLowerCase())).length === 0 && (
+                  <div className="px-3 py-2 text-sm text-slate-500 italic">No matches... (Will use typed name)</div>
+                )}
+              </div>
+            )}
           </div>
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Round Note</label>

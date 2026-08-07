@@ -21,6 +21,9 @@ export const BedManagement = () => {
   const [popupPatient, setPopupPatient] = useState<IPDPatient | null>(null);
   const [popupBed, setPopupBed] = useState<Bed | null>(null);
 
+  // Bed cleaning confirmation popup
+  const [confirmCleanBed, setConfirmCleanBed] = useState<Bed | null>(null);
+
   // Add Ward / Add Bed modals
   const [showWardModal, setShowWardModal] = useState(false);
   const [showBedModal, setShowBedModal] = useState(false);
@@ -72,10 +75,7 @@ export const BedManagement = () => {
 
   const handleBedClick = async (bed: Bed) => {
     if (bed.status === 'Cleaning') {
-      if (window.confirm(`Mark bed ${bed.bedNumber} as Available?`)) {
-        await updateBedStatus(bed.id, 'Available');
-        toast.success(`Bed ${bed.bedNumber} is now Available.`);
-      }
+      setConfirmCleanBed(bed);
       return;
     }
     if (bed.status !== 'Occupied') return;
@@ -380,6 +380,34 @@ export const BedManagement = () => {
           </div>
         );
       })()}
+
+      <Modal isOpen={!!confirmCleanBed} onClose={() => setConfirmCleanBed(null)} title="Confirm Bed Availability" maxWidth="sm">
+        <div className="p-4 space-y-6">
+          <p className="text-slate-700">
+            Mark bed <strong>{confirmCleanBed?.bedNumber}</strong> as Available?
+          </p>
+          <div className="flex justify-end gap-3 pt-2">
+            <button 
+              onClick={() => setConfirmCleanBed(null)} 
+              className="px-4 py-2 text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
+            >
+              Cancel
+            </button>
+            <button 
+              onClick={async () => {
+                if (!confirmCleanBed) return;
+                await updateBedStatus(confirmCleanBed.id, 'Available');
+                toast.success(`Bed ${confirmCleanBed.bedNumber} is now Available.`);
+                setConfirmCleanBed(null);
+              }}
+              className="px-4 py-2 text-sm font-semibold text-white bg-primary hover:bg-primary-hover rounded-xl transition-colors shadow-sm"
+            >
+              Confirm
+            </button>
+          </div>
+        </div>
+      </Modal>
+
     </div>
   );
 };
