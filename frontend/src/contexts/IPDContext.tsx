@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
 const IPD = `${API_BASE}/ipd`;
@@ -95,11 +95,14 @@ interface IPDContextType {
   allocateBed: (patientId: number, bedId: number, reason?: string) => void;
   requestAdmission: (request: Omit<AdmissionRequest, 'id' | 'status' | 'requestDate'>) => void;
   updateAdmissionRequestStatus: (id: number, status: AdmissionRequest['status']) => void;
+  updateBedStatus: (bedId: number, status: BedStatus) => Promise<boolean>;
   generateAdmissionNumber: () => string;
   addWard: (ward: { name: string; type: Ward['type']; genderRestriction: Ward['genderRestriction']; capacity: number }) => Promise<boolean>;
   addBed: (bed: { wardId: number; roomNumber: string; bedNumber: string }) => Promise<boolean>;
   apiError: string | null;
   clearError: () => void;
+  hasLoaded?: boolean;
+  loadAll?: () => Promise<void>;
 }
 
 const IPDContext = createContext<IPDContextType | undefined>(undefined);
@@ -120,6 +123,8 @@ export const IPDProvider = ({ children }: { children: ReactNode }) => {
   const [patients, setPatients] = useState<IPDPatient[]>([]);
   const [admissionRequests, setAdmissionRequests] = useState<AdmissionRequest[]>([]);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasLoaded, setHasLoaded] = useState(false);
 
   const clearError = useCallback(() => setApiError(null), []);
 
@@ -136,9 +141,26 @@ export const IPDProvider = ({ children }: { children: ReactNode }) => {
     try { const r = await fetch(`${IPD}/admission-requests`); if (r.ok) setAdmissionRequests(await r.json()); } catch { /* offline */ }
   }, []);
 
-  useEffect(() => {
-    loadWards(); loadBeds(); loadAdmissions(); loadRequests();
-  }, [loadWards, loadBeds, loadAdmissions, loadRequests]);
+  // `hasLoaded` only flips once the four fetches resolve, so it cannot guard the
+  // async window in between — a ref is set synchronously on entry instead.
+  // Without it, every re-render during the in-flight period launched another
+  // full round of requests.
+  const inFlight = useRef(false);
+
+  const loadAll = useCallback(async () => {
+    if (hasLoaded || inFlight.current) return;
+    inFlight.current = true;
+    setIsLoading(true);
+    try {
+      await Promise.all([loadWards(), loadBeds(), loadAdmissions(), loadRequests()]);
+      setHasLoaded(true);
+    } finally {
+      setIsLoading(false);
+      inFlight.current = false;
+    }
+  }, [hasLoaded, loadWards, loadBeds, loadAdmissions, loadRequests]);
+
+  // Removed automatic useEffect for loading all data on mount
 
   // ── Actions ────────────────────────────────────────────────
   const admitPatient = (p: Omit<IPDPatient, 'id' | 'admissionNumber' | 'wardTransferHistory' | 'dischargeInfo'>) => {
@@ -235,6 +257,18 @@ export const IPDProvider = ({ children }: { children: ReactNode }) => {
     })();
   };
 
+  const updateBedStatus = async (bedId: number, status: BedStatus): Promise<boolean> => {
+    try {
+      const res = await fetch(`${IPD}/beds/${bedId}/status`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) { setApiError(`Update bed failed: ${await errMsg(res)}`); return false; }
+      await loadBeds();
+      return true;
+    } catch { setApiError('Update bed failed: server unreachable.'); return false; }
+  };
+
   const addWard = async (w: { name: string; type: Ward['type']; genderRestriction: Ward['genderRestriction']; capacity: number }): Promise<boolean> => {
     try {
       const res = await fetch(`${IPD}/wards`, {
@@ -268,21 +302,10 @@ export const IPDProvider = ({ children }: { children: ReactNode }) => {
   return (
     <IPDContext.Provider
       value={{
-        wards,
-        beds,
-        patients,
-        admissionRequests,
-        admitPatient,
-        requestDischarge,
-        dischargePatient,
-        allocateBed,
-        requestAdmission,
-        updateAdmissionRequestStatus,
-        generateAdmissionNumber,
-        addWard,
-        addBed,
-        apiError,
-        clearError,
+        wards, beds, patients, admissionRequests,
+        admitPatient, requestDischarge, dischargePatient, allocateBed,
+        requestAdmission, updateAdmissionRequestStatus, updateBedStatus, generateAdmissionNumber, addWard, addBed,
+        apiError, clearError, hasLoaded, loadAll
       }}
     >
       {children}
@@ -292,8 +315,15 @@ export const IPDProvider = ({ children }: { children: ReactNode }) => {
 
 export const useIPD = () => {
   const context = useContext(IPDContext);
-  if (context === undefined) {
-    throw new Error('useIPD must be used within an IPDProvider');
-  }
+  if (!context) throw new Error('useIPD must be used within IPDProvider');
+  
+  // Depend on the two values actually used, not the whole context object — the
+  // provider builds a new object every render, so `[context]` re-fired this
+  // effect on each one and every consumer triggered another load.
+  const { hasLoaded, loadAll } = context;
+  useEffect(() => {
+    if (!hasLoaded) loadAll?.();
+  }, [hasLoaded, loadAll]);
+
   return context;
 };
