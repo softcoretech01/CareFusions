@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useInvestigations } from '../../contexts/InvestigationContext';
 import { FlaskConical, Clock, CheckCircle, AlertTriangle } from 'lucide-react';
 import Chart from 'react-apexcharts';
@@ -6,8 +6,11 @@ import type { ApexOptions } from 'apexcharts';
 import { DateFilter } from '../../components/ui/DateFilter';
 
 export const LabDashboard = () => {
-  const { orders } = useInvestigations();
-  
+  const { orders, refresh } = useInvestigations();
+
+  // Load orders on open; no-op once the shared context already has them.
+  useEffect(() => { refresh(); }, [refresh]);
+
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');

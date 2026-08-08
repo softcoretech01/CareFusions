@@ -1,12 +1,74 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useInvestigations, type InvestigationOrder, type InvestigationTest } from '../../contexts/InvestigationContext';
 import { Upload, FileText, X, Beaker, CheckSquare, AlertTriangle, ShieldCheck, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { DateFilter } from '../../components/ui/DateFilter';
+import { Pagination } from '../../components/ui/Pagination';
+import { usePagination } from '../../hooks/usePagination';
+
+const TestResultEditor = ({ test, handleSaveResult, handleVerify }: any) => {
+  const [localValue, setLocalValue] = useState(test.resultValue || '');
+
+  useEffect(() => {
+    setLocalValue(test.resultValue || '');
+  }, [test.resultValue]);
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Result Value</label>
+        <input
+          type="text"
+          value={localValue}
+          onChange={e => setLocalValue(e.target.value)}
+          placeholder="Enter value"
+          disabled={test.status === 'Verified'}
+          className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:border-blue-500 ${test.status === 'Verified' ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-white border-slate-200'}`}
+          onBlur={() => {
+            if (localValue !== test.resultValue) {
+              handleSaveResult(test.id, localValue, test.resultFile);
+            }
+          }}
+        />
+      </div>
+      <div className="flex items-end gap-2">
+        <div className="flex-1">
+          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Upload Report (PDF/IMG)</label>
+          <input
+            type="file"
+            accept=".pdf,.png,.jpg,.jpeg"
+            disabled={test.status === 'Verified'}
+            className={`w-full px-3 py-1.5 border rounded-lg text-sm focus:outline-none focus:border-blue-500 file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 ${test.status === 'Verified' ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-white border-slate-200'}`}
+            onChange={(e) => {
+              if (e.target.files && e.target.files.length > 0) {
+                // Use localValue instead of test.resultValue to preserve user's typed input
+                handleSaveResult(test.id, localValue, e.target.files[0].name);
+              }
+            }}
+          />
+          {test.resultFile && <p className="text-xs text-blue-600 mt-1 font-medium">Uploaded: {test.resultFile}</p>}
+        </div>
+        {test.status === 'Completed' && (
+          <button
+            onClick={() => handleVerify(test.id)}
+            className="px-4 py-2 h-[38px] bg-green-600 text-white hover:bg-green-700 font-bold text-xs rounded-lg flex items-center gap-2 transition-colors shrink-0"
+          >
+            <ShieldCheck className="w-4 h-4" /> Verify
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
 
 export const LabOrderList = () => {
-  const { orders, updateTestResult, updateTestStatus, verifyTest } = useInvestigations();
+  const { orders, updateTestResult, updateTestStatus, verifyTest, refresh } = useInvestigations();
   const labOrders = orders.filter(o => o.category === 'Lab');
+
+  // Pull orders when this screen opens. `refresh` is guarded by hasLoaded, so
+  // this is a no-op once the data is already in the shared context — it just
+  // means landing here directly is no longer an empty table.
+  useEffect(() => { refresh(); }, [refresh]);
 
   const [activeOrder, setActiveOrder] = useState<InvestigationOrder | null>(null);
   const [fromDate, setFromDate] = useState('');
@@ -19,6 +81,9 @@ export const LabOrderList = () => {
     if (searchQuery && !order.id.toLowerCase().includes(searchQuery.toLowerCase()) && !order.patientName.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     return true;
   });
+
+  // 10 rows per page; snaps back to page 1 when a search shrinks the list.
+  const { page, setPage, pageSize, total, paged } = usePagination(filteredOrders);
 
   const handleActionClick = (order: InvestigationOrder) => {
     setActiveOrder(order);
@@ -124,7 +189,7 @@ export const LabOrderList = () => {
                   No lab orders found.
                 </td>
               </tr>
-            ) : filteredOrders.map(order => (
+            ) : paged.map(order => (
               <tr key={order.id} className="hover:bg-slate-50/60 transition-colors">
                 <td className="px-4 py-3 font-mono font-semibold text-slate-900">{order.id}</td>
                 <td className="px-4 py-3">
@@ -158,6 +223,7 @@ export const LabOrderList = () => {
             ))}
           </tbody>
         </table>
+        <Pagination page={page} pageSize={pageSize} totalItems={total} onPageChange={setPage} />
       </div>
 
       {activeOrder && (
@@ -216,48 +282,11 @@ export const LabOrderList = () => {
                     )}
 
                     {(test.status === 'Sample Collected' || test.status === 'Sample Accepted' || test.status === 'Completed' || test.status === 'Verified') && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Result Value</label>
-                          <input
-                            type="text"
-                            defaultValue={test.resultValue}
-                            placeholder="Enter value"
-                            disabled={test.status === 'Verified'}
-                            className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:border-blue-500 ${test.status === 'Verified' ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-white border-slate-200'}`}
-                            onBlur={(e) => {
-                              if (e.target.value !== test.resultValue) {
-                                handleSaveResult(test.id, e.target.value, test.resultFile);
-                              }
-                            }}
-                          />
-                        </div>
-                        <div className="flex items-end gap-2">
-                          <div className="flex-1">
-                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Upload Report (PDF/IMG)</label>
-                            <input
-                              type="file"
-                              accept=".pdf,.png,.jpg,.jpeg"
-                              disabled={test.status === 'Verified'}
-                              className={`w-full px-3 py-1.5 border rounded-lg text-sm focus:outline-none focus:border-blue-500 file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 ${test.status === 'Verified' ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-white border-slate-200'}`}
-                              onChange={(e) => {
-                                if (e.target.files && e.target.files.length > 0) {
-                                  handleSaveResult(test.id, test.resultValue || '', e.target.files[0].name);
-                                }
-                              }}
-                            />
-                            {test.resultFile && <p className="text-xs text-blue-600 mt-1 font-medium">Uploaded: {test.resultFile}</p>}
-                          </div>
-                          {test.status === 'Completed' && (
-                            <button
-                              onClick={() => handleVerify(test.id)}
-                              className="px-4 py-2 h-[38px] bg-green-600 text-white hover:bg-green-700 font-bold text-xs rounded-lg flex items-center gap-2 transition-colors shrink-0"
-                            >
-                              <ShieldCheck className="w-4 h-4" /> Verify
-                            </button>
-                          )}
-                        </div>
-                      </div>
+                      <TestResultEditor 
+                        test={test} 
+                        handleSaveResult={handleSaveResult} 
+                        handleVerify={handleVerify} 
+                      />
                     )}
                   </div>
                 </div>

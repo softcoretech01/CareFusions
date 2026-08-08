@@ -118,7 +118,11 @@ export const PharmacySummary = () => {
     colors: ['#10b981'],
     markers: {
       size: 0,
-      hover: { size: 6, sizeOffset: 3, colors: ['#ffffff'], strokeColors: '#10b981', strokeWidth: 3 }
+      // Point styling lives on `markers`; `hover` only accepts size/sizeOffset.
+      colors: ['#ffffff'],
+      strokeColors: '#10b981',
+      strokeWidth: 3,
+      hover: { size: 6, sizeOffset: 3 }
     },
     tooltip: { 
       theme: 'light',

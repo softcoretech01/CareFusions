@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useInvestigations, type QCLog } from '../../contexts/InvestigationContext';
 import { Plus, Check, Beaker, FileSpreadsheet, X } from 'lucide-react';
 import Chart from 'react-apexcharts';
@@ -7,7 +7,11 @@ import toast from 'react-hot-toast';
 import { DateFilter } from '../../components/ui/DateFilter';
 
 export const LabQualityControl = () => {
-  const { qcLogs, addQCLog } = useInvestigations();
+  const { qcLogs, addQCLog, refresh } = useInvestigations();
+
+  // Load QC logs on open; no-op once the shared context already has them.
+  useEffect(() => { refresh(); }, [refresh]);
+
   const [showAddForm, setShowAddForm] = useState(false);
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');

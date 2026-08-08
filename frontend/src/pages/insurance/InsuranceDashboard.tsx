@@ -62,14 +62,27 @@ export const InsuranceDashboard = () => {
     { name: 'Denied Claims', data: (data?.monthly ?? []).map(m => m.denied) },
   ];
 
+  // Volume = number of claims per insurer, straight from the API. The series
+  // used to be hardcoded [35,25,20,15,5], which is why insurers with no data
+  // showed as "series-2 … series-5".
+  const byInsurer = data?.byInsurer ?? [];
+  const donutSeries = byInsurer.map(i => i.claims);
   const donutOptions: ApexOptions = {
     chart: { type: 'donut', fontFamily: 'Inter' },
     colors: ['#2563EB', '#8b5cf6', '#F59E0B', '#06B6D4', '#22C55E'],
-    labels: (data?.byInsurer ?? []).map(i => i.name),
+    labels: byInsurer.map(i => i.name),
     dataLabels: { enabled: false },
     legend: { position: 'bottom' },
     stroke: { width: 0 },
+    tooltip: { y: { formatter: (v: number) => `${v} claim${v === 1 ? '' : 's'}` } },
   };
+
+  // Real approval rate: settled ÷ (settled + denied) across the charted months.
+  // The badge used to always read "+12%".
+  const totalApproved = (data?.monthly ?? []).reduce((s, m) => s + m.approved, 0);
+  const totalDenied = (data?.monthly ?? []).reduce((s, m) => s + m.denied, 0);
+  const decided = totalApproved + totalDenied;
+  const approvalRate = decided > 0 ? Math.round((totalApproved / decided) * 100) : null;
 
   const handleClearFilters = () => {
     setFromDate('');
@@ -147,9 +160,11 @@ export const InsuranceDashboard = () => {
         >
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-bold text-lg text-slate-800">Approval vs Denial Trends</h3>
-            <span className="text-xs font-bold bg-green-100 text-green-700 px-3 py-1 rounded-full flex items-center gap-1">
-              <TrendingUp className="w-3 h-3" /> +12% Approval Rate
-            </span>
+            {approvalRate !== null && (
+              <span className="text-xs font-bold bg-green-100 text-green-700 px-3 py-1 rounded-full flex items-center gap-1">
+                <TrendingUp className="w-3 h-3" /> {approvalRate}% Approval Rate
+              </span>
+            )}
           </div>
           <Chart options={barOptions} series={barSeries} type="bar" height={300} />
         </motion.div>
@@ -160,7 +175,11 @@ export const InsuranceDashboard = () => {
         >
           <h3 className="font-bold text-lg text-slate-800 mb-4">Top TPAs / Insurers by Volume</h3>
           <div className="flex-1 flex items-center justify-center">
-            <Chart options={donutOptions} series={[35, 25, 20, 15, 5]} type="donut" height={300} />
+            {donutSeries.length > 0 ? (
+              <Chart options={donutOptions} series={donutSeries} type="donut" height={300} />
+            ) : (
+              <p className="text-sm text-slate-400 py-12">No claims recorded yet.</p>
+            )}
           </div>
         </motion.div>
       </div>

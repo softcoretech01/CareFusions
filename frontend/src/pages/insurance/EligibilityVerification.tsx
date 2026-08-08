@@ -5,6 +5,7 @@ import { Search, CheckCircle, XCircle, Shield, Plus, X, AlertTriangle } from 'lu
 import toast from 'react-hot-toast';
 import { usePatients } from '../../contexts/PatientContext';
 import { useInsurance, type Policy } from '../../contexts/InsuranceContext';
+import { alphanumeric, upperCode, digitsOnly, decimalOnly, LIMITS } from '../../utils/inputRules';
 
 const inr = (n: number) => `₹${(n ?? 0).toLocaleString('en-IN')}`;
 
@@ -22,6 +23,8 @@ export const EligibilityVerification = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  // Controls the UHID patient-picker dropdown in the Add-Insurance modal.
+  const [uhidOpen, setUhidOpen] = useState(false);
   const [form, setForm] = useState({
     uhid: '', name: '', providerId: '', insurer: '',
     policyNumber: '', validUntil: '', sumInsured: '',
@@ -60,15 +63,18 @@ export const EligibilityVerification = () => {
     setNotFound(!hit && matches.length === 0);
   };
 
-  // Auto-fill the patient name from the registered-patient directory.
-  const handleUhidChange = (uhid: string) => {
-    const existing = policies.find(p => p.uhid.toLowerCase() === uhid.toLowerCase());
-    const registered = patients.find(p => p.uhid.toLowerCase() === uhid.toLowerCase());
-    setForm(prev => ({
-      ...prev,
-      uhid,
-      name: existing?.patientName || registered?.patientName || (uhid.trim() ? prev.name : ''),
-    }));
+  // The Add-Insurance UHID field is a picker, not a free-text box: it lists
+  // registered patients who do NOT already have a policy on file, so you can
+  // pick a patient to insure but can't add a duplicate policy to an insured one.
+  const insuredUhids = new Set(policies.map(p => p.uhid.toLowerCase()));
+  const pickablePatients = patients.filter(p => p.uhid && !insuredUhids.has(p.uhid.toLowerCase()));
+
+  // Picking a patient fills both UHID and name; the name field is read-only
+  // because it always comes from the selected patient's registration record.
+  const selectPatient = (uhid: string, name: string) => {
+    setForm(prev => ({ ...prev, uhid, name }));
+    setErrors(prev => ({ ...prev, uhid: '', name: '' }));
+    setUhidOpen(false);
   };
 
   const validate = () => {
@@ -82,6 +88,8 @@ export const EligibilityVerification = () => {
     if (!form.sumInsured || Number(form.sumInsured) <= 0) e.sumInsured = 'Enter a positive amount';
     const copay = Number(form.copayPercentage);
     if (isNaN(copay) || copay < 0 || copay > 100) e.copayPercentage = 'Must be 0–100';
+    // A deductible above the sum insured would make the payable amount negative.
+    if (Number(form.deductible) > Number(form.sumInsured || 0)) e.deductible = 'Cannot exceed sum insured';
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -110,6 +118,7 @@ export const EligibilityVerification = () => {
     if (ok) {
       toast.success('Insurance policy saved');
       setShowAddModal(false);
+      setUhidOpen(false);
       setSearch(form.uhid);
       setNotFound(false);
       setForm({ uhid: '', name: '', providerId: '', insurer: '', policyNumber: '', validUntil: '', sumInsured: '', copayPercentage: '10', deductible: '0' });
@@ -124,6 +133,15 @@ export const EligibilityVerification = () => {
     }`;
 
   const { page, setPage, pageSize, total, paged } = usePagination(filtered);
+
+  // Patients matching what's typed in the UHID picker (by UHID or name).
+  const uhidQuery = form.uhid.trim().toLowerCase();
+  const uhidMatches = pickablePatients
+    .filter(p =>
+      !uhidQuery ||
+      p.uhid.toLowerCase().includes(uhidQuery) ||
+      (p.patientName || '').toLowerCase().includes(uhidQuery))
+    .slice(0, 50);
 
   return (
     <div className="space-y-4 relative">
@@ -343,27 +361,55 @@ export const EligibilityVerification = () => {
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl overflow-hidden">
             <div className="px-5 py-3 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
               <h2 className="text-lg font-bold text-slate-800">Add Patient Insurance Details</h2>
-              <button onClick={() => setShowAddModal(false)} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
+              <button onClick={() => { setShowAddModal(false); setUhidOpen(false); }} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
                 <X className="w-5 h-5 text-slate-500" />
               </button>
             </div>
             <form onSubmit={handleAddSubmit} className="p-5 space-y-3">
               <div className="grid grid-cols-2 gap-3">
-                <div>
+                <div className="relative">
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Patient UHID *</label>
+                  {/* Searchable picker — only patients without a policy appear. */}
                   <input
                     type="text" value={form.uhid}
-                    onChange={(e) => handleUhidChange(e.target.value)}
-                    className={inputCls('uhid')} placeholder="e.g. UHID-2026-0003"
+                    onChange={(e) => { setForm(prev => ({ ...prev, uhid: alphanumeric(e.target.value, LIMITS.name), name: '' })); setUhidOpen(true); }}
+                    onFocus={() => setUhidOpen(true)}
+                    onBlur={() => setUhidOpen(false)}
+                    autoComplete="off" maxLength={LIMITS.name}
+                    className={inputCls('uhid')} placeholder="Search UHID or name…"
                   />
+                  {uhidOpen && (
+                    <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-56 overflow-y-auto">
+                      {uhidMatches.length === 0 ? (
+                        <div className="px-3 py-2.5 text-xs text-slate-400">
+                          {pickablePatients.length === 0
+                            ? 'No patients without a policy — everyone on file is already insured.'
+                            : 'No matching patient without a policy.'}
+                        </div>
+                      ) : uhidMatches.map(p => (
+                        <button
+                          type="button"
+                          key={p.uhid}
+                          // onMouseDown fires before the input's onBlur, so the
+                          // pick lands before the dropdown closes.
+                          onMouseDown={(e) => { e.preventDefault(); selectPatient(p.uhid, p.patientName || ''); }}
+                          className="w-full text-left px-3 py-2 hover:bg-primary/5 transition-colors border-b border-slate-50 last:border-0"
+                        >
+                          <div className="text-sm font-semibold text-slate-800">{p.patientName || 'Unnamed'}</div>
+                          <div className="text-[11px] text-slate-500">{p.uhid}</div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   {errors.uhid && <p className="text-[11px] text-red-500 mt-1">{errors.uhid}</p>}
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Patient Name *</label>
+                  {/* Read-only: it always reflects the patient chosen above. */}
                   <input
-                    type="text" value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value.replace(/[^A-Za-z\s.'-]/g, '') })}
-                    className={inputCls('name')} placeholder="Auto-fills from UHID"
+                    type="text" value={form.name} readOnly
+                    className={`${inputCls('name')} bg-slate-100 text-slate-600 cursor-not-allowed`}
+                    placeholder="Select a patient above"
                   />
                   {errors.name && <p className="text-[11px] text-red-500 mt-1">{errors.name}</p>}
                 </div>
@@ -387,7 +433,8 @@ export const EligibilityVerification = () => {
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Policy Number *</label>
                   <input
                     type="text" value={form.policyNumber}
-                    onChange={(e) => setForm({ ...form, policyNumber: e.target.value.toUpperCase() })}
+                    onChange={(e) => setForm({ ...form, policyNumber: upperCode(e.target.value, LIMITS.policy) })}
+                    maxLength={LIMITS.policy}
                     className={inputCls('policyNumber')} placeholder="e.g. POL-123456"
                   />
                   {errors.policyNumber && <p className="text-[11px] text-red-500 mt-1">{errors.policyNumber}</p>}
@@ -407,7 +454,8 @@ export const EligibilityVerification = () => {
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Sum Insured (₹) *</label>
                   <input
                     type="text" inputMode="numeric" value={form.sumInsured}
-                    onChange={(e) => setForm({ ...form, sumInsured: e.target.value.replace(/\D/g, '') })}
+                    onChange={(e) => setForm({ ...form, sumInsured: digitsOnly(e.target.value, LIMITS.amount) })}
+                    maxLength={LIMITS.amount}
                     className={inputCls('sumInsured')} placeholder="500000"
                   />
                   {errors.sumInsured && <p className="text-[11px] text-red-500 mt-1">{errors.sumInsured}</p>}
@@ -417,8 +465,9 @@ export const EligibilityVerification = () => {
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Co-pay (%)</label>
                   <input
-                    type="text" inputMode="numeric" value={form.copayPercentage}
-                    onChange={(e) => setForm({ ...form, copayPercentage: e.target.value.replace(/[^\d.]/g, '') })}
+                    type="text" inputMode="decimal" value={form.copayPercentage}
+                    onChange={(e) => setForm({ ...form, copayPercentage: decimalOnly(e.target.value, LIMITS.percent) })}
+                    maxLength={LIMITS.percent}
                     className={inputCls('copayPercentage')} placeholder="10"
                   />
                   {errors.copayPercentage && <p className="text-[11px] text-red-500 mt-1">{errors.copayPercentage}</p>}
@@ -427,14 +476,16 @@ export const EligibilityVerification = () => {
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Deductible (₹)</label>
                   <input
                     type="text" inputMode="numeric" value={form.deductible}
-                    onChange={(e) => setForm({ ...form, deductible: e.target.value.replace(/\D/g, '') })}
+                    onChange={(e) => setForm({ ...form, deductible: digitsOnly(e.target.value, LIMITS.amount) })}
+                    maxLength={LIMITS.amount}
                     className={inputCls('deductible')} placeholder="0"
                   />
+                  {errors.deductible && <p className="text-[11px] text-red-500 mt-1">{errors.deductible}</p>}
                 </div>
               </div>
               <div className="pt-3 flex gap-3">
                 <button
-                  type="button" onClick={() => setShowAddModal(false)}
+                  type="button" onClick={() => { setShowAddModal(false); setUhidOpen(false); }}
                   className="flex-1 px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition-colors text-sm"
                 >
                   Cancel

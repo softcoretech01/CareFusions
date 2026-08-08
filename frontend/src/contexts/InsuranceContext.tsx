@@ -112,7 +112,7 @@ interface InsuranceContextType {
   deletePreAuth: (id: string) => void;
   updatePreAuth: (preAuth: PreAuth) => void;
   resolveAppeal: (appealId: string, approvedAmt: number) => void;
-  reconcileSettlement: (settlementId: string) => void;
+  reconcileSettlement: (settlementId: string, utrReference?: string) => void;
   addPreAuth: (preAuth: PreAuth) => void;
   savePolicy: (policy: Partial<Policy> & {
     uhid: string; patientName: string; policyNumber: string; insurerName: string;
@@ -286,10 +286,13 @@ export const InsuranceProvider = ({ children }: { children: ReactNode }) => {
     }), 'resolve appeal');
   };
 
-  const reconcileSettlement = (settlementId: string) => {
+  // The UTR is the bank's payment reference — what actually matches the
+  // insurer's remittance to this settlement. Optional, but recorded when given.
+  const reconcileSettlement = (settlementId: string, utrReference?: string) => {
     const pk = settlementPk(settlementId);
     if (pk) run(() => fetch(`${INS}/settlements/${pk}/reconcile`, {
-      method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({}),
+      method: 'POST', headers: JSON_HEADERS,
+      body: JSON.stringify(utrReference ? { utrReference } : {}),
     }), 'reconcile settlement');
   };
 

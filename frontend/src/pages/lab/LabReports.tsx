@@ -1,11 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useInvestigations } from '../../contexts/InvestigationContext';
 import { Download, Search, X, Eye } from 'lucide-react';
 import { DateFilter } from '../../components/ui/DateFilter';
+import { Pagination } from '../../components/ui/Pagination';
+import { usePagination } from '../../hooks/usePagination';
 
 export const LabReports = () => {
-  const { orders } = useInvestigations();
+  const { orders, refresh } = useInvestigations();
   const labOrders = orders.filter(o => o.category === 'Lab');
+
+  // Load orders on open; no-op once the shared context already has them.
+  useEffect(() => { refresh(); }, [refresh]);
 
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
@@ -19,6 +24,9 @@ export const LabReports = () => {
     if (searchQuery && !order.id.toLowerCase().includes(searchQuery.toLowerCase()) && !order.patientName.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     return true;
   });
+
+  // 10 rows per page; the hook snaps back to page 1 when a search shrinks the list.
+  const { page, setPage, pageSize, total, paged } = usePagination(filteredOrders);
 
   const handleExportExcel = () => {
     const csvContent = [
@@ -114,7 +122,7 @@ export const LabReports = () => {
                     No records found for the selected criteria.
                   </td>
                 </tr>
-              ) : filteredOrders.map(order => (
+              ) : paged.map(order => (
                 <tr key={order.id} className="hover:bg-slate-50/50">
                   <td className="px-6 py-3 font-mono font-bold text-slate-800">{order.id}</td>
                   <td className="px-6 py-3">
@@ -146,6 +154,7 @@ export const LabReports = () => {
             </tbody>
           </table>
         </div>
+        <Pagination page={page} pageSize={pageSize} totalItems={total} onPageChange={setPage} />
       </div>
       {selectedOrder && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
