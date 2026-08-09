@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, Search, Filter, Edit2, Eye, RotateCcw, Trash2, RefreshCw } from 'lucide-react';
+import { Plus, Search, Filter, Edit2, Eye, RotateCcw, Trash2, RefreshCw, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
@@ -39,6 +39,8 @@ export const PurchaseReturn = () => {
   const [vendorsMock, setVendorsMock] = useState<any[]>([]);
   const [warehousesMock, setWarehousesMock] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [recordToDelete, setRecordToDelete] = useState<ReturnRecord | null>(null);
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -137,13 +139,23 @@ export const PurchaseReturn = () => {
     }
   };
 
-  const handleDelete = async (record: ReturnRecord) => {
-    if (window.confirm(`Are you sure you want to delete ${record.returnNo}?`)) {
+  const handleDelete = (record: ReturnRecord) => {
+    setRecordToDelete(record);
+    setIsDeleteOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (recordToDelete) {
       try {
-        const res = await fetch(`${API_BASE}/purchase-returns/${record.id}`, { method: 'DELETE' });
-        if (res.ok) fetchData();
-      } catch (err) {
-        console.error(err);
+        const res = await fetch(`${API_BASE}/purchase-returns/${recordToDelete.id}`, { method: 'DELETE' });
+        if (res.ok) {
+          fetchData();
+        }
+      } catch (error) {
+        console.error('Failed to delete Purchase Return:', error);
+      } finally {
+        setIsDeleteOpen(false);
+        setRecordToDelete(null);
       }
     }
   };
@@ -210,12 +222,9 @@ export const PurchaseReturn = () => {
         </div>
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-800">Purchase Returns</h1>
+            <h1 className="text-3xl font-bold text-slate-800 whitespace-nowrap">Purchase Returns</h1>
           </div>
-          <div className="flex items-center gap-3">
-            <button onClick={fetchData} className="p-2 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 transition-colors" title="Refresh">
-              <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
-            </button>
+          <div className="flex items-stretch gap-3">
             <DateFilter
               dateFrom={fromDate}
               dateTo={toDate}
@@ -224,7 +233,7 @@ export const PurchaseReturn = () => {
               onSearch={() => {}}
               onReset={() => { setFromDate(''); setToDate(''); }}
             />
-            <Button variant="filled" color="primary" icon={Plus} onClick={handleCreateNew}>Create Return</Button>
+            <Button variant="filled" color="primary" icon={Plus} onClick={handleCreateNew} className="h-[38px] !px-3 text-sm whitespace-nowrap h-auto">Create Return</Button>
           </div>
         </div>
       </div>
@@ -242,6 +251,9 @@ export const PurchaseReturn = () => {
             </div>
             <button onClick={() => setShowFilters(!showFilters)} className={`p-2 border rounded-lg transition-colors ${showFilters ? 'border-primary bg-primary/5 text-primary' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
               <Filter className="w-4 h-4" />
+            </button>
+            <button onClick={fetchData} className="p-2 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 transition-colors" title="Refresh">
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
             </button>
           </div>
         </div>
@@ -291,9 +303,23 @@ export const PurchaseReturn = () => {
                   <td className="py-3 px-4"><span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(record.status)}`}>{record.status}</span></td>
                   <td className="py-3 px-4 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => handleView(record)} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"><Eye className="w-4 h-4" /></button>
-                      <button onClick={() => handleEdit(record)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"><Edit2 className="w-4 h-4" /></button>
-                      <button onClick={() => handleDelete(record)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
+                      <button onClick={() => handleView(record)} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="View Details"><Eye className="w-4 h-4" /></button>
+                      <button 
+                        onClick={() => !(record.status === 'Approved' || record.status === 'Shipped') && handleEdit(record)} 
+                        disabled={record.status === 'Approved' || record.status === 'Shipped'}
+                        className={`p-1.5 rounded-lg transition-colors ${(record.status === 'Approved' || record.status === 'Shipped') ? 'text-slate-300 cursor-not-allowed opacity-50' : 'text-slate-400 hover:text-primary hover:bg-primary/10'}`} 
+                        title="Edit"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={() => !(record.status === 'Approved' || record.status === 'Shipped') && handleDelete(record)} 
+                        disabled={record.status === 'Approved' || record.status === 'Shipped'}
+                        className={`p-1.5 rounded-lg transition-colors ${(record.status === 'Approved' || record.status === 'Shipped') ? 'text-slate-300 cursor-not-allowed opacity-50' : 'text-slate-400 hover:text-red-500 hover:bg-red-50'}`} 
+                        title="Delete"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -461,6 +487,31 @@ export const PurchaseReturn = () => {
             </div>
           </div>
         )}
+      </Modal>
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={isDeleteOpen}
+        onClose={() => setIsDeleteOpen(false)}
+        title=""
+        size="sm"
+      >
+        <div className="flex flex-col items-center justify-center p-4 text-center">
+          <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mb-4">
+            <AlertTriangle className="w-8 h-8 text-red-500" />
+          </div>
+          <h3 className="text-lg font-bold text-slate-800 mb-2">Delete Record</h3>
+          <p className="text-slate-500 text-sm mb-6">
+            Are you sure you want to delete <span className="font-semibold text-slate-700">{recordToDelete?.returnNo}</span>?
+          </p>
+          <div className="flex items-center gap-3 w-full">
+            <Button variant="outline" color="secondary" className="flex-1" onClick={() => setIsDeleteOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="filled" color="danger" className="flex-1" onClick={confirmDelete}>
+              Delete
+            </Button>
+          </div>
+        </div>
       </Modal>
     </motion.div>
   );

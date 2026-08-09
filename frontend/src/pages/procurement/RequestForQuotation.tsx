@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, Search, Filter, Edit2, Trash2, Eye, Send, FileSignature, RefreshCw } from 'lucide-react';
+import { Plus, Search, Filter, Edit2, Trash2, Eye, Send, FileSignature, RefreshCw, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
@@ -50,6 +50,8 @@ export const RequestForQuotation = () => {
   const [vendorsList, setVendorsList] = useState<any[]>([]);
   const [warehousesList, setWarehousesList] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [recordToDelete, setRecordToDelete] = useState<RFQRecord | null>(null);
 
   useEffect(() => {
     fetchRFQs();
@@ -87,18 +89,18 @@ export const RequestForQuotation = () => {
 
   // Filter only Approved PRs that don't already have an RFQ
   const availablePRs = useMemo(() => {
-    return allPRs.filter(pr => 
-      pr.approvalStatus === 'Approved' && 
+    return allPRs.filter(pr =>
+      pr.approvalStatus === 'Approved' &&
       !records.some(rfq => rfq.prNumber === pr.prNo)
     );
   }, [allPRs, records]);
   const [searchTerm, setSearchTerm] = useState('');
-  
+
   // Pagination & Sorting States
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [sortConfig] = useState<{key: keyof RFQRecord | null, direction: 'asc'|'desc'}>({ key: null, direction: 'asc' });
+  const [sortConfig] = useState<{ key: keyof RFQRecord | null, direction: 'asc' | 'desc' }>({ key: null, direction: 'asc' });
 
   // Filter States
   const [filterDepartment, setFilterDepartment] = useState('');
@@ -109,7 +111,7 @@ export const RequestForQuotation = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<RFQRecord | null>(null);
-  
+
   const emptyForm: Omit<RFQRecord, 'id' | 'rfqNo'> = {
     rfqDate: new Date().toISOString().split('T')[0],
     prNumber: '', department: '', requiredDate: '', dueDate: '',
@@ -124,7 +126,7 @@ export const RequestForQuotation = () => {
     if (!formData.dueDate) newErrors.dueDate = 'Required';
     if (formData.vendors.length === 0) newErrors.vendors = 'Select at least one vendor';
     if (formData.items.length === 0) newErrors.items = 'At least one item is required';
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -142,7 +144,7 @@ export const RequestForQuotation = () => {
     setErrors({});
     setIsFormOpen(true);
   };
-  
+
   const handleView = (record: RFQRecord) => {
     setSelectedRecord(record);
     setIsViewOpen(true);
@@ -169,13 +171,23 @@ export const RequestForQuotation = () => {
     }
   };
 
-  const handleDelete = async (record: RFQRecord) => {
-    if (window.confirm(`Are you sure you want to delete ${record.rfqNo}?`)) {
+  const handleDelete = (record: RFQRecord) => {
+    setRecordToDelete(record);
+    setIsDeleteOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (recordToDelete) {
       try {
-        const res = await fetch(`${API_BASE}/rfqs/${record.id}`, { method: 'DELETE' });
-        if (res.ok) fetchRFQs();
-      } catch (err) {
-        console.error(err);
+        const res = await fetch(`${API_BASE}/rfqs/${recordToDelete.id}`, { method: 'DELETE' });
+        if (res.ok) {
+          fetchRFQs();
+        }
+      } catch (error) {
+        console.error('Failed to delete RFQ:', error);
+      } finally {
+        setIsDeleteOpen(false);
+        setRecordToDelete(null);
       }
     }
   };
@@ -193,7 +205,7 @@ export const RequestForQuotation = () => {
   // Process data (Filter -> Sort -> Paginate)
   const processedData = useMemo(() => {
     let result = records.filter(record => {
-      const matchesSearch = Object.values(record).some(val => 
+      const matchesSearch = Object.values(record).some(val =>
         String(val).toLowerCase().includes(searchTerm.toLowerCase())
       );
       const matchesDept = filterDepartment ? record.department === filterDepartment : true;
@@ -222,7 +234,7 @@ export const RequestForQuotation = () => {
   const paginatedData = processedData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const getStatusColor = (status: string) => {
-    switch(status) {
+    switch (status) {
       case 'Draft': return 'bg-slate-100 text-slate-700';
       case 'Sent to Vendors': return 'bg-blue-100 text-blue-700';
       case 'Closed': return 'bg-emerald-100 text-emerald-700';
@@ -240,19 +252,19 @@ export const RequestForQuotation = () => {
         </div>
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-800">Request For Quotation (RFQ)</h1>
+            <h1 className="text-3xl font-bold text-slate-800 whitespace-nowrap">Request For Quotation</h1>
           </div>
-          
-          <div className="flex items-center gap-3">
+
+          <div className="flex items-stretch gap-3">
             <DateFilter
               dateFrom={fromDate}
               dateTo={toDate}
               onDateFromChange={setFromDate}
               onDateToChange={setToDate}
-              onSearch={() => {}}
+              onSearch={() => { }}
               onReset={() => { setFromDate(''); setToDate(''); }}
             />
-            <Button variant="filled" color="primary" icon={Plus} onClick={handleCreateNew}>
+            <Button variant="filled" color="primary" icon={Plus} onClick={handleCreateNew} className="h-auto">
               Create RFQ
             </Button>
           </div>
@@ -265,13 +277,13 @@ export const RequestForQuotation = () => {
           <div className="flex items-center gap-3">
             <div className="relative w-72">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input 
+              <input
                 type="text" placeholder="Search RFQ No, PR No..." value={searchTerm}
                 onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
                 className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
               />
             </div>
-            <button 
+            <button
               onClick={() => setShowFilters(!showFilters)}
               className={`p-2 border rounded-lg transition-colors ${showFilters ? 'border-primary bg-primary/5 text-primary' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
             ><Filter className="w-4 h-4" /></button>
@@ -332,9 +344,23 @@ export const RequestForQuotation = () => {
                   </td>
                   <td className="py-3 px-4 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => handleView(record)} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"><Eye className="w-4 h-4" /></button>
-                      {record.status !== 'Closed' && <button onClick={() => handleEdit(record)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"><Edit2 className="w-4 h-4" /></button>}
-                      <button onClick={() => handleDelete(record)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
+                      <button onClick={() => handleView(record)} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="View Details"><Eye className="w-4 h-4" /></button>
+                      <button 
+                        onClick={() => !(record.status === 'Sent to Vendors' || record.status === 'Closed') && handleEdit(record)} 
+                        disabled={record.status === 'Sent to Vendors' || record.status === 'Closed'}
+                        className={`p-1.5 rounded-lg transition-colors ${(record.status === 'Sent to Vendors' || record.status === 'Closed') ? 'text-slate-300 cursor-not-allowed opacity-50' : 'text-slate-400 hover:text-primary hover:bg-primary/10'}`} 
+                        title="Edit"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={() => !(record.status === 'Sent to Vendors' || record.status === 'Closed') && handleDelete(record)} 
+                        disabled={record.status === 'Sent to Vendors' || record.status === 'Closed'}
+                        className={`p-1.5 rounded-lg transition-colors ${(record.status === 'Sent to Vendors' || record.status === 'Closed') ? 'text-slate-300 cursor-not-allowed opacity-50' : 'text-slate-400 hover:text-red-500 hover:bg-red-50'}`} 
+                        title="Delete"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -354,7 +380,7 @@ export const RequestForQuotation = () => {
               <select value={formData.prNumber} onChange={(e) => {
                 const pr = availablePRs.find(p => p.prNo === e.target.value);
                 if (pr) {
-                   const newItems = pr.items.map((item) => ({
+                  const newItems = pr.items.map((item) => ({
                     id: Math.random().toString(),
                     itemId: item.itemId,
                     itemCode: item.itemCode,
@@ -366,9 +392,9 @@ export const RequestForQuotation = () => {
                     expectedDeliveryDays: 7,
                     remarks: item.remarks || ''
                   }));
-                  setFormData({...formData, prNumber: pr.prNo, department: pr.department, requiredDate: pr.requiredDate, items: newItems});
+                  setFormData({ ...formData, prNumber: pr.prNo, department: pr.department, requiredDate: pr.requiredDate, items: newItems });
                 } else {
-                  setFormData({...formData, prNumber: e.target.value, department: '', items: []});
+                  setFormData({ ...formData, prNumber: e.target.value, department: '', items: [] });
                 }
               }} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:border-primary">
                 <option value="">Select PR</option>
@@ -377,14 +403,14 @@ export const RequestForQuotation = () => {
               {errors.prNumber && <span className="text-xs text-red-500">{errors.prNumber}</span>}
             </div>
             <div><label className="block text-xs font-medium text-slate-500 mb-1">Department</label><input type="text" value={formData.department || ''} disabled className="w-full px-3 py-1.5 border border-slate-200 bg-slate-100 rounded-lg text-sm" /></div>
-            
-            <div><label className="block text-xs font-medium text-slate-500 mb-1">Required Date</label><input type="date" value={formData.requiredDate || ''} onChange={(e) => setFormData({...formData, requiredDate: e.target.value})} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm" /></div>
-            <div><label className="block text-xs font-medium text-slate-500 mb-1">Quotation Due Date*</label><input type="date" value={formData.dueDate || ''} onChange={(e) => setFormData({...formData, dueDate: e.target.value})} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm" />
+
+            <div><label className="block text-xs font-medium text-slate-500 mb-1">Required Date</label><input type="date" value={formData.requiredDate || ''} onChange={(e) => setFormData({ ...formData, requiredDate: e.target.value })} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm" /></div>
+            <div><label className="block text-xs font-medium text-slate-500 mb-1">Quotation Due Date*</label><input type="date" value={formData.dueDate || ''} onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm" />
               {errors.dueDate && <span className="text-xs text-red-500">{errors.dueDate}</span>}
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Delivery Location</label>
-              <select value={formData.deliveryLocation || ''} onChange={(e) => setFormData({...formData, deliveryLocation: e.target.value})} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm">
+              <select value={formData.deliveryLocation || ''} onChange={(e) => setFormData({ ...formData, deliveryLocation: e.target.value })} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm">
                 <option value="">Select Location</option>
                 {warehousesList.map(w => <option key={w.id} value={w.storeName}>{w.storeName}</option>)}
               </select>
@@ -409,7 +435,7 @@ export const RequestForQuotation = () => {
             </div>
             <div>
               <label className="block font-semibold text-slate-800 mb-3">Terms & Conditions</label>
-              <textarea value={formData.terms || ''} onChange={(e) => setFormData({...formData, terms: e.target.value})} className="w-full h-48 p-3 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary resize-none" placeholder="Enter terms and conditions for vendors..." />
+              <textarea value={formData.terms || ''} onChange={(e) => setFormData({ ...formData, terms: e.target.value })} className="w-full h-48 p-3 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary resize-none" placeholder="Enter terms and conditions for vendors..." />
             </div>
           </div>
 
@@ -418,7 +444,7 @@ export const RequestForQuotation = () => {
               <h3 className="font-semibold text-slate-800 flex items-center gap-2"><FileSignature className="w-4 h-4 text-primary" /> Item Grid</h3>
             </div>
             {errors.items && <div className="text-xs text-red-500 mb-2">{errors.items}</div>}
-            
+
             <div className="border border-slate-200 rounded-xl overflow-hidden">
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 border-b border-slate-200">
@@ -442,11 +468,11 @@ export const RequestForQuotation = () => {
                         {item.itemName}
                       </td>
                       <td className="py-2 px-3 text-slate-600">{item.category || '-'}</td>
-                      <td className="py-2 px-3"><input type="number" value={item.requestedQty || ''} onChange={(e) => { const items = [...formData.items]; items[index].requestedQty = Number(e.target.value); setFormData({...formData, items})}} className="w-full p-1.5 border rounded-lg text-sm text-right" /></td>
+                      <td className="py-2 px-3"><input type="number" value={item.requestedQty || ''} onChange={(e) => { const items = [...formData.items]; items[index].requestedQty = Number(e.target.value); setFormData({ ...formData, items }) }} className="w-full p-1.5 border rounded-lg text-sm text-right" /></td>
                       <td className="py-2 px-3 text-slate-600">{item.uom || '-'}</td>
-                      <td className="py-2 px-3"><input type="number" value={item.targetPrice || ''} onChange={(e) => { const items = [...formData.items]; items[index].targetPrice = Number(e.target.value); setFormData({...formData, items})}} placeholder="Target Price" className="w-full p-1.5 border rounded-lg text-sm text-right" /></td>
-                      <td className="py-2 px-3"><input type="number" value={item.expectedDeliveryDays || ''} onChange={(e) => { const items = [...formData.items]; items[index].expectedDeliveryDays = Number(e.target.value); setFormData({...formData, items})}} className="w-full p-1.5 border rounded-lg text-sm text-right" /></td>
-                      <td className="py-2 px-3"><input type="text" value={item.remarks || ''} onChange={(e) => { const items = [...formData.items]; items[index].remarks = e.target.value; setFormData({...formData, items})}} className="w-full p-1.5 border rounded-lg text-sm" /></td>
+                      <td className="py-2 px-3"><input type="number" value={item.targetPrice || ''} onChange={(e) => { const items = [...formData.items]; items[index].targetPrice = Number(e.target.value); setFormData({ ...formData, items }) }} placeholder="Target Price" className="w-full p-1.5 border rounded-lg text-sm text-right" /></td>
+                      <td className="py-2 px-3"><input type="number" value={item.expectedDeliveryDays || ''} onChange={(e) => { const items = [...formData.items]; items[index].expectedDeliveryDays = Number(e.target.value); setFormData({ ...formData, items }) }} className="w-full p-1.5 border rounded-lg text-sm text-right" /></td>
+                      <td className="py-2 px-3"><input type="text" value={item.remarks || ''} onChange={(e) => { const items = [...formData.items]; items[index].remarks = e.target.value; setFormData({ ...formData, items }) }} className="w-full p-1.5 border rounded-lg text-sm" /></td>
                     </tr>
                   ))}
                 </tbody>
@@ -475,7 +501,7 @@ export const RequestForQuotation = () => {
           </div>
         </div>
       </Modal>
-      
+
       {/* View Modal */}
       <Modal isOpen={isViewOpen} onClose={() => setIsViewOpen(false)} title="View Request for Quotation" size="7xl">
         {selectedRecord && (
@@ -519,7 +545,7 @@ export const RequestForQuotation = () => {
                   <tbody className="divide-y divide-slate-100">
                     {selectedRecord.items.map((item) => (
                       <tr key={item.id} className="bg-white">
-                        <td className="py-2 px-3"><span className="text-xs text-slate-500">{item.itemCode}</span><br/>{item.itemName}</td>
+                        <td className="py-2 px-3"><span className="text-xs text-slate-500">{item.itemCode}</span><br />{item.itemName}</td>
                         <td className="py-2 px-3 text-slate-600">{item.category || '-'}</td>
                         <td className="py-2 px-3 text-right font-medium">{item.requestedQty}</td>
                         <td className="py-2 px-3 text-slate-600">{item.uom || '-'}</td>
@@ -547,6 +573,31 @@ export const RequestForQuotation = () => {
             </div>
           </div>
         )}
+      </Modal>
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={isDeleteOpen}
+        onClose={() => setIsDeleteOpen(false)}
+        title=""
+        size="sm"
+      >
+        <div className="flex flex-col items-center justify-center p-4 text-center">
+          <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mb-4">
+            <AlertTriangle className="w-8 h-8 text-red-500" />
+          </div>
+          <h3 className="text-lg font-bold text-slate-800 mb-2">Delete Record</h3>
+          <p className="text-slate-500 text-sm mb-6">
+            Are you sure you want to delete <span className="font-semibold text-slate-700">{recordToDelete?.rfqNo}</span>?
+          </p>
+          <div className="flex items-center gap-3 w-full">
+            <Button variant="outline" color="secondary" className="flex-1" onClick={() => setIsDeleteOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="filled" color="danger" className="flex-1" onClick={confirmDelete}>
+              Delete
+            </Button>
+          </div>
+        </div>
       </Modal>
     </motion.div>
   );

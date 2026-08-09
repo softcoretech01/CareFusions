@@ -1,7 +1,8 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Search, CheckCircle, FileText, ArrowLeft, GitCompare, Award, RefreshCw } from 'lucide-react';
+import { Search, CheckCircle, FileText, ArrowLeft, GitCompare, Award, RefreshCw, AlertTriangle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '../../components/ui/Button';
+import { Modal } from '../../components/ui/Modal';
 import { DateFilter } from '../../components/ui/DateFilter';
 import type { RFQRecord } from './RequestForQuotation';
 import type { QuotationRecord } from './VendorQuotation';
@@ -11,21 +12,61 @@ const API_BASE = import.meta.env.VITE_API_URL as string;
 export const QuotationComparison = () => {
   const [rfqs, setRfqs] = useState<RFQRecord[]>([]);
   const [qtns, setQtns] = useState<QuotationRecord[]>([]);
+  const [vendorCatalogs, setVendorCatalogs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [selectedRfq, setSelectedRfq] = useState<any | null>(null);
+  const [alertModal, setAlertModal] = useState<{ isOpen: boolean; title: string; message: string; type: 'success' | 'error' }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'success'
+  });
+
+  const renderAlertModal = () => (
+    <Modal
+      isOpen={alertModal.isOpen}
+      onClose={() => setAlertModal({ ...alertModal, isOpen: false })}
+      title=""
+      size="sm"
+    >
+      <div className="flex flex-col items-center justify-center p-4 text-center">
+        <div className={`w-16 h-16 ${alertModal.type === 'success' ? 'bg-emerald-50' : 'bg-red-50'} rounded-full flex items-center justify-center mb-4`}>
+          {alertModal.type === 'success' ? (
+            <CheckCircle className="w-8 h-8 text-emerald-500" />
+          ) : (
+            <AlertTriangle className="w-8 h-8 text-red-500" />
+          )}
+        </div>
+        <h3 className="text-lg font-bold text-slate-800 mb-2">{alertModal.title}</h3>
+        <p className="text-slate-500 text-sm mb-6">{alertModal.message}</p>
+        <div className="flex items-center justify-center w-full">
+          <Button
+            variant="filled"
+            color={alertModal.type === 'success' ? 'primary' : 'danger'}
+            className="w-full"
+            onClick={() => setAlertModal({ ...alertModal, isOpen: false })}
+          >
+            OK
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
 
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [rfqRes, qtnsRes] = await Promise.all([
+      const [rfqRes, qtnsRes, vendorCatRes] = await Promise.all([
         fetch(`${API_BASE}/rfqs`),
-        fetch(`${API_BASE}/vendor-quotations`)
+        fetch(`${API_BASE}/vendor-quotations`),
+        fetch(`${API_BASE}/vendor-catalogs`)
       ]);
       if (rfqRes.ok) setRfqs(await rfqRes.json());
       if (qtnsRes.ok) setQtns(await qtnsRes.json());
+      if (vendorCatRes.ok) setVendorCatalogs(await vendorCatRes.json());
     } catch (err) {
       console.error(err);
     } finally {
@@ -71,10 +112,13 @@ export const QuotationComparison = () => {
             };
           });
 
+          const vendorData = vendorCatalogs.find((v: any) => v.id === q.vendorId || v.vendorName === q.vendorName);
+          const dynamicRating = vendorData?.rating || 0.0;
+
           return {
             quotationNo: q.quotationNo,
             vendor: q.vendorName,
-            vendorRating: 4.5, // Mocked rating
+            vendorRating: dynamicRating,
             total: q.totalAmount,
             deliveryDays: q.deliveryDays,
             paymentTerms: q.paymentTerms,
@@ -85,7 +129,7 @@ export const QuotationComparison = () => {
         })
       };
     });
-  }, [rfqs, qtns]);
+  }, [rfqs, qtns, vendorCatalogs]);
 
   const filteredComparisons = activeComparisons.filter(c => {
     const matchesSearch = c.rfqNo.toLowerCase().includes(searchTerm.toLowerCase()) || c.department.toLowerCase().includes(searchTerm.toLowerCase());
@@ -116,15 +160,30 @@ export const QuotationComparison = () => {
       });
       if (res.ok) {
         await fetchData(); // Refresh data from backend
-        alert(`Quotation ${quotationNo} for ${rfqNo} has been Approved!`);
+        setAlertModal({
+          isOpen: true,
+          title: 'Quotation Approved',
+          message: `Quotation ${quotationNo} for ${rfqNo} has been Approved!`,
+          type: 'success'
+        });
         setSelectedRfq(null);
       } else {
         const err = await res.json();
-        alert(`Failed to approve: ${err.detail || 'Unknown error'}`);
+        setAlertModal({
+          isOpen: true,
+          title: 'Approval Failed',
+          message: `Failed to approve: ${err.detail || 'Unknown error'}`,
+          type: 'error'
+        });
       }
     } catch (error) {
       console.error(error);
-      alert('An error occurred during approval.');
+      setAlertModal({
+        isOpen: true,
+        title: 'Approval Error',
+        message: 'An error occurred during approval.',
+        type: 'error'
+      });
     }
   };
 
@@ -275,6 +334,7 @@ export const QuotationComparison = () => {
             </div>
           </div>
         </div>
+        {renderAlertModal()}
       </motion.div>
     );
   }
@@ -290,9 +350,6 @@ export const QuotationComparison = () => {
           </div>
           <div className="flex items-center gap-4">
             <h1 className="text-3xl font-bold text-slate-800">Compare Quotations</h1>
-            <button onClick={fetchData} className="p-2 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 transition-colors" title="Refresh">
-              <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
-            </button>
           </div>
         </div>
         <DateFilter
@@ -307,13 +364,18 @@ export const QuotationComparison = () => {
 
       <div className="bg-white rounded-3xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden">
         <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-          <div className="relative w-96">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input 
-              type="text" placeholder="Search by RFQ No or Department..." value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary"
-            />
+          <div className="flex items-center gap-3">
+            <div className="relative w-96">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input 
+                type="text" placeholder="Search by RFQ No or Department..." value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary"
+              />
+            </div>
+            <button onClick={fetchData} className="p-2 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 transition-colors" title="Refresh">
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            </button>
           </div>
         </div>
 
@@ -376,6 +438,7 @@ export const QuotationComparison = () => {
           </div>
         </div>
       </div>
+      {renderAlertModal()}
     </motion.div>
   );
 };

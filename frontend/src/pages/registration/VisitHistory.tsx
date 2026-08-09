@@ -18,66 +18,78 @@ interface VisitRecord {
 }
 
 export const VisitHistory = () => {
-
   const [patients, setPatients] = useState<any[]>([]);
+  const [loadingPatients, setLoadingPatients] = useState<boolean>(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedUhid, setSelectedUhid] = useState<string>('');
+  const [visits, setVisits] = useState<VisitRecord[]>([]);
+  const [loadingVisits, setLoadingVisits] = useState<boolean>(false);
 
   useEffect(() => {
     const fetchPatients = async () => {
+      setLoadingPatients(true);
       try {
         const res = await fetch(`${API_BASE}/patients/`);
         if (res.ok) {
           const data = await res.json();
-          setPatients(data.map((d: any) => ({
+          const mapped = data.map((d: any) => ({
             uhid: d.Uhid,
-            patientName: d.PatientName,
-            registrationDate: d.RegistrationDate,
-            patientType: d.PatientType || 'OP',
-            department: d.Department || 'General Medicine',
-            primaryDoctor: d.PrimaryDoctor || 'Dr. Assigned'
-          })));
+            patientName: d.PatientName || 'Unnamed Patient',
+            registrationDate: d.RegistrationDate || '-',
+            patientType: d.PatientType || '-',
+            department: d.Department || '-',
+            primaryDoctor: d.PrimaryDoctor || '-'
+          }));
+          setPatients(mapped);
+          if (mapped.length > 0 && !selectedUhid) {
+            setSelectedUhid(mapped[0].uhid);
+          }
         }
       } catch (e) {
         console.error('Failed to fetch patients', e);
+      } finally {
+        setLoadingPatients(false);
       }
     };
     fetchPatients();
   }, []);
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedUhid, setSelectedUhid] = useState<string>('');
-
   const filteredPatients = patients.filter(p => 
     p.uhid.toLowerCase().includes(searchTerm.toLowerCase()) || 
     (p.patientName || '').toLowerCase().includes(searchTerm.toLowerCase())
-  ).slice(0, 5);
+  ).slice(0, 10);
 
   const selectedPatient = patients.find(p => p.uhid === selectedUhid);
-
-  const [visits, setVisits] = useState<VisitRecord[]>([]);
 
   useEffect(() => {
     if (selectedUhid) {
       const fetchVisits = async () => {
+        setLoadingVisits(true);
         try {
           const res = await fetch(`${API_BASE}/visits/${selectedUhid}`);
           if (res.ok) {
             const data = await res.json();
-            setVisits(data.map((v: any) => ({
-              id: v.VisitId.toString(),
-              date: v.VisitDate,
-              time: v.VisitTime || '00:00',
-              type: v.VisitType,
-              department: v.Department || 'General',
+            const mappedVisits: VisitRecord[] = data.map((v: any) => ({
+              id: v.VisitId ? v.VisitId.toString() : String(Math.random()),
+              date: v.VisitDate || '-',
+              time: v.VisitTime || '',
+              type: v.VisitType || 'Encounter',
+              department: v.Department || '-',
               doctor: v.Doctor || '-',
-              status: v.Status || 'Scheduled',
-              notes: v.Notes || ''
-            })));
+              status: v.Status || 'Recorded',
+              notes: v.Notes || '-'
+            }));
+            // Sort chronologically (latest encounter first)
+            mappedVisits.sort((a, b) => new Date(`${b.date} ${b.time}`).getTime() - new Date(`${a.date} ${a.time}`).getTime());
+            setVisits(mappedVisits);
           } else {
             setVisits([]);
           }
         } catch (e) {
           console.error('Failed to fetch visits', e);
           setVisits([]);
+        } finally {
+          setLoadingVisits(false);
         }
       };
       fetchVisits();
@@ -85,9 +97,6 @@ export const VisitHistory = () => {
       setVisits([]);
     }
   }, [selectedUhid]);
-
-
-
 
   return (
     <div className="h-[calc(100vh-2rem)] flex flex-col relative">
@@ -115,32 +124,39 @@ export const VisitHistory = () => {
             </div>
             
             <div className="flex-1 overflow-y-auto custom-scrollbar">
-              <div className="space-y-2">
-                {filteredPatients.map(patient => (
-                  <div 
-                    key={patient.uhid}
-                    onClick={() => setSelectedUhid(patient.uhid)}
-                    className={`p-4 rounded-xl cursor-pointer transition-all border flex gap-3 ${
-                      selectedUhid === patient.uhid 
-                        ? 'bg-primary/5 border-primary text-primary' 
-                        : 'bg-white border-slate-200 hover:border-primary/50 text-slate-700'
-                    }`}
-                  >
-                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
-                      <User className="w-5 h-5 text-slate-400" />
+              {loadingPatients ? (
+                <div className="flex justify-center items-center py-8 text-slate-400">
+                  <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mr-2" />
+                  <span className="text-sm">Loading patients...</span>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {filteredPatients.map(patient => (
+                    <div 
+                      key={patient.uhid}
+                      onClick={() => setSelectedUhid(patient.uhid)}
+                      className={`p-4 rounded-xl cursor-pointer transition-all border flex gap-3 ${
+                        selectedUhid === patient.uhid 
+                          ? 'bg-primary/5 border-primary text-primary shadow-xs' 
+                          : 'bg-white border-slate-200 hover:border-primary/50 text-slate-700'
+                      }`}
+                    >
+                      <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
+                        <User className="w-5 h-5 text-slate-400" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-bold truncate">{patient.uhid}</div>
+                        <div className="text-sm opacity-80 truncate">{patient.patientName || 'Unknown'}</div>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <div className="font-bold truncate">{patient.uhid}</div>
-                      <div className="text-sm opacity-80 truncate">{patient.patientName || 'Unknown'}</div>
+                  ))}
+                  {filteredPatients.length === 0 && (
+                    <div className="text-center text-slate-500 py-8">
+                      No patients found.
                     </div>
-                  </div>
-                ))}
-                {filteredPatients.length === 0 && (
-                  <div className="text-center text-slate-500 py-8">
-                    No patients found.
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -165,17 +181,27 @@ export const VisitHistory = () => {
                       </p>
                     </div>
                   </div>
-                  <Button variant="outline" color="primary" icon={FileText} onClick={() => exportToExcel(visits, 'VisitSummary')}>
+                  <Button 
+                    variant="outline" 
+                    color="primary" 
+                    icon={FileText} 
+                    disabled={visits.length === 0}
+                    onClick={() => exportToExcel(visits, `VisitSummary_${selectedPatient.uhid}`)}
+                  >
                     Export Summary
                   </Button>
                 </div>
 
-
                 <div className="flex-1 overflow-y-auto p-8">
-                  {visits.length > 0 ? (
+                  {loadingVisits ? (
+                    <div className="h-full flex flex-col items-center justify-center text-slate-500 p-8">
+                      <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4" />
+                      <p className="text-sm font-medium">Retrieving clinical encounters...</p>
+                    </div>
+                  ) : visits.length > 0 ? (
                     <div className="relative border-l-2 border-slate-200 ml-6 space-y-10">
                       {visits.map((visit, idx) => (
-                        <div key={idx} className="relative pl-8">
+                        <div key={visit.id || idx} className="relative pl-8">
                           <div className="absolute -left-[11px] top-1 w-5 h-5 rounded-full bg-white border-4 border-primary shadow-sm" />
                           <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
                             <div className="flex flex-wrap gap-4 items-center justify-between mb-4">
@@ -192,6 +218,7 @@ export const VisitHistory = () => {
                               </div>
                               <span className={`px-3 py-1 rounded-full text-xs font-medium border ${
                                 visit.status === 'Completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                visit.status === 'In-Progress' ? 'bg-blue-50 text-blue-700 border-blue-200' :
                                 'bg-amber-50 text-amber-700 border-amber-200'
                               }`}>
                                 {visit.status}
@@ -207,8 +234,8 @@ export const VisitHistory = () => {
                                 <div className="font-semibold text-slate-800">{visit.doctor}</div>
                               </div>
                               <div className="sm:col-span-2">
-                                <div className="text-slate-500 mb-1">Visit Notes</div>
-                                <div className="text-slate-700">{visit.notes}</div>
+                                <div className="text-slate-500 mb-1 font-medium">Visit Notes</div>
+                                <div className="text-slate-700 whitespace-pre-line">{visit.notes}</div>
                               </div>
                             </div>
                           </div>
@@ -223,7 +250,6 @@ export const VisitHistory = () => {
                     </div>
                   )}
                 </div>
-
               </>
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-slate-500 p-8 text-center">

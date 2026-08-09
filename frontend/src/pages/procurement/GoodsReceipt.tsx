@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Search, Filter, Plus, Edit2, Eye, PackageCheck, Trash2, Download, RefreshCw } from 'lucide-react';
+import { Search, Filter, Plus, Edit2, Eye, PackageCheck, Trash2, Download, RefreshCw, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
@@ -53,6 +53,8 @@ export const GoodsReceipt = () => {
   const [vendorsMock, setVendorsMock] = useState<any[]>([]);
   const [warehousesMock, setWarehousesMock] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [recordToDelete, setRecordToDelete] = useState<GRNRecord | null>(null);
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -157,13 +159,23 @@ export const GoodsReceipt = () => {
     }
   };
 
-  const handleDelete = async (record: GRNRecord) => {
-    if (window.confirm(`Are you sure you want to delete ${record.grnNo}?`)) {
+  const handleDelete = (record: GRNRecord) => {
+    setRecordToDelete(record);
+    setIsDeleteOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (recordToDelete) {
       try {
-        const res = await fetch(`${API_BASE}/grns/${record.id}`, { method: 'DELETE' });
-        if (res.ok) fetchData();
-      } catch (err) {
-        console.error(err);
+        const res = await fetch(`${API_BASE}/grns/${recordToDelete.id}`, { method: 'DELETE' });
+        if (res.ok) {
+          fetchData();
+        }
+      } catch (error) {
+        console.error('Failed to delete GRN:', error);
+      } finally {
+        setIsDeleteOpen(false);
+        setRecordToDelete(null);
       }
     }
   };
@@ -239,9 +251,12 @@ export const GoodsReceipt = () => {
           <span className="mx-2">/</span>
           <span className="text-primary font-medium">Goods Receipt (GRN)</span>
         </div>
-        <h1 className="text-3xl font-bold text-slate-800 mb-4">Goods Receipt Note</h1>
-        
-        <div className="flex justify-end items-center gap-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-800 whitespace-nowrap">Goods Receipt Note</h1>
+          </div>
+
+          <div className="flex items-stretch gap-3">
           <DateFilter
             dateFrom={fromDate}
             dateTo={toDate}
@@ -250,15 +265,13 @@ export const GoodsReceipt = () => {
             onSearch={() => {}}
             onReset={() => { setFromDate(''); setToDate(''); }}
           />
-          <Button variant="outline" icon={Download} onClick={() => exportToExcel(processedData, 'Goods_Receipt')} className="h-[38px] !px-3 text-sm whitespace-nowrap">
+          <Button variant="outline" icon={Download} onClick={() => exportToExcel(processedData, 'Goods_Receipt')} className="h-[38px] !px-3 text-sm whitespace-nowrap h-auto">
             Export Excel
           </Button>
-          <button onClick={fetchData} className="p-2 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 transition-colors" title="Refresh">
-            <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
-          </button>
-          <Button variant="filled" color="primary" icon={Plus} onClick={handleCreateNew} className="h-[38px] !px-3 text-sm whitespace-nowrap">
+          <Button variant="filled" color="primary" icon={Plus} onClick={handleCreateNew} className="h-[38px] !px-3 text-sm whitespace-nowrap h-auto">
             Create GRN
           </Button>
+          </div>
         </div>
       </div>
 
@@ -275,6 +288,9 @@ export const GoodsReceipt = () => {
             </div>
             <button onClick={() => setShowFilters(!showFilters)} className={`p-2 border rounded-lg transition-colors ${showFilters ? 'border-primary bg-primary/5 text-primary' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
               <Filter className="w-4 h-4" />
+            </button>
+            <button onClick={fetchData} className="p-2 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 transition-colors" title="Refresh">
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
             </button>
           </div>
         </div>
@@ -324,9 +340,23 @@ export const GoodsReceipt = () => {
                   <td className="py-3 px-4"><span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(record.status)}`}>{record.status}</span></td>
                   <td className="py-3 px-4 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => handleView(record)} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"><Eye className="w-4 h-4" /></button>
-                      {record.status === 'Draft' && <button onClick={() => handleEdit(record)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"><Edit2 className="w-4 h-4" /></button>}
-                      <button onClick={() => handleDelete(record)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
+                      <button onClick={() => handleView(record)} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="View Details"><Eye className="w-4 h-4" /></button>
+                      <button 
+                        onClick={() => record.status === 'Draft' && handleEdit(record)} 
+                        disabled={record.status !== 'Draft'}
+                        className={`p-1.5 rounded-lg transition-colors ${record.status !== 'Draft' ? 'text-slate-300 cursor-not-allowed opacity-50' : 'text-slate-400 hover:text-primary hover:bg-primary/10'}`} 
+                        title="Edit"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={() => record.status === 'Draft' && handleDelete(record)} 
+                        disabled={record.status !== 'Draft'}
+                        className={`p-1.5 rounded-lg transition-colors ${record.status !== 'Draft' ? 'text-slate-300 cursor-not-allowed opacity-50' : 'text-slate-400 hover:text-red-500 hover:bg-red-50'}`} 
+                        title="Delete"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -541,6 +571,31 @@ export const GoodsReceipt = () => {
             </div>
           </div>
         )}
+      </Modal>
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={isDeleteOpen}
+        onClose={() => setIsDeleteOpen(false)}
+        title=""
+        size="sm"
+      >
+        <div className="flex flex-col items-center justify-center p-4 text-center">
+          <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mb-4">
+            <AlertTriangle className="w-8 h-8 text-red-500" />
+          </div>
+          <h3 className="text-lg font-bold text-slate-800 mb-2">Delete Record</h3>
+          <p className="text-slate-500 text-sm mb-6">
+            Are you sure you want to delete <span className="font-semibold text-slate-700">{recordToDelete?.grnNo}</span>?
+          </p>
+          <div className="flex items-center gap-3 w-full">
+            <Button variant="outline" color="secondary" className="flex-1" onClick={() => setIsDeleteOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="filled" color="danger" className="flex-1" onClick={confirmDelete}>
+              Delete
+            </Button>
+          </div>
+        </div>
       </Modal>
     </motion.div>
   );

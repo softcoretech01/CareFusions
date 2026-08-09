@@ -27,6 +27,10 @@ export const Approvals = () => {
   const [selectedRecord, setSelectedRecord] = useState<ApprovalRecord | null>(null);
   const [selectedDocDetails, setSelectedDocDetails] = useState<any>(null);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+  const [isSuccessOpen, setIsSuccessOpen] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<{ record: ApprovalRecord; action: 'Approved' | 'Rejected' } | null>(null);
 
   const tabs = ['All', 'Purchase Requisition', 'Purchase Order', 'Purchase Return'];
 
@@ -53,7 +57,14 @@ export const Approvals = () => {
     });
   }, [pendingRecords, searchTerm, activeTab]);
 
-  const handleAction = async (record: ApprovalRecord, action: 'Approved' | 'Rejected') => {
+  const promptAction = (record: ApprovalRecord, action: 'Approved' | 'Rejected') => {
+    setConfirmAction({ record, action });
+    setIsConfirmOpen(true);
+  };
+
+  const executeAction = async () => {
+    if (!confirmAction) return;
+    const { record, action } = confirmAction;
     try {
       const res = await fetch(`${API_BASE}/approvals/${encodeURIComponent(record.documentType)}/${record.originalId}`, {
         method: 'PUT',
@@ -61,7 +72,10 @@ export const Approvals = () => {
         body: JSON.stringify({ status: action })
       });
       if (res.ok) {
-        alert(`Document ${record.refNo} has been ${action}!`);
+        setIsConfirmOpen(false);
+        setConfirmAction(null);
+        setSuccessMessage(`Document ${record.refNo} has been ${action}!`);
+        setIsSuccessOpen(true);
         fetchApprovals();
       }
     } catch (err) {
@@ -190,8 +204,8 @@ export const Approvals = () => {
                   <td className="py-3 px-4 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <Button variant="outline" size="sm" icon={Eye} className="!p-2" onClick={() => handleView(record)} />
-                      <Button variant="filled" color="primary" size="sm" icon={CheckCircle} onClick={() => handleAction(record, 'Approved')}>Approve</Button>
-                      <Button variant="outline" size="sm" icon={XCircle} onClick={() => handleAction(record, 'Rejected')} className="text-red-500 hover:bg-red-50 hover:border-red-200 border-slate-200">Reject</Button>
+                      <Button variant="filled" color="primary" size="sm" icon={CheckCircle} onClick={() => promptAction(record, 'Approved')}>Approve</Button>
+                      <Button variant="outline" size="sm" icon={XCircle} onClick={() => promptAction(record, 'Rejected')} className="text-red-500 hover:bg-red-50 hover:border-red-200 border-slate-200">Reject</Button>
                     </div>
                   </td>
                 </tr>
@@ -318,16 +332,61 @@ export const Approvals = () => {
             <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-slate-100">
               <Button variant="outline" onClick={() => setIsViewOpen(false)}>Close</Button>
               <Button variant="outline" className="text-red-500 hover:bg-red-50 hover:border-red-200 border-slate-200" onClick={() => {
-                handleAction(selectedRecord, 'Rejected');
+                promptAction(selectedRecord, 'Rejected');
                 setIsViewOpen(false);
               }}>Reject</Button>
               <Button variant="filled" color="primary" onClick={() => {
-                handleAction(selectedRecord, 'Approved');
+                promptAction(selectedRecord, 'Approved');
                 setIsViewOpen(false);
               }}>Approve</Button>
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* Confirm Modal */}
+      <Modal
+        isOpen={isConfirmOpen}
+        onClose={() => setIsConfirmOpen(false)}
+        title=""
+        size="sm"
+      >
+        <div className="flex flex-col items-center justify-center p-4 text-center">
+          <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${confirmAction?.action === 'Approved' ? 'bg-emerald-50 text-emerald-500' : 'bg-red-50 text-red-500'}`}>
+            {confirmAction?.action === 'Approved' ? <CheckCircle className="w-8 h-8" /> : <AlertCircle className="w-8 h-8" />}
+          </div>
+          <h3 className="text-lg font-bold text-slate-800 mb-2">Confirm {confirmAction?.action === 'Approved' ? 'Approval' : 'Rejection'}</h3>
+          <p className="text-slate-500 text-sm mb-6">
+            Are you sure you want to {confirmAction?.action === 'Approved' ? 'approve' : 'reject'} <span className="font-semibold text-slate-700">{confirmAction?.record.refNo}</span>?
+          </p>
+          <div className="flex items-center gap-3 w-full">
+            <Button variant="outline" color="secondary" className="flex-1" onClick={() => setIsConfirmOpen(false)}>
+              No
+            </Button>
+            <Button variant="filled" color={confirmAction?.action === 'Approved' ? 'primary' : 'danger'} className="flex-1" onClick={executeAction}>
+              Yes
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Success Modal */}
+      <Modal
+        isOpen={isSuccessOpen}
+        onClose={() => setIsSuccessOpen(false)}
+        title=""
+        size="sm"
+      >
+        <div className="flex flex-col items-center justify-center p-4 text-center">
+          <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mb-4">
+            <CheckCircle className="w-8 h-8 text-emerald-500" />
+          </div>
+          <h3 className="text-lg font-bold text-slate-800 mb-2">Success</h3>
+          <p className="text-slate-500 text-sm mb-6">{successMessage}</p>
+          <Button variant="filled" color="primary" className="w-full" onClick={() => setIsSuccessOpen(false)}>
+            OK
+          </Button>
+        </div>
       </Modal>
     </>
   );
