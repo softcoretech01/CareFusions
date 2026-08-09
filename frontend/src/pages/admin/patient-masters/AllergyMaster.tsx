@@ -29,8 +29,6 @@ const emptyData: Omit<AllergyRecord, 'id'> = {
   remarks: ''
 };
 
-const mockData: AllergyRecord[] = [];
-
 const API_BASE = import.meta.env.VITE_API_URL as string;
 
 const mapApiToRecord = (item: any): AllergyRecord => ({
@@ -47,7 +45,7 @@ const mapApiToRecord = (item: any): AllergyRecord => ({
 
 
 export const AllergyMaster = () => {
-  const [records, setRecords] = useState<AllergyRecord[]>(mockData);
+  const [records, setRecords] = useState<AllergyRecord[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -380,7 +378,7 @@ export const AllergyMaster = () => {
                   ) : (
                     <tr>
                       <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
-                        No allergies found matching your criteria.
+                        {isLoading ? 'Loading records...' : 'No allergies found matching your criteria.'}
                       </td>
                     </tr>
                   )}
@@ -486,7 +484,7 @@ export const AllergyMaster = () => {
                 <Button variant="outline" color="secondary" onClick={() => setIsFormOpen(false)}>
                   Cancel
                 </Button>
-                <Button variant="filled" color="primary" onClick={handleSaveForm} icon={Save}>
+                <Button variant="filled" color="primary" onClick={handleSaveForm} icon={Save} isLoading={isSaving}>
                   {selectedRecord ? 'Update' : 'Save'}
                 </Button>
               </div>

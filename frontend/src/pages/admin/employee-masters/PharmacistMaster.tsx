@@ -27,6 +27,10 @@ interface PharmacistRecord {
   employmentType: string;
   status: string;
   remarks: string;
+  photo?: string;
+  licenseCertificate?: string;
+  idProof?: string;
+  qualificationCertificate?: string;
 }
 
 const emptyData: Omit<PharmacistRecord, 'id'> = {
@@ -48,8 +52,6 @@ const emptyData: Omit<PharmacistRecord, 'id'> = {
   status: 'Active',
   remarks: ''
 };
-
-const mockData: PharmacistRecord[] = [];
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
 
@@ -318,6 +320,14 @@ export const PharmacistMaster = () => {
             </div>
           </div>
 
+          {/* The load failure used to be swallowed, leaving an empty table that
+              looked like 'no data' rather than 'the server is unreachable'. */}
+          {apiError && (
+            <div className="mb-4 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+              <span>{apiError}</span>
+            </div>
+          )}
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden">
             <div className="p-4 border-b border-slate-100 flex flex-wrap gap-4 items-center justify-between">
               <div className="relative flex-1 max-w-md">
@@ -429,7 +439,7 @@ export const PharmacistMaster = () => {
                   ) : (
                     <tr>
                       <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
-                        No pharmacists found matching your criteria.
+                        {isLoading ? 'Loading records...' : 'No pharmacists found matching your criteria.'}
                       </td>
                     </tr>
                   )}
@@ -662,7 +672,7 @@ export const PharmacistMaster = () => {
                 <Button variant="outline" color="secondary" onClick={() => setIsFormOpen(false)}>
                   Cancel
                 </Button>
-                <Button variant="filled" color="primary" onClick={handleSaveForm} icon={Save}>
+                <Button variant="filled" color="primary" onClick={handleSaveForm} icon={Save} isLoading={isSaving}>
                   {selectedRecord ? 'Update' : 'Save'}
                 </Button>
               </div>

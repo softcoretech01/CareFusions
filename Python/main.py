@@ -18,7 +18,9 @@ from app.routers import (
     patient_registration, quick_registration, emergency_registration, patient_documents,
     patient_visit, opd_visit, ipd_visit,
     appointment, permission, auth,
-    doctor_schedule, ipd, op_billing, ip_billing, billing_reports, radiology_orders, radiology_qc,
+    doctor_schedule, ipd, ipd_clinical, pharmacy, lab, insurance, inventory, executive,
+    doctor_specialization, housekeeping,
+    op_billing, ip_billing, billing_reports, radiology_orders, radiology_qc,
     purchase_requisition, rfq, vendor_quotation, purchase_order, goods_receipt, purchase_return,
     vendor_catalog, approval, procurement_dashboard
 )
@@ -122,7 +124,15 @@ app.include_router(lab_test.router,              prefix="/api/v1")
 app.include_router(sample_type.router,           prefix="/api/v1")
 app.include_router(appointment.router,           prefix="/api/v1")
 app.include_router(doctor_schedule.router,       prefix="/api/v1")
+app.include_router(doctor_specialization.router, prefix="/api/v1")
+app.include_router(housekeeping.router,          prefix="/api/v1")
 app.include_router(ipd.router,                   prefix="/api/v1")
+app.include_router(ipd_clinical.router,          prefix="/api/v1")
+app.include_router(pharmacy.router,              prefix="/api/v1")
+app.include_router(lab.router,                   prefix="/api/v1")
+app.include_router(insurance.router,              prefix="/api/v1")
+app.include_router(inventory.router,              prefix="/api/v1")
+app.include_router(executive.router,              prefix="/api/v1")
 app.include_router(permission.router,            prefix="/api/v1")
 app.include_router(auth.router,                  prefix="/api/v1")
 app.include_router(op_billing.router,            prefix="/api/v1")
@@ -143,8 +153,9 @@ def health_check():
 
 
 # ── Entrypoint ────────────────────────────────────────────────
-# Run with:  python main.py   (defaults to port 8001, matching the
-# frontend's VITE_API_URL). Override with the PORT env var if needed.
+# Run with:  python main.py   (defaults to port 8000, matching the
+# frontend's VITE_API_URL=http://localhost:8000/api/v1). Override with
+# the PORT env var if needed.
 if __name__ == "__main__":
     import os
     import uvicorn
@@ -152,7 +163,7 @@ if __name__ == "__main__":
     uvicorn.run(
         "main:app",
         host=os.getenv("HOST", "0.0.0.0"),
-        port=int(os.getenv("PORT", "8001")),
+        port=int(os.getenv("PORT", "8000")),
         reload=True,
     )
     

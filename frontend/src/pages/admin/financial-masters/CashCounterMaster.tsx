@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { Pagination } from '@/components/ui/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 import {
   Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle,
   Save, RefreshCw, X
@@ -244,6 +246,8 @@ export const CashCounterMaster = () => {
   const _page = Math.min(currentPage, _totalPages);
   const pagedRecords = filteredRecords.slice((_page - 1) * itemsPerPage, _page * itemsPerPage);
 
+  const { page, setPage, pageSize, total, paged } = usePagination(allHospitals);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -381,6 +385,7 @@ export const CashCounterMaster = () => {
                 </tbody>
               </table>
             </div>
+        <Pagination page={page} pageSize={pageSize} totalItems={total} onPageChange={setPage} />
             <div className="flex flex-wrap items-center justify-between gap-3 p-4 border-t border-slate-100 text-sm text-slate-500">
               <div className="flex items-center gap-2">
                 <span>Show</span>
@@ -437,7 +442,7 @@ export const CashCounterMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Hospital <span className="text-red-500">*</span></label>
                     <select value={formData.hospital} onChange={e => setFormData({...formData, hospital: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.hospital ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
                       <option value="">Select Hospital</option>
-                      {allHospitals.map(h => <option key={h} value={h}>{h}</option>)}
+                      {paged.map(h => <option key={h} value={h}>{h}</option>)}
                     </select>
                     {errors.hospital && <p className="text-red-500 text-xs mt-1">{errors.hospital}</p>}
                   </div>

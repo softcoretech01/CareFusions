@@ -73,8 +73,6 @@ const emptyData: Omit<NurseRecord, 'id'> = {
   idProof: ''
 };
 
-const mockData: NurseRecord[] = [];
-
 const API_BASE = import.meta.env.VITE_API_URL as string;
 
 const mapApiToRecord = (item: any): NurseRecord => ({
@@ -112,7 +110,7 @@ const mapApiToRecord = (item: any): NurseRecord => ({
 });
 
 export const NurseMaster = () => {
-  const [records, setRecords] = useState<NurseRecord[]>(mockData);
+  const [records, setRecords] = useState<NurseRecord[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -369,6 +367,14 @@ export const NurseMaster = () => {
             </div>
           </div>
 
+          {/* The load failure used to be swallowed, leaving an empty table that
+              looked like 'no data' rather than 'the server is unreachable'. */}
+          {apiError && (
+            <div className="mb-4 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+              <span>{apiError}</span>
+            </div>
+          )}
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden">
             <div className="p-4 border-b border-slate-100 flex flex-wrap gap-4 items-center justify-between">
               <div className="relative flex-1 max-w-md">
@@ -513,7 +519,7 @@ export const NurseMaster = () => {
                   ) : (
                     <tr>
                       <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
-                        No nurses found matching your criteria.
+                        {isLoading ? 'Loading records...' : 'No nurses found matching your criteria.'}
                       </td>
                     </tr>
                   )}
@@ -785,7 +791,7 @@ export const NurseMaster = () => {
                 <Button variant="outline" color="secondary" onClick={() => setIsFormOpen(false)}>
                   Cancel
                 </Button>
-                <Button variant="filled" color="primary" onClick={handleSaveForm} icon={Save}>
+                <Button variant="filled" color="primary" onClick={handleSaveForm} icon={Save} isLoading={isSaving}>
                   {selectedRecord ? 'Update' : 'Save'}
                 </Button>
               </div>

@@ -60,6 +60,7 @@ class PaymentTermUpdate(_PaymentTermFields):
 # ── Response ─────────────────────────────────────────────────
 class PaymentTermResponse(BaseModel):
     id:              int
+    paymentTermCode: str
     paymentTermName: str
     creditDays:      int
     description:     Optional[str]

@@ -51,8 +51,6 @@ const emptyData: Omit<MedicineRecord, 'id'> = {
   remarks: ''
 };
 
-const mockData: MedicineRecord[] = [];
-
 const API_BASE = import.meta.env.VITE_API_URL as string;
 
 const mapApiToRecord = (item: any): MedicineRecord => ({
@@ -78,7 +76,7 @@ const mapApiToRecord = (item: any): MedicineRecord => ({
 });
 
 export const MedicineMaster = () => {
-  const [records, setRecords] = useState<MedicineRecord[]>(mockData);
+  const [records, setRecords] = useState<MedicineRecord[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -418,7 +416,7 @@ export const MedicineMaster = () => {
                   ) : (
                     <tr>
                       <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
-                        No medicines found matching your criteria.
+                        {isLoading ? 'Loading records...' : 'No medicines found matching your criteria.'}
                       </td>
                     </tr>
                   )}
@@ -589,7 +587,7 @@ export const MedicineMaster = () => {
                 <Button variant="outline" color="secondary" onClick={() => setIsFormOpen(false)}>
                   Cancel
                 </Button>
-                <Button variant="filled" color="primary" onClick={handleSaveForm} icon={Save}>
+                <Button variant="filled" color="primary" onClick={handleSaveForm} icon={Save} isLoading={isSaving}>
                   {selectedRecord ? 'Update' : 'Save'}
                 </Button>
               </div>

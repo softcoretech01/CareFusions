@@ -16,6 +16,7 @@ USE admin;
 -- ============================================================
 CREATE TABLE IF NOT EXISTS Master_PaymentTerm (
     PaymentTermId   INT           NOT NULL AUTO_INCREMENT,
+    PaymentTermCode VARCHAR(20)   NOT NULL,               -- Auto-generated: PT-001
     PaymentTermName VARCHAR(100)  NOT NULL,
     CreditDays      INT           NOT NULL DEFAULT 0,
     Description     VARCHAR(500)  NULL,
@@ -64,7 +65,7 @@ BEGIN
 
     IF p_Opt = 'GET' THEN
         SELECT
-            PaymentTermId, PaymentTermName, CreditDays, Description, Status,
+            PaymentTermId, PaymentTermCode, PaymentTermName, CreditDays, Description, Status,
             CreatedBy, CreatedDate, UpdatedBy, UpdatedDate
         FROM Master_PaymentTerm
         WHERE IsDeleted = 0
@@ -78,26 +79,54 @@ BEGIN
 
     ELSEIF p_Opt = 'GETBYID' THEN
         SELECT
-            PaymentTermId, PaymentTermName, CreditDays, Description, Status,
+            PaymentTermId, PaymentTermCode, PaymentTermName, CreditDays, Description, Status,
             CreatedBy, CreatedDate, UpdatedBy, UpdatedDate
         FROM Master_PaymentTerm
         WHERE PaymentTermId = p_PaymentTermId
           AND IsDeleted = 0;
+
+    ELSEIF p_Opt = 'NEXTCODE' THEN
+        SELECT CONCAT('PT-', LPAD(
+            COALESCE(MAX(CAST(SUBSTRING(PaymentTermCode, 4) AS UNSIGNED)), 0) + 1,
+            3, '0'
+        )) AS PaymentTermCode
+        FROM Master_PaymentTerm;
 
     ELSEIF p_Opt = 'INSERT' THEN
         IF EXISTS (SELECT 1 FROM Master_PaymentTerm WHERE PaymentTermName = p_PaymentTermName AND IsDeleted = 0) THEN
             SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'DUPLICATE_PAYMENTTERM_NAME';
         END IF;
 
-        INSERT INTO Master_PaymentTerm (
-            PaymentTermName, CreditDays, Description, Status, CreatedBy
-        ) VALUES (
-            p_PaymentTermName, p_CreditDays, p_Description, p_Status, p_CreatedBy
-        );
+        BEGIN
+            DECLARE v_NextNum INT DEFAULT 1;
+            DECLARE v_Code    VARCHAR(20);
 
-        SELECT LAST_INSERT_ID() AS PaymentTermId;
+            -- Credit days drive the payable due date, so a negative value would
+            -- back-date invoices.
+            IF p_CreditDays IS NULL OR p_CreditDays < 0 THEN
+                SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'INVALID_CREDIT_DAYS';
+            END IF;
+
+            SELECT COALESCE(MAX(CAST(SUBSTRING(PaymentTermCode, 4) AS UNSIGNED)), 0) + 1
+              INTO v_NextNum
+              FROM Master_PaymentTerm;
+
+            SET v_Code = CONCAT('PT-', LPAD(v_NextNum, 3, '0'));
+
+            INSERT INTO Master_PaymentTerm (
+                PaymentTermCode, PaymentTermName, CreditDays, Description, Status, CreatedBy
+            ) VALUES (
+                v_Code, p_PaymentTermName, p_CreditDays, p_Description, p_Status, p_CreatedBy
+            );
+
+            SELECT LAST_INSERT_ID() AS PaymentTermId, v_Code AS PaymentTermCode;
+        END;
 
     ELSEIF p_Opt = 'UPDATE' THEN
+        IF p_CreditDays IS NULL OR p_CreditDays < 0 THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'INVALID_CREDIT_DAYS';
+        END IF;
+
         IF EXISTS (SELECT 1 FROM Master_PaymentTerm WHERE PaymentTermName = p_PaymentTermName AND IsDeleted = 0 AND PaymentTermId <> p_PaymentTermId) THEN
             SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'DUPLICATE_PAYMENTTERM_NAME';
         END IF;

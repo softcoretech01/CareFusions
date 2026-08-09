@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useIPD } from '../../contexts/IPDContext';
 import { useInvestigations } from '../../contexts/InvestigationContext';
 import { ResultViewer } from '../../components/investigations/ResultViewer';
@@ -8,7 +8,12 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { DateFilter } from '../../components/ui/DateFilter';
 
 export const ActiveInpatients = () => {
-  const { patients, beds, wards } = useIPD();
+  const { patients, beds, wards, refreshAll } = useIPD();
+
+  // Bed and admission state moves constantly — re-pull whenever this screen
+  // opens. Keyed to mount rather than the callback identity so it fires exactly
+  // once per visit; the context holds an in-flight ref that prevents overlap.
+  useEffect(() => { refreshAll?.(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const { getOrdersByPatient } = useInvestigations();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -18,11 +23,10 @@ export const ActiveInpatients = () => {
   const [activeViewer, setActiveViewer] = useState<{ patientId: string; category: 'Lab' | 'Radiology' } | null>(null);
   
   const [search, setSearch] = useState('');
-  const today = new Date().toISOString().split('T')[0];
-  const [dateFrom, setDateFrom] = useState(today);
-  const [dateTo, setDateTo] = useState(today);
-  const [appliedDateFrom, setAppliedDateFrom] = useState(today);
-  const [appliedDateTo, setAppliedDateTo] = useState(today);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [appliedDateFrom, setAppliedDateFrom] = useState('');
+  const [appliedDateTo, setAppliedDateTo] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
   const [selectedRoom, setSelectedRoom] = useState<string>('All');
 
@@ -42,7 +46,7 @@ export const ActiveInpatients = () => {
     setSelectedRoom('All');
   };
 
-  const activePatients = patients.filter(p => p.status === 'Admitted');
+  const activePatients = patients.filter(p => p.status === 'Admitted' || p.status === 'Discharge Requested');
   
   const filteredPatients = activePatients.filter(p => {
     const matchesSearch = p.patientName.toLowerCase().includes(appliedSearch.toLowerCase()) || 
@@ -78,7 +82,7 @@ export const ActiveInpatients = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex flex-col h-[calc(100vh-10rem)]">
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col h-[calc(100vh-10rem)]">
         <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-4 bg-slate-50/50 flex-wrap">
           <div className="relative w-64">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />

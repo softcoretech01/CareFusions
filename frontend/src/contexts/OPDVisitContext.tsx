@@ -171,8 +171,10 @@ interface OPDVisitContextType {
   removeRadiologyOrder: (visitId: number, orderId: string) => void;
   addProcedure: (visitId: number, procedure: Procedure) => void;
   finalizeVisit: (visitId: number, doctorName: string) => void;
-  getVisitById: (id: number) => OPDVisit | undefined;
   generateVisitNumber: () => string;
+  getVisitById: (id: number) => OPDVisit | undefined;
+  hasLoaded?: boolean;
+  fetchSchedule?: () => Promise<void>;
 }
 
 const OPDVisitContext = createContext<OPDVisitContextType | undefined>(undefined);
@@ -184,8 +186,12 @@ let visitCounter = 0;
 // ── Provider ───────────────────────────────────────────────────────────────
 export const OPDVisitProvider = ({ children }: { children: ReactNode }) => {
   const [visits, setVisits] = useState<OPDVisit[]>([]);
+  const [, setIsLoading] = useState(false);
+  const [hasLoaded, setHasLoaded] = useState(false);
 
   const fetchSchedule = useCallback(async () => {
+    if (hasLoaded) return;
+    setIsLoading(true);
     try {
       const res = await fetch(`${API_BASE}/opd-visits/schedule`);
       if (res.ok) {
@@ -205,12 +211,13 @@ export const OPDVisitProvider = ({ children }: { children: ReactNode }) => {
       }
     } catch (e) {
       console.error("Failed to fetch OPD schedule", e);
+    } finally {
+      setIsLoading(false);
+      setHasLoaded(true);
     }
-  }, []);
+  }, [hasLoaded]);
 
-  useEffect(() => {
-    fetchSchedule();
-  }, [fetchSchedule]);
+  // Removed automatic useEffect for fetchSchedule
 
   const generateVisitNumber = useCallback((): string => {
     visitCounter += 1;
@@ -312,6 +319,7 @@ export const OPDVisitProvider = ({ children }: { children: ReactNode }) => {
       addRadiologyOrder, removeRadiologyOrder,
       addProcedure,
       finalizeVisit, getVisitById, generateVisitNumber,
+      hasLoaded, fetchSchedule
     }}>
       {children}
     </OPDVisitContext.Provider>
@@ -322,5 +330,12 @@ export const OPDVisitProvider = ({ children }: { children: ReactNode }) => {
 export const useOPDVisits = () => {
   const ctx = useContext(OPDVisitContext);
   if (!ctx) throw new Error('useOPDVisits must be used within OPDVisitProvider');
+  
+  useEffect(() => {
+    if (!ctx.hasLoaded && ctx.fetchSchedule) {
+      ctx.fetchSchedule();
+    }
+  }, [ctx]);
+
   return ctx;
 };

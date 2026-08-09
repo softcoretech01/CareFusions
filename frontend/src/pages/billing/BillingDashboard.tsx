@@ -78,22 +78,63 @@ export const BillingDashboard = () => {
   });
 
   const areaOptions = {
-    chart: { type: 'area' as const, fontFamily: 'inherit', toolbar: { show: false }, zoom: { enabled: false } },
+    chart: { 
+      type: 'area' as const, 
+      fontFamily: 'inherit', 
+      toolbar: { show: false }, 
+      zoom: { enabled: false },
+      dropShadow: {
+        enabled: true,
+        color: '#000',
+        top: 8,
+        left: 0,
+        blur: 8,
+        opacity: 0.15
+      }
+    },
     colors: ['#0ea5e9', '#8b5cf6'],
     dataLabels: { enabled: false },
-    stroke: { curve: 'smooth' as const, width: 2 },
+    stroke: { curve: 'smooth' as const, width: 4 },
     xaxis: {
       categories: monthsList,
       axisBorder: { show: false },
       axisTicks: { show: false },
+      labels: { style: { colors: '#94a3b8', fontWeight: 500 } },
+      crosshairs: { show: false },
+      tooltip: { enabled: false }
     },
-    yaxis: { labels: { formatter: (v: number) => `₹${v.toLocaleString()}` } },
-    grid: { borderColor: '#f1f5f9', strokeDashArray: 4 },
+    yaxis: { 
+      labels: { 
+        formatter: (v: number) => `₹${v.toLocaleString()}`,
+        style: { colors: '#94a3b8', fontWeight: 500 }
+      } 
+    },
+    grid: { 
+      borderColor: '#f1f5f9', 
+      strokeDashArray: 4,
+      padding: { left: 15, right: 15 },
+      xaxis: { lines: { show: false } },
+      yaxis: { lines: { show: true } }
+    },
     fill: {
       type: 'gradient',
-      gradient: { shadeIntensity: 1, opacityFrom: 0.35, opacityTo: 0.02, stops: [0, 90, 100] }
+      gradient: { 
+        shadeIntensity: 1, 
+        type: 'vertical',
+        opacityFrom: 0.6, 
+        opacityTo: 0.0, 
+        stops: [0, 100] 
+      }
     },
-    tooltip: { y: { formatter: (v: number) => `₹${v.toLocaleString()}` } },
+    markers: {
+      size: 0,
+      hover: { size: 6, sizeOffset: 3, colors: ['#ffffff'], strokeWidth: 3 }
+    },
+    tooltip: { 
+      theme: 'light' as const,
+      y: { formatter: (v: number) => `₹${v.toLocaleString()}` },
+      style: { fontSize: '12px' }
+    },
     legend: { position: 'top' as const, horizontalAlign: 'right' as const }
   };
 

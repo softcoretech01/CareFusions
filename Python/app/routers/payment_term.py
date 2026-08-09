@@ -38,6 +38,7 @@ def _call_sp(db: Session, opt: str, **kwargs):
 def _map_row(row) -> dict:
     return {
         "id":              row.PaymentTermId,
+        "paymentTermCode": row.PaymentTermCode,
         "paymentTermName": row.PaymentTermName,
         "creditDays":      row.CreditDays,
         "description":     row.Description,
@@ -54,6 +55,9 @@ def _raise_if_duplicate(exc: Exception):
     if "DUPLICATE_PAYMENTTERM_NAME" in msg:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT,
                             detail="Payment Term Name must be unique")
+    if "INVALID_CREDIT_DAYS" in msg:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Credit Days cannot be negative")
     if "1062" in msg or "Duplicate entry" in msg:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT,
                             detail="A payment term with these details already exists")
@@ -83,6 +87,20 @@ def get_payment_terms(
         logger.error(f"[GET /payment-terms] Error: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                             detail="Failed to fetch payment terms")
+
+
+# ── GET /payment-terms/next-code ──────────────────────────────
+# NOTE: declared BEFORE /{id} so "next-code" is not swallowed as an ID.
+@router.get("/next-code")
+def get_next_payment_term_code(db: Session = Depends(get_db)):
+    """Preview the PaymentTermCode the next insert would generate (provisional)."""
+    try:
+        row = _call_sp(db, "NEXTCODE").fetchone()
+        return {"paymentTermCode": row.PaymentTermCode if row else "PT-001"}
+    except Exception as e:
+        logger.error(f"[GET /payment-terms/next-code] Error: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                            detail="Failed to generate next payment term code")
 
 
 # ── GET /payment-terms/{id} ───────────────────────────────────

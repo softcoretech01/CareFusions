@@ -1,12 +1,74 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useInvestigations, type InvestigationOrder, type InvestigationTest } from '../../contexts/InvestigationContext';
 import { Upload, FileText, X, Beaker, CheckSquare, AlertTriangle, ShieldCheck, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { DateFilter } from '../../components/ui/DateFilter';
+import { Pagination } from '../../components/ui/Pagination';
+import { usePagination } from '../../hooks/usePagination';
+
+const TestResultEditor = ({ test, handleSaveResult, handleVerify }: any) => {
+  const [localValue, setLocalValue] = useState(test.resultValue || '');
+
+  useEffect(() => {
+    setLocalValue(test.resultValue || '');
+  }, [test.resultValue]);
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Result Value</label>
+        <input
+          type="text"
+          value={localValue}
+          onChange={e => setLocalValue(e.target.value)}
+          placeholder="Enter value"
+          disabled={test.status === 'Verified'}
+          className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:border-blue-500 ${test.status === 'Verified' ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-white border-slate-200'}`}
+          onBlur={() => {
+            if (localValue !== test.resultValue) {
+              handleSaveResult(test.id, localValue, test.resultFile);
+            }
+          }}
+        />
+      </div>
+      <div className="flex items-end gap-2">
+        <div className="flex-1">
+          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Upload Report (PDF/IMG)</label>
+          <input
+            type="file"
+            accept=".pdf,.png,.jpg,.jpeg"
+            disabled={test.status === 'Verified'}
+            className={`w-full px-3 py-1.5 border rounded-lg text-sm focus:outline-none focus:border-blue-500 file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 ${test.status === 'Verified' ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-white border-slate-200'}`}
+            onChange={(e) => {
+              if (e.target.files && e.target.files.length > 0) {
+                // Use localValue instead of test.resultValue to preserve user's typed input
+                handleSaveResult(test.id, localValue, e.target.files[0].name);
+              }
+            }}
+          />
+          {test.resultFile && <p className="text-xs text-blue-600 mt-1 font-medium">Uploaded: {test.resultFile}</p>}
+        </div>
+        {test.status === 'Completed' && (
+          <button
+            onClick={() => handleVerify(test.id)}
+            className="px-4 py-2 h-[38px] bg-green-600 text-white hover:bg-green-700 font-bold text-xs rounded-lg flex items-center gap-2 transition-colors shrink-0"
+          >
+            <ShieldCheck className="w-4 h-4" /> Verify
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
 
 export const LabOrderList = () => {
-  const { orders, updateTestResult, updateTestStatus, verifyTest } = useInvestigations();
+  const { orders, updateTestResult, updateTestStatus, verifyTest, refresh } = useInvestigations();
   const labOrders = orders.filter(o => o.category === 'Lab');
+
+  // Pull orders when this screen opens. `refresh` is guarded by hasLoaded, so
+  // this is a no-op once the data is already in the shared context — it just
+  // means landing here directly is no longer an empty table.
+  useEffect(() => { refresh(); }, [refresh]);
 
   const [activeOrder, setActiveOrder] = useState<InvestigationOrder | null>(null);
   const [fromDate, setFromDate] = useState('');
@@ -20,6 +82,9 @@ export const LabOrderList = () => {
     return true;
   });
 
+  // 10 rows per page; snaps back to page 1 when a search shrinks the list.
+  const { page, setPage, pageSize, total, paged } = usePagination(filteredOrders);
+
   const handleActionClick = (order: InvestigationOrder) => {
     setActiveOrder(order);
   };
@@ -28,18 +93,21 @@ export const LabOrderList = () => {
     setActiveOrder(null);
   };
 
-  const handleSaveResult = (testId: string, resultValue: string, resultFile?: string) => {
+  const handleSaveResult = async (testId: string, resultValue: string, resultFile?: string) => {
     if (!activeOrder) return;
 
-    // Basic mock validation for critical values (e.g. if Hemoglobin < 7 or > 18)
-    let isCritical = false;
-    const valueNum = parseFloat(resultValue);
-    if (!isNaN(valueNum) && (valueNum < 7 || valueNum > 18)) {
-      isCritical = true;
-      toast.error('Critical value detected!', { icon: '⚠️' });
-    }
+    // Abnormal/critical flagging is decided by the backend from the test's own
+    // reference range and its critical-value flag in the test master, so the
+    // result of the save tells us whether to warn.
+    updateTestResult(activeOrder.id, testId, resultValue, resultFile);
 
-    updateTestResult(activeOrder.id, testId, resultValue, resultFile, isCritical);
+    const test = activeOrder.tests.find(t => t.id === testId);
+    const range = test?.normalRange;
+    const value = parseFloat(resultValue);
+    const bounds = range?.match(/^(-?\d+(?:\.\d+)?)\s*-\s*(-?\d+(?:\.\d+)?)$/);
+    if (bounds && !isNaN(value) && (value < parseFloat(bounds[1]) || value > parseFloat(bounds[2]))) {
+      toast.error(`Out of reference range (${range})`, { icon: '⚠️' });
+    }
     toast.success('Result saved successfully');
   };
 
@@ -73,7 +141,7 @@ export const LabOrderList = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold text-slate-800">Test Orders</h1>
       </div>
@@ -105,13 +173,13 @@ export const LabOrderList = () => {
         <table className="w-full text-sm text-left">
           <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200 text-xs uppercase tracking-wider">
             <tr>
-              <th className="px-6 py-4">Order ID</th>
-              <th className="px-6 py-4">Type</th>
-              <th className="px-6 py-4">Patient</th>
-              <th className="px-6 py-4">Ordered By</th>
-              <th className="px-6 py-4">Test Name</th>
-              <th className="px-6 py-4">Status</th>
-              <th className="px-6 py-4 text-center">Action</th>
+              <th className="px-4 py-3">Order ID</th>
+              <th className="px-4 py-3">Type</th>
+              <th className="px-4 py-3">Patient</th>
+              <th className="px-4 py-3">Ordered By</th>
+              <th className="px-4 py-3">Test Name</th>
+              <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3 text-center">Action</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -121,21 +189,21 @@ export const LabOrderList = () => {
                   No lab orders found.
                 </td>
               </tr>
-            ) : filteredOrders.map(order => (
+            ) : paged.map(order => (
               <tr key={order.id} className="hover:bg-slate-50/60 transition-colors">
-                <td className="px-6 py-4 font-mono font-semibold text-slate-900">{order.id}</td>
-                <td className="px-6 py-4">
+                <td className="px-4 py-3 font-mono font-semibold text-slate-900">{order.id}</td>
+                <td className="px-4 py-3">
                   <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${order.type === 'IP' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
                     {order.type}
                   </span>
                 </td>
-                <td className="px-6 py-4">
+                <td className="px-4 py-3">
                   <div className="text-slate-700 font-medium">{order.patientName}</div>
                   <div className="text-xs text-slate-500">{order.patientId}</div>
                 </td>
-                <td className="px-6 py-4 text-slate-500 text-xs">{order.orderedBy}</td>
-                <td className="px-6 py-4 text-slate-700 text-sm font-medium">{order.tests.map(t => t.name).join(', ')}</td>
-                <td className="px-6 py-4">
+                <td className="px-4 py-3 text-slate-500 text-xs">{order.orderedBy}</td>
+                <td className="px-4 py-3 text-slate-700 text-sm font-medium">{order.tests.map(t => t.name).join(', ')}</td>
+                <td className="px-4 py-3">
                   <span className={`px-2.5 py-1 text-xs font-bold rounded-md ${order.status === 'Completed' ? 'bg-green-100 text-green-700' :
                       order.status === 'Partial' ? 'bg-amber-100 text-amber-700' :
                         'bg-slate-100 text-slate-600'
@@ -143,7 +211,7 @@ export const LabOrderList = () => {
                     {order.status}
                   </span>
                 </td>
-                <td className="px-6 py-4 text-center">
+                <td className="px-4 py-3 text-center">
                   <button
                     onClick={() => handleActionClick(order)}
                     className="px-3 py-1.5 text-xs font-bold bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg transition-colors flex items-center gap-1.5 mx-auto"
@@ -155,12 +223,13 @@ export const LabOrderList = () => {
             ))}
           </tbody>
         </table>
+        <Pagination page={page} pageSize={pageSize} totalItems={total} onPageChange={setPage} />
       </div>
 
       {activeOrder && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+            <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50">
               <div>
                 <h3 className="font-bold text-slate-800 text-lg">Upload Results</h3>
                 <p className="text-xs text-slate-500 mt-0.5">Order {activeOrder.id} • {activeOrder.patientName} ({activeOrder.patientId})</p>
@@ -213,55 +282,18 @@ export const LabOrderList = () => {
                     )}
 
                     {(test.status === 'Sample Collected' || test.status === 'Sample Accepted' || test.status === 'Completed' || test.status === 'Verified') && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Result Value</label>
-                          <input
-                            type="text"
-                            defaultValue={test.resultValue}
-                            placeholder="Enter value"
-                            disabled={test.status === 'Verified'}
-                            className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:border-blue-500 ${test.status === 'Verified' ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-white border-slate-200'}`}
-                            onBlur={(e) => {
-                              if (e.target.value !== test.resultValue) {
-                                handleSaveResult(test.id, e.target.value, test.resultFile);
-                              }
-                            }}
-                          />
-                        </div>
-                        <div className="flex items-end gap-2">
-                          <div className="flex-1">
-                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Upload Report (PDF/IMG)</label>
-                            <input
-                              type="file"
-                              accept=".pdf,.png,.jpg,.jpeg"
-                              disabled={test.status === 'Verified'}
-                              className={`w-full px-3 py-1.5 border rounded-lg text-sm focus:outline-none focus:border-blue-500 file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 ${test.status === 'Verified' ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-white border-slate-200'}`}
-                              onChange={(e) => {
-                                if (e.target.files && e.target.files.length > 0) {
-                                  handleSaveResult(test.id, test.resultValue || '', e.target.files[0].name);
-                                }
-                              }}
-                            />
-                            {test.resultFile && <p className="text-xs text-blue-600 mt-1 font-medium">Uploaded: {test.resultFile}</p>}
-                          </div>
-                          {test.status === 'Completed' && (
-                            <button
-                              onClick={() => handleVerify(test.id)}
-                              className="px-4 py-2 h-[38px] bg-green-600 text-white hover:bg-green-700 font-bold text-xs rounded-lg flex items-center gap-2 transition-colors shrink-0"
-                            >
-                              <ShieldCheck className="w-4 h-4" /> Verify
-                            </button>
-                          )}
-                        </div>
-                      </div>
+                      <TestResultEditor 
+                        test={test} 
+                        handleSaveResult={handleSaveResult} 
+                        handleVerify={handleVerify} 
+                      />
                     )}
                   </div>
                 </div>
               ))}
             </div>
 
-            <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-end">
+            <div className="px-4 py-3 border-t border-slate-100 bg-slate-50 flex justify-end">
               <button onClick={handleCloseModal} className="px-6 py-2 bg-blue-600 text-white font-bold rounded-xl text-sm hover:bg-blue-700 transition-colors">
                 Done
               </button>

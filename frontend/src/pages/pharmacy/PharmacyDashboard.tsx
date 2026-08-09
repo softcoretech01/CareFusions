@@ -41,13 +41,13 @@ export const PharmacyDashboard = () => {
   if (isAdding) {
     return (
       <div className="h-full flex flex-col">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex justify-between items-center mb-4">
           <div>
             <h2 className="text-2xl font-bold text-slate-800">Add New Medicine</h2>
             <p className="text-slate-500 text-sm">Enter details for a new inventory item</p>
           </div>
         </div>
-        <div className="bg-white rounded-3xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden">
           <AddMedicineForm onSave={handleAddSave} onCancel={() => setIsAdding(false)} />
         </div>
       </div>
@@ -87,13 +87,13 @@ export const PharmacyDashboard = () => {
   if (editingMedicine) {
     return (
       <div className="h-full flex flex-col">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex justify-between items-center mb-4">
           <div>
             <h2 className="text-2xl font-bold text-slate-800">Edit Medicine</h2>
             <p className="text-slate-500 text-sm">Update details for {editingMedicine.name}</p>
           </div>
         </div>
-        <div className="bg-white rounded-3xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden">
           <EditMedicineForm medicine={editingMedicine} onSave={handleEditSave} onCancel={() => setEditingMedicine(null)} />
         </div>
       </div>
@@ -102,7 +102,7 @@ export const PharmacyDashboard = () => {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Pharmacy Management</h2>
           <p className="text-slate-500 text-sm">Manage inventory and monitor stock levels</p>
@@ -117,7 +117,7 @@ export const PharmacyDashboard = () => {
 
       <StockAlert />
 
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden">
         <div className="p-4 border-b border-slate-100 flex gap-4 items-center justify-between">
           <SearchMedicine onSearch={setSearchQuery} />
         </div>
@@ -136,7 +136,7 @@ export const PharmacyDashboard = () => {
         maxWidth="sm"
       >
         <div className="p-1">
-          <div className="flex items-center gap-4 mb-6 text-amber-600 bg-amber-50 p-4 rounded-xl">
+          <div className="flex items-center gap-4 mb-4 text-amber-600 bg-amber-50 p-4 rounded-xl">
             <AlertTriangle className="w-8 h-8 shrink-0" />
             <p className="text-sm font-medium">
               Are you sure you want to delete this medicine? 

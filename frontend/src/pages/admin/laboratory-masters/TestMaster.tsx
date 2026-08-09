@@ -49,8 +49,6 @@ const emptyData: Omit<TestRecord, 'id'> = {
   remarks: ''
 };
 
-const mockData: TestRecord[] = [];
-
 const sampleTypesMock: string[] = [];
 const testCategoriesMock: string[] = [];
 const departmentsMock: string[] = [];
@@ -79,7 +77,7 @@ const mapApiToRecord = (item: any): TestRecord => ({
 });
 
 export const TestMaster = () => {
-  const [records, setRecords] = useState<TestRecord[]>(mockData);
+  const [records, setRecords] = useState<TestRecord[]>([]);
   const [sampleTypes, setSampleTypes] = useState<string[]>(sampleTypesMock);
   const [testCategories, setTestCategories] = useState<string[]>(testCategoriesMock);
   const [departments, setDepartments] = useState<string[]>(departmentsMock);
@@ -421,7 +419,7 @@ export const TestMaster = () => {
                   ) : (
                     <tr>
                       <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
-                        No laboratory tests found matching your criteria.
+                        {isLoading ? 'Loading records...' : 'No laboratory tests found matching your criteria.'}
                       </td>
                     </tr>
                   )}
@@ -599,7 +597,7 @@ export const TestMaster = () => {
                 <Button variant="outline" color="secondary" onClick={() => setIsFormOpen(false)}>
                   Cancel
                 </Button>
-                <Button variant="filled" color="primary" onClick={handleSaveForm} icon={Save}>
+                <Button variant="filled" color="primary" onClick={handleSaveForm} icon={Save} isLoading={isSaving}>
                   {selectedRecord ? 'Update' : 'Save'}
                 </Button>
               </div>
