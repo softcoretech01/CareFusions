@@ -33,6 +33,7 @@ export const VendorsCatalog = () => {
   }, []);
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [itemSearchTerm, setItemSearchTerm] = useState('');
   
   const [showFilters, setShowFilters] = useState(false);
   const [filterCategory, setFilterCategory] = useState('');
@@ -52,6 +53,16 @@ export const VendorsCatalog = () => {
     });
     return result;
   }, [catalogs, searchTerm, filterCategory]);
+
+  const filteredVendorItems = useMemo(() => {
+    if (!selectedVendor || !selectedVendor.items) return [];
+    if (!itemSearchTerm) return selectedVendor.items;
+    return selectedVendor.items.filter((item: any) =>
+      item.itemName?.toLowerCase().includes(itemSearchTerm.toLowerCase()) ||
+      item.itemCode?.toLowerCase().includes(itemSearchTerm.toLowerCase()) ||
+      item.category?.toLowerCase().includes(itemSearchTerm.toLowerCase())
+    );
+  }, [selectedVendor, itemSearchTerm]);
 
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="h-full flex flex-col">
@@ -149,7 +160,10 @@ export const VendorsCatalog = () => {
                 <div className="relative flex-1">
                   <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input 
-                    type="text" placeholder="Search items in catalog..."
+                    type="text" 
+                    placeholder="Search items in catalog..."
+                    value={itemSearchTerm}
+                    onChange={(e) => setItemSearchTerm(e.target.value)}
                     className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary"
                   />
                 </div>
@@ -166,20 +180,28 @@ export const VendorsCatalog = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {selectedVendor.items?.map((item: any) => (
-                      <tr key={item.itemId} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="py-3 px-4 text-slate-800 font-medium">{item.itemCode}</td>
-                        <td className="py-3 px-4 text-slate-800">{item.itemName}</td>
-                        <td className="py-3 px-4 text-slate-600 text-sm">{item.category}</td>
-                        <td className="py-3 px-4 text-slate-600 text-sm flex items-center gap-2">
-                          <Clock className="w-4 h-4 text-orange-500"/> {item.contractValidUntil || '-'}
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          <div className="font-bold text-emerald-600">₹{item.catalogPrice}</div>
-                          <div className="text-[10px] text-slate-400 flex items-center justify-end gap-1 mt-0.5"><TrendingUp className="w-3 h-3"/> Last up: {item.lastUpdate || '-'}</div>
+                    {filteredVendorItems.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="py-8 text-center text-slate-400 text-sm">
+                          No items supplied or quoted for this vendor.
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      filteredVendorItems.map((item: any) => (
+                        <tr key={item.itemId} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="py-3 px-4 text-slate-800 font-medium">{item.itemCode}</td>
+                          <td className="py-3 px-4 text-slate-800">{item.itemName}</td>
+                          <td className="py-3 px-4 text-slate-600 text-sm">{item.category}</td>
+                          <td className="py-3 px-4 text-slate-600 text-sm flex items-center gap-2">
+                            <Clock className="w-4 h-4 text-orange-500"/> {item.contractValidUntil || '-'}
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <div className="font-bold text-emerald-600">₹{item.catalogPrice}</div>
+                            <div className="text-[10px] text-slate-400 flex items-center justify-end gap-1 mt-0.5"><TrendingUp className="w-3 h-3"/> Last up: {item.lastUpdate || '-'}</div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>

@@ -42,7 +42,7 @@ export const DateFilter = ({
   }, []);
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl p-1.5 flex flex-wrap items-center gap-2 shadow-sm w-fit">
+    <div className="bg-white border border-slate-200 rounded-xl p-1.5 flex flex-nowrap whitespace-nowrap items-center gap-2 shadow-sm w-fit">
       <span className="text-slate-400 text-sm font-medium mx-1">From :</span>
       <input
         type="date"

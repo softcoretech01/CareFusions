@@ -14,22 +14,36 @@ router = APIRouter(prefix="/vendor-catalogs", tags=["Procurement - Vendor Catalo
 SP_NAME = "inventory.SpManageVendorCatalog"
 
 def _map_row(row) -> dict:
+    items_raw = row.items if hasattr(row, 'items') and row.items else getattr(row, 'Items', None)
+    if isinstance(items_raw, str):
+        try:
+            items_list = json.loads(items_raw)
+        except Exception:
+            items_list = []
+    elif isinstance(items_raw, list):
+        items_list = items_raw
+    else:
+        items_list = []
+
+    raw_rating = getattr(row, 'rating', getattr(row, 'Rating', None))
+    rating_val = float(raw_rating) if raw_rating is not None else 4.5
+
     return {
-        "id":               row.CatalogId,
-        "vendorId":         row.VendorId,
-        "vendorName":       row.VendorName,
-        "vendorCode":       row.VendorCode,
-        "gstNumber":        row.GstNumber,
-        "contactPerson":    row.ContactPerson,
-        "city":             row.City,
-        "rating":           float(row.Rating) if row.Rating else 0.0,
-        "activeContracts":  row.ActiveContracts,
-        "createdBy":        row.CreatedBy,
-        "createdDate":      row.CreatedDate,
-        "modifiedBy":       row.ModifiedBy,
-        "modifiedDate":     row.ModifiedDate,
-        "isActive":         bool(row.IsActive),
-        "items":            json.loads(row.Items) if hasattr(row, 'Items') and row.Items else []
+        "id":               getattr(row, 'id', getattr(row, 'CatalogId', getattr(row, 'VendorId', 0))),
+        "vendorId":         getattr(row, 'vendorId', getattr(row, 'VendorId', 0)),
+        "vendorName":       getattr(row, 'vendorName', getattr(row, 'VendorName', '')),
+        "vendorCode":       getattr(row, 'vendorCode', getattr(row, 'VendorCode', '')),
+        "gstNumber":        getattr(row, 'gstNumber', getattr(row, 'GstNumber', '')),
+        "contactPerson":    getattr(row, 'contactPerson', getattr(row, 'ContactPerson', '')),
+        "city":             getattr(row, 'city', getattr(row, 'City', '')),
+        "rating":           rating_val,
+        "activeContracts":  getattr(row, 'activeContracts', getattr(row, 'ActiveContracts', 0)),
+        "createdBy":        getattr(row, 'createdBy', getattr(row, 'CreatedBy', 'Admin')),
+        "createdDate":      getattr(row, 'createdDate', getattr(row, 'CreatedDate', None)),
+        "modifiedBy":       getattr(row, 'modifiedBy', getattr(row, 'ModifiedBy', None)),
+        "modifiedDate":     getattr(row, 'modifiedDate', getattr(row, 'ModifiedDate', None)),
+        "isActive":         bool(getattr(row, 'isActive', getattr(row, 'IsActive', True))),
+        "items":            items_list
     }
 
 @router.post("/", response_model=dict, status_code=status.HTTP_201_CREATED)
@@ -98,23 +112,7 @@ def update_vendor_catalog(catalog_id: int, catalog_data: VendorCatalogUpdate, db
 @router.get("/", response_model=List[VendorCatalogResponse])
 def get_all_vendor_catalogs(db: Session = Depends(get_db)):
     try:
-        query = text(f"""
-            SELECT 
-                r.*,
-                (SELECT JSON_ARRAYAGG(
-                    JSON_OBJECT(
-                        'itemId', i.ItemId,
-                        'itemCode', i.ItemCode,
-                        'itemName', i.ItemName,
-                        'category', i.Category,
-                        'contractValidUntil', i.ContractValidUntil,
-                        'catalogPrice', i.CatalogPrice,
-                        'lastUpdate', i.LastUpdate
-                    )
-                ) FROM `inventory`.`VendorCatalogItem` i WHERE i.CatalogId = r.CatalogId) AS Items
-            FROM `inventory`.`VendorCatalog` r
-            ORDER BY r.CatalogId DESC;
-        """)
+        query = text("CALL `inventory`.`SpGetDynamicVendorCatalog`()")
         results = db.execute(query).fetchall()
         return [_map_row(r) for r in results]
     except Exception as e:

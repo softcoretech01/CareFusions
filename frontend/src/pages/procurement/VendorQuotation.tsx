@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, Search, Filter, Edit2, Trash2, Eye, ClipboardList, RefreshCw } from 'lucide-react';
+import { Plus, Search, Filter, Edit2, Trash2, Eye, ClipboardList, RefreshCw, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
@@ -44,7 +44,8 @@ export const VendorQuotation = () => {
   const [vendorsList, setVendorsList] = useState<any[]>([]);
   const [paymentTermsList, setPaymentTermsList] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [recordToDelete, setRecordToDelete] = useState<QuotationRecord | null>(null);
   useEffect(() => {
     fetchQuotations();
     fetchMasters();
@@ -172,13 +173,23 @@ export const VendorQuotation = () => {
     }
   };
 
-  const handleDelete = async (record: QuotationRecord) => {
-    if (window.confirm(`Are you sure you want to delete ${record.quotationNo}?`)) {
+  const handleDelete = (record: QuotationRecord) => {
+    setRecordToDelete(record);
+    setIsDeleteOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (recordToDelete) {
       try {
-        const res = await fetch(`${API_BASE}/vendor-quotations/${record.id}`, { method: 'DELETE' });
-        if (res.ok) fetchQuotations();
-      } catch (err) {
-        console.error(err);
+        const res = await fetch(`${API_BASE}/vendor-quotations/${recordToDelete.id}`, { method: 'DELETE' });
+        if (res.ok) {
+          fetchQuotations();
+        }
+      } catch (error) {
+        console.error('Failed to delete quotation:', error);
+      } finally {
+        setIsDeleteOpen(false);
+        setRecordToDelete(null);
       }
     }
   };
@@ -345,9 +356,23 @@ export const VendorQuotation = () => {
                   <td className="py-3 px-4"><span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(record.status)}`}>{record.status}</span></td>
                   <td className="py-3 px-4 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => handleView(record)} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"><Eye className="w-4 h-4" /></button>
-                      {record.status !== 'Approved' && record.status !== 'Rejected' && <button onClick={() => handleEdit(record)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"><Edit2 className="w-4 h-4" /></button>}
-                      <button onClick={() => handleDelete(record)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
+                      <button onClick={() => handleView(record)} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="View Details"><Eye className="w-4 h-4" /></button>
+                      <button 
+                        onClick={() => !(record.status === 'Evaluated' || record.status === 'Approved' || record.status === 'Rejected') && handleEdit(record)} 
+                        disabled={record.status === 'Evaluated' || record.status === 'Approved' || record.status === 'Rejected'}
+                        className={`p-1.5 rounded-lg transition-colors ${(record.status === 'Evaluated' || record.status === 'Approved' || record.status === 'Rejected') ? 'text-slate-300 cursor-not-allowed opacity-50' : 'text-slate-400 hover:text-primary hover:bg-primary/10'}`} 
+                        title="Edit"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={() => !(record.status === 'Evaluated' || record.status === 'Approved' || record.status === 'Rejected') && handleDelete(record)} 
+                        disabled={record.status === 'Evaluated' || record.status === 'Approved' || record.status === 'Rejected'}
+                        className={`p-1.5 rounded-lg transition-colors ${(record.status === 'Evaluated' || record.status === 'Approved' || record.status === 'Rejected') ? 'text-slate-300 cursor-not-allowed opacity-50' : 'text-slate-400 hover:text-red-500 hover:bg-red-50'}`} 
+                        title="Delete"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -541,6 +566,31 @@ export const VendorQuotation = () => {
             </div>
           </div>
         )}
+      </Modal>
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={isDeleteOpen}
+        onClose={() => setIsDeleteOpen(false)}
+        title=""
+        size="sm"
+      >
+        <div className="flex flex-col items-center justify-center p-4 text-center">
+          <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mb-4">
+            <AlertTriangle className="w-8 h-8 text-red-500" />
+          </div>
+          <h3 className="text-lg font-bold text-slate-800 mb-2">Delete Record</h3>
+          <p className="text-slate-500 text-sm mb-6">
+            Are you sure you want to delete <span className="font-semibold text-slate-700">{recordToDelete?.quotationNo}</span>?
+          </p>
+          <div className="flex items-center gap-3 w-full">
+            <Button variant="outline" color="secondary" className="flex-1" onClick={() => setIsDeleteOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="filled" color="danger" className="flex-1" onClick={confirmDelete}>
+              Delete
+            </Button>
+          </div>
+        </div>
       </Modal>
     </motion.div>
   );

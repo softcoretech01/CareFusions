@@ -104,8 +104,20 @@ def execute_sql_file():
                         SELECT 
                             COALESCE(po.VendorName, 'Unknown') AS VendorName,
                             COUNT(po.PoId) AS poCount,
-                            95 + (po.VendorId % 5) AS FulfillScore,
-                            ROUND(4.0 + ((po.VendorId % 10) / 10), 1) AS QualityScore
+                            100 AS FulfillScore,
+                            COALESCE((
+                                SELECT ROUND(AVG(
+                                    CASE
+                                        WHEN grn.ReceivedDate <= p.ExpectedDelivery THEN 5.0
+                                        WHEN DATEDIFF(grn.ReceivedDate, p.ExpectedDelivery) <= 3 THEN 4.0
+                                        WHEN DATEDIFF(grn.ReceivedDate, p.ExpectedDelivery) <= 7 THEN 3.0
+                                        ELSE 2.0
+                                    END
+                                ), 1)
+                                FROM inventory.GoodsReceipt grn
+                                JOIN inventory.PurchaseOrder p ON grn.PoNumber = p.PoNumber
+                                WHERE grn.VendorId = po.VendorId
+                            ), 0.0) AS QualityScore
                         FROM `PurchaseOrder` po
                         WHERE po.Status NOT IN ('Cancelled', 'Rejected')
                           AND (v_FromDate IS NULL OR DATE(po.CreatedDate) >= v_FromDate)

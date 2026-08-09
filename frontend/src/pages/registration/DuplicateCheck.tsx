@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, CopyX, AlertCircle, Users } from 'lucide-react';
+import { Search, AlertCircle, Users } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 const API_BASE = import.meta.env.VITE_API_URL as string;
 import type { GlobalPatientRecord } from '../../contexts/PatientContext';
@@ -11,7 +11,6 @@ interface DuplicateGroup {
 }
 
 export const DuplicateCheck = () => {
-
   const [patients, setPatients] = useState<any[]>([]);
 
   useEffect(() => {
@@ -42,28 +41,49 @@ export const DuplicateCheck = () => {
   const [searchTerm, setSearchTerm] = useState('');
   
   useEffect(() => {
-    // Basic duplicate detection logic: matching mobile or name+dob
-    const groups: Record<string, GlobalPatientRecord[]> = {};
+    // Flexible Duplicate detection logic: Grouping by Name & Mobile, Mobile Number, or Patient Name
+    const groups: Record<string, { matchType: string; records: GlobalPatientRecord[] }> = {};
     
+    // Group by Name & Mobile Match
     patients.forEach(p => {
-      // Key by mobile if exists
-      if (p.mobileNumber && p.mobileNumber.length >= 4) {
-        const key = `mobile_${p.mobileNumber}`;
-        if (!groups[key]) groups[key] = [];
-        groups[key].push(p);
+      const nameStr = (p.patientName || `${p.firstName || ''} ${p.lastName || ''}`).toLowerCase().trim();
+      const mobileStr = (p.mobileNumber || '').trim();
+
+      if (nameStr.length >= 2 && mobileStr.length >= 4) {
+        const key = `namemobile_${nameStr}_${mobileStr}`;
+        if (!groups[key]) {
+          groups[key] = { matchType: 'Patient Name & Mobile Match', records: [] };
+        }
+        if (!groups[key].records.find(r => r.id === p.id)) {
+          groups[key].records.push(p);
+        }
       }
-      // Key by name (lowered)
-      if (p.patientName || p.firstName) {
-        // Handle undefined lastName gracefully
-        const nameStr = p.patientName || `${p.firstName || ''} ${p.lastName || ''}`;
-        const name = nameStr.toLowerCase().trim();
-        if (name.length >= 3) {
-          const key = `name_${name}`;
-          if (!groups[key]) groups[key] = [];
-          // Avoid pushing same patient multiple times if matched both by mobile and name
-          if (!groups[key].find(existing => existing.id === p.id)) {
-            groups[key].push(p);
-          }
+    });
+
+    // Group by Mobile Number Match
+    patients.forEach(p => {
+      const mobileStr = (p.mobileNumber || '').trim();
+      if (mobileStr.length >= 4) {
+        const key = `mobile_${mobileStr}`;
+        if (!groups[key]) {
+          groups[key] = { matchType: 'Mobile Number Match', records: [] };
+        }
+        if (!groups[key].records.find(r => r.id === p.id)) {
+          groups[key].records.push(p);
+        }
+      }
+    });
+
+    // Group by Patient Name Match
+    patients.forEach(p => {
+      const nameStr = (p.patientName || `${p.firstName || ''} ${p.lastName || ''}`).toLowerCase().trim();
+      if (nameStr.length >= 2) {
+        const key = `name_${nameStr}`;
+        if (!groups[key]) {
+          groups[key] = { matchType: 'Patient Name Match', records: [] };
+        }
+        if (!groups[key].records.find(r => r.id === p.id)) {
+          groups[key].records.push(p);
         }
       }
     });
@@ -71,12 +91,28 @@ export const DuplicateCheck = () => {
     const potentialDuplicates: DuplicateGroup[] = [];
     let groupId = 1;
     
+    // Add groups with > 1 patient, prioritizing Name & Mobile Match over individual matches
+    const addedPatientIds = new Set<string>();
+    
+    // First add Name & Mobile Match groups
     Object.keys(groups).forEach(k => {
-      if (groups[k].length > 1) {
+      if (k.startsWith('namemobile_') && groups[k].records.length > 1) {
         potentialDuplicates.push({
           id: `grp_${groupId++}`,
-          matchType: k.startsWith('mobile_') ? 'Mobile Number Match' : 'Name Match',
-          records: groups[k]
+          matchType: groups[k].matchType,
+          records: groups[k].records
+        });
+        groups[k].records.forEach(r => addedPatientIds.add(String(r.id)));
+      }
+    });
+
+    // Next add Mobile Match or Name Match groups if they reveal distinct candidate records
+    Object.keys(groups).forEach(k => {
+      if (!k.startsWith('namemobile_') && groups[k].records.length > 1) {
+        potentialDuplicates.push({
+          id: `grp_${groupId++}`,
+          matchType: groups[k].matchType,
+          records: groups[k].records
         });
       }
     });
@@ -86,7 +122,11 @@ export const DuplicateCheck = () => {
 
   const filteredGroups = duplicateGroups.filter(g => 
     g.matchType.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    g.records.some(r => r.patientName?.toLowerCase().includes(searchTerm.toLowerCase()) || r.mobileNumber?.includes(searchTerm))
+    g.records.some(r => 
+      r.uhid?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      r.patientName?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      r.mobileNumber?.includes(searchTerm)
+    )
   );
 
   return (
@@ -106,7 +146,7 @@ export const DuplicateCheck = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
               type="text"
-              placeholder="Search by Name or Mobile..."
+              placeholder="Search by UHID, Name or Mobile..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm"
@@ -131,9 +171,6 @@ export const DuplicateCheck = () => {
                       <p className="text-xs text-slate-500">{group.records.length} records sharing similar details</p>
                     </div>
                   </div>
-                  <Button variant="outline" color="primary" icon={CopyX} size="sm" className="hidden sm:flex">
-                    Merge Records
-                  </Button>
                 </div>
                 <div className="p-0">
                   <table className="w-full text-left text-sm whitespace-nowrap">

@@ -45,18 +45,27 @@ export const Modal: React.FC<ModalProps & { size?: 'sm' | 'md' | 'lg' | 'xl' | '
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ type: 'spring', bounce: 0, duration: 0.3 }}
-              className={`bg-white rounded-2xl shadow-xl w-full ${maxWidthClasses[finalMaxWidth]} pointer-events-auto flex flex-col max-h-[90vh]`}
+              className={`bg-white rounded-2xl shadow-xl w-full ${maxWidthClasses[finalMaxWidth]} pointer-events-auto flex flex-col max-h-[90vh] relative`}
             >
               {/* Header */}
-              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
-                <h2 className="text-xl font-bold text-slate-800">{title}</h2>
+              {title ? (
+                <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
+                  <h2 className="text-xl font-bold text-slate-800">{title}</h2>
+                  <button 
+                    onClick={onClose}
+                    className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              ) : (
                 <button 
                   onClick={onClose}
-                  className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+                  className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors z-10"
                 >
                   <X className="w-5 h-5" />
                 </button>
-              </div>
+              )}
 
               {/* Content body */}
               <div className="p-6 overflow-y-auto">

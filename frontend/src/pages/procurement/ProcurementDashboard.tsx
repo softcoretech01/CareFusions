@@ -124,7 +124,7 @@ export const ProcurementDashboard = () => {
           <h3 className="text-xs font-medium text-slate-500 relative z-10">Total PRs Created</h3>
           <div className="text-2xl font-bold text-slate-800 mt-1 relative z-10">{totalPRs}</div>
           <div className="flex items-center gap-1 text-xs text-emerald-500 mt-1 font-medium relative z-10">
-            <TrendingUp className="w-3 h-3" /> Based on local data
+            <TrendingUp className="w-3 h-3" /> Live Database Data
           </div>
         </div>
 
@@ -139,7 +139,7 @@ export const ProcurementDashboard = () => {
           <h3 className="text-xs font-medium text-slate-500 relative z-10">Purchase Orders Issued</h3>
           <div className="text-2xl font-bold text-slate-800 mt-1 relative z-10">{totalPOs}</div>
           <div className="flex items-center gap-1 text-xs text-emerald-500 mt-1 font-medium relative z-10">
-            <TrendingUp className="w-3 h-3" /> Based on local data
+            <TrendingUp className="w-3 h-3" /> Live Database Data
           </div>
         </div>
 
@@ -154,7 +154,7 @@ export const ProcurementDashboard = () => {
           <h3 className="text-xs font-medium text-slate-500 relative z-10">Goods Received (GRN)</h3>
           <div className="text-2xl font-bold text-slate-800 mt-1 relative z-10">{totalGRNs}</div>
           <div className="flex items-center gap-1 text-xs text-emerald-500 mt-1 font-medium relative z-10">
-            <TrendingUp className="w-3 h-3" /> Based on local data
+            <TrendingUp className="w-3 h-3" /> Live Database Data
           </div>
         </div>
 
@@ -169,7 +169,7 @@ export const ProcurementDashboard = () => {
           <h3 className="text-xs font-medium text-slate-500 relative z-10">Total Spend (₹)</h3>
           <div className="text-2xl font-bold text-slate-800 mt-1 relative z-10">{totalSpend.toLocaleString()}</div>
           <div className="flex items-center gap-1 text-xs text-emerald-500 mt-1 font-medium relative z-10">
-            <TrendingUp className="w-3 h-3" /> Based on local data
+            <TrendingUp className="w-3 h-3" /> Live Database Data
           </div>
         </div>
       </div>

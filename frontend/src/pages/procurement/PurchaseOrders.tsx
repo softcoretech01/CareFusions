@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, Search, Filter, Edit2, Eye, Printer, CheckCircle, ShoppingBag, Trash2, Download, RefreshCw } from 'lucide-react';
+import { Plus, Search, Filter, Edit2, Eye, Printer, CheckCircle, ShoppingBag, Trash2, Download, RefreshCw, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
@@ -58,6 +58,8 @@ export const PurchaseOrders = () => {
   const [warehousesMock, setWarehousesMock] = useState<any[]>([]);
   const [currencyMock, setCurrencyMock] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [recordToDelete, setRecordToDelete] = useState<PORecord | null>(null);
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -73,7 +75,7 @@ export const PurchaseOrders = () => {
         fetch(`${API_BASE}/stores`),
         fetch(`${API_BASE}/currencies`)
       ]);
-      
+
       if (posRes.ok) setRecords(await posRes.json());
       if (prsRes.ok) setPrs(await prsRes.json());
       if (rfqsRes.ok) setRfqs(await rfqsRes.json());
@@ -97,7 +99,7 @@ export const PurchaseOrders = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [sortConfig] = useState<{key: keyof PORecord | null, direction: 'asc'|'desc'}>({ key: null, direction: 'asc' });
+  const [sortConfig] = useState<{ key: keyof PORecord | null, direction: 'asc' | 'desc' }>({ key: null, direction: 'asc' });
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -112,7 +114,7 @@ export const PurchaseOrders = () => {
   const availablePRs = useMemo(() => {
     return prs.filter(p => {
       if (p.approvalStatus !== 'Approved') return false;
-      
+
       // Check if PR has an approved quotation
       const rfq = rfqs.find(r => r.prNumber === p.prNo);
       const hasApprovedQtn = rfq ? allQtns.some(q => q.rfqNo === rfq.rfqNo && q.status === 'Approved') : false;
@@ -125,7 +127,7 @@ export const PurchaseOrders = () => {
       return true;
     });
   }, [prs, rfqs, allQtns, records, selectedRecord]);
-  
+
   const emptyForm: Omit<PORecord, 'id' | 'poNumber'> = {
     poDate: new Date().toISOString().split('T')[0], prNo: '', quotationNo: '', vendorId: 0, vendorName: '', department: '',
     billingAddress: 'CareFusions Hospital, 123 Main St, Mumbai', shippingAddress: '', paymentTerms: '', deliveryTerms: '',
@@ -157,7 +159,7 @@ export const PurchaseOrders = () => {
     setErrors({});
     setIsFormOpen(true);
   };
-  
+
   const handleView = (record: PORecord) => {
     setSelectedRecord(record);
     setIsViewOpen(true);
@@ -200,13 +202,23 @@ export const PurchaseOrders = () => {
     }
   };
 
-  const handleDelete = async (record: PORecord) => {
-    if (window.confirm(`Are you sure you want to delete ${record.poNumber}?`)) {
+  const handleDelete = (record: PORecord) => {
+    setRecordToDelete(record);
+    setIsDeleteOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (recordToDelete) {
       try {
-        const res = await fetch(`${API_BASE}/purchase-orders/${record.id}`, { method: 'DELETE' });
-        if (res.ok) fetchData();
-      } catch (err) {
-        console.error(err);
+        const res = await fetch(`${API_BASE}/purchase-orders/${recordToDelete.id}`, { method: 'DELETE' });
+        if (res.ok) {
+          fetchData();
+        }
+      } catch (error) {
+        console.error('Failed to delete PO:', error);
+      } finally {
+        setIsDeleteOpen(false);
+        setRecordToDelete(null);
       }
     }
   };
@@ -229,7 +241,7 @@ export const PurchaseOrders = () => {
 
   const processedData = useMemo(() => {
     let result = records.filter(record => {
-      const matchesSearch = Object.values(record).some(val => 
+      const matchesSearch = Object.values(record).some(val =>
         String(val).toLowerCase().includes(searchTerm.toLowerCase())
       );
       const matchesVendor = filterVendor ? record.vendorName === filterVendor : true;
@@ -258,7 +270,7 @@ export const PurchaseOrders = () => {
   const paginatedData = processedData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   const getStatusColor = (status: string) => {
-    switch(status) {
+    switch (status) {
       case 'Draft': return 'bg-slate-100 text-slate-700';
       case 'Approved': return 'bg-emerald-100 text-emerald-700';
       case 'Sent': return 'bg-blue-100 text-blue-700';
@@ -276,26 +288,27 @@ export const PurchaseOrders = () => {
           <span className="mx-2">/</span>
           <span className="text-primary font-medium">Purchase Orders</span>
         </div>
-        <h1 className="text-3xl font-bold text-slate-800 mb-4">Purchase Orders (PO)</h1>
-        
-        <div className="flex justify-end items-center gap-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-800 whitespace-nowrap">Purchase Orders</h1>
+          </div>
+
+          <div className="flex items-stretch gap-3">
           <DateFilter
             dateFrom={fromDate}
             dateTo={toDate}
             onDateFromChange={setFromDate}
             onDateToChange={setToDate}
-            onSearch={() => {}}
+            onSearch={() => { }}
             onReset={() => { setFromDate(''); setToDate(''); }}
           />
-          <Button variant="outline" icon={Download} onClick={() => exportToExcel(processedData, 'Purchase_Orders')} className="h-[38px] !px-3 text-sm whitespace-nowrap">
+          <Button variant="outline" icon={Download} onClick={() => exportToExcel(processedData, 'Purchase_Orders')} className="h-[38px] !px-3 text-sm whitespace-nowrap h-auto">
             Export Excel
           </Button>
-          <button onClick={fetchData} className="p-2 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 transition-colors" title="Refresh">
-            <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
-          </button>
-          <Button variant="filled" color="primary" icon={Plus} onClick={handleCreateNew} className="h-[38px] !px-3 text-sm whitespace-nowrap">
+          <Button variant="filled" color="primary" icon={Plus} onClick={handleCreateNew} className="h-[38px] !px-3 text-sm whitespace-nowrap h-auto">
             Create PO
           </Button>
+          </div>
         </div>
       </div>
 
@@ -304,16 +317,19 @@ export const PurchaseOrders = () => {
           <div className="flex items-center gap-3">
             <div className="relative w-72">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input 
+              <input
                 type="text" placeholder="Search PO No, Vendor..." value={searchTerm}
                 onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
                 className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary"
               />
             </div>
-            <button 
+            <button
               onClick={() => setShowFilters(!showFilters)}
               className={`p-2 border rounded-lg transition-colors ${showFilters ? 'border-primary bg-primary/5 text-primary' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
             ><Filter className="w-4 h-4" /></button>
+            <button onClick={fetchData} className="p-2 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 transition-colors" title="Refresh">
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            </button>
           </div>
         </div>
 
@@ -368,10 +384,24 @@ export const PurchaseOrders = () => {
                   <td className="py-3 px-4"><span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(record.status)}`}>{record.status}</span></td>
                   <td className="py-3 px-4 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => { setSelectedRecord(record); setIsViewOpen(true); setTimeout(() => window.print(), 500); }} className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"><Printer className="w-4 h-4" /></button>
-                      <button onClick={() => handleView(record)} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"><Eye className="w-4 h-4" /></button>
-                      {(record.status === 'Draft' || record.status === 'Pending Approval') && <button onClick={() => handleEdit(record)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"><Edit2 className="w-4 h-4" /></button>}
-                      <button onClick={() => handleDelete(record)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
+                      <button onClick={() => { setSelectedRecord(record); setIsViewOpen(true); setTimeout(() => window.print(), 500); }} className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-colors" title="Print PO"><Printer className="w-4 h-4" /></button>
+                      <button onClick={() => handleView(record)} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="View Details"><Eye className="w-4 h-4" /></button>
+                      <button 
+                        onClick={() => (record.status === 'Draft' || record.status === 'Pending Approval') && handleEdit(record)} 
+                        disabled={!(record.status === 'Draft' || record.status === 'Pending Approval')}
+                        className={`p-1.5 rounded-lg transition-colors ${!(record.status === 'Draft' || record.status === 'Pending Approval') ? 'text-slate-300 cursor-not-allowed opacity-50' : 'text-slate-400 hover:text-primary hover:bg-primary/10'}`} 
+                        title="Edit"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={() => (record.status === 'Draft' || record.status === 'Pending Approval') && handleDelete(record)} 
+                        disabled={!(record.status === 'Draft' || record.status === 'Pending Approval')}
+                        className={`p-1.5 rounded-lg transition-colors ${!(record.status === 'Draft' || record.status === 'Pending Approval') ? 'text-slate-300 cursor-not-allowed opacity-50' : 'text-slate-400 hover:text-red-500 hover:bg-red-50'}`} 
+                        title="Delete"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -385,7 +415,7 @@ export const PurchaseOrders = () => {
         <div className="space-y-6 max-h-[75vh] overflow-y-auto px-1">
           <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 grid grid-cols-4 gap-4">
             <div><label className="block text-xs font-medium text-slate-500 mb-1">PO Number</label><input type="text" value={formData.poNumber} disabled className="w-full px-3 py-1.5 border border-slate-200 bg-slate-100 rounded-lg text-sm" /></div>
-            <div><label className="block text-xs font-medium text-slate-500 mb-1">PO Date</label><input type="date" value={formData.poDate} onChange={(e) => setFormData({...formData, poDate: e.target.value})} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm" /></div>
+            <div><label className="block text-xs font-medium text-slate-500 mb-1">PO Date</label><input type="date" value={formData.poDate} onChange={(e) => setFormData({ ...formData, poDate: e.target.value })} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm" /></div>
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Select PR (Optional)</label>
               <select value={formData.prNo || ''} onChange={(e) => {
@@ -394,7 +424,7 @@ export const PurchaseOrders = () => {
                 if (pr) {
                   const rfq = rfqs.find(r => r.prNumber === prNo);
                   const qtn = rfq ? allQtns.find(q => q.rfqNo === rfq.rfqNo && q.status === 'Approved') : null;
-                  
+
                   if (qtn) {
                     const newItems = qtn.items.map(item => ({
                       id: Math.random().toString(),
@@ -433,14 +463,14 @@ export const PurchaseOrders = () => {
                       amount: 0
                     }));
                     setFormData({
-                      ...formData, 
+                      ...formData,
                       prNo: prNo,
                       department: pr.department,
                       items: newItems
                     });
                   }
                 } else {
-                  setFormData({...formData, prNo: prNo});
+                  setFormData({ ...formData, prNo: prNo });
                 }
               }} disabled={!!selectedRecord} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm">
                 <option value="">Select PR</option>
@@ -465,28 +495,28 @@ export const PurchaseOrders = () => {
                     amount: item.finalAmount
                   }));
                   setFormData({
-                    ...formData, 
-                    quotationNo: qtn.quotationNo, 
-                    vendorId: qtn.vendorId, 
+                    ...formData,
+                    quotationNo: qtn.quotationNo,
+                    vendorId: qtn.vendorId,
                     vendorName: qtn.vendorName,
                     paymentTerms: qtn.paymentTerms,
                     totalAmount: qtn.totalAmount,
                     items: newItems
                   });
                 } else {
-                  setFormData({...formData, quotationNo: e.target.value});
+                  setFormData({ ...formData, quotationNo: e.target.value });
                 }
               }} disabled={!!selectedRecord} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm">
                 <option value="">Select Quotation</option>
                 {allQtns.filter(q => q.status === 'Approved').map(q => <option key={q.id} value={q.quotationNo}>{q.quotationNo} - {q.vendorName}</option>)}
               </select>
             </div>
-            
+
             <div className="col-span-2">
               <label className="block text-xs font-medium text-slate-500 mb-1">Vendor*</label>
               <select value={formData.vendorId} onChange={(e) => {
                 const vendor = vendorsMock.find(v => v.id === Number(e.target.value));
-                setFormData({...formData, vendorId: vendor?.id || 0, vendorName: vendor?.vendorName || '', paymentTerms: vendor?.paymentTerms || ''});
+                setFormData({ ...formData, vendorId: vendor?.id || 0, vendorName: vendor?.vendorName || '', paymentTerms: vendor?.paymentTerms || '' });
               }} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-primary">
                 <option value="">Select Vendor</option>
                 {vendorsMock.map(v => <option key={v.id} value={v.id}>{v.vendorName}</option>)}
@@ -496,35 +526,35 @@ export const PurchaseOrders = () => {
 
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Department*</label>
-              <select value={formData.department} onChange={(e) => setFormData({...formData, department: e.target.value})} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-primary">
+              <select value={formData.department} onChange={(e) => setFormData({ ...formData, department: e.target.value })} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-primary">
                 <option value="">Select Dept</option>
                 {departmentsMock.map(d => <option key={d.id} value={d.departmentName}>{d.departmentName}</option>)}
               </select>
               {errors.department && <span className="text-xs text-red-500">{errors.department}</span>}
             </div>
-            
+
             <div className="col-span-2"><label className="block text-xs font-medium text-slate-500 mb-1">Shipping Address</label>
-              <select value={formData.shippingAddress} onChange={(e) => setFormData({...formData, shippingAddress: e.target.value})} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm">
+              <select value={formData.shippingAddress} onChange={(e) => setFormData({ ...formData, shippingAddress: e.target.value })} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm">
                 <option value="">Select Store</option>
                 {warehousesMock.map(w => <option key={w.id} value={w.storeName}>{w.storeName} - {w.location}</option>)}
               </select>
             </div>
-            <div className="col-span-2"><label className="block text-xs font-medium text-slate-500 mb-1">Billing Address</label><input type="text" value={formData.billingAddress} onChange={(e) => setFormData({...formData, billingAddress: e.target.value})} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm" /></div>
+            <div className="col-span-2"><label className="block text-xs font-medium text-slate-500 mb-1">Billing Address</label><input type="text" value={formData.billingAddress} onChange={(e) => setFormData({ ...formData, billingAddress: e.target.value })} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm" /></div>
 
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Payment Terms</label>
-              <select value={formData.paymentTerms} onChange={(e) => setFormData({...formData, paymentTerms: e.target.value})} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm">
+              <select value={formData.paymentTerms} onChange={(e) => setFormData({ ...formData, paymentTerms: e.target.value })} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm">
                 <option value="">Select Terms</option>
                 {paymentTermsMock.map(p => <option key={p.id} value={p.paymentTermName}>{p.paymentTermName}</option>)}
               </select>
             </div>
-            <div><label className="block text-xs font-medium text-slate-500 mb-1">Delivery Terms</label><input type="text" value={formData.deliveryTerms} onChange={(e) => setFormData({...formData, deliveryTerms: e.target.value})} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm" /></div>
-            <div><label className="block text-xs font-medium text-slate-500 mb-1">Expected Delivery*</label><input type="date" value={formData.expectedDelivery} onChange={(e) => setFormData({...formData, expectedDelivery: e.target.value})} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm" />
+            <div><label className="block text-xs font-medium text-slate-500 mb-1">Delivery Terms</label><input type="text" value={formData.deliveryTerms} onChange={(e) => setFormData({ ...formData, deliveryTerms: e.target.value })} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm" /></div>
+            <div><label className="block text-xs font-medium text-slate-500 mb-1">Expected Delivery*</label><input type="date" value={formData.expectedDelivery} onChange={(e) => setFormData({ ...formData, expectedDelivery: e.target.value })} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm" />
               {errors.expectedDelivery && <span className="text-xs text-red-500">{errors.expectedDelivery}</span>}
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Currency</label>
-              <select value={formData.currency} onChange={(e) => setFormData({...formData, currency: e.target.value})} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm">
+              <select value={formData.currency} onChange={(e) => setFormData({ ...formData, currency: e.target.value })} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm">
                 {currencyMock.map(c => <option key={c.id} value={c.currencyCode}>{c.currencyCode}</option>)}
               </select>
             </div>
@@ -535,7 +565,7 @@ export const PurchaseOrders = () => {
               <h3 className="font-semibold text-slate-800 flex items-center gap-2"><ShoppingBag className="w-4 h-4 text-primary" /> PO Items</h3>
             </div>
             {errors.items && <div className="text-xs text-red-500 mb-2">{errors.items}</div>}
-            
+
             <div className="border border-slate-200 rounded-xl overflow-hidden">
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 border-b border-slate-200">
@@ -648,6 +678,31 @@ export const PurchaseOrders = () => {
             </div>
           </div>
         )}
+      </Modal>
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={isDeleteOpen}
+        onClose={() => setIsDeleteOpen(false)}
+        title=""
+        size="sm"
+      >
+        <div className="flex flex-col items-center justify-center p-4 text-center">
+          <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mb-4">
+            <AlertTriangle className="w-8 h-8 text-red-500" />
+          </div>
+          <h3 className="text-lg font-bold text-slate-800 mb-2">Delete Record</h3>
+          <p className="text-slate-500 text-sm mb-6">
+            Are you sure you want to delete <span className="font-semibold text-slate-700">{recordToDelete?.poNumber}</span>?
+          </p>
+          <div className="flex items-center gap-3 w-full">
+            <Button variant="outline" color="secondary" className="flex-1" onClick={() => setIsDeleteOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="filled" color="danger" className="flex-1" onClick={confirmDelete}>
+              Delete
+            </Button>
+          </div>
+        </div>
       </Modal>
     </motion.div>
   );
