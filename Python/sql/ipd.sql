@@ -305,10 +305,14 @@ BEGIN
         ORDER BY AdmissionId, DischargeMedId;
 
     ELSEIF p_Opt = 'ADMIT' THEN
+        -- Only well-formed numbers (IPD-YYYY followed by digits only) count.
+        -- A malformed value such as 'IPD-2026-001' otherwise makes
+        -- CAST(SUBSTRING(...,9) AS UNSIGNED) wrap to a huge number, which
+        -- overflowed v_Seq and produced a colliding admission number.
         SELECT COALESCE(MAX(CAST(SUBSTRING(AdmissionNumber, 9) AS UNSIGNED)), 0) + 1
           INTO v_Seq
           FROM IPD_Admission
-         WHERE AdmissionNumber LIKE CONCAT('IPD-', YEAR(CURDATE()), '%');
+         WHERE AdmissionNumber REGEXP CONCAT('^IPD-', YEAR(CURDATE()), '[0-9]+$');
         SET v_Num = CONCAT('IPD-', YEAR(CURDATE()), LPAD(v_Seq, 4, '0'));
 
         INSERT INTO IPD_Admission (

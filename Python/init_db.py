@@ -1,17 +1,3 @@
-"""
-Deploy database schema (tables + stored procedures) for CareFusions HMS.
-
-Runs every *.sql file in the ./sql directory against the configured database.
-Each script may contain plain statements and one or more
-`DELIMITER $$ ... END$$ DELIMITER ;` stored-procedure blocks; both are handled.
-
-Usage:
-    python init_db.py            # deploy all sql/*.sql
-    python init_db.py radiology_service_master.sql   # deploy one file
-
-This fixes the "PROCEDURE ... does not exist" / empty-table 500 errors that
-occur on a fresh database where the SQL scripts were never applied.
-"""
 import sys
 from pathlib import Path
 
@@ -23,12 +9,7 @@ SQL_DIR = Path(__file__).parent / "sql"
 
 
 def split_statements(sql: str):
-    """Yield individual executable statements from a .sql script.
 
-    Handles `DELIMITER $$ ... $$ DELIMITER ;` blocks (used for stored
-    procedures) by emitting the whole CREATE PROCEDURE body as one statement,
-    while splitting ordinary statements on ';'.
-    """
     statements = []
     i = 0
     lines = sql.splitlines()

@@ -153,9 +153,19 @@ export const PatientProvider: React.FC<{ children: ReactNode }> = ({ children })
     if (quick.status === 'rejected') console.error('[PatientContext] quick-registrations load failed:', quick.reason);
     if (emergency.status === 'rejected') console.error('[PatientContext] emergency-registrations load failed:', emergency.reason);
 
-    setPatients(merged);
+    // Only mark as loaded when at least one source succeeded. If ALL three
+    // failed (server down / wrong DB config), leave hasLoaded false so the next
+    // mount retries — otherwise a single failed first load caches an empty
+    // patient directory for the whole session and every patient picker stays
+    // blank even after the backend recovers.
+    const anySucceeded =
+      neu.status === 'fulfilled' || quick.status === 'fulfilled' || emergency.status === 'fulfilled';
+
+    if (anySucceeded) {
+      setPatients(merged);
+      setHasLoaded(true);
+    }
     setLoading(false);
-    setHasLoaded(true);
   }, [hasLoaded]);
 
   // Removed automatic useEffect for refreshPatients

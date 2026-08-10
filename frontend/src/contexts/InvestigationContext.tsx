@@ -212,43 +212,8 @@ export const InvestigationProvider = ({ children }: { children: ReactNode }) => 
     }
   }, []);
 
-  const fetchLabOrders = async () => {
-    try {
-      const response = await axios.get(`${API_BASE}/lab/orders`);
-      const labOrders = response.data.map((order: any) => ({
-        id: order.order_number,
-        type: order.visit_type,
-        category: order.category,
-        patientId: order.uhid,
-        patientName: order.patient_name,
-        orderedBy: order.ordered_by || 'Unknown',
-        orderedAt: order.ordered_at,
-        status: order.status,
-        age: order.age,
-        gender: order.gender,
-        mobileNumber: order.mobile_number,
-        tests: order.tests.map((test: any) => ({
-          id: `TEST-${test.order_test_id}`,
-          name: test.test_name,
-          status: test.status,
-          resultValue: test.result_value || '',
-          resultFile: test.result_file || '',
-          isCritical: test.is_critical,
-          completedAt: test.completed_at,
-          verifiedAt: test.verified_at,
-          verifiedBy: test.verified_by,
-          acknowledgedAt: test.acknowledged_at
-        }))
-      }));
-      setOrders(prev => {
-        // Filter out existing lab orders (mock ones or old fetched ones)
-        const nonLabOrders = prev.filter(o => o.category !== 'Lab');
-        return [...nonLabOrders, ...labOrders];
-      });
-    } catch (error) {
-      console.error('Failed to fetch lab orders', error);
-    }
-  };
+  // Lab orders are loaded by refresh() (called in the mount effect below), so a
+  // separate fetchLabOrders is redundant — removed to keep one source of truth.
 
   const fetchRadiologyQCLogs = async () => {
     try {
@@ -419,6 +384,7 @@ export const InvestigationProvider = ({ children }: { children: ReactNode }) => 
           remarks: log.remarks
         })
       });
+      if (!res.ok) throw new Error(`radiology QC save → ${res.status}`);
       fetchRadiologyQCLogs();
     } catch (error) {
       console.error('Failed to add radiology QC log', error);

@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, Search, Filter, Download, Edit2, Trash2, Save, RefreshCw, ChevronLeft, ChevronRight, Eye, Send, FileText, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Plus, Search, Filter, Download, Edit2, Trash2, Save, ChevronLeft, ChevronRight, Eye, Send, FileText, CheckCircle, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
@@ -49,7 +49,8 @@ export const PurchaseRequisitions = () => {
   const [itemsList, setItemsList] = useState<any[]>([]);
   const [departmentsList, setDepartmentsList] = useState<any[]>([]);
   const [warehousesList, setWarehousesList] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  // Only the setter is used (to gate the fetch); the flag itself isn't rendered.
+  const [, setIsLoading] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState('');
 
