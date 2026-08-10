@@ -237,7 +237,15 @@ export const OPDVisitProvider = ({ children }: { children: ReactNode }) => {
         vitals: visit.vitals,
         triageInfo: visit.triageInfo,
         diagnoses: visit.diagnoses,
-        prescriptions: visit.prescriptions,
+        // `alerts` is a string[] in the UI but the API stores it as a single
+        // text field — flatten it to a string on the wire so the save is
+        // accepted (an empty list becomes null, not "").
+        prescriptions: (visit.prescriptions || []).map(p => ({
+          ...p,
+          alerts: Array.isArray(p.alerts)
+            ? (p.alerts.length ? p.alerts.join('; ') : null)
+            : (p.alerts ?? null),
+        })),
         labOrders: visit.labOrders,
         radiologyOrders: visit.radiologyOrders,
         procedures: visit.procedures,

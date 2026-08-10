@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, field_validator
-from typing import List, Optional, Literal
+from typing import List, Optional, Literal, Union
 
 class VitalsSchema(BaseModel):
     bp_systolic: Optional[int] = None
@@ -33,7 +33,10 @@ class PrescriptionSchema(BaseModel):
     type: Optional[str] = None
     medicineName: Optional[str] = None
     quantity: Optional[str] = None
-    alerts: Optional[str] = None
+    # The UI sends drug allergy / interaction flags as a list of strings. Stored
+    # as JSON text in Trn_OpdVisitPrescription.Alerts. Accept a bare string too
+    # so older callers that sent a single note don't break.
+    alerts: Optional[Union[List[str], str]] = None
 
 class LabOrderSchema(BaseModel):
     testName: Optional[str] = None
