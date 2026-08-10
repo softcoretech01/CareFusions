@@ -165,6 +165,13 @@ BEGIN
           AND b.IsDeleted = 0;
 
     -- --------------------------------------------------------
+    -- GETNEXTCODE: Generate next code
+    -- --------------------------------------------------------
+    ELSEIF p_Opt = 'GETNEXTCODE' THEN
+        SELECT CONCAT('BR-', LPAD(COALESCE(MAX(CAST(SUBSTRING(BranchCode, 4) AS UNSIGNED)), 0) + 1, 3, '0')) AS NextCode
+        FROM Master_Branch;
+
+    -- --------------------------------------------------------
     -- INSERT: Auto-generate BranchCode (BR-001 format) and insert
     -- --------------------------------------------------------
     ELSEIF p_Opt = 'INSERT' THEN
