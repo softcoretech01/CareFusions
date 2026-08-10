@@ -1,123 +1,297 @@
-import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { useState, useMemo, useEffect } from 'react';
+import { Pagination } from '../../components/ui/Pagination';
+import {
+  IndianRupee, TrendingUp, CalendarClock, Activity, Download, X, FileBarChart, Lock,
+} from 'lucide-react';
+import { useInventory } from '../../contexts/InventoryContext';
 import { exportToExcel } from '../../utils/exportToExcel';
-import { BarChart3, Download, FileText, CalendarDays, LineChart, PieChart } from 'lucide-react';
-import { Modal } from '../../components/ui/Modal';
-import { Button } from '../../components/ui/Button';
+
+const inr = (n: number) => `₹${(n ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+const localDay = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+type ReportKey = 'valuation' | 'consumption' | 'expiry' | 'movement';
+
+interface Column { key: string; label: string; align?: 'right' }
 
 export const InventoryReports = () => {
-  const [selectedReport, setSelectedReport] = useState<any>(null);
+  const { stock, valuation, expiring, documents, ledger, stores, loading } = useInventory();
+  const [open, setOpen] = useState<ReportKey | null>(null);
+  const [storeId, setStoreId] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
 
-  const reports = [
-    { title: 'Stock Valuation Report', icon: BarChart3, desc: 'Current value of inventory by category and store', type: 'Financial' },
-    { title: 'Consumption Analysis', icon: PieChart, desc: 'Department-wise item consumption trends', type: 'Analytics' },
-    { title: 'Expiry Tracker', icon: CalendarDays, desc: 'List of items nearing expiry or expired', type: 'Compliance' },
-    { title: 'Fast & Slow Moving', icon: FileText, desc: 'Identify most and least utilized inventory items', type: 'Analytics' },
-    { title: 'Stock Reconciliation', icon: FileText, desc: 'Physical vs System stock variance report', type: 'Audit' },
-    { title: 'Vendor Performance', icon: LineChart, desc: 'Delivery timelines and rejection rates by vendor', type: 'Analytics' }
+  const inRange = (iso?: string | null) => {
+    if (!iso) return true;
+    const day = localDay(new Date(iso));
+    if (fromDate && day < fromDate) return false;
+    if (toDate && day > toDate) return false;
+    return true;
+  };
+
+  const storeFilter = (id: number) => !storeId || String(id) === storeId;
+
+  // ── Stock valuation: category totals at moving-average cost ──
+  const valuationRows = useMemo(() => {
+    if (storeId) {
+      const acc: Record<string, { category: string; itemCount: number; totalQty: number; totalValue: number }> = {};
+      stock.filter(s => storeFilter(s.storeId)).forEach(s => {
+        const k = s.category || 'Uncategorised';
+        acc[k] = acc[k] || { category: k, itemCount: 0, totalQty: 0, totalValue: 0 };
+        acc[k].itemCount += 1;
+        acc[k].totalQty += s.quantity;
+        acc[k].totalValue += s.stockValue;
+      });
+      return Object.values(acc);
+    }
+    return valuation;
+  }, [valuation, stock, storeId]);
+
+  // ── Consumption: what departments took, valued at the rate actually posted ──
+  const consumptionRows = useMemo(() => {
+    const rateFor = (docNumber: string, itemId: number) =>
+      ledger.find(l => l.docNumber === docNumber && l.itemId === itemId)?.rate ?? 0;
+    const acc: Record<string, { department: string; issues: number; quantity: number; value: number }> = {};
+    documents
+      .filter(d => d.docType === 'ISSUE' && d.departmentName && inRange(d.docDate))
+      .forEach(d => {
+        const k = d.departmentName;
+        acc[k] = acc[k] || { department: k, issues: 0, quantity: 0, value: 0 };
+        acc[k].issues += 1;
+        d.items.forEach(it => {
+          acc[k].quantity += Math.abs(it.quantity);
+          acc[k].value += Math.abs(it.quantity) * rateFor(d.docNumber, it.itemId);
+        });
+      });
+    return Object.values(acc).sort((a, b) => b.value - a.value);
+  }, [documents, ledger, fromDate, toDate]);
+
+  // ── Expiry tracker ──
+  const expiryRows = useMemo(() => expiring.map(e => ({
+    itemCode: e.itemCode, itemName: e.itemName, store: e.storeName, batchNo: e.batchNo,
+    expiryDate: e.expiryDate ? new Date(e.expiryDate).toLocaleDateString('en-GB') : '—',
+    daysToExpiry: e.daysToExpiry, quantity: e.quantity,
+  })), [expiring]);
+
+  // ── Fast / slow moving: ranked by quantity issued ──
+  const movementRows = useMemo(() => {
+    const acc: Record<number, { itemName: string; movements: number; issued: number; received: number; onHand: number }> = {};
+    ledger.filter(l => storeFilter(l.storeId) && inRange(l.txnDate)).forEach(l => {
+      acc[l.itemId] = acc[l.itemId] || { itemName: l.itemName, movements: 0, issued: 0, received: 0, onHand: 0 };
+      acc[l.itemId].movements += 1;
+      if (l.quantity < 0) acc[l.itemId].issued += -l.quantity;
+      else acc[l.itemId].received += l.quantity;
+    });
+    stock.filter(s => storeFilter(s.storeId)).forEach(s => {
+      if (acc[s.itemId]) acc[s.itemId].onHand += s.quantity;
+    });
+    return Object.values(acc)
+      .map(r => ({ ...r, velocity: r.issued === 0 ? 'No movement' : r.issued >= 50 ? 'Fast moving' : 'Slow moving' }))
+      .sort((a, b) => b.issued - a.issued);
+  }, [ledger, stock, storeId, fromDate, toDate]);
+
+  const REPORTS: Record<ReportKey, {
+    title: string; description: string; icon: any; cls: string;
+    rows: any[]; columns: Column[]; summary: string;
+  }> = {
+    valuation: {
+      title: 'Stock Valuation', description: 'Closing stock value by category at moving-average cost',
+      icon: IndianRupee, cls: 'text-emerald-600 bg-emerald-50', rows: valuationRows,
+      columns: [
+        { key: 'category', label: 'Category' },
+        { key: 'itemCount', label: 'Lots', align: 'right' },
+        { key: 'totalQty', label: 'Quantity', align: 'right' },
+        { key: 'totalValue', label: 'Value', align: 'right' },
+      ],
+      summary: inr(valuationRows.reduce((s, r) => s + r.totalValue, 0)),
+    },
+    consumption: {
+      title: 'Consumption Analysis', description: 'Stock consumed per department, valued at issue cost',
+      icon: TrendingUp, cls: 'text-purple-600 bg-purple-50', rows: consumptionRows,
+      columns: [
+        { key: 'department', label: 'Department' },
+        { key: 'issues', label: 'Issues', align: 'right' },
+        { key: 'quantity', label: 'Quantity', align: 'right' },
+        { key: 'value', label: 'Value', align: 'right' },
+      ],
+      summary: inr(consumptionRows.reduce((s, r) => s + r.value, 0)),
+    },
+    expiry: {
+      title: 'Expiry Tracker', description: 'Lots expiring within 90 days, or already expired',
+      icon: CalendarClock, cls: 'text-amber-600 bg-amber-50', rows: expiryRows,
+      columns: [
+        { key: 'itemName', label: 'Item' },
+        { key: 'store', label: 'Store' },
+        { key: 'batchNo', label: 'Batch' },
+        { key: 'expiryDate', label: 'Expiry' },
+        { key: 'daysToExpiry', label: 'Days', align: 'right' },
+        { key: 'quantity', label: 'Qty', align: 'right' },
+      ],
+      summary: `${expiryRows.length} lot(s)`,
+    },
+    movement: {
+      title: 'Fast & Slow Moving', description: 'Items ranked by quantity issued in the period',
+      icon: Activity, cls: 'text-blue-600 bg-blue-50', rows: movementRows,
+      columns: [
+        { key: 'itemName', label: 'Item' },
+        { key: 'movements', label: 'Movements', align: 'right' },
+        { key: 'received', label: 'Received', align: 'right' },
+        { key: 'issued', label: 'Issued', align: 'right' },
+        { key: 'onHand', label: 'On Hand', align: 'right' },
+        { key: 'velocity', label: 'Velocity' },
+      ],
+      summary: `${movementRows.length} item(s)`,
+    },
+  };
+
+  // These two need Procurement data (GRN vs PO, vendor lead times), which has no
+  // backend yet — shown as unavailable rather than faked with placeholder numbers.
+  const BLOCKED = [
+    { title: 'Stock Reconciliation', description: 'Physical count vs system stock — needs Procurement GRN data' },
+    { title: 'Vendor Performance', description: 'Lead time and fill rate — needs Procurement purchase orders' },
   ];
 
+  const active = open ? REPORTS[open] : null;
+
+  // Report tables paginate too, and reset whenever a different report is opened
+  // or the filters change the row count.
+  const PAGE_SIZE = 10;
+  const [page, setPage] = useState(1);
+  const activeRows = active?.rows ?? [];
+  const totalPages = Math.max(1, Math.ceil(activeRows.length / PAGE_SIZE));
+  useEffect(() => { setPage(1); }, [open]);
+  useEffect(() => { if (page > totalPages) setPage(1); }, [page, totalPages]);
+  const pagedRows = activeRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  const cell = (row: any, col: Column) => {
+    const v = row[col.key];
+    if (typeof v === 'number' && col.key.toLowerCase().includes('value')) return inr(v);
+    if (col.key === 'daysToExpiry') return v < 0 ? `${Math.abs(v)} overdue` : v;
+    return v ?? '—';
+  };
+
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="h-full flex flex-col">
-      <div className="mb-6 flex justify-between items-end">
+    <div className="space-y-3">
+      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3">
         <div>
-          <div className="flex items-center text-sm text-slate-500 mb-2">
-            <span>Inventory</span>
-            <span className="mx-2">/</span>
-            <span className="text-primary font-medium">Reports</span>
-          </div>
-          <h1 className="text-3xl font-bold text-slate-800">Inventory Reports</h1>
+          <h1 className="text-xl font-bold text-slate-800">Inventory Reports</h1>
+          <p className="text-xs text-slate-500">Generated from live stock, movements and the ledger</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <select value={storeId} onChange={e => setStoreId(e.target.value)}
+            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-600">
+            <option value="">All Stores</option>
+            {stores.map(s => <option key={s.storeId} value={s.storeId}>{s.storeName}</option>)}
+          </select>
+          <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)}
+            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-600" />
+          <span className="text-slate-400 text-sm">to</span>
+          <input type="date" value={toDate} onChange={e => setToDate(e.target.value)}
+            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-600" />
+          <button onClick={() => { setStoreId(''); setFromDate(''); setToDate(''); }}
+            className="px-4 py-1.5 bg-slate-100 text-slate-700 rounded-lg text-sm font-bold hover:bg-slate-200">Clear</button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {reports.map((report, i) => (
-          <div key={i} className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 group hover:shadow-md transition-all hover:border-primary/20 flex flex-col">
-            <div className="flex items-start justify-between mb-4">
-              <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center group-hover:scale-110 transition-transform">
-                <report.icon className="w-6 h-6" />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+        {(Object.keys(REPORTS) as ReportKey[]).map(k => {
+          const r = REPORTS[k];
+          const Icon = r.icon;
+          return (
+            <div key={k} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col">
+              <div className={`w-9 h-9 rounded-lg flex items-center justify-center mb-2 ${r.cls}`}>
+                <Icon className="w-5 h-5" />
               </div>
-              <span className="px-3 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold uppercase tracking-wider rounded-full">
-                {report.type}
-              </span>
+              <h3 className="font-bold text-slate-800">{r.title}</h3>
+              <p className="text-xs text-slate-500 mt-0.5 flex-1">{r.description}</p>
+              <p className="text-lg font-bold text-slate-900 mt-2">{r.summary}</p>
+              <div className="flex gap-2 mt-3">
+                <button onClick={() => setOpen(k)}
+                  className="flex-1 px-3 py-1.5 bg-primary text-white text-sm font-bold rounded-lg hover:bg-primary/90">
+                  View
+                </button>
+                <button onClick={() => exportToExcel(r.rows, `${k}_report`)} disabled={r.rows.length === 0}
+                  title="Export to Excel"
+                  className="px-3 py-1.5 bg-slate-100 text-slate-700 text-sm font-bold rounded-lg hover:bg-slate-200 disabled:opacity-40">
+                  <Download className="w-4 h-4" />
+                </button>
+              </div>
             </div>
-            <h3 className="font-bold text-slate-800 text-lg mb-2">{report.title}</h3>
-            <p className="text-slate-500 text-sm mb-6 flex-1">{report.desc}</p>
-            <div className="flex gap-2">
-              <button 
-                onClick={() => setSelectedReport(report)}
-                className="flex-1 py-2 bg-slate-50 hover:bg-primary text-slate-700 hover:text-white rounded-xl text-sm font-medium transition-colors border border-slate-100 hover:border-transparent flex justify-center items-center gap-2"
-              >
-                <EyeIcon /> View
-              </button>
-              <button 
-                onClick={() => exportToExcel([{ report: report.title, status: 'Generated' }], report.title.replace(/\s+/g, '_'))}
-                className="flex-1 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl text-sm font-medium transition-colors border border-slate-100 flex justify-center items-center gap-2"
-              >
-                <Download className="w-4 h-4" /> Export
-              </button>
+          );
+        })}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {BLOCKED.map(b => (
+          <div key={b.title} className="bg-slate-50 p-4 rounded-2xl border border-dashed border-slate-200 flex items-start gap-3">
+            <div className="w-9 h-9 rounded-lg bg-slate-200 text-slate-500 flex items-center justify-center shrink-0">
+              <Lock className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-600">{b.title}</h3>
+              <p className="text-xs text-slate-500 mt-0.5">{b.description}</p>
             </div>
           </div>
         ))}
       </div>
 
-      <Modal isOpen={!!selectedReport} onClose={() => setSelectedReport(null)} title={selectedReport?.title || 'Report Preview'} size="5xl">
-        {selectedReport && (
-          <div className="space-y-6">
-            <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-between">
+      {active && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[88vh] overflow-y-auto">
+            <div className="px-4 py-2.5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 sticky top-0">
               <div>
-                <h4 className="font-bold text-slate-800">{selectedReport.title} Overview</h4>
-                <p className="text-sm text-slate-500">{selectedReport.desc}</p>
+                <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                  <FileBarChart className="w-5 h-5 text-primary" /> {active.title}
+                </h2>
+                <p className="text-xs text-slate-500">{active.description}</p>
               </div>
-              <Button variant="outline" className="flex items-center gap-2">
-                <Download className="w-4 h-4" /> Download Full PDF
-              </Button>
+              <div className="flex items-center gap-2">
+                <button onClick={() => exportToExcel(active.rows, `${open}_report`)}
+                  disabled={active.rows.length === 0}
+                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm font-bold text-slate-700 flex items-center gap-1 disabled:opacity-40">
+                  <Download className="w-4 h-4" /> Export
+                </button>
+                <button onClick={() => setOpen(null)} className="p-2 hover:bg-slate-200 rounded-full">
+                  <X className="w-5 h-5 text-slate-500" />
+                </button>
+              </div>
             </div>
-
-            <div className="h-64 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col items-center justify-center text-slate-400">
-              <selectedReport.icon className="w-16 h-16 mb-4 text-slate-300 opacity-50" />
-              <p className="font-medium">Report preview visualization would be rendered here.</p>
-              <p className="text-sm">Connects to live inventory BI metrics.</p>
-            </div>
-
-            <div className="border border-slate-200 rounded-xl overflow-hidden">
-              <table className="w-full text-sm text-left">
-                <thead className="bg-slate-50 text-slate-600 font-medium">
+            <div className="p-5">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                   <tr>
-                    <th className="py-3 px-4">Metric</th>
-                    <th className="py-3 px-4">Current Value</th>
-                    <th className="py-3 px-4 text-right">Trend</th>
+                    {active.columns.map(c => (
+                      <th key={c.key} className={`px-3 py-2 ${c.align === 'right' ? 'text-right' : 'text-left'}`}>
+                        {c.label}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  <tr className="hover:bg-slate-50">
-                    <td className="py-3 px-4">Primary Indicator</td>
-                    <td className="py-3 px-4 font-bold text-slate-800">4,520</td>
-                    <td className="py-3 px-4 text-right font-bold text-emerald-500">+12%</td>
-                  </tr>
-                  <tr className="hover:bg-slate-50">
-                    <td className="py-3 px-4">Secondary Indicator</td>
-                    <td className="py-3 px-4 font-bold text-slate-800">$12,050.00</td>
-                    <td className="py-3 px-4 text-right font-bold text-red-500">-3%</td>
-                  </tr>
-                  <tr className="hover:bg-slate-50">
-                    <td className="py-3 px-4">Tertiary Indicator</td>
-                    <td className="py-3 px-4 font-bold text-slate-800">85.4%</td>
-                    <td className="py-3 px-4 text-right font-bold text-emerald-500">+2%</td>
-                  </tr>
+                  {pagedRows.map((row, i) => (
+                    <tr key={i} className="hover:bg-slate-50/70">
+                      {active.columns.map(c => (
+                        <td key={c.key}
+                          className={`px-3 py-2 ${c.align === 'right' ? 'text-right font-medium text-slate-800' : 'text-slate-700'}`}>
+                          {cell(row, c)}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                  {active.rows.length === 0 && (
+                    <tr>
+                      <td colSpan={active.columns.length} className="px-3 py-10 text-center text-slate-400">
+                        {loading ? 'Loading…' : 'No data for the selected filters.'}
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
-            </div>
-            
-            <div className="flex justify-end pt-4 border-t border-slate-100">
-              <Button variant="outline" onClick={() => setSelectedReport(null)}>Close Preview</Button>
+              <Pagination page={page} pageSize={PAGE_SIZE} totalItems={activeRows.length} onPageChange={setPage} />
             </div>
           </div>
-        )}
-      </Modal>
-
-    </motion.div>
+        </div>
+      )}
+    </div>
   );
 };
-
-const EyeIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-eye"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>;

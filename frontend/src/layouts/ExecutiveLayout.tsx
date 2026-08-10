@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, DollarSign, Stethoscope, Settings, ShoppingCart, Package, Users, TrendingUp, Calendar, FileText, Building2, User, Menu } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAppDispatch } from '../hooks/redux';
+import { logout } from '../redux/slices/authSlice';
 
 const executiveNav = [
   { name: 'Executive Overview', to: '/executive/overview', icon: LayoutDashboard },
@@ -19,6 +21,12 @@ const executiveNav = [
 export const ExecutiveLayout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+
+  const handleLogout = () => {
+    dispatch(logout());
+    navigate('/login');
+  };
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans text-slate-800 overflow-hidden">
@@ -76,10 +84,10 @@ export const ExecutiveLayout = () => {
             
             <div className="p-4 border-t border-white/5 bg-sidebar">
               <button
-                onClick={() => navigate('/login')}
-                className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm text-danger hover:bg-danger/10 font-semibold transition-colors group"
+                onClick={handleLogout}
+                className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold text-white bg-white/10 hover:bg-danger hover:text-white transition-colors group"
               >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-danger group-hover:scale-110 transition-transform">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 group-hover:scale-110 transition-transform">
                   <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
                   <line x1="12" y1="2" x2="12" y2="12"></line>
                 </svg>

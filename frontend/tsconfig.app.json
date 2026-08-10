@@ -21,11 +21,11 @@
     "noUnusedParameters": true,
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true,
-    "baseUrl": ".",
+    /* No baseUrl: it is deprecated in TypeScript 6 and removed in 7. Without it
+       the "paths" entries resolve relative to this file, which is what we want. */
     "paths": {
       "@/*": ["./src/*"]
-    },
-    "ignoreDeprecations": "6.0"
+    }
   },
   "include": ["src"]
 }

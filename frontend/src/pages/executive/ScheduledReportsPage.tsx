@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { Pagination } from '@/components/ui/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 import { DateFilter } from '../../components/ui/DateFilter';
 import { Calendar, Clock, Plus, Check, FileText, Filter, Search, MoreVertical, ShieldAlert, History, Activity, X } from 'lucide-react';
 
@@ -10,6 +12,19 @@ export const ScheduledReportsPage = () => {
   const [view, setView] = useState<ViewState>('dashboard');
   const [toast, setToast] = useState('');
   
+  // Execution history is still sample data — there is no report_run table yet.
+  // Declared here (not inside the history branch) so the pagination hook runs
+  // unconditionally; it previously sat after two early returns, which broke the
+  // Rules of Hooks and left `paged` referenced before its declaration.
+  const historyLogs = [
+    { date: 'Today', time: '08:00:05 AM', report: 'Daily Executive Financial Summary', duration: '2.4s', status: 'Success', deliveredTo: '3 Email(s)' },
+    { date: 'Today', time: '06:00:12 AM', report: 'Night Shift ER Incident Report', duration: '1.2s', status: 'Success', deliveredTo: 'Internal Portal' },
+    { date: 'Yesterday', time: '08:00:04 AM', report: 'Daily Executive Financial Summary', duration: '2.3s', status: 'Success', deliveredTo: '3 Email(s)' },
+    { date: 'Jul 15, 2026', time: '09:00:45 AM', report: 'Weekly Clinical Bottlenecks', duration: '4.8s', status: 'Success', deliveredTo: '5 Email(s)' },
+    { date: 'Jul 01, 2026', time: '10:00:02 AM', report: 'Monthly Board Presentation', duration: '45.1s', status: 'Failed', deliveredTo: 'None (Timeout)' },
+  ];
+  const { page, setPage, pageSize, total, paged } = usePagination(historyLogs);
+
   // Dashboard State
   const [reports, setReports] = useState([
     { id: 'SR-1021', name: 'Daily Executive Financial Summary', category: 'Financial', author: 'Dr. Sarah Connor (CFO)', frequency: 'Daily (08:00 AM)', lastRun: 'Today, 08:00 AM', nextRun: 'Tomorrow, 08:00 AM', delivery: 'Email, Portal', recipients: 3, status: 'Active', lastExec: 'Success' },
@@ -187,13 +202,6 @@ export const ScheduledReportsPage = () => {
   }
 
   if (view === 'history') {
-    const historyLogs = [
-      { date: 'Today', time: '08:00:05 AM', report: 'Daily Executive Financial Summary', duration: '2.4s', status: 'Success', deliveredTo: '3 Email(s)' },
-      { date: 'Today', time: '06:00:12 AM', report: 'Night Shift ER Incident Report', duration: '1.2s', status: 'Success', deliveredTo: 'Internal Portal' },
-      { date: 'Yesterday', time: '08:00:04 AM', report: 'Daily Executive Financial Summary', duration: '2.3s', status: 'Success', deliveredTo: '3 Email(s)' },
-      { date: 'Jul 15, 2026', time: '09:00:45 AM', report: 'Weekly Clinical Bottlenecks', duration: '4.8s', status: 'Success', deliveredTo: '5 Email(s)' },
-      { date: 'Jul 01, 2026', time: '10:00:02 AM', report: 'Monthly Board Presentation', duration: '45.1s', status: 'Failed', deliveredTo: 'None (Timeout)' },
-    ];
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-4 mb-6">
@@ -221,7 +229,7 @@ export const ScheduledReportsPage = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {historyLogs.map((log, i) => (
+                {paged.map((log, i) => (
                   <tr key={i} className="hover:bg-slate-50 transition-colors">
                     <td className="py-4 px-6 text-slate-700 font-medium">{log.date}</td>
                     <td className="py-4 px-6 text-slate-600">{log.time}</td>
@@ -247,12 +255,14 @@ export const ScheduledReportsPage = () => {
               </tbody>
             </table>
           </div>
+        <Pagination page={page} pageSize={pageSize} totalItems={total} onPageChange={setPage} />
         </div>
       </div>
     );
   }
 
   // Dashboard View Default
+
   return (
     <div className="space-y-6">
       <div className="flex justify-end">

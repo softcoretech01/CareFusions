@@ -1,4 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { Pagination } from '@/components/ui/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 import { useIPD } from '../../contexts/IPDContext';
 import { Search, Plus, Eye, Pencil, X, ArrowRightLeft } from 'lucide-react';
 import { Modal } from '../../components/ui/Modal';
@@ -26,7 +28,12 @@ interface TransferWithPatient {
 }
 
 export const WardTransfers = () => {
-  const { patients, wards, beds, allocateBed } = useIPD();
+  const { patients, wards, beds, allocateBed, refreshAll } = useIPD();
+
+  // Bed and admission state moves constantly — re-pull whenever this screen
+  // opens. Keyed to mount rather than the callback identity so it fires exactly
+  // once per visit; the context holds an in-flight ref that prevents overlap.
+  useEffect(() => { refreshAll?.(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Search state for main history table
   const [search, setSearch] = useState('');
@@ -108,7 +115,7 @@ export const WardTransfers = () => {
   };
 
   // Modal logic
-  const activePatients = patients.filter(p => p.status === 'Admitted');
+  const activePatients = patients.filter(p => p.status === 'Admitted' || p.status === 'Discharge Requested');
   const selectedPatient = patients.find(p => p.id === selectedPatientId);
   const currentWard = wards.find(w => w.id === selectedPatient?.currentWardId);
   const currentBed = beds.find(b => b.id === selectedPatient?.currentBedId);
@@ -144,7 +151,9 @@ export const WardTransfers = () => {
     setEditTransfer(null);
   };
 
-  const inputCls = "w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium";
+  const inputCls = "w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium";
+
+  const { page, setPage, pageSize, total, paged } = usePagination(activePatients);
 
   return (
     <div className="space-y-4">
@@ -165,7 +174,7 @@ export const WardTransfers = () => {
         </button>
       </div>
 
-      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex flex-col h-[calc(100vh-12rem)]">
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col h-[calc(100vh-12rem)]">
         <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-4 bg-slate-50/50 flex-wrap">
           <div className="relative w-64">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -255,6 +264,7 @@ export const WardTransfers = () => {
             </tbody>
           </table>
         </div>
+        <Pagination page={page} pageSize={pageSize} totalItems={total} onPageChange={setPage} />
       </div>
 
       {/* New Transfer Modal */}
@@ -269,8 +279,8 @@ export const WardTransfers = () => {
               required
             >
               <option value="">-- Select Patient --</option>
-              {activePatients.map(p => (
-                <option key={p.id} value={p.id}>{p.patientName} (UHID: {p.uhid})</option>
+              {paged.map(p => (
+                <option key={p.id} value={p.id}>{p.patientName} ({p.uhid})</option>
               ))}
             </select>
           </div>
@@ -292,7 +302,10 @@ export const WardTransfers = () => {
               required
             >
               <option value="">Select Target Ward</option>
-              {wards.map(w => <option key={w.id} value={w.id}>{w.name} ({w.type})</option>)}
+              {wards.filter(w => 
+                w.id !== currentWard?.id && 
+                (w.genderRestriction === 'Any' || w.genderRestriction === selectedPatient?.gender)
+              ).map(w => <option key={w.id} value={w.id}>{w.name} ({w.type})</option>)}
             </select>
           </div>
 

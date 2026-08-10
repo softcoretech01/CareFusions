@@ -1,198 +1,147 @@
-import { useState } from 'react';
-import { DateFilter } from '../../components/ui/DateFilter';
-import { useExecutiveData } from './hooks/useExecutiveData';
-import { TrendingUp, TrendingDown, DollarSign, Activity, Users, Bed, AlertTriangle, ShieldCheck, Heart, Crosshair } from 'lucide-react';
-import Chart from 'react-apexcharts';
-import type { ApexOptions } from 'apexcharts';
+import { useState, useEffect } from 'react';
+import {
+  IndianRupee, Users, BedDouble, CalendarCheck, Package, FlaskConical,
+  AlertTriangle, ShieldCheck, Receipt,
+} from 'lucide-react';
+import { NoDataNotice } from '../../components/ui/NoDataNotice';
 
-const OverviewKPICard = ({ title, value, subValue, trend, trendValue, icon: Icon }: any) => (
-  <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm hover:border-primary/50 transition-colors group">
-    <div className="flex justify-between items-start mb-4">
-      <div className="p-2.5 rounded-lg bg-slate-50 text-slate-500 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
-        <Icon className="w-5 h-5" />
-      </div>
-      {trend && (
-        <div className={`flex items-center gap-1 text-sm font-semibold ${trend === 'up' ? 'text-emerald-600' : 'text-rose-600'}`}>
-          {trend === 'up' ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-          {trendValue}%
-        </div>
-      )}
+const API_BASE = import.meta.env.VITE_API_URL as string;
+const inr = (n: number) => `₹${(n ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+
+interface Overview {
+  pharmacyRevenueToday: number; pharmacyRevenueMonth: number; salesToday: number;
+  insuranceReconciledMonth: number; insuranceOutstanding: number; claimsInProcess: number;
+  stockValue: number; labOrdersToday: number;
+  alerts: { type: string; message: string }[];
+}
+interface Clinical {
+  admissionsToday: number; dischargesToday: number; currentInpatients: number;
+  appointmentsToday: number; registrationsToday: number;
+  occupiedBeds: number; totalBeds: number; bedOccupancyPct: number;
+}
+
+const KPI = ({ title, value, sub, icon: Icon, cls }: any) => (
+  <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+    <div className={`w-9 h-9 rounded-lg flex items-center justify-center mb-2 ${cls}`}>
+      <Icon className="w-5 h-5" />
     </div>
-    
-    <div>
-      <h4 className="text-slate-500 text-sm font-medium mb-1">{title}</h4>
-      <div className="flex items-baseline gap-2">
-        <span className="text-2xl font-bold text-slate-800">{value}</span>
-        {subValue && <span className="text-sm font-medium text-slate-400">{subValue}</span>}
-      </div>
-    </div>
+    <p className="text-2xl font-bold text-slate-800">{value}</p>
+    <p className="text-xs text-slate-500 mt-0.5">{title}</p>
+    {sub && <p className="text-[11px] text-slate-400 mt-0.5">{sub}</p>}
   </div>
 );
 
-const formatINR = (value: number) => {
-  if (value >= 10000000) return `₹${(value / 10000000).toFixed(2)} Cr`;
-  if (value >= 100000) return `₹${(value / 100000).toFixed(2)} L`;
-  return `₹${value.toLocaleString('en-IN')}`;
-};
-
 export const ExecutiveOverview = () => {
-  const data = useExecutiveData();
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
+  const [ov, setOv] = useState<Overview | null>(null);
+  const [cl, setCl] = useState<Clinical | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const radialOptions: ApexOptions = {
-    chart: { type: 'radialBar', fontFamily: 'Inter' },
-    plotOptions: {
-      radialBar: {
-        hollow: { size: '65%' },
-        dataLabels: {
-          name: { offsetY: -10, color: '#64748b', fontSize: '14px', fontWeight: 500 },
-          value: { color: '#1e293b', fontSize: '36px', fontWeight: 800, show: true }
-        }
-      }
-    },
-    colors: ['#01684c'],
-    labels: ['Hospital Score'],
-  };
+  // Every tile below is a live aggregate. The prototype hardcoded most of these
+  // directly in JSX — patients 1452, admissions 124, occupancy 82%, ICU 92% —
+  // which is why three screens disagreed about bed occupancy.
+  useEffect(() => {
+    Promise.allSettled([
+      fetch(`${API_BASE}/executive/overview`).then(r => r.json()),
+      fetch(`${API_BASE}/executive/clinical`).then(r => r.json()),
+    ]).then(([o, c]) => {
+      if (o.status === 'fulfilled' && o.value && !o.value.detail) setOv(o.value);
+      if (c.status === 'fulfilled' && c.value && !c.value.detail) setCl(c.value);
+      setLoading(false);
+    });
+  }, []);
 
-  const lineOptions: ApexOptions = {
-    chart: { type: 'area', toolbar: { show: false }, fontFamily: 'Inter' },
-    colors: ['#01684c'],
-    fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.2, opacityTo: 0.05, stops: [0, 90, 100] } },
-    dataLabels: { enabled: false },
-    stroke: { curve: 'smooth', width: 2 },
-    xaxis: { categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'], labels: { style: { colors: '#64748b' } } },
-    yaxis: { labels: { formatter: (val) => `₹${(val / 100000).toFixed(0)}L`, style: { colors: '#64748b' } } }
-  };
-
-  const stackedBarOptions: ApexOptions = {
-    chart: { type: 'bar', stacked: true, toolbar: { show: false }, fontFamily: 'Inter' },
-    colors: ['#01684c', '#0ea5e9', '#f5a623', '#8b5cf6'],
-    plotOptions: { bar: { borderRadius: 4, columnWidth: '50%' } },
-    dataLabels: { enabled: false },
-    xaxis: { categories: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], labels: { style: { colors: '#64748b' } } },
-    legend: { position: 'top' },
-  };
+  const alertCls = (t: string) =>
+    t === 'critical' ? 'bg-rose-50 border-rose-200 text-rose-800'
+    : t === 'warning' ? 'bg-amber-50 border-amber-200 text-amber-800'
+    : 'bg-blue-50 border-blue-200 text-blue-800';
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-end">
-        <DateFilter
-          dateFrom={fromDate}
-          dateTo={toDate}
-          onDateFromChange={setFromDate}
-          onDateToChange={setToDate}
-        />
-      </div>
-      
-      {/* 8 Top KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <OverviewKPICard title="Today's Revenue" value={formatINR(data.revenue.today)} trend="up" trendValue={12.4} icon={DollarSign} />
-        <OverviewKPICard title="Monthly Revenue" value={formatINR(data.revenue.thisMonth)} trend="up" trendValue={14.2} icon={Activity} />
-        <OverviewKPICard title="Total Patients Today" value={1452} trend="up" trendValue={4.1} icon={Users} />
-        <OverviewKPICard title="Admissions Today" value={124} trend="up" trendValue={2.1} icon={Bed} />
-        <OverviewKPICard title="Bed Occupancy" value="82%" subValue="Total" trend="down" trendValue={1.5} icon={Heart} />
-        <OverviewKPICard title="ICU Occupancy" value="92%" subValue="Critical" trend="up" trendValue={3.2} icon={AlertTriangle} />
-        <OverviewKPICard title="OT Utilization" value="76%" subValue="Average" trend="up" trendValue={5.4} icon={Crosshair} />
-        <OverviewKPICard title="Net Profit (MTD)" value={formatINR(data.revenue.netProfit)} trend="up" trendValue={8.5} icon={ShieldCheck} />
+    <div className="space-y-3">
+      <div>
+        <h1 className="text-xl font-bold text-slate-800">Executive Overview</h1>
+        <p className="text-xs text-slate-500">Live hospital activity across the connected modules</p>
       </div>
 
-      {/* Hospital Performance & Insights */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Performance Radial */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 flex flex-col justify-center">
-          <h3 className="text-lg font-bold text-slate-800 mb-2">Hospital Performance</h3>
-          <p className="text-sm text-slate-500 mb-4">Overall aggregate score across all modules.</p>
-          <div className="flex-1 flex items-center justify-center -my-4">
-            <Chart options={radialOptions} series={[94]} type="radialBar" height={300} />
-          </div>
-          <div className="grid grid-cols-2 gap-4 mt-4">
-            <div className="bg-slate-50 p-3 rounded-lg text-center">
-              <p className="text-xs font-medium text-slate-500 mb-1">Financial</p>
-              <p className="font-bold text-slate-800">96%</p>
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+        <KPI title="Registrations Today" value={cl?.registrationsToday ?? 0} icon={Users} cls="text-blue-600 bg-blue-50" />
+        <KPI title="Appointments Today" value={cl?.appointmentsToday ?? 0} icon={CalendarCheck} cls="text-indigo-600 bg-indigo-50" />
+        <KPI title="Admissions Today" value={cl?.admissionsToday ?? 0} sub={`${cl?.dischargesToday ?? 0} discharges`} icon={Users} cls="text-purple-600 bg-purple-50" />
+        <KPI title="Current Inpatients" value={cl?.currentInpatients ?? 0} icon={BedDouble} cls="text-teal-600 bg-teal-50" />
+        <KPI title="Bed Occupancy" value={`${cl?.bedOccupancyPct ?? 0}%`} sub={`${cl?.occupiedBeds ?? 0} of ${cl?.totalBeds ?? 0}`} icon={BedDouble} cls="text-amber-600 bg-amber-50" />
+        <KPI title="Lab Orders Today" value={ov?.labOrdersToday ?? 0} icon={FlaskConical} cls="text-cyan-600 bg-cyan-50" />
+        <KPI title="Pharmacy Sales Today" value={inr(ov?.pharmacyRevenueToday ?? 0)} sub={`${ov?.salesToday ?? 0} bills`} icon={IndianRupee} cls="text-emerald-600 bg-emerald-50" />
+        <KPI title="Stock Value" value={inr(ov?.stockValue ?? 0)} icon={Package} cls="text-slate-600 bg-slate-100" />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+          <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
+            <Receipt className="w-4 h-4 text-emerald-600" /> Billed Revenue (Month)
+          </h3>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-slate-500">Pharmacy retail</span>
+              <span className="font-bold text-slate-800">{inr(ov?.pharmacyRevenueMonth ?? 0)}</span>
             </div>
-            <div className="bg-slate-50 p-3 rounded-lg text-center">
-              <p className="text-xs font-medium text-slate-500 mb-1">Clinical</p>
-              <p className="font-bold text-slate-800">92%</p>
+            <div className="flex justify-between">
+              <span className="text-slate-500">Insurance reconciled</span>
+              <span className="font-bold text-slate-800">{inr(ov?.insuranceReconciledMonth ?? 0)}</span>
+            </div>
+            <div className="flex justify-between border-t border-slate-100 pt-2">
+              <span className="text-slate-600 font-semibold">Total captured</span>
+              <span className="font-bold text-emerald-600">
+                {inr((ov?.pharmacyRevenueMonth ?? 0) + (ov?.insuranceReconciledMonth ?? 0))}
+              </span>
+            </div>
+          </div>
+          <p className="text-[11px] text-slate-400 mt-3">
+            Only pharmacy sales and settled claims are billed through the system today.
+          </p>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+          <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-indigo-600" /> Insurance Position
+          </h3>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-slate-500">Claims in process</span>
+              <span className="font-bold text-slate-800">{ov?.claimsInProcess ?? 0}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-500">Awaiting remittance</span>
+              <span className="font-bold text-amber-600">{inr(ov?.insuranceOutstanding ?? 0)}</span>
             </div>
           </div>
         </div>
 
-        {/* AI Summary */}
-        <div className="lg:col-span-1 bg-white rounded-xl border border-slate-200 shadow-sm p-6 flex flex-col">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-lg font-bold text-slate-800">AI Executive Summary</h3>
-            <span className="px-2.5 py-1 bg-primary/10 text-primary text-xs font-bold rounded-md">Powered by CF-AI</span>
-          </div>
-          <div className="flex-1 space-y-4">
-            <ul className="space-y-3">
-              {[
-                "Revenue increased by 12% compared to last month.",
-                "Emergency admissions increased by 6%.",
-                "ICU occupancy reached 92%.",
-                "Cardiology generated the highest revenue.",
-                "Pharmacy expiry loss reduced by 18%.",
-                "Procurement spending remained within budget."
-              ].map((insight, i) => (
-                <li key={i} className="flex items-start gap-3">
-                  <div className="w-1.5 h-1.5 rounded-full bg-primary mt-2 shrink-0"></div>
-                  <p className="text-sm text-slate-600 leading-relaxed">{insight}</p>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <button className="w-full mt-6 py-2 border border-slate-200 text-slate-700 font-medium rounded-lg text-sm hover:bg-slate-50 transition-colors">
-            View Detailed Insights
-          </button>
-        </div>
-
-        {/* Critical Alerts */}
-        <div className="lg:col-span-1 bg-white rounded-xl border border-slate-200 shadow-sm p-6 flex flex-col">
-          <h3 className="text-lg font-bold text-slate-800 mb-6">Critical Monitoring</h3>
-          <div className="flex-1 space-y-4 overflow-y-auto pr-2 custom-scrollbar">
-            {data.alerts.map(alert => (
-              <div key={alert.id} className="p-3 border border-slate-100 rounded-lg bg-slate-50 hover:bg-white transition-colors cursor-pointer group">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full ${alert.type === 'critical' ? 'bg-rose-500' : alert.type === 'warning' ? 'bg-amber-500' : 'bg-blue-500'}`}></span>
-                    <span className={`text-xs font-bold uppercase ${alert.type === 'critical' ? 'text-rose-600' : alert.type === 'warning' ? 'text-amber-600' : 'text-blue-600'}`}>
-                      {alert.type}
-                    </span>
-                  </div>
-                  <span className="text-xs text-slate-400 font-medium">10m ago</span>
-                </div>
-                <p className="text-sm font-medium text-slate-700 mt-2">{alert.message}</p>
-                <div className="flex justify-between items-center mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <span className="text-xs text-slate-500 bg-white px-2 py-1 rounded border border-slate-200">ICU Dept</span>
-                  <span className="text-xs text-primary font-semibold">View Details &rarr;</span>
-                </div>
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+          <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-rose-600" /> Live Alerts
+          </h3>
+          <div className="space-y-2 max-h-52 overflow-y-auto">
+            {(ov?.alerts ?? []).map((a, i) => (
+              <div key={i} className={`text-xs border rounded-lg px-3 py-2 ${alertCls(a.type)}`}>
+                {a.message}
               </div>
             ))}
+            {(!ov?.alerts || ov.alerts.length === 0) && (
+              <p className="text-sm text-slate-400 py-6 text-center">
+                {loading ? 'Loading…' : 'No active alerts.'}
+              </p>
+            )}
           </div>
+          <p className="text-[11px] text-slate-400 mt-2">
+            Raised from ward capacity, reorder levels, expiry windows and unacknowledged critical results.
+          </p>
         </div>
       </div>
 
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-          <h3 className="text-lg font-bold text-slate-800 mb-6">Revenue Trend</h3>
-          <Chart options={lineOptions} series={[{ name: 'Revenue', data: [12500000, 14200000, 13800000, 16500000, 18200000, 21500000] }]} type="area" height={320} />
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-          <h3 className="text-lg font-bold text-slate-800 mb-6">Patient Flow</h3>
-          <Chart 
-            options={stackedBarOptions} 
-            series={[
-              { name: 'OP Visits', data: [850, 920, 880, 950, 1020, 750, 680] },
-              { name: 'Admissions', data: [120, 140, 130, 150, 145, 90, 85] },
-              { name: 'Emergency', data: [45, 55, 50, 60, 65, 80, 85] }
-            ]} 
-            type="bar" 
-            height={320} 
-          />
-        </div>
-      </div>
-
+      <NoDataNotice
+        title="Total hospital revenue, profit, margins and the performance score"
+        needs="Billing / General Ledger"
+        detail="The prototype showed ₹1.24 Cr daily revenue, a 94% performance score and ₹86 L net profit. Only pharmacy and insurance amounts are actually billed today, and they are shown above."
+      />
     </div>
   );
 };

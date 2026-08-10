@@ -226,9 +226,11 @@ export const ProcurementDashboard = () => {
               <BarChart2 className="w-5 h-5 text-slate-400" />
             </div>
             <div className="space-y-4">
-              {spendByCategoryData.length === 0 ? (
+              {loading ? (
+                <div className="text-sm text-slate-500 text-center py-4">Loading...</div>
+              ) : spendByCategoryData.length === 0 ? (
                 <div className="text-sm text-slate-500 text-center py-4">No data available</div>
-              ) : spendByCategoryData.slice(0, 4).map(item => (
+              ) : spendByCategoryData.slice(0, 4).map((item: any) => (
                 <div key={item.label}>
                   <div className="flex justify-between text-sm mb-1">
                     <span className="font-medium text-slate-700 truncate pr-2">{item.label}</span>

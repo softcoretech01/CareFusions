@@ -12,6 +12,7 @@ import { IPDProvider } from './contexts/IPDContext';
 import { PharmacyBillingProvider } from './contexts/PharmacyBillingContext';
 import { InvestigationProvider } from './contexts/InvestigationContext';
 import { InsuranceProvider } from './contexts/InsuranceContext';
+import { InventoryProvider } from './contexts/InventoryContext';
 
 function App() {
   return (
@@ -25,8 +26,10 @@ function App() {
                   <PharmacyBillingProvider>
                     <InvestigationProvider>
                       <InsuranceProvider>
-                        <AppRouter />
-                        <Toaster position="top-right" />
+                        <InventoryProvider>
+                          <AppRouter />
+                          <Toaster position="top-right" />
+                        </InventoryProvider>
                       </InsuranceProvider>
                     </InvestigationProvider>
                   </PharmacyBillingProvider>

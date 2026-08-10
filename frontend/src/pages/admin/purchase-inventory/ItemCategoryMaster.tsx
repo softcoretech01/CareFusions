@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { useLocalStorage } from '../../../utils/useLocalStorage';
+import { useState, useEffect, useCallback } from 'react';
 import { 
   Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle, 
   Save, RefreshCw, X
@@ -8,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
 import { exportToExcel } from '../../../utils/exportToExcel';
+import { freeText, LIMITS } from '../../../utils/inputRules';
 
 export interface ItemCategoryRecord {
   id: number;
@@ -23,6 +23,10 @@ export interface ItemCategoryRecord {
   
   status: string;
   remarks: string;
+  createdBy?: string;
+  createdDate?: string;
+  updatedBy?: string;
+  updatedDate?: string;
 }
 
 const emptyData: Omit<ItemCategoryRecord, 'id'> = {
@@ -40,119 +44,32 @@ const emptyData: Omit<ItemCategoryRecord, 'id'> = {
   remarks: ''
 };
 
-export const initialCategories: ItemCategoryRecord[] = [
-  {
-    id: 1,
-    categoryCode: 'CAT-001',
-    categoryName: 'Medicines',
-    inventoryType: 'Medical',
-    description: 'All types of medicines and drugs',
-    stockRequired: true,
-    batchTracking: true,
-    expiryTracking: true,
-    barcodeRequired: true,
-    status: 'Active',
-    remarks: 'Critical inventory'
-  },
-  {
-    id: 2,
-    categoryCode: 'CAT-002',
-    categoryName: 'Surgical Items',
-    inventoryType: 'Medical',
-    description: 'Surgical and OT instruments',
-    stockRequired: true,
-    batchTracking: true,
-    expiryTracking: false,
-    barcodeRequired: true,
-    status: 'Active',
-    remarks: ''
-  },
-  {
-    id: 3,
-    categoryCode: 'CAT-003',
-    categoryName: 'Medical Consumables',
-    inventoryType: 'Medical',
-    description: 'Disposable items like syringes, masks, gloves',
-    stockRequired: true,
-    batchTracking: true,
-    expiryTracking: true,
-    barcodeRequired: true,
-    status: 'Active',
-    remarks: ''
-  },
-  {
-    id: 4,
-    categoryCode: 'CAT-004',
-    categoryName: 'Laboratory Supplies',
-    inventoryType: 'Medical',
-    description: 'Reagents and lab equipment',
-    stockRequired: true,
-    batchTracking: true,
-    expiryTracking: true,
-    barcodeRequired: true,
-    status: 'Active',
-    remarks: ''
-  },
-  {
-    id: 5,
-    categoryCode: 'CAT-005',
-    categoryName: 'Medical Equipment',
-    inventoryType: 'Medical',
-    description: 'Capital equipment and monitors',
-    stockRequired: true,
-    batchTracking: false,
-    expiryTracking: false,
-    barcodeRequired: true,
-    status: 'Active',
-    remarks: ''
-  },
-  {
-    id: 6,
-    categoryCode: 'CAT-006',
-    categoryName: 'Housekeeping Materials',
-    inventoryType: 'Non-Medical',
-    description: 'Cleaning and hygiene supplies',
-    stockRequired: true,
-    batchTracking: false,
-    expiryTracking: false,
-    barcodeRequired: false,
-    status: 'Active',
-    remarks: ''
-  },
-  {
-    id: 7,
-    categoryCode: 'CAT-007',
-    categoryName: 'Linen & Laundry',
-    inventoryType: 'Non-Medical',
-    description: 'Gowns, sheets, and uniforms',
-    stockRequired: true,
-    batchTracking: false,
-    expiryTracking: false,
-    barcodeRequired: false,
-    status: 'Active',
-    remarks: ''
-  },
-  {
-    id: 8,
-    categoryCode: 'CAT-008',
-    categoryName: 'Office Stationery',
-    inventoryType: 'Non-Medical',
-    description: 'Paper, pens, and office supplies',
-    stockRequired: true,
-    batchTracking: false,
-    expiryTracking: false,
-    barcodeRequired: false,
-    status: 'Active',
-    remarks: ''
-  }
-];
+const API_BASE = import.meta.env.VITE_API_URL as string;
+
+const mapApiToRecord = (item: any): ItemCategoryRecord => ({
+  id:              item.id,
+  categoryCode:    item.categoryCode,
+  categoryName:    item.categoryName,
+  inventoryType:   item.inventoryType || '',
+  description:     item.description || '',
+  stockRequired:   Boolean(item.stockRequired),
+  batchTracking:   Boolean(item.batchTracking),
+  expiryTracking:  Boolean(item.expiryTracking),
+  barcodeRequired: Boolean(item.barcodeRequired),
+  status:          item.status,
+  remarks:         item.remarks || '',
+  createdBy:       item.createdBy,
+  createdDate:     item.createdDate,
+  updatedBy:       item.updatedBy,
+  updatedDate:     item.updatedDate,
+});
 
 export const ItemCategoryMaster = () => {
-  const [records, setRecords] = useLocalStorage<ItemCategoryRecord[]>('procurement_item_categories', initialCategories);
+  const [records, setRecords] = useState<ItemCategoryRecord[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  
+
   // Filter States
   const [showFilters, setShowFilters] = useState(false);
   const [filterType, setFilterType] = useState('');
@@ -164,33 +81,57 @@ export const ItemCategoryMaster = () => {
   const [selectedRecord, setSelectedRecord] = useState<ItemCategoryRecord | null>(null);
   const [formData, setFormData] = useState<Omit<ItemCategoryRecord, 'id'>>(emptyData);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
+
+  const fetchCategories = useCallback(async () => {
+    setIsLoading(true);
+    setApiError(null);
+    try {
+      const res = await fetch(`${API_BASE}/categories/`);
+      if (!res.ok) throw new Error('Failed to load item categories');
+      setRecords((await res.json()).map(mapApiToRecord));
+    } catch (err: any) {
+      setApiError(err.message || 'Failed to load item categories');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchCategories(); }, [fetchCategories]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
-    if (!formData.categoryCode.trim()) newErrors.categoryCode = 'Category Code is required';
     if (!formData.categoryName.trim()) newErrors.categoryName = 'Category Name is required';
     if (!formData.inventoryType) newErrors.inventoryType = 'Inventory Type is required';
 
-    // Uniqueness checks
-    if (records.some(r => r.categoryCode === formData.categoryCode && r.id !== selectedRecord?.id)) {
-      newErrors.categoryCode = 'Category Code must be unique';
-    }
-    if (records.some(r => r.categoryName === formData.categoryName && r.id !== selectedRecord?.id)) {
+    if (records.some(r => r.categoryName.trim().toLowerCase() === formData.categoryName.trim().toLowerCase()
+                          && r.id !== selectedRecord?.id)) {
       newErrors.categoryName = 'Category Name cannot be duplicated';
+    }
+    // An expiry date needs a batch to hang on, and neither applies to a
+    // category that is not stocked. Same rules the SP enforces.
+    if (formData.expiryTracking && !formData.batchTracking) {
+      newErrors.expiryTracking = 'Expiry tracking requires batch tracking';
+    }
+    if (!formData.stockRequired && (formData.batchTracking || formData.expiryTracking)) {
+      newErrors.stockRequired = 'Batch and expiry tracking only apply to stocked categories';
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleCreateNew = () => {
+  const handleCreateNew = async () => {
     setSelectedRecord(null);
-    const nextId = records.length > 0 ? Math.max(...records.map(r => r.id)) + 1 : 1;
-    setFormData({
-      ...emptyData,
-      categoryCode: `CAT-${nextId.toString().padStart(3, '0')}`
-    });
     setErrors({});
+    let code = '';
+    try {
+      const res = await fetch(`${API_BASE}/categories/next-code`);
+      if (res.ok) code = (await res.json()).categoryCode || '';
+    } catch { /* the form works without the preview */ }
+    setFormData({ ...emptyData, categoryCode: code });
     setIsFormOpen(true);
   };
 
@@ -206,23 +147,55 @@ export const ItemCategoryMaster = () => {
     setIsDeleteOpen(true);
   };
 
-  const handleSaveForm = () => {
+  const handleSaveForm = async () => {
     if (!validateForm()) return;
-
-    if (selectedRecord) {
-      setRecords(records.map(r => r.id === selectedRecord.id ? { ...r, ...formData } : r));
-    } else {
-      const newId = Math.max(...records.map(r => r.id), 0) + 1;
-      setRecords([...records, { id: newId, ...formData }]);
+    setIsSaving(true);
+    try {
+      const payload = {
+        categoryName:    formData.categoryName.trim(),
+        inventoryType:   formData.inventoryType || null,
+        description:     formData.description?.trim() || null,
+        stockRequired:   formData.stockRequired,
+        batchTracking:   formData.batchTracking,
+        expiryTracking:  formData.expiryTracking,
+        barcodeRequired: formData.barcodeRequired,
+        remarks:         formData.remarks?.trim() || null,
+        status:          formData.status,
+        ...(selectedRecord ? { updatedBy: 'Admin' } : { createdBy: 'Admin' }),
+      };
+      const res = await fetch(
+        selectedRecord ? `${API_BASE}/categories/${selectedRecord.id}` : `${API_BASE}/categories/`,
+        { method: selectedRecord ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload) }
+      );
+      if (!res.ok) {
+        const body = await res.json();
+        throw new Error(Array.isArray(body.detail)
+          ? body.detail.map((d: any) => d.msg).join(', ')
+          : body.detail || 'Failed to save item category');
+      }
+      await fetchCategories();
+      setIsFormOpen(false);
+    } catch (err: any) {
+      setErrors(prev => ({ ...prev, form: err.message }));
+    } finally {
+      setIsSaving(false);
     }
-    setIsFormOpen(false);
   };
 
-  const confirmDelete = () => {
-    if (selectedRecord) {
-      // Soft Delete
-      setRecords(records.filter(r => r.id !== selectedRecord.id));
+  const confirmDelete = async () => {
+    if (!selectedRecord) return;
+    setApiError(null);
+    try {
+      const res = await fetch(`${API_BASE}/categories/${selectedRecord.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error((await res.json()).detail || 'Failed to delete item category');
+      await fetchCategories();
       setIsDeleteOpen(false);
+      setSelectedRecord(null);
+    } catch (err: any) {
+      setIsDeleteOpen(false);
+      setApiError(err.message);
     }
   };
 
@@ -249,6 +222,13 @@ export const ItemCategoryMaster = () => {
     >
       {!isFormOpen ? (
         <>
+          {/* A failed load left an empty grid that read as "no categories". */}
+          {apiError && (
+            <div className="mb-4 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+              <span>{apiError}</span>
+            </div>
+          )}
           <div className="flex items-center justify-between mb-8">
             <div>
               <h1 className="text-3xl font-bold text-slate-800">Item Category Master</h1>
@@ -303,6 +283,8 @@ export const ItemCategoryMaster = () => {
                       <option value="">All Inventory Types</option>
                       <option value="Medical">Medical</option>
                       <option value="Non-Medical">Non-Medical</option>
+                      <option value="Asset">Asset</option>
+                      <option value="Service">Service</option>
                     </select>
                     <select
                       value={filterStatus}
@@ -368,7 +350,7 @@ export const ItemCategoryMaster = () => {
                   ) : (
                     <tr>
                       <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
-                        No categories found matching your criteria.
+                        {isLoading ? 'Loading item categories...' : 'No categories found matching your criteria.'}
                       </td>
                     </tr>
                   )}
@@ -422,7 +404,7 @@ export const ItemCategoryMaster = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Category Name <span className="text-red-500">*</span></label>
-                    <input type="text" value={formData.categoryName} onChange={e => setFormData({...formData, categoryName: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.categoryName ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
+                    <input type="text" value={formData.categoryName} onChange={e => setFormData({...formData, categoryName: freeText(e.target.value, LIMITS.name)})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.categoryName ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
                     {errors.categoryName && <p className="text-red-500 text-xs mt-1">{errors.categoryName}</p>}
                   </div>
                   <div>
@@ -431,12 +413,14 @@ export const ItemCategoryMaster = () => {
                       <option value="">Select Inventory Type</option>
                       <option value="Medical">Medical</option>
                       <option value="Non-Medical">Non-Medical</option>
+                      <option value="Asset">Asset</option>
+                      <option value="Service">Service</option>
                     </select>
                     {errors.inventoryType && <p className="text-red-500 text-xs mt-1">{errors.inventoryType}</p>}
                   </div>
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
-                    <input type="text" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <input type="text" value={formData.description} onChange={e => setFormData({...formData, description: freeText(e.target.value, LIMITS.remarks)})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                 </div>
               </section>
@@ -449,6 +433,7 @@ export const ItemCategoryMaster = () => {
                     <input type="checkbox" id="stockRequired" checked={formData.stockRequired} onChange={e => setFormData({...formData, stockRequired: e.target.checked})} className="w-4 h-4 text-primary bg-slate-100 border-slate-300 rounded focus:ring-primary" />
                     <label htmlFor="stockRequired" className="text-sm font-medium text-slate-700">Stock Required <span className="text-red-500">*</span></label>
                   </div>
+                  {errors.stockRequired && <p className="text-red-500 text-xs md:col-span-4 -mt-4">{errors.stockRequired}</p>}
                   <div className="flex items-center gap-3">
                     <input type="checkbox" id="batchTracking" checked={formData.batchTracking} onChange={e => setFormData({...formData, batchTracking: e.target.checked})} className="w-4 h-4 text-primary bg-slate-100 border-slate-300 rounded focus:ring-primary" />
                     <label htmlFor="batchTracking" className="text-sm font-medium text-slate-700">Batch Tracking</label>
@@ -457,6 +442,7 @@ export const ItemCategoryMaster = () => {
                     <input type="checkbox" id="expiryTracking" checked={formData.expiryTracking} onChange={e => setFormData({...formData, expiryTracking: e.target.checked})} className="w-4 h-4 text-primary bg-slate-100 border-slate-300 rounded focus:ring-primary" />
                     <label htmlFor="expiryTracking" className="text-sm font-medium text-slate-700">Expiry Tracking</label>
                   </div>
+                  {errors.expiryTracking && <p className="text-red-500 text-xs md:col-span-4 -mt-4">{errors.expiryTracking}</p>}
                   <div className="flex items-center gap-3">
                     <input type="checkbox" id="barcodeRequired" checked={formData.barcodeRequired} onChange={e => setFormData({...formData, barcodeRequired: e.target.checked})} className="w-4 h-4 text-primary bg-slate-100 border-slate-300 rounded focus:ring-primary" />
                     <label htmlFor="barcodeRequired" className="text-sm font-medium text-slate-700">Barcode Required</label>
@@ -477,13 +463,19 @@ export const ItemCategoryMaster = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Remarks</label>
-                    <input type="text" value={formData.remarks} onChange={e => setFormData({...formData, remarks: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <input type="text" value={formData.remarks} onChange={e => setFormData({...formData, remarks: freeText(e.target.value, LIMITS.remarks)})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                 </div>
               </section>
 
             </div>
 
+            {errors.form && (
+              <div className="mx-4 mb-3 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                <span>{errors.form}</span>
+              </div>
+            )}
             <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex justify-between items-center shrink-0">
               <Button variant="outline" color="secondary" onClick={() => setFormData(emptyData)} icon={RefreshCw}>
                 Reset
@@ -492,7 +484,7 @@ export const ItemCategoryMaster = () => {
                 <Button variant="outline" color="secondary" onClick={() => setIsFormOpen(false)}>
                   Cancel
                 </Button>
-                <Button variant="filled" color="primary" onClick={handleSaveForm} icon={Save}>
+                <Button variant="filled" color="primary" onClick={handleSaveForm} icon={Save} isLoading={isSaving}>
                   {selectedRecord ? 'Update' : 'Save'}
                 </Button>
               </div>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useIPD } from '../../contexts/IPDContext';
 import type { IPDPatient, Bed } from '../../contexts/IPDContext';
 import { Activity, Stethoscope, X, User, Calendar, BedDouble, Clock, Plus } from 'lucide-react';
@@ -9,12 +9,20 @@ import toast from 'react-hot-toast';
 const WARD_TYPES = ['General', 'Semi-Private', 'Private', 'Deluxe', 'ICU', 'NICU', 'PICU', 'HDU', 'OT'];
 
 export const BedManagement = () => {
-  const { wards, beds, patients, addWard, addBed } = useIPD();
+  const { wards, beds, patients, addWard, addBed, updateBedStatus, refreshAll } = useIPD();
+
+  // Bed and admission state moves constantly — re-pull whenever this screen
+  // opens. Keyed to mount rather than the callback identity so it fires exactly
+  // once per visit; the context holds an in-flight ref that prevents overlap.
+  useEffect(() => { refreshAll?.(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [selectedWard, setSelectedWard] = useState<number | 'All'>('All');
 
   // Patient detail popup
   const [popupPatient, setPopupPatient] = useState<IPDPatient | null>(null);
   const [popupBed, setPopupBed] = useState<Bed | null>(null);
+
+  // Bed cleaning confirmation popup
+  const [confirmCleanBed, setConfirmCleanBed] = useState<Bed | null>(null);
 
   // Add Ward / Add Bed modals
   const [showWardModal, setShowWardModal] = useState(false);
@@ -25,7 +33,7 @@ export const BedManagement = () => {
   const [bedErr, setBedErr] = useState<Record<string, string>>({});
 
   const inputCls = (bad?: string) =>
-    `w-full px-3 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all font-medium ${
+    `w-full px-3 py-1.5 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all font-medium ${
       bad ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'
     }`;
 
@@ -65,9 +73,13 @@ export const BedManagement = () => {
 
   const filteredWards = selectedWard === 'All' ? wards : wards.filter(w => w.id === selectedWard);
 
-  const handleBedClick = (bed: Bed) => {
+  const handleBedClick = async (bed: Bed) => {
+    if (bed.status === 'Cleaning') {
+      setConfirmCleanBed(bed);
+      return;
+    }
     if (bed.status !== 'Occupied') return;
-    const patient = patients.find(p => p.currentBedId === bed.id && p.status === 'Admitted');
+    const patient = patients.find(p => p.currentBedId === bed.id && p.status !== 'Discharged');
     if (patient) {
       setPopupPatient(patient);
       setPopupBed(bed);
@@ -175,12 +187,12 @@ export const BedManagement = () => {
           return (
             <div
               key={ward.id}
-              className={`bg-white rounded-3xl border p-6 shadow-sm ${
+              className={`bg-white rounded-2xl border p-6 shadow-sm ${
                 isOT ? 'border-purple-200 ring-1 ring-purple-100' : 'border-slate-100'
               }`}
             >
               {/* Ward header */}
-              <div className="flex items-center justify-between mb-6 border-b border-slate-100 pb-4">
+              <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-4">
                 <div className="flex items-center gap-3">
                   {isOT ? (
                     <div className="w-10 h-10 rounded-xl bg-purple-50 border border-purple-200 flex items-center justify-center">
@@ -222,7 +234,7 @@ export const BedManagement = () => {
                     </h4>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                       {roomBeds.map(bed => {
-                        const patient = patients.find(p => p.currentBedId === bed.id && p.status === 'Admitted');
+                        const patient = patients.find(p => p.currentBedId === bed.id && p.status !== 'Discharged');
                         const isOccupied = bed.status === 'Occupied';
 
                         const cardCls = isOccupied
@@ -246,7 +258,7 @@ export const BedManagement = () => {
                             key={bed.id}
                             onClick={() => handleBedClick(bed)}
                             className={`relative p-4 rounded-2xl border transition-all ${cardCls}`}
-                            title={isOccupied ? 'Click to view patient details' : bed.status}
+                            title={isOccupied ? 'Click to view patient details' : bed.status === 'Cleaning' ? 'Click to mark as Available' : bed.status}
                           >
                             <div className="flex items-center justify-between mb-2">
                               <span className="font-bold text-slate-700 text-sm">{bed.bedNumber}</span>
@@ -368,6 +380,34 @@ export const BedManagement = () => {
           </div>
         );
       })()}
+
+      <Modal isOpen={!!confirmCleanBed} onClose={() => setConfirmCleanBed(null)} title="Confirm Bed Availability" maxWidth="sm">
+        <div className="p-4 space-y-6">
+          <p className="text-slate-700">
+            Mark bed <strong>{confirmCleanBed?.bedNumber}</strong> as Available?
+          </p>
+          <div className="flex justify-end gap-3 pt-2">
+            <button 
+              onClick={() => setConfirmCleanBed(null)} 
+              className="px-4 py-2 text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
+            >
+              Cancel
+            </button>
+            <button 
+              onClick={async () => {
+                if (!confirmCleanBed) return;
+                await updateBedStatus(confirmCleanBed.id, 'Available');
+                toast.success(`Bed ${confirmCleanBed.bedNumber} is now Available.`);
+                setConfirmCleanBed(null);
+              }}
+              className="px-4 py-2 text-sm font-semibold text-white bg-primary hover:bg-primary-hover rounded-xl transition-colors shadow-sm"
+            >
+              Confirm
+            </button>
+          </div>
+        </div>
+      </Modal>
+
     </div>
   );
 };

@@ -12,14 +12,25 @@ export const DepartmentConsultations = () => {
   const { orders: globalOrders } = useInvestigations();
   const navigate = useNavigate();
 
-  const today = new Date().toISOString().split('T')[0];
-  const [dateFrom, setDateFrom] = useState(today);
-  const [dateTo, setDateTo] = useState(today);
+  const todayDate = new Date();
+  const firstDay = new Date(todayDate.getFullYear(), todayDate.getMonth(), 1);
+  const formatYYYYMMDD = (d: Date) => {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  const todayStr = formatYYYYMMDD(todayDate);
+  const firstDayStr = formatYYYYMMDD(firstDay);
+
+  const [dateFrom, setDateFrom] = useState(firstDayStr);
+  const [dateTo, setDateTo] = useState(todayStr);
 
   const [viewerState, setViewerState] = useState<{ patientId: string; category: 'Lab' | 'Radiology' } | null>(null);
 
-  const [appliedDateFrom, setAppliedDateFrom] = useState(today);
-  const [appliedDateTo, setAppliedDateTo] = useState(today);
+  const [appliedDateFrom, setAppliedDateFrom] = useState(firstDayStr);
+  const [appliedDateTo, setAppliedDateTo] = useState(todayStr);
 
   // Convert the URL param back to the proper department name for filtering
   const formattedDept = department

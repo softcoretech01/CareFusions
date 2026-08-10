@@ -1,213 +1,156 @@
 import { useState, useMemo, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { Pagination } from '../../components/ui/Pagination';
+import { Search, Download, Package } from 'lucide-react';
+import { useInventory } from '../../contexts/InventoryContext';
 import { exportToExcel } from '../../utils/exportToExcel';
-import { Search, Download, Package, ChevronLeft, ChevronRight } from 'lucide-react';
-import { initialStock, mockStores, mockDepartments } from './mockData';
-import { useLocalStorage } from '../../utils/useLocalStorage';
-import { mockData as itemMasterMock } from '../admin/purchase-inventory/ItemMaster';
+
+const inr = (n: number) => `₹${(n ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+
+// Status is derived from live quantity against the item master's reorder level.
+// The prototype stored a status string at seed time and never recomputed it, so
+// a lot issued down to zero still read "In Stock".
+const statusOf = (qty: number, reorder: number | null) => {
+  if (qty <= 0) return 'Out of Stock';
+  if (reorder != null && qty <= reorder) return 'Low Stock';
+  return 'In Stock';
+};
+
+const badge = (st: string) => st === 'Out of Stock'
+  ? 'bg-rose-100 text-rose-700'
+  : st === 'Low Stock' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700';
 
 export const CurrentStock = () => {
-  const [stockRecords, setStockRecords] = useLocalStorage('inventory_stock', initialStock);
+  const { stock, stores, loading } = useInventory();
+  const [search, setSearch] = useState('');
+  const [storeId, setStoreId] = useState('');
+  const [status, setStatus] = useState('');
 
-  useEffect(() => {
-    let migrated = false;
-    const updated = stockRecords.map((r: any) => {
-      if (r.category === 'General' || !r.category) {
-        migrated = true;
-        // Try to find the correct category from item master, default to Medicines
-        const masterItem = itemMasterMock.find(item => r.itemName.includes(item.itemName) || item.itemName.includes(r.itemName));
-        return { ...r, category: masterItem ? masterItem.category : 'Medicines' };
-      }
-      return r;
-    });
-    if (migrated) {
-      setStockRecords(updated);
-    }
-  }, [stockRecords, setStockRecords]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterStore, setFilterStore] = useState('');
-  const [filterDepartment, setFilterDepartment] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const rows = useMemo(() => stock.filter(r => {
+    const s = search.trim().toLowerCase();
+    if (s && !(r.itemName.toLowerCase().includes(s) || r.itemCode.toLowerCase().includes(s)
+      || r.batchNo.toLowerCase().includes(s) || (r.category || '').toLowerCase().includes(s))) return false;
+    if (storeId && String(r.storeId) !== storeId) return false;
+    if (status && statusOf(r.quantity, r.reorderLevel) !== status) return false;
+    return true;
+  }), [stock, search, storeId, status]);
 
-  const filteredStock = useMemo(() => {
-    return stockRecords.filter((record: any) => {
-      const matchesSearch = record.itemName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                            record.itemCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            record.batchNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            record.department.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      const matchesStore = filterStore ? record.store === filterStore : true;
-      const matchesDepartment = filterDepartment ? record.department === filterDepartment : true;
-      const matchesStatus = filterStatus ? record.status === filterStatus : true;
+  const totalValue = rows.reduce((s, r) => s + r.stockValue, 0);
 
-      return matchesSearch && matchesStore && matchesDepartment && matchesStatus;
-    });
-  }, [stockRecords, searchTerm, filterStore, filterDepartment, filterStatus]);
-
-  const totalPages = Math.ceil(filteredStock.length / itemsPerPage);
-  const paginatedStock = filteredStock.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
-  const getStatusColor = (status: string) => {
-    switch(status) {
-      case 'In Stock': return 'bg-emerald-100 text-emerald-700';
-      case 'Low Stock': return 'bg-orange-100 text-orange-700';
-      case 'Out of Stock': return 'bg-red-100 text-red-700';
-      default: return 'bg-slate-100 text-slate-700';
-    }
-  };
+  const PAGE_SIZE = 10;
+  const [page, setPage] = useState(1);
+  const totalRows = rows.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
+  // Filters can shrink the list under the current page — snap back into range.
+  useEffect(() => { if (page > totalPages) setPage(1); }, [page, totalPages]);
+  const paged = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="h-full flex flex-col">
-      <div className="mb-6 flex justify-between items-end">
+    <div className="space-y-3">
+      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3">
         <div>
-          <div className="flex items-center text-sm text-slate-500 mb-2">
-            <span>Inventory</span>
-            <span className="mx-2">/</span>
-            <span className="text-primary font-medium">Current Stock</span>
-          </div>
-          <h1 className="text-3xl font-bold text-slate-800">Current Stock</h1>
+          <h1 className="text-xl font-bold text-slate-800">Current Stock</h1>
+          <p className="text-xs text-slate-500">Live lot balances valued at moving-average cost</p>
         </div>
         <div className="flex items-center gap-3">
-          {/* Date filter removed as per user request */}
+          <div className="bg-white border border-slate-100 rounded-xl px-4 py-2 shadow-sm">
+            <span className="text-xs text-slate-500">Stock Value </span>
+            <span className="font-bold text-slate-800">{inr(totalValue)}</span>
+          </div>
+          <button
+            onClick={() => exportToExcel(rows.map(r => ({
+              'Item Code': r.itemCode, 'Item Name': r.itemName, Category: r.category,
+              Store: r.storeName, Batch: r.batchNo, Expiry: r.expiryDate || '',
+              Quantity: r.quantity, UOM: r.uom, Rate: r.valuationRate, Value: r.stockValue,
+              Status: statusOf(r.quantity, r.reorderLevel),
+            })), 'current_stock')}
+            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 flex items-center gap-2">
+            <Download className="w-4 h-4" /> Export
+          </button>
         </div>
       </div>
 
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden">
-        {/* Toolbar */}
-        <div className="p-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-4 bg-slate-50/50">
-          <div className="flex items-center gap-3 flex-1 min-w-[300px]">
-            <div className="relative flex-1 max-w-md">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input 
-                type="text" 
-                placeholder="Search items, codes, batches..." 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary shadow-sm"
-              />
-            </div>
-
-            <select value={filterStore} onChange={(e) => setFilterStore(e.target.value)} className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm shadow-sm outline-none focus:border-primary">
-              <option value="">All Stores</option>
-              {mockStores.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
-            </select>
-
-            <select value={filterDepartment} onChange={(e) => setFilterDepartment(e.target.value)} className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm shadow-sm outline-none focus:border-primary">
-              <option value="">All Departments</option>
-              {mockDepartments.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
-            </select>
-
-            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm shadow-sm outline-none focus:border-primary">
-              <option value="">All Statuses</option>
-              <option value="In Stock">In Stock</option>
-              <option value="Low Stock">Low Stock</option>
-              <option value="Out of Stock">Out of Stock</option>
-            </select>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            <button onClick={() => exportToExcel(filteredStock, 'Current_Stock')} className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-medium shadow-sm hover:bg-slate-50 flex items-center gap-2">
-              <Download className="w-4 h-4" /> Export CSV
-            </button>
-          </div>
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-2.5 flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-[220px] max-w-md">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Search item, code, batch or category..."
+            className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-primary" />
         </div>
+        <select value={storeId} onChange={e => setStoreId(e.target.value)}
+          className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600">
+          <option value="">All Stores</option>
+          {stores.map(s => <option key={s.storeId} value={s.storeId}>{s.storeName}</option>)}
+        </select>
+        <select value={status} onChange={e => setStatus(e.target.value)}
+          className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600">
+          <option value="">All Status</option>
+          <option>In Stock</option><option>Low Stock</option><option>Out of Stock</option>
+        </select>
+        <button onClick={() => { setSearch(''); setStoreId(''); setStatus(''); }}
+          className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-200">Clear</button>
+      </div>
 
-        {/* Data Grid */}
-        <div className="flex-1 overflow-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-slate-50 text-slate-600 font-medium sticky top-0 z-10 shadow-sm">
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-xs font-semibold text-slate-500 uppercase tracking-wider">
               <tr>
-                <th className="py-4 px-6 border-b border-slate-100 whitespace-nowrap">Item Code</th>
-                <th className="py-4 px-6 border-b border-slate-100">Item Details</th>
-                <th className="py-4 px-6 border-b border-slate-100">Category</th>
-                <th className="py-4 px-6 border-b border-slate-100">Store</th>
-                <th className="py-4 px-6 border-b border-slate-100">Department</th>
-                <th className="py-4 px-6 border-b border-slate-100">Batch</th>
-                <th className="py-4 px-6 border-b border-slate-100">Expire</th>
-                <th className="py-4 px-6 border-b border-slate-100 whitespace-nowrap">Available Qty</th>
-                <th className="py-4 px-6 border-b border-slate-100">Status</th>
+                <th className="px-3 py-2 text-left">Item</th>
+                <th className="px-3 py-2 text-left">Category</th>
+                <th className="px-3 py-2 text-left">Store</th>
+                <th className="px-3 py-2 text-left">Batch / Expiry</th>
+                <th className="px-3 py-2 text-right">Quantity</th>
+                <th className="px-3 py-2 text-right">Rate</th>
+                <th className="px-3 py-2 text-right">Value</th>
+                <th className="px-3 py-2 text-left">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {paginatedStock.length > 0 ? paginatedStock.map((record: any) => (
-                <tr key={record.id} className="hover:bg-slate-50 transition-colors group">
-                  <td className="py-3 px-6 font-medium text-slate-700">
-                    {record.itemCode}
-                  </td>
-                  <td className="py-3 px-6">
-                    <div className="font-bold text-slate-800">{record.itemName}</div>
-                    <div className="text-xs text-slate-500 mt-0.5">{record.manufacturer}</div>
-                  </td>
-                  <td className="py-3 px-6">
-                    <div className="font-medium text-slate-700">{record.category}</div>
-                  </td>
-                  <td className="py-3 px-6">
-                    <div className="font-medium text-slate-700">{record.store}</div>
-                  </td>
-                  <td className="py-3 px-6">
-                    <div className="font-medium text-slate-700">{record.department}</div>
-                  </td>
-                  <td className="py-3 px-6">
-                    <div className="font-medium text-slate-700">{record.batchNo}</div>
-                  </td>
-                  <td className="py-3 px-6">
-                    <div className="font-medium text-slate-700">{record.expiryDate}</div>
-                  </td>
-                  <td className="py-3 px-6">
-                    <div className="flex flex-col items-start">
-                      <span className="font-bold text-lg text-slate-800">{record.availableQty} <span className="text-sm font-medium text-slate-500">{record.uom}</span></span>
-                      <span className="text-[10px] text-slate-400 mt-1 uppercase tracking-wider font-semibold">Min: {record.reorderLevel} | Max: {record.maxStock}</span>
-                    </div>
-                  </td>
-                  <td className="py-3 px-6">
-                    <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider whitespace-nowrap ${getStatusColor(record.status)}`}>
-                      {record.status}
-                    </span>
-                  </td>
-                </tr>
-              )) : (
+              {paged.map(r => {
+                const st = statusOf(r.quantity, r.reorderLevel);
+                return (
+                  <tr key={r.stockId} className="hover:bg-slate-50/70 transition-colors">
+                    <td className="px-3 py-2">
+                      <div className="font-bold text-slate-800">{r.itemName}</div>
+                      <div className="text-xs text-slate-500">{r.itemCode}</div>
+                    </td>
+                    <td className="px-3 py-2 text-slate-600">{r.category || '—'}</td>
+                    <td className="px-3 py-2 text-slate-600">{r.storeName}</td>
+                    <td className="px-3 py-2">
+                      <div className="text-slate-700">{r.batchNo}</div>
+                      <div className="text-xs text-slate-500">
+                        {r.expiryDate ? new Date(r.expiryDate).toLocaleDateString('en-GB') : 'No expiry'}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-right font-semibold text-slate-800">
+                      {r.quantity} <span className="text-xs font-normal text-slate-500">{r.uom}</span>
+                      {r.reorderLevel != null && (
+                        <div className="text-[11px] text-slate-400">Reorder: {r.reorderLevel}</div>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-right text-slate-600">{inr(r.valuationRate)}</td>
+                    <td className="px-3 py-2 text-right font-semibold text-slate-800">{inr(r.stockValue)}</td>
+                    <td className="px-3 py-2">
+                      <span className={`px-2.5 py-1 text-xs font-bold rounded-lg w-max block ${badge(st)}`}>{st}</span>
+                    </td>
+                  </tr>
+                );
+              })}
+              {rows.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="py-12 text-center">
-                    <div className="flex flex-col items-center justify-center text-slate-400">
-                      <Package className="w-12 h-12 mb-4 text-slate-300" />
-                      <p className="text-lg font-medium text-slate-600">No stock records found</p>
-                      <p className="text-sm mt-1">Try adjusting your search or filters</p>
-                    </div>
+                  <td colSpan={8} className="px-3 py-8 text-center text-slate-400">
+                    <Package className="w-8 h-8 mx-auto text-slate-200 mb-2" />
+                    {loading ? 'Loading stock…' : stock.length === 0
+                      ? 'No stock yet. Receive goods under Stock In to get started.'
+                      : 'No stock matches the current filters.'}
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
-
-        {/* Pagination */}
-        <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
-          <div className="text-sm text-slate-500 font-medium">
-            Showing <span className="text-slate-800">{Math.min((currentPage - 1) * itemsPerPage + 1, filteredStock.length)}</span> to <span className="text-slate-800">{Math.min(currentPage * itemsPerPage, filteredStock.length)}</span> of <span className="text-slate-800">{filteredStock.length}</span> entries
-          </div>
-          <div className="flex items-center gap-2">
-            <button 
-              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-              disabled={currentPage === 1}
-              className="p-2 border border-slate-200 rounded-lg text-slate-600 hover:bg-white disabled:opacity-50 disabled:hover:bg-transparent bg-white shadow-sm"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <div className="text-sm font-medium text-slate-700 px-2">
-              Page {currentPage} of {totalPages || 1}
-            </div>
-            <button 
-              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-              disabled={currentPage === totalPages || totalPages === 0}
-              className="p-2 border border-slate-200 rounded-lg text-slate-600 hover:bg-white disabled:opacity-50 disabled:hover:bg-transparent bg-white shadow-sm"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
+        <Pagination page={page} pageSize={PAGE_SIZE} totalItems={totalRows} onPageChange={setPage} />
       </div>
-    </motion.div>
+    </div>
   );
 };

@@ -33,8 +33,6 @@ const emptyData: Omit<DiagnosisRecord, 'id'> = {
   remarks: ''
 };
 
-const mockData: DiagnosisRecord[] = [];
-
 const API_BASE = import.meta.env.VITE_API_URL as string;
 
 const mapApiToRecord = (item: any): DiagnosisRecord => ({
@@ -365,7 +363,7 @@ export const DiagnosisMaster = () => {
                   ) : (
                     <tr>
                       <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
-                        No diagnosis records found matching your criteria.
+                        {isLoading ? 'Loading records...' : 'No diagnosis records found matching your criteria.'}
                       </td>
                     </tr>
                   )}
@@ -490,7 +488,7 @@ export const DiagnosisMaster = () => {
                 <Button variant="outline" color="secondary" onClick={() => setIsFormOpen(false)}>
                   Cancel
                 </Button>
-                <Button variant="filled" color="primary" onClick={handleSaveForm} icon={Save}>
+                <Button variant="filled" color="primary" onClick={handleSaveForm} icon={Save} isLoading={isSaving}>
                   {selectedRecord ? 'Update' : 'Save'}
                 </Button>
               </div>

@@ -53,7 +53,7 @@ export const DischargePrescription = ({
       dosage,
       frequency,
       duration,
-      quantity: Number(quantity),
+      quantity: Math.max(0, Number(quantity) || 0),
       notes
     };
 
@@ -165,7 +165,7 @@ export const DischargePrescription = ({
               type="number"
               placeholder="e.g., 10"
               value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
+              onChange={(e) => setQuantity(e.target.value.replace(/\D/g, '').slice(0, 5))}
               className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
             />
           </div>

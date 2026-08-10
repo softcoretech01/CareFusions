@@ -24,7 +24,9 @@ export interface DepartmentRecord {
   updatedDate?: string;
 }
 
-const emptyData: Omit<DepartmentRecord, 'id' | 'departmentCode'> = {
+// `departmentCode` is server-generated but shown on the form, so it stays
+// optional on the form state rather than being omitted outright.
+const emptyData: Omit<DepartmentRecord, 'id' | 'departmentCode'> & { departmentCode?: string } = {
   departmentName: '',
   departmentType: 'Clinical',
   description: '',
@@ -75,7 +77,7 @@ export const DepartmentMaster = () => {
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [selectedRecord, setSelectedRecord] = useState<DepartmentRecord | null>(null);
-  const [formData, setFormData] = useState<Omit<DepartmentRecord, 'id' | 'departmentCode'>>(emptyData);
+  const [formData, setFormData] = useState<Omit<DepartmentRecord, 'id' | 'departmentCode'> & { departmentCode?: string }>(emptyData);
 
   // ── Fetch departments ────────────────────────────────────────
   const fetchDepartments = async () => {
@@ -466,7 +468,7 @@ export const DepartmentMaster = () => {
             </div>
             <div className="pt-4 border-t border-slate-100">
               <span className="text-xs text-slate-400 block mb-1">Status</span>
-              <span className={`px-2.5 py-1 rounded-full text-xs font-medium \${
+              <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
                 selectedRecord.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'
               }`}>
                 {selectedRecord.status}

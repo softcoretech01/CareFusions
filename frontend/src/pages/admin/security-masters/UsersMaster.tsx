@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { Pagination } from '@/components/ui/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 import {
   Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle,
   Save, RefreshCw, Eye, EyeOff, ShieldCheck, ShieldOff, X
@@ -346,6 +348,8 @@ export const UsersMaster = () => {
   const _page = Math.min(currentPage, _totalPages);
   const pagedRecords = filteredRecords.slice((_page - 1) * itemsPerPage, _page * itemsPerPage);
 
+  const { page, setPage, pageSize, total, paged } = usePagination(allRoles);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -414,7 +418,7 @@ export const UsersMaster = () => {
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     >
                       <option value="">All Roles</option>
-                      {allRoles.map(r => <option key={r} value={r}>{r}</option>)}
+                      {paged.map(r => <option key={r} value={r}>{r}</option>)}
                     </select>
                     <select
                       value={filterDepartment}
@@ -501,6 +505,7 @@ export const UsersMaster = () => {
                 </tbody>
               </table>
             </div>
+        <Pagination page={page} pageSize={pageSize} totalItems={total} onPageChange={setPage} />
             <div className="flex flex-wrap items-center justify-between gap-3 p-4 border-t border-slate-100 text-sm text-slate-500">
               <div className="flex items-center gap-2">
                 <span>Show</span>

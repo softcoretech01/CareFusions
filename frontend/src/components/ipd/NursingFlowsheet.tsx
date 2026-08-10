@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Activity, Plus, Trash2, Clock, Loader2 } from 'lucide-react';
+import { Activity, Plus, Trash2, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export interface VitalsEntry {
@@ -23,7 +23,6 @@ export const NursingFlowsheet: React.FC<NursingFlowsheetProps> = ({ patientId })
   const [entries, setEntries] = useState<VitalsEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     temperature: '',
     pulse: '',
@@ -101,12 +100,11 @@ export const NursingFlowsheet: React.FC<NursingFlowsheetProps> = ({ patientId })
     // Usually clinical records are immutable, so we just remove locally for now 
     // or ideally don't allow delete. I'll just remove it from state to match original behavior.
     setEntries(entries.filter(e => e.id !== id));
-    if (selectedId === id) setSelectedId(null);
     toast.success('Vitals entry removed locally');
   };
 
   const inputCls = 'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20';
-  const shown = selectedId ? entries.filter(e => e.id === selectedId) : entries;
+  const shown = entries;
 
   if (isLoading) {
     return <div className="flex justify-center py-10"><Loader2 className="w-8 h-8 animate-spin text-slate-400" /></div>;
@@ -134,7 +132,7 @@ export const NursingFlowsheet: React.FC<NursingFlowsheetProps> = ({ patientId })
           <form onSubmit={handleSubmit}>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-3">
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Temp (°F/°C)</label>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Temp (Â°F/Â°C)</label>
                 <input type="text" placeholder="e.g. 98.6" value={formData.temperature} onChange={e => setFormData({ ...formData, temperature: e.target.value })} className={inputCls} />
               </div>
               <div>
@@ -166,48 +164,8 @@ export const NursingFlowsheet: React.FC<NursingFlowsheetProps> = ({ patientId })
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Left: History timeline */}
-        <div className="lg:col-span-1 border border-slate-100 rounded-2xl bg-slate-50/50 p-3">
-          <div className="flex items-center justify-between mb-2">
-            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">History</h4>
-            {selectedId && (
-              <button onClick={() => setSelectedId(null)} className="text-[11px] text-primary font-semibold">Show all</button>
-            )}
-          </div>
-          {entries.length === 0 ? (
-            <p className="text-sm text-slate-400 py-6 text-center">No history yet.</p>
-          ) : (
-            <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1 custom-scrollbar">
-              {entries.map(entry => {
-                const active = selectedId === entry.id;
-                return (
-                  <button
-                    key={entry.id}
-                    onClick={() => setSelectedId(active ? null : entry.id)}
-                    className={`w-full text-left rounded-xl border px-3 py-2 transition-colors ${
-                      active ? 'border-primary bg-primary/5' : 'border-slate-200 bg-white hover:border-primary/40'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-700">{new Date(entry.timestamp).toLocaleDateString()}</span>
-                      <span className="text-[11px] text-slate-400 flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    </div>
-                    <div className="text-[11px] text-slate-500 mt-1">
-                      T {entry.temperature || '-'} · P {entry.pulse || '-'} · BP {entry.bloodPressure || '-'} · SpO2 {entry.spO2 || '-'}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Right: detail table */}
-        <div className="lg:col-span-2">
+      <div>
+        <div>
           {entries.length === 0 ? (
             <div className="text-center py-12 text-slate-400 font-medium">
               <Activity className="w-12 h-12 mx-auto text-slate-200 mb-3" />

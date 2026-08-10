@@ -1,3 +1,4 @@
+from decimal import Decimal
 from pydantic import BaseModel, Field, field_validator
 from typing import Optional
 from datetime import datetime
@@ -20,6 +21,10 @@ class _CurrencyFields(BaseModel):
     currencyCode: str        = Field(max_length=CODE_MAX)
     currencyName: str        = Field(max_length=NAME_MAX)
     symbol:       str        = Field(max_length=SYMBOL_MAX)
+    # Units of this currency per one unit of the base currency. gt=0 because a
+    # zero or negative rate would silently zero out every converted amount.
+    exchangeRate: Decimal    = Field(default=Decimal("1"), gt=0, max_digits=14, decimal_places=6)
+    baseCurrency: bool       = False
     status:       StatusEnum = StatusEnum.Active
 
     @field_validator("currencyCode")
@@ -36,6 +41,13 @@ class _CurrencyFields(BaseModel):
         if not v or not v.strip():
             raise ValueError("This field is required and cannot be blank")
         return v.strip()
+
+    @field_validator("exchangeRate")
+    @classmethod
+    def rate_positive(cls, v: Decimal) -> Decimal:
+        if v <= 0:
+            raise ValueError("Exchange Rate must be greater than zero")
+        return v
 
 
 # ── Request: Create ──────────────────────────────────────────
@@ -54,6 +66,8 @@ class CurrencyResponse(BaseModel):
     currencyCode: str
     currencyName: str
     symbol:       str
+    exchangeRate: Decimal
+    baseCurrency: bool
     status:       str
     createdBy:    Optional[str]
     createdDate:  Optional[datetime]

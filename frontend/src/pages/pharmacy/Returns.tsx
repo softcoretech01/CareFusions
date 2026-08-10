@@ -126,7 +126,7 @@ export const Returns = () => {
             <div className="max-w-3xl animate-in fade-in slide-in-from-bottom-4 duration-300">
               
               {/* Bill Details Card */}
-              <div className="border border-slate-200 rounded-xl overflow-hidden mb-6">
+              <div className="border border-slate-200 rounded-xl overflow-hidden mb-4">
                 <div className="bg-slate-50 p-4 border-b border-slate-200 flex justify-between items-center">
                   <div>
                     <h3 className="text-lg font-extrabold text-slate-800">{searchedBill.billId}</h3>
@@ -145,7 +145,7 @@ export const Returns = () => {
                   </div>
                 </div>
                 
-                <div className="p-5 grid grid-cols-2 gap-6">
+                <div className="p-5 grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Patient / Customer</p>
                     <p className="font-semibold text-slate-800">{searchedBill.patientName || 'Walk-in'}</p>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useIPD } from '../../contexts/IPDContext';
 import { Search, CheckCircle, Eye, Printer, AlertCircle } from 'lucide-react';
 import { IpdErrorBanner } from './IpdErrorBanner';
@@ -19,7 +19,12 @@ const MOCK_BILLING: Record<number, 'Cleared' | 'Pending' | 'Partial'> = {
 };
 
 export const Discharges = () => {
-  const { patients, beds, wards, dischargePatient } = useIPD();
+  const { patients, beds, wards, dischargePatient, refreshAll } = useIPD();
+
+  // Bed and admission state moves constantly — re-pull whenever this screen
+  // opens. Keyed to mount rather than the callback identity so it fires exactly
+  // once per visit; the context holds an in-flight ref that prevents overlap.
+  useEffect(() => { refreshAll?.(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [search, setSearch] = useState('');
   const today = new Date().toISOString().split('T')[0];
   const [dateFrom, setDateFrom] = useState(today);
@@ -63,8 +68,15 @@ export const Discharges = () => {
 
     let matchesDate = true;
     if (appliedDateFrom && appliedDateTo) {
-      const pDate = new Date(p.admissionDate).toISOString().split('T')[0];
-      matchesDate = pDate >= appliedDateFrom && pDate <= appliedDateTo;
+      if (p.status === 'Discharge Requested') {
+        // Pending requests should always be visible so they aren't missed
+        matchesDate = true;
+      } else {
+        const pDate = p.dischargeInfo?.dischargeDate
+          ? new Date(p.dischargeInfo.dischargeDate).toISOString().split('T')[0]
+          : new Date(p.admissionDate).toISOString().split('T')[0];
+        matchesDate = pDate >= appliedDateFrom && pDate <= appliedDateTo;
+      }
     }
 
     return matchesSearch && matchesDate;
@@ -111,7 +123,7 @@ export const Discharges = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex flex-col h-[calc(100vh-10rem)]">
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col h-[calc(100vh-10rem)]">
         <div className="px-4 py-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
           <div className="relative w-64">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />

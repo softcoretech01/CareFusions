@@ -74,7 +74,7 @@ export const MarGrid: React.FC<MarGridProps> = ({ patientId }) => {
       admissionId: patientId,
       medication: {
         medicineId: med.id,
-        medicineName: med.name,
+        medicineName: med.brandName,
         dosage: formData.dosage,
         frequency: formData.frequency,
         route: formData.route,
@@ -170,7 +170,7 @@ export const MarGrid: React.FC<MarGridProps> = ({ patientId }) => {
                 <select required value={formData.medicineId} onChange={e => setFormData({ ...formData, medicineId: e.target.value })} className={inputCls}>
                   <option value="">Select Medicine</option>
                   {medicinesData.map(m => (
-                    <option key={m.id} value={m.id}>{m.name} ({m.genericName})</option>
+                    <option key={m.id} value={m.id}>{m.brandName} ({m.genericName})</option>
                   ))}
                 </select>
               </div>

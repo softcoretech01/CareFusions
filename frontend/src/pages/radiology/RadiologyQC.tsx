@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { Pagination } from '@/components/ui/Pagination';
+import { usePagination } from '@/hooks/usePagination';
 import { useInvestigations, type QCLog } from '../../contexts/InvestigationContext';
 import { Plus, Check, Activity, Settings2, X } from 'lucide-react';
 import Chart from 'react-apexcharts';
@@ -82,6 +84,8 @@ export const RadiologyQC = () => {
     data: filteredLogs.slice().reverse().map(l => parseFloat(l.deviation))
   }];
 
+  const { page, setPage, pageSize, total, paged } = usePagination(filteredLogs);
+
   return (
     <div className="h-full flex flex-col space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -164,7 +168,7 @@ export const RadiologyQC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredLogs.map(log => (
+                {paged.map(log => (
                   <tr key={log.id} className="hover:bg-slate-50/50">
                     <td className="px-4 py-3">
                       <div className="font-bold text-slate-800">{log.date}</div>
@@ -189,6 +193,7 @@ export const RadiologyQC = () => {
               </tbody>
             </table>
           </div>
+        <Pagination page={page} pageSize={pageSize} totalItems={total} onPageChange={setPage} />
         </div>
 
         <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 flex flex-col">

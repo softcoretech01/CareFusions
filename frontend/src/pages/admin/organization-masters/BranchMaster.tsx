@@ -37,7 +37,9 @@ interface BranchRecord {
   remarks: string;
 }
 
-const emptyFormData: Omit<BranchRecord, 'id' | 'code'> = {
+// `code` is server-generated, so it is optional here — but the form still
+// displays the next code, so the type has to allow it.
+const emptyFormData: Omit<BranchRecord, 'id' | 'code'> & { code?: string } = {
   name: '',
   hospitalId: 0,
   hospital: '',
@@ -99,7 +101,7 @@ export const BranchMaster = () => {
   const [isSuccessOpen, setIsSuccessOpen]   = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [selectedRecord, setSelectedRecord] = useState<BranchRecord | null>(null);
-  const [formData, setFormData] = useState<Omit<BranchRecord, 'id' | 'code'>>(emptyFormData);
+  const [formData, setFormData] = useState<Omit<BranchRecord, 'id' | 'code'> & { code?: string }>(emptyFormData);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   // ── Fetch hospitals for dropdown ──────────────────────────

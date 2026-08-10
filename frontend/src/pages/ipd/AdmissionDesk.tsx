@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useIPD } from '../../contexts/IPDContext';
 import { useNavigate } from 'react-router-dom';
 import { Clock, CheckCircle } from 'lucide-react';
@@ -6,7 +6,12 @@ import { DateFilter } from '../../components/ui/DateFilter';
 import { IpdErrorBanner } from './IpdErrorBanner';
 
 export const AdmissionDesk = () => {
-  const { admissionRequests } = useIPD();
+  const { admissionRequests, refreshAll } = useIPD();
+
+  // Bed and admission state moves constantly — re-pull whenever this screen
+  // opens. Keyed to mount rather than the callback identity so it fires exactly
+  // once per visit; the context holds an in-flight ref that prevents overlap.
+  useEffect(() => { refreshAll?.(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const navigate = useNavigate();
 
   const today = new Date().toISOString().split('T')[0];
@@ -52,7 +57,7 @@ export const AdmissionDesk = () => {
         </button>
       </div>
 
-      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex flex-col h-[calc(100vh-10rem)]">
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col h-[calc(100vh-10rem)]">
         <div className="px-4 py-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
           <h2 className="text-lg font-bold text-slate-800">Pending Admission Requests</h2>
           <DateFilter
@@ -68,8 +73,10 @@ export const AdmissionDesk = () => {
           <table className="w-full">
             <thead className="bg-white text-xs font-semibold text-slate-500 uppercase tracking-wider sticky top-0 border-b border-slate-100 shadow-sm z-10">
               <tr>
+                <th className="px-4 py-3 text-left w-16">S.No</th>
                 <th className="px-4 py-3 text-left">Request Time</th>
                 <th className="px-4 py-3 text-left">Patient Details</th>
+                <th className="px-4 py-3 text-left">Department</th>
                 <th className="px-4 py-3 text-left">Requested By</th>
                 <th className="px-4 py-3 text-left">Details</th>
                 <th className="px-4 py-3 text-left">Action</th>
@@ -78,13 +85,14 @@ export const AdmissionDesk = () => {
             <tbody className="divide-y divide-slate-100">
               {pendingRequests.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-400">
+                  <td colSpan={7} className="px-6 py-12 text-center text-slate-400">
                     No pending admission requests.
                   </td>
                 </tr>
               ) : (
-                pendingRequests.map(req => (
+                pendingRequests.map((req, index) => (
                   <tr key={req.id} className="hover:bg-slate-50/70 transition-colors">
+                    <td className="px-4 py-3 text-sm font-semibold text-slate-500">{index + 1}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2 text-sm text-slate-600 font-medium">
                         <Clock className="w-4 h-4 text-amber-500" />
@@ -95,6 +103,7 @@ export const AdmissionDesk = () => {
                       <div className="font-bold text-slate-800">{req.patientName}</div>
                       <div className="text-xs text-slate-500">{req.uhid}</div>
                     </td>
+                    <td className="px-4 py-3 text-sm text-slate-600">{req.specialty}</td>
                     <td className="px-4 py-3 text-sm text-slate-600">
                       {req.requestedBy}
                     </td>

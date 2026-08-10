@@ -25,6 +25,10 @@ interface ReceptionistRecord {
   manager: string;
   status: string;
   remarks: string;
+  photo?: string;
+  idProof?: string;
+  qualificationCertificate?: string;
+  licenseCertificate?: string;
 }
 
 const emptyData: Omit<ReceptionistRecord, 'id'> = {
@@ -44,8 +48,6 @@ const emptyData: Omit<ReceptionistRecord, 'id'> = {
   status: 'Active',
   remarks: ''
 };
-
-const mockData: ReceptionistRecord[] = [];
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
 
@@ -411,7 +413,7 @@ export const ReceptionistMaster = () => {
                   ) : (
                     <tr>
                       <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
-                        No receptionists found matching your criteria.
+                        {isLoading ? 'Loading records...' : 'No receptionists found matching your criteria.'}
                       </td>
                     </tr>
                   )}
@@ -620,7 +622,7 @@ export const ReceptionistMaster = () => {
                 <Button variant="outline" color="secondary" onClick={() => setIsFormOpen(false)}>
                   Cancel
                 </Button>
-                <Button variant="filled" color="primary" onClick={handleSaveForm} icon={Save}>
+                <Button variant="filled" color="primary" onClick={handleSaveForm} icon={Save} isLoading={isSaving}>
                   {selectedRecord ? 'Update' : 'Save'}
                 </Button>
               </div>

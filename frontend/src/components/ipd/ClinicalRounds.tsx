@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Stethoscope, Plus, Trash2, User, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useDoctorSchedules } from '../../contexts/DoctorScheduleContext';
+import { lettersOnly, freeText } from '../../utils/inputRules';
 
 export interface RoundNote {
   id: string;
@@ -16,9 +18,11 @@ interface ClinicalRoundsProps {
 const API_BASE = import.meta.env.VITE_API_URL as string;
 
 export const ClinicalRounds: React.FC<ClinicalRoundsProps> = ({ patientId }) => {
+  const { doctorSchedules } = useDoctorSchedules();
   const [notes, setNotes] = useState<RoundNote[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
+  const [showDocDropdown, setShowDocDropdown] = useState(false);
   const [formData, setFormData] = useState({
     doctorName: '',
     note: ''
@@ -118,10 +122,37 @@ export const ClinicalRounds: React.FC<ClinicalRoundsProps> = ({ patientId }) => 
                   type="text" 
                   required
                   value={formData.doctorName}
-                  onChange={e => setFormData({ ...formData, doctorName: e.target.value })}
+                  onChange={e => {
+                    setFormData({ ...formData, doctorName: lettersOnly(e.target.value) });
+                    setShowDocDropdown(true);
+                  }}
+                  onFocus={() => setShowDocDropdown(true)}
+                  onBlur={() => setShowDocDropdown(false)}
                   placeholder="e.g. Dr. Sarah Smith"
                   className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
                 />
+                {showDocDropdown && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-48 overflow-y-auto overflow-x-hidden">
+                    {doctorSchedules
+                      .filter((d: any) => (d.doctorName || d.name).toLowerCase().includes(formData.doctorName.toLowerCase()))
+                      .map((d: any) => (
+                      <div 
+                        key={d.id ?? d.doctorId} 
+                        className="px-3 py-2 text-sm font-medium text-slate-700 hover:bg-primary/5 hover:text-primary cursor-pointer transition-colors"
+                        onMouseDown={(e) => {
+                          e.preventDefault(); // Prevent onBlur firing before click
+                          setFormData({ ...formData, doctorName: d.doctorName || d.name });
+                          setShowDocDropdown(false);
+                        }}
+                      >
+                        {d.doctorName || d.name}
+                      </div>
+                    ))}
+                    {doctorSchedules.filter((d: any) => (d.doctorName || d.name).toLowerCase().includes(formData.doctorName.toLowerCase())).length === 0 && (
+                      <div className="px-3 py-2 text-sm text-slate-500 italic">No matches... (Will use typed name)</div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
             <div>
@@ -129,13 +160,13 @@ export const ClinicalRounds: React.FC<ClinicalRoundsProps> = ({ patientId }) => 
               <textarea
                 required
                 value={formData.note}
-                onChange={e => setFormData({ ...formData, note: e.target.value })}
+                onChange={e => setFormData({ ...formData, note: freeText(e.target.value, 1000) })}
                 placeholder="Enter examination findings, plan of care, etc..."
                 className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 min-h-[100px] resize-y"
               ></textarea>
             </div>
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setIsAdding(false)} className="px-4 py-2 bg-slate-200 text-slate-700 font-bold rounded-xl text-sm hover:bg-slate-300 transition-colors">Cancel</button>
+              <button type="button" onClick={() => { setIsAdding(false); setFormData({ doctorName: '', note: '' }); }} className="px-4 py-2 bg-slate-200 text-slate-700 font-bold rounded-xl text-sm hover:bg-slate-300 transition-colors">Cancel</button>
               <button type="submit" className="px-4 py-2 bg-primary text-white font-bold rounded-xl text-sm hover:bg-primary/90 transition-colors">Save Note</button>
             </div>
           </form>
@@ -160,7 +191,7 @@ export const ClinicalRounds: React.FC<ClinicalRoundsProps> = ({ patientId }) => 
                 </button>
                 <div className="flex items-center gap-2 mb-2">
                   <span className="font-bold text-slate-800">{note.doctorName}</span>
-                  <span className="text-xs text-slate-400">• {new Date(note.timestamp).toLocaleString()}</span>
+                  <span className="text-xs text-slate-400">&middot; {new Date(note.timestamp).toLocaleString()}</span>
                 </div>
                 <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">{note.note}</p>
               </div>
