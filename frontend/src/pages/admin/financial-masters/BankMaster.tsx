@@ -274,7 +274,7 @@ export const BankMaster = () => {
 
       {!isFormOpen ? (
         <>
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-3xl font-bold text-slate-800">Bank Master</h1>
               <p className="text-slate-500 mt-1"></p>
@@ -422,12 +422,11 @@ export const BankMaster = () => {
         </>
       ) : (
         <>
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex justify-between items-center mb-2">
             <div>
               <h1 className="text-2xl font-bold text-slate-800">
                 {selectedRecord ? `Edit Bank: ${selectedRecord.bankName}` : 'Add New Bank Account'}
               </h1>
-              <p className="text-slate-500 text-sm">Configure hospital bank account details</p>
             </div>
           </div>
 
@@ -455,7 +454,7 @@ export const BankMaster = () => {
                     <input type="text" maxLength={LIMITS.accountNumber} value={formData.accountNumber} onChange={e => setFormData({...formData, accountNumber: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.accountNumber ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
                     {errors.accountNumber && <p className="text-red-500 text-xs mt-1">{errors.accountNumber}</p>}
                   </div>
-                  <div className="lg:col-span-2">
+                  <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Account Holder Name <span className="text-red-500">*</span></label>
                     <input type="text" maxLength={LIMITS.accountHolderName} value={formData.accountHolderName} onChange={e => setFormData({...formData, accountHolderName: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.accountHolderName ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
                     {errors.accountHolderName && <p className="text-red-500 text-xs mt-1">{errors.accountHolderName}</p>}
@@ -560,3 +559,5 @@ export const BankMaster = () => {
     </motion.div>
   );
 };
+
+

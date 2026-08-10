@@ -260,7 +260,7 @@ export const SmsMaster = () => {
 
       {!isFormOpen ? (
         <>
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-3xl font-bold text-slate-800">SMS Template Master</h1>
             </div>
@@ -425,17 +425,16 @@ export const SmsMaster = () => {
         </>
       ) : (
         <>
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex justify-between items-center mb-2">
             <div>
               <h1 className="text-2xl font-bold text-slate-800">
                 {selectedRecord ? `Edit Template: ${selectedRecord.templateName}` : 'Add SMS Template'}
               </h1>
-              <p className="text-slate-500 text-sm">Configure automated SMS messaging rules</p>
             </div>
           </div>
 
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden">
-            <div className="flex-1 overflow-y-auto p-6 space-y-8">
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
 
               {/* Basic Information */}
               <section>
@@ -589,3 +588,5 @@ export const SmsMaster = () => {
     </motion.div>
   );
 };
+
+

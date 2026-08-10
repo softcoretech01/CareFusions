@@ -345,7 +345,7 @@ export const InsuranceProviderMaster = () => {
 
       {!isFormOpen ? (
         <>
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-3xl font-bold text-slate-800">Insurance Provider Master</h1>
               <p className="text-slate-500 mt-1"></p>
@@ -497,12 +497,11 @@ export const InsuranceProviderMaster = () => {
         </>
       ) : (
         <>
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex justify-between items-center mb-2">
             <div>
               <h1 className="text-2xl font-bold text-slate-800">
                 {selectedRecord ? `Edit Provider: ${selectedRecord.providerName}` : 'Add New Provider'}
               </h1>
-              <p className="text-slate-500 text-sm">Configure hospital insurance provider details</p>
             </div>
           </div>
 
@@ -511,7 +510,7 @@ export const InsuranceProviderMaster = () => {
               {/* Basic Information */}
               <section>
                 <h3 className="text-base font-bold text-slate-800 mb-3 border-b border-slate-100 pb-1.5">Basic Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Provider Code</label>
                     <input type="text" value={selectedRecord ? selectedRecord.providerCode : (nextCode || 'Auto-generating…')} disabled readOnly className="w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed" />
@@ -536,9 +535,9 @@ export const InsuranceProviderMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Registration Number</label>
                     <input type="text" maxLength={LIMITS.registrationNumber} value={formData.registrationNumber} onChange={e => setFormData({...formData, registrationNumber: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
-                  <div className="md:col-span-2">
+                  <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
-                    <input type="text" maxLength={LIMITS.description} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <textarea maxLength={LIMITS.description} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} rows={1} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                 </div>
               </section>
@@ -546,7 +545,7 @@ export const InsuranceProviderMaster = () => {
               {/* Contact Information */}
               <section>
                 <h3 className="text-base font-bold text-slate-800 mb-3 border-b border-slate-100 pb-1.5">Contact Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Contact Person <span className="text-red-500">*</span></label>
                     <input type="text" maxLength={LIMITS.contactPerson} value={formData.contactPerson} onChange={e => setFormData({...formData, contactPerson: e.target.value})} className={inputCls(errors.contactPerson)} />
@@ -567,7 +566,7 @@ export const InsuranceProviderMaster = () => {
                     <input type="email" maxLength={LIMITS.email} value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className={inputCls(errors.email)} />
                     {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
                   </div>
-                  <div className="md:col-span-2">
+                  <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Website</label>
                     <input type="url" maxLength={LIMITS.url} value={formData.website} onChange={e => setFormData({...formData, website: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
@@ -577,13 +576,13 @@ export const InsuranceProviderMaster = () => {
               {/* Address Information */}
               <section>
                 <h3 className="text-base font-bold text-slate-800 mb-3 border-b border-slate-100 pb-1.5">Address Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="md:col-span-2">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Address Line 1 <span className="text-red-500">*</span></label>
                     <input type="text" maxLength={LIMITS.address} value={formData.addressLine1} onChange={e => setFormData({...formData, addressLine1: e.target.value})} className={inputCls(errors.addressLine1)} />
                     {errors.addressLine1 && <p className="text-red-500 text-xs mt-1">{errors.addressLine1}</p>}
                   </div>
-                  <div className="md:col-span-2">
+                  <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Address Line 2</label>
                     <input type="text" maxLength={LIMITS.address} value={formData.addressLine2} onChange={e => setFormData({...formData, addressLine2: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
@@ -697,3 +696,5 @@ export const InsuranceProviderMaster = () => {
     </motion.div>
   );
 };
+
+

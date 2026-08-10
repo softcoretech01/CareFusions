@@ -249,7 +249,7 @@ export const ProcedureMaster = () => {
     >
       {!isFormOpen ? (
         <>
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-3xl font-bold text-slate-800">Procedure Master</h1>
               <p className="text-slate-500 mt-1"></p>
@@ -410,17 +410,16 @@ export const ProcedureMaster = () => {
         </>
       ) : (
         <>
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex justify-between items-center mb-2">
             <div>
               <h1 className="text-2xl font-bold text-slate-800">
                 {selectedRecord ? `Edit Procedure: ${selectedRecord.procedureName}` : 'Add New Procedure'}
               </h1>
-              <p className="text-slate-500 text-sm">Fill in the procedure details</p>
             </div>
           </div>
 
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden">
-            <div className="flex-1 overflow-y-auto p-6 space-y-8">
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
               {/* Basic Information */}
               <section>
                 <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Basic Information</h3>
@@ -461,7 +460,7 @@ export const ProcedureMaster = () => {
               {/* Billing Information */}
               <section>
                 <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Billing Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Default Charge (₹) <span className="text-red-500">*</span></label>
                     <input type="number" min="0" value={formData.defaultCharge} onChange={e => setFormData({...formData, defaultCharge: e.target.value})} maxLength={50} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.defaultCharge ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
@@ -477,7 +476,7 @@ export const ProcedureMaster = () => {
               {/* Clinical Details */}
               <section>
                 <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Clinical Details</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Estimated Duration (Minutes)</label>
                     <input type="number" min="0" value={formData.estimatedDuration} onChange={e => setFormData({...formData, estimatedDuration: e.target.value})} maxLength={50} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
@@ -610,3 +609,5 @@ export const ProcedureMaster = () => {
     </motion.div>
   );
 };
+
+

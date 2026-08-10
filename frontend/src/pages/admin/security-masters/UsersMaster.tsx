@@ -366,7 +366,7 @@ export const UsersMaster = () => {
 
       {!isFormOpen ? (
         <>
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-3xl font-bold text-slate-800">User Master</h1>
               <p className="text-slate-500 mt-1"></p>
@@ -530,17 +530,16 @@ export const UsersMaster = () => {
         </>
       ) : (
         <>
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex justify-between items-center mb-2">
             <div>
               <h1 className="text-2xl font-bold text-slate-800">
                 {selectedRecord ? `Edit User: ${selectedRecord.employee}` : 'Add New User'}
               </h1>
-              <p className="text-slate-500 text-sm">Configure login account and security settings</p>
             </div>
           </div>
 
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden">
-            <div className="flex-1 overflow-y-auto p-6 space-y-8">
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
 
               {/* Employee Information */}
               <section>
@@ -757,3 +756,5 @@ const PermBadge = ({ on, label }: { on: boolean; label: string }) => (
     {label}
   </span>
 );
+
+

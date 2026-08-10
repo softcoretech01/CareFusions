@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { 
-  Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle, 
+import {
+  Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle,
   Save, RefreshCw, CheckCircle2, X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -26,11 +26,11 @@ const emptyData: Omit<BloodGroupRecord, 'id'> = {
 const API_BASE = import.meta.env.VITE_API_URL as string;
 
 const mapApiToRecord = (item: any): BloodGroupRecord => ({
-  id:          item.id,
-  bloodGroup:  item.bloodGroup,
-  rhFactor:    item.rhFactor,
+  id: item.id,
+  bloodGroup: item.bloodGroup,
+  rhFactor: item.rhFactor,
   description: item.description || '',
-  status:      item.status
+  status: item.status
 });
 
 export const BloodGroupMaster = () => {
@@ -38,7 +38,7 @@ export const BloodGroupMaster = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  
+
   // Filter States
   const [showFilters, setShowFilters] = useState(false);
   const [filterRhFactor, setFilterRhFactor] = useState('');
@@ -129,14 +129,14 @@ export const BloodGroupMaster = () => {
     setIsSaving(true);
     try {
       const payload = {
-        bloodGroup:  formData.bloodGroup,
-        rhFactor:    formData.rhFactor,
+        bloodGroup: formData.bloodGroup,
+        rhFactor: formData.rhFactor,
         description: formData.description || null,
-        status:      formData.status,
+        status: formData.status,
         ...(selectedRecord ? { modifiedBy: 'Dr. John Doe' } : { createdBy: 'Dr. John Doe' }),
       };
 
-      const url = selectedRecord 
+      const url = selectedRecord
         ? `${API_BASE}/blood-groups/${selectedRecord.id}`
         : `${API_BASE}/blood-groups/`;
       const method = selectedRecord ? 'PUT' : 'POST';
@@ -190,14 +190,14 @@ export const BloodGroupMaster = () => {
   const pagedRecords = filteredRecords.slice((_page - 1) * itemsPerPage, _page * itemsPerPage);
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       className="h-full flex flex-col relative"
     >
       {!isFormOpen ? (
         <>
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-3xl font-bold text-slate-800">Blood Group Master</h1>
               <p className="text-slate-500 mt-1"></p>
@@ -222,16 +222,16 @@ export const BloodGroupMaster = () => {
                 />
               </div>
               <div className="flex items-center gap-2">
-              <button onClick={() => setShowFilters(!showFilters)} title="Filters" className={showFilters ? "p-2 border rounded-lg transition-colors border-primary bg-primary/5 text-primary" : "p-2 border rounded-lg transition-colors border-slate-200 text-slate-500 hover:bg-slate-50"}>
-                <Filter className="w-4 h-4" />
-              </button>
-              <button onClick={() => { setSearchTerm(''); setFilterRhFactor(''); setFilterStatus(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
-                <X className="w-4 h-4" />
-              </button>
-              <button onClick={() => exportToExcel(records, 'BloodGroupMaster')} title="Export to Excel" className="p-2 border border-emerald-200 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 transition-colors">
-                <Download className="w-4 h-4" />
-              </button>
-            </div>
+                <button onClick={() => setShowFilters(!showFilters)} title="Filters" className={showFilters ? "p-2 border rounded-lg transition-colors border-primary bg-primary/5 text-primary" : "p-2 border rounded-lg transition-colors border-slate-200 text-slate-500 hover:bg-slate-50"}>
+                  <Filter className="w-4 h-4" />
+                </button>
+                <button onClick={() => { setSearchTerm(''); setFilterRhFactor(''); setFilterStatus(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+                <button onClick={() => exportToExcel(records, 'BloodGroupMaster')} title="Export to Excel" className="p-2 border border-emerald-200 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 transition-colors">
+                  <Download className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
             <AnimatePresence>
@@ -286,24 +286,23 @@ export const BloodGroupMaster = () => {
                         <td className="px-4 py-3">{record.rhFactor}</td>
                         <td className="px-4 py-3 text-slate-600">{record.description}</td>
                         <td className="px-4 py-3 text-center">
-                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                            record.status === 'Active' 
-                              ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' 
+                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${record.status === 'Active'
+                              ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
                               : 'bg-red-50 text-red-600 border border-red-200'
-                          }`}>
+                            }`}>
                             {record.status}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-center">
                           <div className="flex items-center justify-center gap-2">
-                            <button 
+                            <button
                               onClick={() => handleEdit(record)}
                               className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"
                               title="Edit"
                             >
                               <Edit2 className="w-4 h-4" />
                             </button>
-                            <button 
+                            <button
                               onClick={() => handleDeleteRequest(record)}
                               className="p-1.5 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                               title="Delete"
@@ -348,24 +347,23 @@ export const BloodGroupMaster = () => {
         </>
       ) : (
         <>
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex justify-between items-center mb-2">
             <div>
               <h1 className="text-2xl font-bold text-slate-800">
                 {selectedRecord ? `Edit Blood Group: ${selectedRecord.bloodGroup}` : 'Add New Blood Group'}
               </h1>
-              <p className="text-slate-500 text-sm">Define a new blood group type</p>
             </div>
           </div>
 
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden">
-            <div className="flex-1 overflow-y-auto p-6 space-y-8">
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
               {/* Basic Information */}
               <section>
                 <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Basic Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Blood Group <span className="text-red-500">*</span></label>
-                    <select value={formData.bloodGroup} onChange={e => setFormData({...formData, bloodGroup: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.bloodGroup ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
+                    <select value={formData.bloodGroup} onChange={e => setFormData({ ...formData, bloodGroup: e.target.value })} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.bloodGroup ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
                       <option value="">Select Blood Group</option>
                       {bloodGroupOptions.map(bg => (
                         <option key={bg} value={bg}>{bg}</option>
@@ -375,7 +373,7 @@ export const BloodGroupMaster = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">RH Factor <span className="text-red-500">*</span></label>
-                    <select value={formData.rhFactor} onChange={e => setFormData({...formData, rhFactor: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.rhFactor ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
+                    <select value={formData.rhFactor} onChange={e => setFormData({ ...formData, rhFactor: e.target.value })} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.rhFactor ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
                       <option value="">Select RH Factor</option>
                       {rhFactorOptions.map(rh => (
                         <option key={rh} value={rh}>{rh}</option>
@@ -383,9 +381,9 @@ export const BloodGroupMaster = () => {
                     </select>
                     {errors.rhFactor && <p className="text-red-500 text-xs mt-1">{errors.rhFactor}</p>}
                   </div>
-                  <div className="md:col-span-2">
+                  <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
-                    <input type="text" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} maxLength={250} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <textarea value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} maxLength={250} rows={1} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                 </div>
               </section>
@@ -396,7 +394,7 @@ export const BloodGroupMaster = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Status <span className="text-red-500">*</span></label>
-                    <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
+                    <select value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
                       <option value="Active">Active</option>
                       <option value="Inactive">Inactive</option>
                     </select>
@@ -462,7 +460,7 @@ export const BloodGroupMaster = () => {
           <p className="text-slate-500 text-sm mb-6">
             {successMessage}
           </p>
-          
+
           <div className="flex items-center justify-center w-full">
             <Button variant="filled" color="primary" className="w-full" onClick={() => setIsSuccessOpen(false)}>
               OK
@@ -473,3 +471,5 @@ export const BloodGroupMaster = () => {
     </motion.div>
   );
 };
+
+

@@ -229,7 +229,7 @@ export const ItemCategoryMaster = () => {
               <span>{apiError}</span>
             </div>
           )}
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-3xl font-bold text-slate-800">Item Category Master</h1>
               <p className="text-slate-500 mt-1"></p>
@@ -381,17 +381,16 @@ export const ItemCategoryMaster = () => {
         </>
       ) : (
         <>
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex justify-between items-center mb-2">
             <div>
               <h1 className="text-2xl font-bold text-slate-800">
                 {selectedRecord ? `Edit Category: ${selectedRecord.categoryName}` : 'Add New Category'}
               </h1>
-              <p className="text-slate-500 text-sm">Fill in the item category settings and rules</p>
             </div>
           </div>
 
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden">
-            <div className="flex-1 overflow-y-auto p-6 space-y-8">
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
               
               {/* Basic Information */}
               <section>
@@ -520,3 +519,5 @@ export const ItemCategoryMaster = () => {
     </motion.div>
   );
 };
+
+

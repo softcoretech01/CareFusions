@@ -222,7 +222,7 @@ export const FinancialYearMaster = () => {
 
       {!isFormOpen ? (
         <>
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-3xl font-bold text-slate-800">Financial Year Master</h1>
               <p className="text-slate-500 mt-1"></p>
@@ -362,12 +362,11 @@ export const FinancialYearMaster = () => {
         </>
       ) : (
         <>
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex justify-between items-center mb-2">
             <div>
               <h1 className="text-2xl font-bold text-slate-800">
                 {selectedRecord ? `Edit Financial Year: ${selectedRecord.financialYear}` : 'Add New Financial Year'}
               </h1>
-              <p className="text-slate-500 text-sm">Configure accounting period duration and rules</p>
             </div>
           </div>
 
@@ -485,3 +484,5 @@ export const FinancialYearMaster = () => {
     </motion.div>
   );
 };
+
+

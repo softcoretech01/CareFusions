@@ -676,7 +676,7 @@ export const PatientRegistration = () => {
                 <User className="w-5 h-5 text-primary" />
                 <h3 className="text-lg font-bold text-slate-800">Basic Information</h3>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Title <span className="text-red-500">*</span></label>
                   <select
@@ -686,7 +686,7 @@ export const PatientRegistration = () => {
                     >
                       <option value="">Select Title</option>{options.Title.map((o: string) => <option key={o} value={o}>{o}</option>)}</select>
                 </div>
-                <div className="md:col-span-3">
+                <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Patient Name <span className="text-red-500">*</span></label>
                   <input
                     type="text"
@@ -771,7 +771,7 @@ export const PatientRegistration = () => {
                 <Phone className="w-5 h-5 text-primary" />
                 <h3 className="text-lg font-bold text-slate-800">Contact Information</h3>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Mobile Number <span className="text-red-500">*</span></label>
                   <input
@@ -798,7 +798,7 @@ export const PatientRegistration = () => {
                   />
                 </div>
                 
-                <div className="md:col-span-3">
+                <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Address Line 1 <span className="text-red-500">*</span></label>
                   <input
                     type="text"
@@ -807,7 +807,7 @@ export const PatientRegistration = () => {
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
                   />
                 </div>
-                <div className="md:col-span-3">
+                <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Address Line 2</label>
                   <input
                     type="text"
@@ -998,7 +998,7 @@ export const PatientRegistration = () => {
                     >
                       <option value="">Select Blood Group</option>{options.BloodGroups.map((o: string) => <option key={o} value={o}>{o}</option>)}</select>
                 </div>
-                <div className="md:col-span-2">
+                <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Allergies</label>
                   <input
                     type="text"
@@ -1008,7 +1008,7 @@ export const PatientRegistration = () => {
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
                   />
                 </div>
-                <div className="md:col-span-3">
+                <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Chronic Diseases</label>
                   <input
                     type="text"
@@ -1017,7 +1017,7 @@ export const PatientRegistration = () => {
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
                   />
                 </div>
-                <div className="md:col-span-3">
+                <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Current Medication</label>
                   <input
                     type="text"

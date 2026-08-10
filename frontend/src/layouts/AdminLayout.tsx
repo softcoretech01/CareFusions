@@ -42,7 +42,7 @@ export const AdminLayout = () => {
       <div className="flex-1 flex flex-col relative overflow-hidden">
         <TopNavigation />
 
-        <main className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+        <main className="flex-1 overflow-y-auto px-2 py-4 md:px-4 custom-scrollbar">
           {denied ? <AccessDenied module={module ?? undefined} /> : <Outlet />}
         </main>
       </div>

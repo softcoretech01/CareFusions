@@ -264,7 +264,7 @@ export const CashCounterMaster = () => {
 
       {!isFormOpen ? (
         <>
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-3xl font-bold text-slate-800">Cash Counter Master</h1>
               <p className="text-slate-500 mt-1"></p>
@@ -410,12 +410,11 @@ export const CashCounterMaster = () => {
         </>
       ) : (
         <>
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex justify-between items-center mb-2">
             <div>
               <h1 className="text-2xl font-bold text-slate-800">
                 {selectedRecord ? `Edit Cash Counter: ${selectedRecord.counterName}` : 'Add New Cash Counter'}
               </h1>
-              <p className="text-slate-500 text-sm">Configure cash counter details and assignments</p>
             </div>
           </div>
 
@@ -542,3 +541,5 @@ export const CashCounterMaster = () => {
     </motion.div>
   );
 };
+
+

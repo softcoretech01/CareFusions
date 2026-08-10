@@ -73,30 +73,35 @@ export const RadiologyOrderList = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-800">Scan Worklist</h1>
-      </div>
-
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="relative w-full sm:w-80">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input 
-            type="text" 
-            placeholder="Search Order ID or Patient..." 
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-purple-500 shadow-sm"
-          />
+      <div className="flex items-center justify-between gap-4">
+        <div className="shrink-0">
+          <h1 className="text-2xl font-bold text-slate-800 whitespace-nowrap">Scan Worklist</h1>
         </div>
-        <div className="flex items-center">
-          <DateFilter
-            dateFrom={fromDate}
-            dateTo={toDate}
-            onDateFromChange={setFromDate}
-            onDateToChange={setToDate}
-            onSearch={() => { }}
-            onReset={() => { setFromDate(''); setToDate(''); }}
-          />
+
+        <div className="flex items-center gap-3 flex-nowrap overflow-x-auto pb-1 w-full justify-end">
+          <div className="relative w-40 sm:w-64 shrink-0">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input 
+              type="text" 
+              placeholder="Search Order ID or Patient..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-purple-500 shadow-sm"
+            />
+          </div>
+          
+          <div className="hidden sm:block h-6 w-px bg-slate-200 shrink-0" />
+          
+          <div className="shrink-0 scale-95 origin-right flex items-center">
+            <DateFilter
+              dateFrom={fromDate}
+              dateTo={toDate}
+              onDateFromChange={setFromDate}
+              onDateToChange={setToDate}
+              onSearch={() => { }}
+              onReset={() => { setFromDate(''); setToDate(''); }}
+            />
+          </div>
         </div>
       </div>
 

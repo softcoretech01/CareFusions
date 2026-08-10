@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { 
-  Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle, 
+import {
+  Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle,
   Save, RefreshCw, CheckCircle2, X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -40,18 +40,18 @@ const emptyData: Omit<PatientCategoryRecord, 'id'> = {
 const API_BASE = import.meta.env.VITE_API_URL as string;
 
 const mapApiToRecord = (item: any): PatientCategoryRecord => ({
-  id:                  item.id,
-  categoryCode:        item.categoryCode,
-  categoryName:        item.categoryName,
-  description:         item.description || '',
-  billingType:         item.billingType,
-  defaultDiscount:     item.defaultDiscount || '0',
-  creditLimit:         item.creditLimit || '0',
-  approvalRequired:    Boolean(item.approvalRequired),
+  id: item.id,
+  categoryCode: item.categoryCode,
+  categoryName: item.categoryName,
+  description: item.description || '',
+  billingType: item.billingType,
+  defaultDiscount: item.defaultDiscount || '0',
+  creditLimit: item.creditLimit || '0',
+  approvalRequired: Boolean(item.approvalRequired),
   insuranceApplicable: Boolean(item.insuranceApplicable),
   corporateApplicable: Boolean(item.corporateApplicable),
-  status:              item.status,
-  remarks:             item.remarks || ''
+  status: item.status,
+  remarks: item.remarks || ''
 });
 
 export const PatientCategoryMaster = () => {
@@ -59,7 +59,7 @@ export const PatientCategoryMaster = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  
+
   // Filter States
   const [showFilters, setShowFilters] = useState(false);
   const [filterBillingType, setFilterBillingType] = useState('');
@@ -147,21 +147,21 @@ export const PatientCategoryMaster = () => {
     setIsSaving(true);
     try {
       const payload = {
-        categoryCode:        formData.categoryCode,
-        categoryName:        formData.categoryName,
-        description:         formData.description || null,
-        billingType:         formData.billingType,
-        defaultDiscount:     parseFloat(formData.defaultDiscount) || 0,
-        creditLimit:         parseFloat(formData.creditLimit) || 0,
-        approvalRequired:    formData.approvalRequired,
+        categoryCode: formData.categoryCode,
+        categoryName: formData.categoryName,
+        description: formData.description || null,
+        billingType: formData.billingType,
+        defaultDiscount: parseFloat(formData.defaultDiscount) || 0,
+        creditLimit: parseFloat(formData.creditLimit) || 0,
+        approvalRequired: formData.approvalRequired,
         insuranceApplicable: formData.insuranceApplicable,
         corporateApplicable: formData.corporateApplicable,
-        status:              formData.status,
-        remarks:             formData.remarks || null,
+        status: formData.status,
+        remarks: formData.remarks || null,
         ...(selectedRecord ? { modifiedBy: 'Dr. John Doe' } : { createdBy: 'Dr. John Doe' }),
       };
 
-      const url = selectedRecord 
+      const url = selectedRecord
         ? `${API_BASE}/patient-categories/${selectedRecord.id}`
         : `${API_BASE}/patient-categories/`;
       const method = selectedRecord ? 'PUT' : 'POST';
@@ -203,10 +203,10 @@ export const PatientCategoryMaster = () => {
   };
 
   const filteredRecords = records.filter(record => {
-    const matchesSearch = 
+    const matchesSearch =
       record.categoryName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       record.categoryCode.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     const matchesBillingType = !filterBillingType || record.billingType === filterBillingType;
     const matchesStatus = !filterStatus || record.status === filterStatus;
 
@@ -218,14 +218,14 @@ export const PatientCategoryMaster = () => {
   const pagedRecords = filteredRecords.slice((_page - 1) * itemsPerPage, _page * itemsPerPage);
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       className="h-full flex flex-col relative"
     >
       {!isFormOpen ? (
         <>
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-3xl font-bold text-slate-800">Patient Category Master</h1>
               <p className="text-slate-500 mt-1"></p>
@@ -250,16 +250,16 @@ export const PatientCategoryMaster = () => {
                 />
               </div>
               <div className="flex items-center gap-2">
-              <button onClick={() => setShowFilters(!showFilters)} title="Filters" className={showFilters ? "p-2 border rounded-lg transition-colors border-primary bg-primary/5 text-primary" : "p-2 border rounded-lg transition-colors border-slate-200 text-slate-500 hover:bg-slate-50"}>
-                <Filter className="w-4 h-4" />
-              </button>
-              <button onClick={() => { setSearchTerm(''); setFilterBillingType(''); setFilterStatus(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
-                <X className="w-4 h-4" />
-              </button>
-              <button onClick={() => exportToExcel(records, 'PatientCategoryMaster')} title="Export to Excel" className="p-2 border border-emerald-200 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 transition-colors">
-                <Download className="w-4 h-4" />
-              </button>
-            </div>
+                <button onClick={() => setShowFilters(!showFilters)} title="Filters" className={showFilters ? "p-2 border rounded-lg transition-colors border-primary bg-primary/5 text-primary" : "p-2 border rounded-lg transition-colors border-slate-200 text-slate-500 hover:bg-slate-50"}>
+                  <Filter className="w-4 h-4" />
+                </button>
+                <button onClick={() => { setSearchTerm(''); setFilterBillingType(''); setFilterStatus(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+                <button onClick={() => exportToExcel(records, 'PatientCategoryMaster')} title="Export to Excel" className="p-2 border border-emerald-200 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 transition-colors">
+                  <Download className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
             <AnimatePresence>
@@ -316,24 +316,23 @@ export const PatientCategoryMaster = () => {
                         <td className="px-4 py-3 text-slate-600">{record.defaultDiscount}%</td>
                         <td className="px-4 py-3 text-slate-600">{record.billingType}</td>
                         <td className="px-4 py-3 text-center">
-                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                            record.status === 'Active' 
-                              ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' 
+                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${record.status === 'Active'
+                              ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
                               : 'bg-red-50 text-red-600 border border-red-200'
-                          }`}>
+                            }`}>
                             {record.status}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-center">
                           <div className="flex items-center justify-center gap-2">
-                            <button 
+                            <button
                               onClick={() => handleEdit(record)}
                               className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"
                               title="Edit"
                             >
                               <Edit2 className="w-4 h-4" />
                             </button>
-                            <button 
+                            <button
                               onClick={() => handleDeleteRequest(record)}
                               className="p-1.5 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                               title="Delete"
@@ -378,21 +377,20 @@ export const PatientCategoryMaster = () => {
         </>
       ) : (
         <>
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex justify-between items-center mb-2">
             <div>
               <h1 className="text-2xl font-bold text-slate-800">
                 {selectedRecord ? `Edit Category: ${selectedRecord.categoryName}` : 'Add New Category'}
               </h1>
-              <p className="text-slate-500 text-sm">Define rules for this patient category</p>
             </div>
           </div>
 
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden">
-            <div className="flex-1 overflow-y-auto p-6 space-y-8">
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
               {/* Basic Information */}
               <section>
                 <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Basic Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Category Code <span className="text-red-500">*</span></label>
                     <input
@@ -404,12 +402,12 @@ export const PatientCategoryMaster = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Category Name <span className="text-red-500">*</span></label>
-                    <input type="text" value={formData.categoryName} onChange={e => setFormData({...formData, categoryName: e.target.value})} maxLength={50} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.categoryName ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
+                    <input type="text" value={formData.categoryName} onChange={e => setFormData({ ...formData, categoryName: e.target.value })} maxLength={50} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.categoryName ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
                     {errors.categoryName && <p className="text-red-500 text-xs mt-1">{errors.categoryName}</p>}
                   </div>
-                  <div className="md:col-span-2">
+                  <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
-                    <input type="text" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} maxLength={250} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <textarea value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} maxLength={250} rows={1} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                 </div>
               </section>
@@ -420,7 +418,7 @@ export const PatientCategoryMaster = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Billing Type <span className="text-red-500">*</span></label>
-                    <select value={formData.billingType} onChange={e => setFormData({...formData, billingType: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.billingType ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
+                    <select value={formData.billingType} onChange={e => setFormData({ ...formData, billingType: e.target.value })} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.billingType ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
                       <option value="Cash">Cash</option>
                       <option value="Credit">Credit</option>
                       <option value="Insurance">Insurance</option>
@@ -429,15 +427,15 @@ export const PatientCategoryMaster = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Default Discount (%)</label>
-                    <input type="number" min="0" max="100" value={formData.defaultDiscount} onChange={e => setFormData({...formData, defaultDiscount: e.target.value})} maxLength={50} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.defaultDiscount ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
+                    <input type="number" min="0" max="100" value={formData.defaultDiscount} onChange={e => setFormData({ ...formData, defaultDiscount: e.target.value })} maxLength={50} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.defaultDiscount ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
                     {errors.defaultDiscount && <p className="text-red-500 text-xs mt-1">{errors.defaultDiscount}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Credit Limit</label>
-                    <input type="number" min="0" value={formData.creditLimit} onChange={e => setFormData({...formData, creditLimit: e.target.value})} maxLength={50} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <input type="number" min="0" value={formData.creditLimit} onChange={e => setFormData({ ...formData, creditLimit: e.target.value })} maxLength={50} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                   <div className="flex items-center gap-2 md:col-span-3">
-                    <input type="checkbox" id="approvalRequired" checked={formData.approvalRequired} onChange={e => setFormData({...formData, approvalRequired: e.target.checked})} className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary" />
+                    <input type="checkbox" id="approvalRequired" checked={formData.approvalRequired} onChange={e => setFormData({ ...formData, approvalRequired: e.target.checked })} className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary" />
                     <label htmlFor="approvalRequired" className="text-sm text-slate-700">Approval Required for Billing</label>
                   </div>
                 </div>
@@ -446,13 +444,13 @@ export const PatientCategoryMaster = () => {
               {/* Insurance */}
               <section>
                 <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Insurance</h3>
-                <div className="flex flex-col gap-4">
+                <div className="flex flex-wrap items-center gap-8">
                   <div className="flex items-center gap-2">
-                    <input type="checkbox" id="insuranceApplicable" checked={formData.insuranceApplicable} onChange={e => setFormData({...formData, insuranceApplicable: e.target.checked})} className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary" />
+                    <input type="checkbox" id="insuranceApplicable" checked={formData.insuranceApplicable} onChange={e => setFormData({ ...formData, insuranceApplicable: e.target.checked })} className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary" />
                     <label htmlFor="insuranceApplicable" className="text-sm text-slate-700">Insurance Applicable</label>
                   </div>
                   <div className="flex items-center gap-2">
-                    <input type="checkbox" id="corporateApplicable" checked={formData.corporateApplicable} onChange={e => setFormData({...formData, corporateApplicable: e.target.checked})} className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary" />
+                    <input type="checkbox" id="corporateApplicable" checked={formData.corporateApplicable} onChange={e => setFormData({ ...formData, corporateApplicable: e.target.checked })} className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary" />
                     <label htmlFor="corporateApplicable" className="text-sm text-slate-700">Corporate Applicable</label>
                   </div>
                 </div>
@@ -464,14 +462,14 @@ export const PatientCategoryMaster = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Status <span className="text-red-500">*</span></label>
-                    <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
+                    <select value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
                       <option value="Active">Active</option>
                       <option value="Inactive">Inactive</option>
                     </select>
                   </div>
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-slate-700 mb-1">Remarks</label>
-                    <input type="text" value={formData.remarks} onChange={e => setFormData({...formData, remarks: e.target.value})} maxLength={250} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <input type="text" value={formData.remarks} onChange={e => setFormData({ ...formData, remarks: e.target.value })} maxLength={250} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                 </div>
               </section>
@@ -534,7 +532,7 @@ export const PatientCategoryMaster = () => {
           <p className="text-slate-500 text-sm mb-6">
             {successMessage}
           </p>
-          
+
           <div className="flex items-center justify-center w-full">
             <Button variant="filled" color="primary" className="w-full" onClick={() => setIsSuccessOpen(false)}>
               OK
@@ -545,3 +543,5 @@ export const PatientCategoryMaster = () => {
     </motion.div>
   );
 };
+
+

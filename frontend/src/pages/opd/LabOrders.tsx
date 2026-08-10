@@ -78,10 +78,8 @@ export const LabOrders = () => {
             Lab Orders
           </h1>
         </div>
-      </div>
-
-      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex flex-col h-[calc(100vh-10rem)]">
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-4 bg-slate-50/50 flex-wrap">
+        
+        <div className="flex items-center gap-4 flex-wrap">
           <div className="relative w-64">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input 
@@ -104,7 +102,9 @@ export const LabOrders = () => {
             onReset={handleReset}
           />
         </div>
+      </div>
 
+      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex flex-col h-[calc(100vh-10rem)]">
         <div className="flex-1 overflow-auto custom-scrollbar">
           <table className="w-full">
             <thead className="bg-white sticky top-0 z-10 shadow-sm outline outline-1 outline-slate-100 text-xs font-semibold text-slate-500 uppercase tracking-wider">

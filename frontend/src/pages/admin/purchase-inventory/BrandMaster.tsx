@@ -403,7 +403,7 @@ export const BrandMaster = () => {
         title={`${selectedRecord ? 'Edit' : 'Add'} Brand Master`}
         size="3xl"
       >
-        <div className="space-y-4 max-h-[70vh] overflow-y-auto px-1">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[70vh] overflow-y-auto px-1">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Brand Code</label>
             <input type="text" value={selectedRecord ? selectedRecord.brandCode : (nextCode || 'Auto-generating…')} disabled readOnly className="w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed outline-none" />
@@ -415,8 +415,8 @@ export const BrandMaster = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
-            <textarea value={formData.description} maxLength={LIMITS.description} onChange={(e) => setFormData({...formData, description: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" rows={2}/>
-            <p className="text-slate-400 text-xs mt-1 text-right">{formData.description.length}/{LIMITS.description}</p>
+            <textarea value={formData.description} maxLength={LIMITS.description} onChange={(e) => setFormData({...formData, description: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" rows={1}/>
+            {/* <p className="text-slate-400 text-xs mt-1 text-right">{formData.description.length}/{LIMITS.description}</p> */}
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>

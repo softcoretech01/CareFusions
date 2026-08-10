@@ -150,19 +150,22 @@ export const EMRDashboard = () => {
         </div>
       )}
       
-      <div>
-        <h1 className="text-3xl font-bold text-slate-800">EMR Dashboard</h1>
-      </div>
-      <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm">
-        <div className="flex flex-wrap items-center gap-3">
-          <DateFilter
-            dateFrom={fromDate}
-            dateTo={toDate}
-            onDateFromChange={setFromDate}
-            onDateToChange={setToDate}
-            onSearch={() => setSearchQuery(searchText)}
-            onReset={handleClearFilters}
-          />
+      <div className="flex items-center justify-between gap-4">
+        <div className="shrink-0">
+          <h1 className="text-2xl font-bold text-slate-800 whitespace-nowrap">EMR Dashboard</h1>
+        </div>
+        
+        <div className="flex items-center gap-3 flex-nowrap overflow-x-auto pb-1 w-full justify-end">
+          <div className="shrink-0 scale-95 origin-right">
+            <DateFilter
+              dateFrom={fromDate}
+              dateTo={toDate}
+              onDateFromChange={setFromDate}
+              onDateToChange={setToDate}
+              onSearch={() => setSearchQuery(searchText)}
+              onReset={handleClearFilters}
+            />
+          </div>
         </div>
       </div>
 
