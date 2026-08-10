@@ -30,22 +30,22 @@ const LIMITS = { categoryName: 100, description: 500 };
 
 // NOTE: Retained ONLY for legacy pages (e.g. VendorsCatalog) that import it as
 // sample data. The Category Master page itself now loads from the live API.
-export const mockData: CategoryRecord[] = [{"id":1,"categoryCode":"CAT-001","categoryName":"Medicines","description":"All pharmaceutical drugs","status":"Active","createdBy":"System","createdDate":"2024-01-01"},
-{"id":2,"categoryCode":"CAT-002","categoryName":"Medical Consumables","description":"Disposable medical items","status":"Active","createdBy":"System","createdDate":"2024-01-01"},
-{"id":3,"categoryCode":"CAT-003","categoryName":"Surgical Instruments","description":"Reusable surgical tools","status":"Active","createdBy":"System","createdDate":"2024-01-01"},
-{"id":4,"categoryCode":"CAT-004","categoryName":"Laboratory Supplies","description":"Lab reagents and kits","status":"Active","createdBy":"System","createdDate":"2024-01-01"},
-{"id":5,"categoryCode":"CAT-005","categoryName":"Radiology Supplies","description":"Films and contrast media","status":"Active","createdBy":"System","createdDate":"2024-01-01"}];
+export const mockData: CategoryRecord[] = [{ "id": 1, "categoryCode": "CAT-001", "categoryName": "Medicines", "description": "All pharmaceutical drugs", "status": "Active", "createdBy": "System", "createdDate": "2024-01-01" },
+{ "id": 2, "categoryCode": "CAT-002", "categoryName": "Medical Consumables", "description": "Disposable medical items", "status": "Active", "createdBy": "System", "createdDate": "2024-01-01" },
+{ "id": 3, "categoryCode": "CAT-003", "categoryName": "Surgical Instruments", "description": "Reusable surgical tools", "status": "Active", "createdBy": "System", "createdDate": "2024-01-01" },
+{ "id": 4, "categoryCode": "CAT-004", "categoryName": "Laboratory Supplies", "description": "Lab reagents and kits", "status": "Active", "createdBy": "System", "createdDate": "2024-01-01" },
+{ "id": 5, "categoryCode": "CAT-005", "categoryName": "Radiology Supplies", "description": "Films and contrast media", "status": "Active", "createdBy": "System", "createdDate": "2024-01-01" }];
 
 const mapApiToRecord = (item: Record<string, unknown>): CategoryRecord => ({
-  id:           item.id           as number,
+  id: item.id as number,
   categoryCode: item.categoryCode as string,
   categoryName: item.categoryName as string,
-  description:  (item.description as string) ?? '',
-  status:       item.status       as string,
-  createdBy:    (item.createdBy   as string) ?? undefined,
-  createdDate:  item.createdDate ? String(item.createdDate).split('T')[0] : undefined,
-  updatedBy:    (item.updatedBy   as string) ?? undefined,
-  updatedDate:  item.updatedDate ? String(item.updatedDate).split('T')[0] : undefined,
+  description: (item.description as string) ?? '',
+  status: item.status as string,
+  createdBy: (item.createdBy as string) ?? undefined,
+  createdDate: item.createdDate ? String(item.createdDate).split('T')[0] : undefined,
+  updatedBy: (item.updatedBy as string) ?? undefined,
+  updatedDate: item.updatedDate ? String(item.updatedDate).split('T')[0] : undefined,
 });
 
 export const CategoryMaster = () => {
@@ -59,7 +59,7 @@ export const CategoryMaster = () => {
   // Pagination & Sorting States
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  const [sortConfig, setSortConfig] = useState<{key: keyof CategoryRecord | null, direction: 'asc'|'desc'}>({ key: null, direction: 'asc' });
+  const [sortConfig, setSortConfig] = useState<{ key: keyof CategoryRecord | null, direction: 'asc' | 'desc' }>({ key: null, direction: 'asc' });
 
   // Filter States
   const [showFilters, setShowFilters] = useState(false);
@@ -171,8 +171,8 @@ export const CategoryMaster = () => {
     try {
       const body = {
         categoryName: formData.categoryName.trim(),
-        description:  formData.description || null,
-        status:       formData.status,
+        description: formData.description || null,
+        status: formData.status,
       };
 
       let res: Response;
@@ -366,9 +366,8 @@ export const CategoryMaster = () => {
                   <td className="py-3 px-4 text-slate-800">{record.categoryName}</td>
                   <td className="py-3 px-4 text-slate-600 text-sm max-w-xs truncate">{record.description}</td>
                   <td className="py-3 px-4">
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                      record.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'
-                    }`}>
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${record.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'
+                      }`}>
                       {record.status}
                     </span>
                   </td>
@@ -426,20 +425,20 @@ export const CategoryMaster = () => {
         title={`${selectedRecord ? 'Edit' : 'Add'} Category Master`}
         size="3xl"
       >
-        <div className="space-y-4 max-h-[70vh] overflow-y-auto px-1">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[70vh] overflow-y-auto px-1">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Category Code</label>
             <input type="text" value={selectedRecord ? selectedRecord.categoryCode : (nextCode || 'Auto-generating…')} disabled readOnly className="w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed outline-none" />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Name <span className="text-red-500">*</span></label>
-            <input type="text" maxLength={LIMITS.categoryName} value={formData.categoryName} onChange={(e) => setFormData({...formData, categoryName: e.target.value})} className={`w-full px-4 py-2 border rounded-xl text-sm outline-none focus:ring-2 transition-all ${errors.categoryName ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'}`} />
+            <input type="text" maxLength={LIMITS.categoryName} value={formData.categoryName} onChange={(e) => setFormData({ ...formData, categoryName: e.target.value })} className={`w-full px-4 py-2 border rounded-xl text-sm outline-none focus:ring-2 transition-all ${errors.categoryName ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'}`} />
             {errors.categoryName && <p className="text-red-500 text-xs mt-1">{errors.categoryName}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
-            <textarea value={formData.description} maxLength={LIMITS.description} onChange={(e) => setFormData({...formData, description: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" rows={2}/>
-            <p className="text-slate-400 text-xs mt-1 text-right">{formData.description.length}/{LIMITS.description}</p>
+            <textarea value={formData.description} maxLength={LIMITS.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" rows={1} />
+            {/* <p className="text-slate-400 text-xs mt-1 text-right">{formData.description.length}/{LIMITS.description}</p> */}
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
@@ -478,9 +477,8 @@ export const CategoryMaster = () => {
             </div>
             <div className="pt-4 border-t border-slate-100">
               <span className="text-xs text-slate-400 block mb-1">Status</span>
-              <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                selectedRecord.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'
-              }`}>
+              <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${selectedRecord.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'
+                }`}>
                 {selectedRecord.status}
               </span>
             </div>

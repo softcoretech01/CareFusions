@@ -228,7 +228,7 @@ export const CurrencyMaster = () => {
         </div>
       )}
 
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-3xl font-bold text-slate-800">Currency Master</h1>
           <p className="text-slate-500 mt-1"></p>
@@ -507,3 +507,4 @@ export const CurrencyMaster = () => {
     </motion.div>
   );
 };
+

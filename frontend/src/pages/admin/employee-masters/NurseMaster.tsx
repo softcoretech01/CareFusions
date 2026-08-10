@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle, Save, RefreshCw, Upload, CheckCircle2, X
+import {
+  Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle, Save, RefreshCw, Upload, CheckCircle2, X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
@@ -76,37 +77,37 @@ const emptyData: Omit<NurseRecord, 'id'> = {
 const API_BASE = import.meta.env.VITE_API_URL as string;
 
 const mapApiToRecord = (item: any): NurseRecord => ({
-  id:                 item.id,
-  nurseId:            item.nurseId as string,
-  employeeCode:       item.employeeCode as string,
-  name:               item.name as string,
-  gender:             item.gender as string,
-  dob:                item.dob ? String(item.dob) : '',
-  qualification:      item.qualification as string,
+  id: item.id,
+  nurseId: item.nurseId as string,
+  employeeCode: item.employeeCode as string,
+  name: item.name as string,
+  gender: item.gender as string,
+  dob: item.dob ? String(item.dob) : '',
+  qualification: item.qualification as string,
   registrationNumber: item.registrationNumber as string,
-  department:         item.department as string,
-  designation:        item.designation as string,
-  hospital:           item.hospital as string,
-  branch:             item.branch as string,
-  mobile:             item.mobile as string,
-  alternateMobile:    item.alternateMobile as string || '',
-  email:              item.email as string || '',
-  address:            item.address as string || '',
-  city:               item.city as string || '',
-  state:              item.state as string || '',
-  country:            item.country as string || '',
-  postalCode:         item.postalCode as string || '',
-  joiningDate:        item.joiningDate ? String(item.joiningDate) : '',
-  shift:              item.shift as string,
-  manager:            item.manager as string || '',
-  employmentType:     item.employmentType as string || '',
-  experience:         item.experience != null ? String(item.experience) : '',
-  status:             item.status as string,
-  remarks:            item.remarks as string || '',
-  profilePhoto:       item.profilePhoto as string || '',
-  nursingLicense:     item.nursingLicense as string || '',
+  department: item.department as string,
+  designation: item.designation as string,
+  hospital: item.hospital as string,
+  branch: item.branch as string,
+  mobile: item.mobile as string,
+  alternateMobile: item.alternateMobile as string || '',
+  email: item.email as string || '',
+  address: item.address as string || '',
+  city: item.city as string || '',
+  state: item.state as string || '',
+  country: item.country as string || '',
+  postalCode: item.postalCode as string || '',
+  joiningDate: item.joiningDate ? String(item.joiningDate) : '',
+  shift: item.shift as string,
+  manager: item.manager as string || '',
+  employmentType: item.employmentType as string || '',
+  experience: item.experience != null ? String(item.experience) : '',
+  status: item.status as string,
+  remarks: item.remarks as string || '',
+  profilePhoto: item.profilePhoto as string || '',
+  nursingLicense: item.nursingLicense as string || '',
   qualificationCertificate: item.qualificationCertificate as string || '',
-  idProof:            item.idProof as string || '',
+  idProof: item.idProof as string || '',
 });
 
 export const NurseMaster = () => {
@@ -114,7 +115,7 @@ export const NurseMaster = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  
+
   // Filter States
   const [showFilters, setShowFilters] = useState(false);
   const [filterDept, setFilterDept] = useState('');
@@ -129,17 +130,17 @@ export const NurseMaster = () => {
   const [selectedRecord, setSelectedRecord] = useState<NurseRecord | null>(null);
   const [formData, setFormData] = useState<Omit<NurseRecord, 'id'>>(emptyData);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  
+
   const [isLoading, setIsLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
-  
+
   // Dropdowns
-  const [hospitals, setHospitals] = useState<{name: string}[]>([]);
-  const [branches, setBranches] = useState<{name: string}[]>([]);
-  const [departments, setDepartments] = useState<{departmentName: string}[]>([]);
+  const [hospitals, setHospitals] = useState<{ name: string }[]>([]);
+  const [branches, setBranches] = useState<{ name: string }[]>([]);
+  const [departments, setDepartments] = useState<{ departmentName: string }[]>([]);
 
   const fetchNurses = async () => {
     setIsLoading(true);
@@ -166,7 +167,7 @@ export const NurseMaster = () => {
       if (hRes.ok) setHospitals(await hRes.json());
       if (bRes.ok) setBranches(await bRes.json());
       if (dRes.ok) setDepartments(await dRes.json());
-    } catch {}
+    } catch { }
   };
 
   useEffect(() => {
@@ -257,7 +258,7 @@ export const NurseMaster = () => {
         manager: formData.manager || null,
         employmentType: formData.employmentType || null,
         experience: formData.experience ? Number(formData.experience) : null,
-        
+
         profilePhoto: formData.profilePhoto || null,
         nursingLicense: formData.nursingLicense || null,
         qualificationCertificate: formData.qualificationCertificate || null,
@@ -330,10 +331,10 @@ export const NurseMaster = () => {
   };
 
   const filteredRecords = records.filter(record => {
-    const matchesSearch = 
+    const matchesSearch =
       record.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       record.nurseId.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     const matchesDept = !filterDept || record.department === filterDept;
     const matchesShift = !filterShift || record.shift === filterShift;
     const matchesHosp = !filterHospital || record.hospital === filterHospital;
@@ -348,14 +349,14 @@ export const NurseMaster = () => {
   const pagedRecords = filteredRecords.slice((_page - 1) * itemsPerPage, _page * itemsPerPage);
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       className="h-full flex flex-col relative"
     >
       {!isFormOpen ? (
         <>
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-3xl font-bold text-slate-800">Nurse Master</h1>
               <p className="text-slate-500 mt-1"></p>
@@ -388,16 +389,16 @@ export const NurseMaster = () => {
                 />
               </div>
               <div className="flex items-center gap-2">
-              <button onClick={() => setShowFilters(!showFilters)} title="Filters" className={showFilters ? "p-2 border rounded-lg transition-colors border-primary bg-primary/5 text-primary" : "p-2 border rounded-lg transition-colors border-slate-200 text-slate-500 hover:bg-slate-50"}>
-                <Filter className="w-4 h-4" />
-              </button>
-              <button onClick={() => { setSearchTerm(''); setFilterBranch(''); setFilterDept(''); setFilterHospital(''); setFilterShift(''); setFilterStatus(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
-                <X className="w-4 h-4" />
-              </button>
-              <button onClick={() => exportToExcel(records, 'NurseMaster')} title="Export to Excel" className="p-2 border border-emerald-200 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 transition-colors">
-                <Download className="w-4 h-4" />
-              </button>
-            </div>
+                <button onClick={() => setShowFilters(!showFilters)} title="Filters" className={showFilters ? "p-2 border rounded-lg transition-colors border-primary bg-primary/5 text-primary" : "p-2 border rounded-lg transition-colors border-slate-200 text-slate-500 hover:bg-slate-50"}>
+                  <Filter className="w-4 h-4" />
+                </button>
+                <button onClick={() => { setSearchTerm(''); setFilterBranch(''); setFilterDept(''); setFilterHospital(''); setFilterShift(''); setFilterStatus(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+                <button onClick={() => exportToExcel(records, 'NurseMaster')} title="Export to Excel" className="p-2 border border-emerald-200 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 transition-colors">
+                  <Download className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
             <AnimatePresence>
@@ -488,24 +489,23 @@ export const NurseMaster = () => {
                         <td className="px-4 py-3 text-slate-600">{record.shift}</td>
                         <td className="px-4 py-3 text-slate-600">{record.mobile}</td>
                         <td className="px-4 py-3 text-center">
-                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                            record.status === 'Active' 
-                              ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' 
-                              : 'bg-red-50 text-red-600 border border-red-200'
-                          }`}>
+                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${record.status === 'Active'
+                            ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                            : 'bg-red-50 text-red-600 border border-red-200'
+                            }`}>
                             {record.status}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-center">
                           <div className="flex items-center justify-center gap-2">
-                            <button 
+                            <button
                               onClick={() => handleEdit(record)}
                               className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"
                               title="Edit"
                             >
                               <Edit2 className="w-4 h-4" />
                             </button>
-                            <button 
+                            <button
                               onClick={() => handleDeleteRequest(record)}
                               className="p-1.5 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                               title="Delete"
@@ -550,21 +550,20 @@ export const NurseMaster = () => {
         </>
       ) : (
         <>
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex justify-between items-center mb-2">
             <div>
               <h1 className="text-2xl font-bold text-slate-800">
                 {selectedRecord ? `Edit Nurse: ${selectedRecord.name}` : 'Add New Nurse'}
               </h1>
-              <p className="text-slate-500 text-sm">Fill in the complete nurse profile</p>
             </div>
           </div>
 
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden">
-            <div className="flex-1 overflow-y-auto p-6 space-y-8">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {/* Basic Information */}
               <section>
                 <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Basic Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Nurse ID <span className="text-red-500">*</span></label>
                     <input
@@ -576,17 +575,17 @@ export const NurseMaster = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Employee Code <span className="text-red-500">*</span></label>
-                    <input type="text" value={formData.employeeCode} onChange={e => setFormData({...formData, employeeCode: e.target.value})} maxLength={10} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.employeeCode ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
+                    <input type="text" value={formData.employeeCode} onChange={e => setFormData({ ...formData, employeeCode: e.target.value })} maxLength={10} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.employeeCode ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
                     {errors.employeeCode && <p className="text-red-500 text-xs mt-1">{errors.employeeCode}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Nurse Name <span className="text-red-500">*</span></label>
-                    <input type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} maxLength={50} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.name ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
+                    <input type="text" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} maxLength={50} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.name ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
                     {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Gender <span className="text-red-500">*</span></label>
-                    <select value={formData.gender} onChange={e => setFormData({...formData, gender: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.gender ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
+                    <select value={formData.gender} onChange={e => setFormData({ ...formData, gender: e.target.value })} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.gender ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
                       <option value="">Select Gender</option>
                       <option value="Male">Male</option>
                       <option value="Female">Female</option>
@@ -596,21 +595,21 @@ export const NurseMaster = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Date of Birth</label>
-                    <input type="date" value={formData.dob} onChange={e => setFormData({...formData, dob: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <input type="date" value={formData.dob} onChange={e => setFormData({ ...formData, dob: e.target.value })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Qualification <span className="text-red-500">*</span></label>
-                    <input type="text" value={formData.qualification} onChange={e => setFormData({...formData, qualification: e.target.value})} placeholder="e.g., GNM, B.Sc Nursing" maxLength={50} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.qualification ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
+                    <input type="text" value={formData.qualification} onChange={e => setFormData({ ...formData, qualification: e.target.value })} placeholder="e.g., GNM, B.Sc Nursing" maxLength={50} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.qualification ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
                     {errors.qualification && <p className="text-red-500 text-xs mt-1">{errors.qualification}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Registration Number <span className="text-red-500">*</span></label>
-                    <input type="text" value={formData.registrationNumber} onChange={e => setFormData({...formData, registrationNumber: e.target.value})} maxLength={50} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.registrationNumber ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
+                    <input type="text" value={formData.registrationNumber} onChange={e => setFormData({ ...formData, registrationNumber: e.target.value })} maxLength={50} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.registrationNumber ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
                     {errors.registrationNumber && <p className="text-red-500 text-xs mt-1">{errors.registrationNumber}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Department <span className="text-red-500">*</span></label>
-                    <select value={formData.department} onChange={e => setFormData({...formData, department: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.department ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
+                    <select value={formData.department} onChange={e => setFormData({ ...formData, department: e.target.value })} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.department ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
                       <option value="">Select Department</option>
                       {departments.map((d, i) => (
                         <option key={i} value={d.departmentName}>{d.departmentName}</option>
@@ -620,12 +619,12 @@ export const NurseMaster = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Designation <span className="text-red-500">*</span></label>
-                    <input type="text" value={formData.designation} onChange={e => setFormData({...formData, designation: e.target.value})} maxLength={50} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.designation ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
+                    <input type="text" value={formData.designation} onChange={e => setFormData({ ...formData, designation: e.target.value })} maxLength={50} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.designation ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
                     {errors.designation && <p className="text-red-500 text-xs mt-1">{errors.designation}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Hospital <span className="text-red-500">*</span></label>
-                    <select value={formData.hospital} onChange={e => setFormData({...formData, hospital: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.hospital ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
+                    <select value={formData.hospital} onChange={e => setFormData({ ...formData, hospital: e.target.value })} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.hospital ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
                       <option value="">Select Hospital</option>
                       {hospitals.map((h, i) => (
                         <option key={i} value={h.name}>{h.name}</option>
@@ -635,7 +634,7 @@ export const NurseMaster = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Branch <span className="text-red-500">*</span></label>
-                    <select value={formData.branch} onChange={e => setFormData({...formData, branch: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.branch ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
+                    <select value={formData.branch} onChange={e => setFormData({ ...formData, branch: e.target.value })} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.branch ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
                       <option value="">Select Branch</option>
                       {branches.map((b, i) => (
                         <option key={i} value={b.name}>{b.name}</option>
@@ -649,35 +648,35 @@ export const NurseMaster = () => {
               {/* Contact Information */}
               <section>
                 <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Contact Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Mobile Number <span className="text-red-500">*</span></label>
-                    <input type="text" value={formData.mobile} onChange={e => setFormData({...formData, mobile: e.target.value})} maxLength={10} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.mobile ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
+                    <input type="text" value={formData.mobile} onChange={e => setFormData({ ...formData, mobile: e.target.value })} maxLength={10} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.mobile ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
                     {errors.mobile && <p className="text-red-500 text-xs mt-1">{errors.mobile}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Alternate Mobile</label>
-                    <input type="text" value={formData.alternateMobile} onChange={e => setFormData({...formData, alternateMobile: e.target.value})} maxLength={10} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <input type="text" value={formData.alternateMobile} onChange={e => setFormData({ ...formData, alternateMobile: e.target.value })} maxLength={10} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
-                    <input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} maxLength={20} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <input type="email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} maxLength={20} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
-                  <div className="md:col-span-3">
+                  <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Address</label>
-                    <input type="text" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} maxLength={250} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <input type="text" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} maxLength={250} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">City</label>
-                    <input type="text" value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} maxLength={50} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <input type="text" value={formData.city} onChange={e => setFormData({ ...formData, city: e.target.value })} maxLength={50} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">State</label>
-                    <input type="text" value={formData.state} onChange={e => setFormData({...formData, state: e.target.value})} maxLength={50} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <input type="text" value={formData.state} onChange={e => setFormData({ ...formData, state: e.target.value })} maxLength={50} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Postal Code</label>
-                    <input type="text" value={formData.postalCode} onChange={e => setFormData({...formData, postalCode: e.target.value})} maxLength={10} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <input type="text" value={formData.postalCode} onChange={e => setFormData({ ...formData, postalCode: e.target.value })} maxLength={10} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                 </div>
               </section>
@@ -688,12 +687,12 @@ export const NurseMaster = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Joining Date <span className="text-red-500">*</span></label>
-                    <input type="date" value={formData.joiningDate} onChange={e => setFormData({...formData, joiningDate: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.joiningDate ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
+                    <input type="date" value={formData.joiningDate} onChange={e => setFormData({ ...formData, joiningDate: e.target.value })} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.joiningDate ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
                     {errors.joiningDate && <p className="text-red-500 text-xs mt-1">{errors.joiningDate}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Shift <span className="text-red-500">*</span></label>
-                    <select value={formData.shift} onChange={e => setFormData({...formData, shift: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.shift ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
+                    <select value={formData.shift} onChange={e => setFormData({ ...formData, shift: e.target.value })} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.shift ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
                       <option value="">Select Shift</option>
                       <option value="Morning">Morning</option>
                       <option value="Evening">Evening</option>
@@ -703,11 +702,11 @@ export const NurseMaster = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Reporting Manager</label>
-                    <input type="text" value={formData.manager} onChange={e => setFormData({...formData, manager: e.target.value})} maxLength={50} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <input type="text" value={formData.manager} onChange={e => setFormData({ ...formData, manager: e.target.value })} maxLength={50} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Employment Type</label>
-                    <select value={formData.employmentType} onChange={e => setFormData({...formData, employmentType: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
+                    <select value={formData.employmentType} onChange={e => setFormData({ ...formData, employmentType: e.target.value })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
                       <option value="">Select Type</option>
                       <option value="Permanent">Permanent</option>
                       <option value="Contract">Contract</option>
@@ -715,7 +714,7 @@ export const NurseMaster = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Experience (Years)</label>
-                    <input type="number" min="0" value={formData.experience} onChange={e => setFormData({...formData, experience: e.target.value})} maxLength={50} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <input type="number" min="0" value={formData.experience} onChange={e => setFormData({ ...formData, experience: e.target.value })} maxLength={50} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                 </div>
               </section>
@@ -725,9 +724,9 @@ export const NurseMaster = () => {
                 <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Documents</h3>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                   {[
-                    { label: 'Profile Photo', field: 'profilePhoto' }, 
-                    { label: 'Nursing License', field: 'nursingLicense' }, 
-                    { label: 'Qualification Certificate', field: 'qualificationCertificate' }, 
+                    { label: 'Profile Photo', field: 'profilePhoto' },
+                    { label: 'Nursing License', field: 'nursingLicense' },
+                    { label: 'Qualification Certificate', field: 'qualificationCertificate' },
                     { label: 'ID Proof', field: 'idProof' }
                   ].map((doc, i) => (
                     <div key={i} className="border border-slate-200 rounded-xl p-4 flex flex-col gap-2 relative">
@@ -736,11 +735,11 @@ export const NurseMaster = () => {
                         {formData[doc.field as keyof typeof formData] ? (
                           <div className="flex flex-col items-center gap-2">
                             <span className="text-sm font-medium text-emerald-600">File Uploaded</span>
-                            <img 
-                              src={`http://localhost:8000${formData[doc.field as keyof typeof formData]}`} 
-                              alt="preview" 
-                              className="h-16 object-contain" 
-                              onError={(e) => { e.currentTarget.style.display = 'none'; }} 
+                            <img
+                              src={`http://localhost:8000${formData[doc.field as keyof typeof formData]}`}
+                              alt="preview"
+                              className="h-16 object-contain"
+                              onError={(e) => { e.currentTarget.style.display = 'none'; }}
                             />
                             <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                               <span className="text-white text-xs font-medium">Click to change</span>
@@ -752,8 +751,8 @@ export const NurseMaster = () => {
                             <p className="text-sm text-primary font-medium">Click to upload</p>
                           </>
                         )}
-                        <input 
-                          type="file" 
+                        <input
+                          type="file"
                           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                           onChange={(e) => handleFileUpload(e, doc.field as keyof NurseRecord)}
                           accept="image/*,.pdf"
@@ -770,14 +769,14 @@ export const NurseMaster = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Status <span className="text-red-500">*</span></label>
-                    <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
+                    <select value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
                       <option value="Active">Active</option>
                       <option value="Inactive">Inactive</option>
                     </select>
                   </div>
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-slate-700 mb-1">Remarks</label>
-                    <input type="text" value={formData.remarks} onChange={e => setFormData({...formData, remarks: e.target.value})} maxLength={250} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <input type="text" value={formData.remarks} onChange={e => setFormData({ ...formData, remarks: e.target.value })} maxLength={250} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                 </div>
               </section>
@@ -840,7 +839,7 @@ export const NurseMaster = () => {
           <p className="text-slate-500 text-sm mb-6">
             {successMessage}
           </p>
-          
+
           <div className="flex items-center justify-center w-full">
             <Button variant="filled" color="primary" className="w-full" onClick={() => setIsSuccessOpen(false)}>
               OK
@@ -851,3 +850,4 @@ export const NurseMaster = () => {
     </motion.div>
   );
 };
+

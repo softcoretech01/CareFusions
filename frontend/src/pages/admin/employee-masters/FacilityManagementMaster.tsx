@@ -312,7 +312,7 @@ export const FacilityManagementMaster = () => {
     >
       {!isFormOpen ? (
         <>
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-3xl font-bold text-slate-800">Facility Management Master</h1>
               <p className="text-slate-500 mt-1"></p>
@@ -476,17 +476,16 @@ export const FacilityManagementMaster = () => {
         </>
       ) : (
         <>
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex justify-between items-center mb-2">
             <div>
               <h1 className="text-2xl font-bold text-slate-800">
                 {selectedRecord ? `Edit Staff: ${selectedRecord.name}` : 'Add New Staff'}
               </h1>
-              <p className="text-slate-500 text-sm">Fill in the complete staff profile</p>
             </div>
           </div>
 
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden">
-            <div className="flex-1 overflow-y-auto p-6 space-y-8">
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
               {/* Basic Information */}
               <section>
                 <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Basic Information</h3>
@@ -549,7 +548,7 @@ export const FacilityManagementMaster = () => {
               {/* Contact Information */}
               <section>
                 <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Contact Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Mobile Number <span className="text-red-500">*</span></label>
                     <input type="text" value={formData.mobile} onChange={e => setFormData({...formData, mobile: e.target.value})} maxLength={10} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.mobile ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
@@ -559,7 +558,7 @@ export const FacilityManagementMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
                     <input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} maxLength={20} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
-                  <div className="md:col-span-2">
+                  <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Address</label>
                     <input type="text" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} maxLength={250} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
@@ -569,7 +568,7 @@ export const FacilityManagementMaster = () => {
               {/* Employment Details */}
               <section>
                 <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Employment Details</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Joining Date <span className="text-red-500">*</span></label>
                     <input type="date" value={formData.joiningDate} onChange={e => setFormData({...formData, joiningDate: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.joiningDate ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
@@ -727,3 +726,5 @@ export const FacilityManagementMaster = () => {
     </motion.div>
   );
 };
+
+

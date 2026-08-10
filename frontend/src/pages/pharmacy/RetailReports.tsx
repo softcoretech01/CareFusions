@@ -25,12 +25,12 @@ export const RetailReports = () => {
     if (toDate && day > toDate) return false;
     const q = searchQuery.toLowerCase();
     return bill.billId.toLowerCase().includes(q) ||
-           (bill.patientName && bill.patientName.toLowerCase().includes(q));
+      (bill.patientName && bill.patientName.toLowerCase().includes(q));
   });
 
   const exportToCSV = () => {
     if (filteredBills.length === 0) return;
-    
+
     const headers = ['Invoice No', 'Date', 'Customer', 'Phone', 'Total Items', 'Subtotal', 'Tax', 'Discount', 'Net Amount', 'Status', 'Payment Mode'];
     const rows = filteredBills.map((bill: any) => [
       bill.billId,
@@ -64,17 +64,17 @@ export const RetailReports = () => {
 
   return (
     <div className="h-full flex flex-col max-w-7xl mx-auto">
-      
+
       {/* Header Tabs (Static for UI as per screenshot) */}
-      <div className="flex border-b border-slate-200 mb-4">
+      {/* <div className="flex border-b border-slate-200 mb-4">
         <button className="px-6 py-3 border-b-2 border-primary text-primary font-bold text-sm flex items-center gap-2 bg-primary/5 rounded-t-lg">
           <FileText className="w-4 h-4" />
           Retail Sales Report
         </button>
-      </div>
+      </div> */}
 
       <div className="flex-1 bg-white border border-slate-200 rounded-xl flex flex-col shadow-sm overflow-hidden">
-        
+
         {/* Controls Header */}
         <div className="p-5 flex items-center justify-between border-b border-slate-100 bg-slate-50/50">
           <h2 className="text-xl font-extrabold text-slate-800">Retail Sales Report</h2>
@@ -86,14 +86,14 @@ export const RetailReports = () => {
               onDateToChange={setToDate}
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
-              onSearch={() => {}}
+              onSearch={() => { }}
               onReset={() => { setFromDate(''); setToDate(''); setSearchQuery(''); }}
             />
-            <button 
+            <button
               onClick={exportToCSV}
               className="px-4 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 flex items-center gap-2 transition-colors"
             >
-               <Download className="w-4 h-4" /> Export CSV
+              <Download className="w-4 h-4" /> Export CSV
             </button>
           </div>
         </div>
@@ -155,21 +155,20 @@ export const RetailReports = () => {
                     </td>
                     <td className="px-4 py-3 text-center">
                       <div className="flex items-center justify-center gap-2">
-                        <button 
+                        <button
                           onClick={() => setViewingBill({ ...bill })}
-                          className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors" 
+                          className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
                           title="View Details"
                         >
                           <Eye className="w-4 h-4" />
                         </button>
-                        <button 
+                        <button
                           onClick={() => bill.paymentStatus === 'Paid' && navigate(`/pharmacy/print/${bill.billId}`)}
                           disabled={bill.paymentStatus !== 'Paid'}
-                          className={`p-1.5 rounded transition-colors ${
-                            bill.paymentStatus === 'Paid' 
-                              ? 'text-primary hover:text-white hover:bg-primary' 
+                          className={`p-1.5 rounded transition-colors ${bill.paymentStatus === 'Paid'
+                              ? 'text-primary hover:text-white hover:bg-primary'
                               : 'text-slate-300 cursor-not-allowed bg-slate-50'
-                          }`}
+                            }`}
                           title={bill.paymentStatus === 'Paid' ? "Print Bill" : "Bill must be Paid to print"}
                         >
                           <Printer className="w-4 h-4" />
@@ -205,7 +204,7 @@ export const RetailReports = () => {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            
+
             <div className="p-6 overflow-y-auto max-h-[70vh]">
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div>
@@ -262,7 +261,7 @@ export const RetailReports = () => {
             </div>
 
             <div className="bg-slate-50 border-t border-slate-200 px-4 py-3 flex justify-end">
-              <button 
+              <button
                 onClick={() => setViewingBill(null)}
                 className="px-6 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 text-sm font-bold rounded-lg transition-colors"
               >

@@ -79,47 +79,47 @@ export const OPDReports = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-slate-800">OPD Reports</h1>
-      </div>
-
-      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex flex-col h-[calc(100vh-10rem)]">
-        {/* Filter bar */}
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-4 flex-wrap bg-slate-50/50">
-          <div className="relative w-64">
+      <div className="flex items-center justify-between gap-4">
+        <div className="shrink-0">
+          <h1 className="text-2xl font-bold text-slate-800 whitespace-nowrap">OPD Reports</h1>
+        </div>
+        
+        <div className="flex items-center gap-3 flex-nowrap overflow-x-auto pb-1 w-full justify-end">
+          {/* <div className="relative w-40 md:w-56 shrink-0">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input 
               type="text" 
-              placeholder="Search patient or visit no..." 
+              placeholder="Search patient..." 
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               className={`${inputCls} pl-9 w-full`} 
             />
           </div>
           
-          <div className="h-8 w-px bg-slate-200 mx-2" />
+          <div className="hidden md:block h-6 w-px bg-slate-200 shrink-0" /> */}
 
-          <div className="h-8 w-px bg-slate-200 mx-2" />
-
-          <DateFilter
-            dateFrom={dateFrom}
-            dateTo={dateTo}
-            onDateFromChange={setDateFrom}
-            onDateToChange={setDateTo}
-            onSearch={handleSearch}
-            onReset={handleReset}
-          />
+          <div className="shrink-0 scale-95 origin-right">
+            <DateFilter
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              onDateFromChange={setDateFrom}
+              onDateToChange={setDateTo}
+              onSearch={handleSearch}
+              onReset={handleReset}
+            />
+          </div>
           
-          <select value={dept} onChange={e => setDept(e.target.value)} className={inputCls}>
-            {departments.map(d => <option key={d} value={d}>{d === 'All' ? 'All Departments' : d}</option>)}
+          <select value={dept} onChange={e => setDept(e.target.value)} className={`${inputCls} w-36 shrink-0`}>
+            {departments.map(d => <option key={d} value={d}>{d === 'All' ? 'All Depts' : d}</option>)}
           </select>
           
-          <div className="flex-1" />
-
-          <button onClick={() => exportToExcel(completedVisits, 'OPDReports')} className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors shadow-sm">
-            <Download className="w-4 h-4" /> Export CSV
+          <button onClick={() => exportToExcel(completedVisits, 'OPDReports')} className="shrink-0 flex items-center gap-2 px-3 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors shadow-sm">
+            <Download className="w-4 h-4" /> Export
           </button>
         </div>
+      </div>
+
+      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex flex-col h-[calc(100vh-10rem)]">
 
         {/* Table */}
         <div className="flex-1 overflow-auto custom-scrollbar">

@@ -410,7 +410,7 @@ export const UomMaster = () => {
         title={`${selectedRecord ? 'Edit' : 'Add'} UOM Master`}
         size="3xl"
       >
-        <div className="space-y-4 max-h-[70vh] overflow-y-auto px-1">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[70vh] overflow-y-auto px-1">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Code <span className="text-red-500">*</span></label>
             <input type="text" maxLength={LIMITS.uomCode} value={formData.uomCode} onChange={(e) => setFormData({...formData, uomCode: e.target.value})} className={`w-full px-4 py-2 border rounded-xl text-sm outline-none focus:ring-2 transition-all ${errors.uomCode ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'}`} placeholder="e.g. KG, BOX, EA" />

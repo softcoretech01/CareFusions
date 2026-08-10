@@ -240,7 +240,7 @@ export const ProfitCenterMaster = () => {
 
       {!isFormOpen ? (
         <>
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-3xl font-bold text-slate-800">Profit Center Master</h1>
               <p className="text-slate-500 mt-1"></p>
@@ -384,12 +384,11 @@ export const ProfitCenterMaster = () => {
         </>
       ) : (
         <>
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex justify-between items-center mb-2">
             <div>
               <h1 className="text-2xl font-bold text-slate-800">
                 {selectedRecord ? `Edit Profit Center: ${selectedRecord.profitCenterName}` : 'Add New Profit Center'}
               </h1>
-              <p className="text-slate-500 text-sm">Configure profit center details</p>
             </div>
           </div>
 
@@ -421,7 +420,7 @@ export const ProfitCenterMaster = () => {
                     {errors.department && <p className="text-red-500 text-xs mt-1">{errors.department}</p>}
                     {allDepartments.length === 0 && <p className="text-amber-600 text-xs mt-1">No departments found — add one in Department Master first.</p>}
                   </div>
-                  <div className="md:col-span-2">
+                  <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
                     <input type="text" maxLength={LIMITS.description} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
@@ -492,3 +491,5 @@ export const ProfitCenterMaster = () => {
     </motion.div>
   );
 };
+
+

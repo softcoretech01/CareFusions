@@ -340,7 +340,7 @@ export const EquipmentMaster = () => {
 
       {!isFormOpen ? (
         <>
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-3xl font-bold text-slate-800">Equipment Master</h1>
               <p className="text-slate-500 mt-1"></p>
@@ -500,12 +500,11 @@ export const EquipmentMaster = () => {
         </>
       ) : (
         <>
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex justify-between items-center mb-2">
             <div>
               <h1 className="text-2xl font-bold text-slate-800">
                 {selectedRecord ? `Edit Equipment: ${selectedRecord.equipmentName}` : 'Add New Equipment'}
               </h1>
-              <p className="text-slate-500 text-sm">Register a radiology machine</p>
             </div>
           </div>
 
@@ -522,7 +521,7 @@ export const EquipmentMaster = () => {
                       <p className="text-slate-400 text-xs mt-1">Provisional — final code is assigned on save</p>
                     )}
                   </div>
-                  <div className="lg:col-span-2">
+                  <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Equipment Name <span className="text-red-500">*</span></label>
                     <input type="text" maxLength={LIMITS.equipmentName} value={formData.equipmentName} onChange={e => setFormData({...formData, equipmentName: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.equipmentName ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
                     {errors.equipmentName && <p className="text-red-500 text-xs mt-1">{errors.equipmentName}</p>}
@@ -690,3 +689,5 @@ export const EquipmentMaster = () => {
     </motion.div>
   );
 };
+
+

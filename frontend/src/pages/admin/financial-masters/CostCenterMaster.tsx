@@ -244,7 +244,7 @@ export const CostCenterMaster = () => {
 
       {!isFormOpen ? (
         <>
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-3xl font-bold text-slate-800">Cost Center Master</h1>
               <p className="text-slate-500 mt-1"></p>
@@ -390,12 +390,11 @@ export const CostCenterMaster = () => {
         </>
       ) : (
         <>
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex justify-between items-center mb-2">
             <div>
               <h1 className="text-2xl font-bold text-slate-800">
                 {selectedRecord ? `Edit Cost Center: ${selectedRecord.costCenterName}` : 'Add New Cost Center'}
               </h1>
-              <p className="text-slate-500 text-sm">Configure cost center details</p>
             </div>
           </div>
 
@@ -502,3 +501,5 @@ export const CostCenterMaster = () => {
     </motion.div>
   );
 };
+
+

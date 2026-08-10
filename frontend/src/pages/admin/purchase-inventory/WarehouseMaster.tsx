@@ -425,50 +425,44 @@ export const WarehouseMaster = () => {
         title={`${selectedRecord ? 'Edit' : 'Add'} Store/Warehouse Master`}
         size="3xl"
       >
-        <div className="space-y-4 max-h-[70vh] overflow-y-auto px-1">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Store Code</label>
-              <input type="text" value={selectedRecord ? selectedRecord.storeCode : (nextCode || 'Auto-generating…')} disabled readOnly className="w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed outline-none" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Name <span className="text-red-500">*</span></label>
-              <input type="text" maxLength={LIMITS.storeName} value={formData.storeName} onChange={(e) => setFormData({...formData, storeName: e.target.value})} className={`w-full px-4 py-2 border rounded-xl text-sm outline-none focus:ring-2 transition-all ${errors.storeName ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'}`} />
-              {errors.storeName && <p className="text-red-500 text-xs mt-1">{errors.storeName}</p>}
-            </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[70vh] overflow-y-auto px-1">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Store Code</label>
+            <input type="text" value={selectedRecord ? selectedRecord.storeCode : (nextCode || 'Auto-generating…')} disabled readOnly className="w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed outline-none" />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Store Type <span className="text-red-500">*</span></label>
-              <select value={formData.storeType} onChange={(e) => setFormData({...formData, storeType: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20">
-                {storeTypes.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">In-Charge</label>
-              <input type="text" maxLength={LIMITS.inCharge} value={formData.inCharge} onChange={(e) => setFormData({...formData, inCharge: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Name <span className="text-red-500">*</span></label>
+            <input type="text" maxLength={LIMITS.storeName} value={formData.storeName} onChange={(e) => setFormData({...formData, storeName: e.target.value})} className={`w-full px-4 py-2 border rounded-xl text-sm outline-none focus:ring-2 transition-all ${errors.storeName ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'}`} />
+            {errors.storeName && <p className="text-red-500 text-xs mt-1">{errors.storeName}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Store Type <span className="text-red-500">*</span></label>
+            <select value={formData.storeType} onChange={(e) => setFormData({...formData, storeType: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20">
+              {storeTypes.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">In-Charge</label>
+            <input type="text" maxLength={LIMITS.inCharge} value={formData.inCharge} onChange={(e) => setFormData({...formData, inCharge: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Location</label>
             <input type="text" maxLength={LIMITS.location} value={formData.location} onChange={(e) => setFormData({...formData, location: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Contact Number</label>
-              <input type="text" maxLength={LIMITS.contactNumber} value={formData.contactNumber} onChange={(e) => setFormData({...formData, contactNumber: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" placeholder="Phone / extension" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
-              <select
-                value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
-              >
-                <option value="Active">Active</option>
-                <option value="Inactive">Inactive</option>
-              </select>
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Contact Number</label>
+            <input type="text" maxLength={LIMITS.contactNumber} value={formData.contactNumber} onChange={(e) => setFormData({...formData, contactNumber: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" placeholder="Phone / extension" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
+            <select
+              value={formData.status}
+              onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+              className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+            >
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
+            </select>
           </div>
         </div>
 

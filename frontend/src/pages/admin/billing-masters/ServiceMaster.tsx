@@ -307,7 +307,7 @@ export const ServiceMaster = () => {
 
       {!isFormOpen ? (
         <>
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-3xl font-bold text-slate-800">Service Master</h1>
               <p className="text-slate-500 mt-1"></p>
@@ -478,12 +478,11 @@ export const ServiceMaster = () => {
         </>
       ) : (
         <>
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex justify-between items-center mb-2">
             <div>
               <h1 className="text-2xl font-bold text-slate-800">
                 {selectedRecord ? `Edit Service: ${selectedRecord.serviceName}` : 'Add New Service'}
               </h1>
-              <p className="text-slate-500 text-sm">Configure hospital billing service</p>
             </div>
           </div>
 
@@ -510,9 +509,9 @@ export const ServiceMaster = () => {
                     <input type="text" maxLength={LIMITS.serviceCategory} value={formData.serviceCategory} onChange={e => setFormData({...formData, serviceCategory: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.serviceCategory ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
                     {errors.serviceCategory && <p className="text-red-500 text-xs mt-1">{errors.serviceCategory}</p>}
                   </div>
-                  <div className="md:col-span-2">
+                  <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
-                    <input type="text" maxLength={LIMITS.description} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <textarea maxLength={LIMITS.description} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} rows={1} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                 </div>
               </section>
@@ -634,3 +633,5 @@ export const ServiceMaster = () => {
     </motion.div>
   );
 };
+
+

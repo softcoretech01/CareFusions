@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Pagination } from '@/components/ui/Pagination';
 import { usePagination } from '@/hooks/usePagination';
-import { Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle, Save, RefreshCw, Upload, CheckCircle2, X
+import {
+  Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle, Save, RefreshCw, Upload, CheckCircle2, X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
@@ -122,59 +123,59 @@ const emptyDoctorData: Omit<DoctorRecord, 'id'> = {
 const API_BASE = import.meta.env.VITE_API_URL as string;
 
 const mapApiToRecord = (item: Record<string, any>): DoctorRecord => ({
-  id:                 item.id as number,
-  doctorId:           item.doctorId as string,
+  id: item.id as number,
+  doctorId: item.doctorId as string,
   registrationNumber: item.registrationNumber as string,
-  name:               item.name as string,
-  gender:             item.gender as string,
-  dob:                item.dob ? String(item.dob) : '',
-  qualification:      item.qualification as string,
-  specialization:     item.specialization as string,
-  department:         item.department as string,
-  designation:        item.designation as string,
-  hospital:           item.hospital as string,
-  branch:             item.branch as string,
-  mobile:             item.mobile as string,
-  alternateMobile:    item.alternateMobile as string || '',
-  email:              item.email as string,
-  address1:           item.address1 as string || '',
-  address2:           item.address2 as string || '',
-  city:               item.city as string || '',
-  state:              item.state as string || '',
-  country:            item.country as string || '',
-  postalCode:         item.postalCode as string || '',
-  medicalCouncil:     item.medicalCouncil as string || '',
-  experience:         item.experience != null ? String(item.experience) : '',
-  languages:          item.languages as string || '',
-  doctorType:         item.doctorType as string || '',
-  consultationType:   item.consultationType as string || '',
-  joiningDate:        item.joiningDate ? String(item.joiningDate) : '',
-  licenseExpiryDate:  item.licenseExpiryDate ? String(item.licenseExpiryDate) : '',
-  consultationFee:    item.consultationFee != null ? String(item.consultationFee) : '',
-  followUpFee:        item.followUpFee != null ? String(item.followUpFee) : '',
-  emergencyFee:       item.emergencyFee != null ? String(item.emergencyFee) : '',
-  teleConsultationFee:item.teleConsultationFee != null ? String(item.teleConsultationFee) : '',
-  opDuration:         item.opDuration != null ? String(item.opDuration) : '',
-  maxPatients:        item.maxPatients != null ? String(item.maxPatients) : '',
+  name: item.name as string,
+  gender: item.gender as string,
+  dob: item.dob ? String(item.dob) : '',
+  qualification: item.qualification as string,
+  specialization: item.specialization as string,
+  department: item.department as string,
+  designation: item.designation as string,
+  hospital: item.hospital as string,
+  branch: item.branch as string,
+  mobile: item.mobile as string,
+  alternateMobile: item.alternateMobile as string || '',
+  email: item.email as string,
+  address1: item.address1 as string || '',
+  address2: item.address2 as string || '',
+  city: item.city as string || '',
+  state: item.state as string || '',
+  country: item.country as string || '',
+  postalCode: item.postalCode as string || '',
+  medicalCouncil: item.medicalCouncil as string || '',
+  experience: item.experience != null ? String(item.experience) : '',
+  languages: item.languages as string || '',
+  doctorType: item.doctorType as string || '',
+  consultationType: item.consultationType as string || '',
+  joiningDate: item.joiningDate ? String(item.joiningDate) : '',
+  licenseExpiryDate: item.licenseExpiryDate ? String(item.licenseExpiryDate) : '',
+  consultationFee: item.consultationFee != null ? String(item.consultationFee) : '',
+  followUpFee: item.followUpFee != null ? String(item.followUpFee) : '',
+  emergencyFee: item.emergencyFee != null ? String(item.emergencyFee) : '',
+  teleConsultationFee: item.teleConsultationFee != null ? String(item.teleConsultationFee) : '',
+  opDuration: item.opDuration != null ? String(item.opDuration) : '',
+  maxPatients: item.maxPatients != null ? String(item.maxPatients) : '',
   allowOnlineBooking: Boolean(item.allowOnlineBooking),
-  availableDays:      item.availableDays ? String(item.availableDays).split(',') : [],
-  fromTime:           item.fromTime ? String(item.fromTime) : '',
-  toTime:             item.toTime ? String(item.toTime) : '',
-  breakFrom:          item.breakFrom ? String(item.breakFrom) : '',
-  breakTo:            item.breakTo ? String(item.breakTo) : '',
-  slotDuration:       item.slotDuration != null ? String(item.slotDuration) : '',
+  availableDays: item.availableDays ? String(item.availableDays).split(',') : [],
+  fromTime: item.fromTime ? String(item.fromTime) : '',
+  toTime: item.toTime ? String(item.toTime) : '',
+  breakFrom: item.breakFrom ? String(item.breakFrom) : '',
+  breakTo: item.breakTo ? String(item.breakTo) : '',
+  slotDuration: item.slotDuration != null ? String(item.slotDuration) : '',
   availableEmergency: Boolean(item.availableEmergency),
-  availableTele:      Boolean(item.availableTele),
-  doctorPhoto:        item.doctorPhoto as string || '',
-  signatureImage:     item.signatureImage as string || '',
-  digitalSignature:   item.digitalSignature as string || '',
+  availableTele: Boolean(item.availableTele),
+  doctorPhoto: item.doctorPhoto as string || '',
+  signatureImage: item.signatureImage as string || '',
+  digitalSignature: item.digitalSignature as string || '',
   registrationCertificate: item.registrationCertificate as string || '',
-  status:             item.status as string,
-  remarks:            item.remarks as string || '',
-  createdBy:          item.createdBy as string || '',
-  createdDate:        item.createdDate ? String(item.createdDate) : '',
-  modifiedBy:         item.modifiedBy as string || '',
-  modifiedDate:       item.modifiedDate ? String(item.modifiedDate) : ''
+  status: item.status as string,
+  remarks: item.remarks as string || '',
+  createdBy: item.createdBy as string || '',
+  createdDate: item.createdDate ? String(item.createdDate) : '',
+  modifiedBy: item.modifiedBy as string || '',
+  modifiedDate: item.modifiedDate ? String(item.modifiedDate) : ''
 });
 
 export const DoctorMaster = () => {
@@ -182,19 +183,19 @@ export const DoctorMaster = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  
+
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  
+
   // Dropdowns
-  const [hospitals, setHospitals] = useState<{name: string}[]>([]);
-  const [branches, setBranches] = useState<{name: string}[]>([]);
-  const [departments, setDepartments] = useState<{departmentName: string}[]>([]);
+  const [hospitals, setHospitals] = useState<{ name: string }[]>([]);
+  const [branches, setBranches] = useState<{ name: string }[]>([]);
+  const [departments, setDepartments] = useState<{ departmentName: string }[]>([]);
   // Specialization was a free-text box, so "Cardiologist" and "cardiologist"
   // became separate values and the filter below listed three hardcoded ones.
-  const [specializations, setSpecializations] = useState<{specializationName: string, status: string}[]>([]);
-  
+  const [specializations, setSpecializations] = useState<{ specializationName: string, status: string }[]>([]);
+
   const fetchDoctors = async () => {
     setIsLoading(true);
     setApiError(null);
@@ -222,14 +223,14 @@ export const DoctorMaster = () => {
       if (bRes.ok) setBranches(await bRes.json());
       if (dRes.ok) setDepartments(await dRes.json());
       if (sRes.ok) setSpecializations(await sRes.json());
-    } catch {}
+    } catch { }
   };
 
   useEffect(() => {
     fetchDoctors();
     fetchDropdowns();
   }, []);
-  
+
   // Filter States
   const [showFilters, setShowFilters] = useState(false);
   const [filterSpec, setFilterSpec] = useState('');
@@ -282,7 +283,7 @@ export const DoctorMaster = () => {
   const validateForm = (tabId?: string) => {
     const newErrors: Record<string, string> = tabId ? { ...errors } : {};
     let isValid = true;
-    
+
     if (!tabId || tabId === 'general') {
       ['registrationNumber', 'name', 'gender', 'mobile', 'email'].forEach(k => delete newErrors[k]);
       if (!formData.registrationNumber.trim()) { newErrors.registrationNumber = 'Registration Number is required'; isValid = false; }
@@ -302,7 +303,7 @@ export const DoctorMaster = () => {
         newErrors.email = 'Enter a valid email'; isValid = false;
       }
     }
-    
+
     if (!tabId || tabId === 'professional') {
       ['qualification', 'specialization', 'department', 'designation', 'hospital', 'branch'].forEach(k => delete newErrors[k]);
       if (!formData.qualification.trim()) { newErrors.qualification = 'Qualification is required'; isValid = false; }
@@ -312,7 +313,7 @@ export const DoctorMaster = () => {
       if (!formData.hospital) { newErrors.hospital = 'Hospital is required'; isValid = false; }
       if (!formData.branch) { newErrors.branch = 'Branch is required'; isValid = false; }
     }
-    
+
     if (!tabId || tabId === 'consultation') {
       delete newErrors.consultationFee;
       if (!formData.consultationFee) {
@@ -321,7 +322,7 @@ export const DoctorMaster = () => {
         newErrors.consultationFee = 'Fee must be >= 0'; isValid = false;
       }
     }
-    
+
     if (!tabId || tabId === 'schedule') {
       ['opDuration', 'availableDays', 'fromTime', 'toTime', 'slotDuration'].forEach(k => delete newErrors[k]);
       if (!formData.opDuration) {
@@ -372,7 +373,7 @@ export const DoctorMaster = () => {
 
   const handleSaveForm = async () => {
     const tabIndex = tabs.findIndex(t => t.id === activeTab);
-    
+
     if (tabIndex < tabs.length - 1) {
       if (validateForm(activeTab)) {
         setActiveTab(tabs[tabIndex + 1].id);
@@ -381,10 +382,10 @@ export const DoctorMaster = () => {
     }
 
     if (!validateForm()) return;
-    
+
     setIsSaving(true);
     setErrors({});
-    
+
     try {
       const payload = {
         registrationNumber: formData.registrationNumber,
@@ -439,7 +440,7 @@ export const DoctorMaster = () => {
 
         status: formData.status,
         remarks: formData.remarks || null,
-        
+
         // Audit
         ...(selectedRecord ? { modifiedBy: 'Dr. John Doe' } : { createdBy: 'Dr. John Doe' })
       };
@@ -459,7 +460,7 @@ export const DoctorMaster = () => {
       }
 
       await fetchDoctors();
-      
+
       setSuccessMessage(selectedRecord ? 'This record has been updated successfully.' : 'This record has been created successfully.');
       setIsSuccessOpen(true);
       setIsFormOpen(false);
@@ -477,7 +478,7 @@ export const DoctorMaster = () => {
         method: 'DELETE'
       });
       if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
-      
+
       await fetchDoctors();
       setIsDeleteOpen(false);
       setSelectedRecord(null);
@@ -495,10 +496,10 @@ export const DoctorMaster = () => {
   };
 
   const filteredRecords = records.filter(record => {
-    const matchesSearch = 
+    const matchesSearch =
       record.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       record.doctorId.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     const matchesSpec = !filterSpec || record.specialization === filterSpec;
     const matchesDept = !filterDept || record.department === filterDept;
     const matchesHosp = !filterHospital || record.hospital === filterHospital;
@@ -515,14 +516,14 @@ export const DoctorMaster = () => {
   const { page, setPage, pageSize, total, paged } = usePagination(tabs);
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       className="h-full flex flex-col relative"
     >
       {!isFormOpen ? (
         <>
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-3xl font-bold text-slate-800">Doctor Master</h1>
               <p className="text-slate-500 mt-1"></p>
@@ -555,16 +556,16 @@ export const DoctorMaster = () => {
                 />
               </div>
               <div className="flex items-center gap-2">
-              <button onClick={() => setShowFilters(!showFilters)} title="Filters" className={showFilters ? "p-2 border rounded-lg transition-colors border-primary bg-primary/5 text-primary" : "p-2 border rounded-lg transition-colors border-slate-200 text-slate-500 hover:bg-slate-50"}>
-                <Filter className="w-4 h-4" />
-              </button>
-              <button onClick={() => { setSearchTerm(''); setFilterBranch(''); setFilterDept(''); setFilterHospital(''); setFilterSpec(''); setFilterStatus(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
-                <X className="w-4 h-4" />
-              </button>
-              <button onClick={() => exportToExcel(records, 'DoctorMaster')} title="Export to Excel" className="p-2 border border-emerald-200 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 transition-colors">
-                <Download className="w-4 h-4" />
-              </button>
-            </div>
+                <button onClick={() => setShowFilters(!showFilters)} title="Filters" className={showFilters ? "p-2 border rounded-lg transition-colors border-primary bg-primary/5 text-primary" : "p-2 border rounded-lg transition-colors border-slate-200 text-slate-500 hover:bg-slate-50"}>
+                  <Filter className="w-4 h-4" />
+                </button>
+                <button onClick={() => { setSearchTerm(''); setFilterBranch(''); setFilterDept(''); setFilterHospital(''); setFilterSpec(''); setFilterStatus(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+                <button onClick={() => exportToExcel(records, 'DoctorMaster')} title="Export to Excel" className="p-2 border border-emerald-200 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 transition-colors">
+                  <Download className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
             <AnimatePresence>
@@ -631,47 +632,46 @@ export const DoctorMaster = () => {
               <table className="w-full text-left text-sm">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-600">
                   <tr>
-                    <th className="px-4 py-3 font-medium">Doctor ID</th>
-                    <th className="px-4 py-3 font-medium">Doctor Name</th>
-                    <th className="px-4 py-3 font-medium">Specialization</th>
-                    <th className="px-4 py-3 font-medium">Department</th>
-                    <th className="px-4 py-3 font-medium">Qualification</th>
-                    <th className="px-4 py-3 font-medium text-right">Fee</th>
-                    <th className="px-4 py-3 font-medium">Mobile</th>
-                    <th className="px-4 py-3 font-medium text-center">Status</th>
-                    <th className="px-4 py-3 font-medium text-center">Action</th>
+                    <th className="px-4 py-2 font-medium">Doctor ID</th>
+                    <th className="px-4 py-2 font-medium">Doctor Name</th>
+                    <th className="px-4 py-2 font-medium">Specialization</th>
+                    <th className="px-4 py-2 font-medium">Department</th>
+                    <th className="px-4 py-2 font-medium">Qualification</th>
+                    <th className="px-4 py-2 font-medium text-right">Fee</th>
+                    <th className="px-4 py-2 font-medium">Mobile</th>
+                    <th className="px-4 py-2 font-medium text-center">Status</th>
+                    <th className="px-4 py-2 font-medium text-center">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {filteredRecords.length > 0 ? (
                     pagedRecords.map((record) => (
                       <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-4 py-3 font-medium text-slate-800">{record.doctorId}</td>
-                        <td className="px-4 py-3">{record.name}</td>
-                        <td className="px-4 py-3 text-slate-600">{record.specialization}</td>
-                        <td className="px-4 py-3 text-slate-600">{record.department}</td>
-                        <td className="px-4 py-3 text-slate-600">{record.qualification}</td>
-                        <td className="px-4 py-3 text-right">{record.consultationFee}</td>
-                        <td className="px-4 py-3 text-slate-600">{record.mobile}</td>
-                        <td className="px-4 py-3 text-center">
-                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                            record.status === 'Active' 
-                              ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' 
-                              : 'bg-red-50 text-red-600 border border-red-200'
-                          }`}>
+                        <td className="px-4 py-2 font-medium text-slate-800">{record.doctorId}</td>
+                        <td className="px-4 py-2">{record.name}</td>
+                        <td className="px-4 py-2 text-slate-600">{record.specialization}</td>
+                        <td className="px-4 py-2 text-slate-600">{record.department}</td>
+                        <td className="px-4 py-2 text-slate-600">{record.qualification}</td>
+                        <td className="px-4 py-2 text-right">{record.consultationFee}</td>
+                        <td className="px-4 py-2 text-slate-600">{record.mobile}</td>
+                        <td className="px-4 py-2 text-center">
+                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${record.status === 'Active'
+                            ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                            : 'bg-red-50 text-red-600 border border-red-200'
+                            }`}>
                             {record.status}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-center">
+                        <td className="px-4 py-2 text-center">
                           <div className="flex items-center justify-center gap-2">
-                            <button 
+                            <button
                               onClick={() => handleEdit(record)}
                               className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"
                               title="Edit"
                             >
                               <Edit2 className="w-4 h-4" />
                             </button>
-                            <button 
+                            <button
                               onClick={() => handleDeleteRequest(record)}
                               className="p-1.5 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                               title="Delete"
@@ -692,7 +692,7 @@ export const DoctorMaster = () => {
                 </tbody>
               </table>
             </div>
-        <Pagination page={page} pageSize={pageSize} totalItems={total} onPageChange={setPage} />
+            <Pagination page={page} pageSize={pageSize} totalItems={total} onPageChange={setPage} />
             <div className="flex flex-wrap items-center justify-between gap-3 p-4 border-t border-slate-100 text-sm text-slate-500">
               <div className="flex items-center gap-2">
                 <span>Show</span>
@@ -717,12 +717,11 @@ export const DoctorMaster = () => {
         </>
       ) : (
         <>
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex justify-between items-center mb-2">
             <div>
               <h1 className="text-2xl font-bold text-slate-800">
                 {selectedRecord ? `Edit Doctor: ${selectedRecord.name}` : 'Create Doctor'}
               </h1>
-              <p className="text-slate-500 text-sm">Fill in the doctor details</p>
             </div>
           </div>
 
@@ -733,11 +732,10 @@ export const DoctorMaster = () => {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`px-6 py-4 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
-                    activeTab === tab.id
-                      ? 'border-primary text-primary bg-white'
-                      : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 hover:bg-slate-50'
-                  }`}
+                  className={`px-6 py-4 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${activeTab === tab.id
+                    ? 'border-primary text-primary bg-white'
+                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                    }`}
                 >
                   {tab.label}
                 </button>
@@ -746,7 +744,7 @@ export const DoctorMaster = () => {
 
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
               {activeTab === 'general' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">
                       Doctor ID <span className="text-red-500">*</span>
@@ -766,10 +764,9 @@ export const DoctorMaster = () => {
                     <input
                       type="text"
                       value={formData.registrationNumber} maxLength={50}
-                      onChange={e => setFormData({...formData, registrationNumber: e.target.value})}
-                      className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${
-                        errors.registrationNumber ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
-                      }`}
+                      onChange={e => setFormData({ ...formData, registrationNumber: e.target.value })}
+                      className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.registrationNumber ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
+                        }`}
                     />
                     {errors.registrationNumber && <p className="text-red-500 text-xs mt-1">{errors.registrationNumber}</p>}
                   </div>
@@ -780,10 +777,9 @@ export const DoctorMaster = () => {
                     <input
                       type="text"
                       value={formData.name} maxLength={50}
-                      onChange={e => setFormData({...formData, name: e.target.value})}
-                      className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${
-                        errors.name ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
-                      }`}
+                      onChange={e => setFormData({ ...formData, name: e.target.value })}
+                      className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.name ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
+                        }`}
                     />
                     {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
                   </div>
@@ -793,10 +789,9 @@ export const DoctorMaster = () => {
                     </label>
                     <select
                       value={formData.gender}
-                      onChange={e => setFormData({...formData, gender: e.target.value})}
-                      className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${
-                        errors.gender ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
-                      }`}
+                      onChange={e => setFormData({ ...formData, gender: e.target.value })}
+                      className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.gender ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
+                        }`}
                     >
                       <option value="">Select Gender</option>
                       <option value="Male">Male</option>
@@ -810,7 +805,7 @@ export const DoctorMaster = () => {
                     <input
                       type="date"
                       value={formData.dob}
-                      onChange={e => setFormData({...formData, dob: e.target.value})}
+                      onChange={e => setFormData({ ...formData, dob: e.target.value })}
                       className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
@@ -821,10 +816,9 @@ export const DoctorMaster = () => {
                     <input
                       type="tel"
                       value={formData.mobile} maxLength={10}
-                      onChange={e => setFormData({...formData, mobile: e.target.value})}
-                      className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${
-                        errors.mobile ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
-                      }`}
+                      onChange={e => setFormData({ ...formData, mobile: e.target.value })}
+                      className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.mobile ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
+                        }`}
                     />
                     {errors.mobile && <p className="text-red-500 text-xs mt-1">{errors.mobile}</p>}
                   </div>
@@ -833,7 +827,7 @@ export const DoctorMaster = () => {
                     <input
                       type="tel"
                       value={formData.alternateMobile} maxLength={10}
-                      onChange={e => setFormData({...formData, alternateMobile: e.target.value})}
+                      onChange={e => setFormData({ ...formData, alternateMobile: e.target.value })}
                       className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
@@ -844,20 +838,19 @@ export const DoctorMaster = () => {
                     <input
                       type="email"
                       value={formData.email} maxLength={50}
-                      onChange={e => setFormData({...formData, email: e.target.value})}
-                      className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${
-                        errors.email ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
-                      }`}
+                      onChange={e => setFormData({ ...formData, email: e.target.value })}
+                      className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.email ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
+                        }`}
                     />
                     {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
                   </div>
-                  <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">Address Line 1</label>
                       <input
                         type="text"
                         value={formData.address1} maxLength={250}
-                        onChange={e => setFormData({...formData, address1: e.target.value})}
+                        onChange={e => setFormData({ ...formData, address1: e.target.value })}
                         className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                       />
                     </div>
@@ -866,7 +859,7 @@ export const DoctorMaster = () => {
                       <input
                         type="text"
                         value={formData.address2} maxLength={250}
-                        onChange={e => setFormData({...formData, address2: e.target.value})}
+                        onChange={e => setFormData({ ...formData, address2: e.target.value })}
                         className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                       />
                     </div>
@@ -875,7 +868,7 @@ export const DoctorMaster = () => {
                       <input
                         type="text"
                         value={formData.city} maxLength={50}
-                        onChange={e => setFormData({...formData, city: e.target.value})}
+                        onChange={e => setFormData({ ...formData, city: e.target.value })}
                         className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                       />
                     </div>
@@ -884,7 +877,7 @@ export const DoctorMaster = () => {
                       <input
                         type="text"
                         value={formData.state} maxLength={50}
-                        onChange={e => setFormData({...formData, state: e.target.value})}
+                        onChange={e => setFormData({ ...formData, state: e.target.value })}
                         className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                       />
                     </div>
@@ -893,7 +886,7 @@ export const DoctorMaster = () => {
                       <input
                         type="text"
                         value={formData.country} maxLength={50}
-                        onChange={e => setFormData({...formData, country: e.target.value})}
+                        onChange={e => setFormData({ ...formData, country: e.target.value })}
                         className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                       />
                     </div>
@@ -902,7 +895,7 @@ export const DoctorMaster = () => {
                       <input
                         type="text"
                         value={formData.postalCode} maxLength={10}
-                        onChange={e => setFormData({...formData, postalCode: e.target.value})}
+                        onChange={e => setFormData({ ...formData, postalCode: e.target.value })}
                         className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                       />
                     </div>
@@ -911,7 +904,7 @@ export const DoctorMaster = () => {
               )}
 
               {activeTab === 'professional' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">
                       Qualification <span className="text-red-500">*</span>
@@ -919,11 +912,10 @@ export const DoctorMaster = () => {
                     <input
                       type="text"
                       value={formData.qualification} maxLength={50}
-                      onChange={e => setFormData({...formData, qualification: e.target.value})}
+                      onChange={e => setFormData({ ...formData, qualification: e.target.value })}
                       placeholder="e.g., MBBS, MD"
-                      className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${
-                        errors.qualification ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
-                      }`}
+                      className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.qualification ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
+                        }`}
                     />
                     {errors.qualification && <p className="text-red-500 text-xs mt-1">{errors.qualification}</p>}
                   </div>
@@ -933,10 +925,9 @@ export const DoctorMaster = () => {
                     </label>
                     <select
                       value={formData.specialization}
-                      onChange={e => setFormData({...formData, specialization: e.target.value})}
-                      className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${
-                        errors.specialization ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
-                      }`}
+                      onChange={e => setFormData({ ...formData, specialization: e.target.value })}
+                      className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.specialization ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
+                        }`}
                     >
                       <option value="">Select Specialization</option>
                       {/* Retired specializations stay listed while a doctor on
@@ -957,10 +948,9 @@ export const DoctorMaster = () => {
                     </label>
                     <select
                       value={formData.hospital}
-                      onChange={e => setFormData({...formData, hospital: e.target.value})}
-                      className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${
-                        errors.hospital ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
-                      }`}
+                      onChange={e => setFormData({ ...formData, hospital: e.target.value })}
+                      className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.hospital ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
+                        }`}
                     >
                       <option value="">Select Hospital</option>
                       {hospitals.map((h, i) => (
@@ -975,10 +965,9 @@ export const DoctorMaster = () => {
                     </label>
                     <select
                       value={formData.branch}
-                      onChange={e => setFormData({...formData, branch: e.target.value})}
-                      className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${
-                        errors.branch ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
-                      }`}
+                      onChange={e => setFormData({ ...formData, branch: e.target.value })}
+                      className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.branch ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
+                        }`}
                     >
                       <option value="">Select Branch</option>
                       {branches.map((b, i) => (
@@ -993,10 +982,9 @@ export const DoctorMaster = () => {
                     </label>
                     <select
                       value={formData.department}
-                      onChange={e => setFormData({...formData, department: e.target.value})}
-                      className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${
-                        errors.department ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
-                      }`}
+                      onChange={e => setFormData({ ...formData, department: e.target.value })}
+                      className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.department ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
+                        }`}
                     >
                       <option value="">Select Department</option>
                       {departments.map((d, i) => (
@@ -1012,10 +1000,9 @@ export const DoctorMaster = () => {
                     <input
                       type="text"
                       value={formData.designation} maxLength={50}
-                      onChange={e => setFormData({...formData, designation: e.target.value})}
-                      className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${
-                        errors.designation ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
-                      }`}
+                      onChange={e => setFormData({ ...formData, designation: e.target.value })}
+                      className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.designation ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
+                        }`}
                     />
                     {errors.designation && <p className="text-red-500 text-xs mt-1">{errors.designation}</p>}
                   </div>
@@ -1024,7 +1011,7 @@ export const DoctorMaster = () => {
                     <input
                       type="text"
                       value={formData.medicalCouncil} maxLength={50}
-                      onChange={e => setFormData({...formData, medicalCouncil: e.target.value})}
+                      onChange={e => setFormData({ ...formData, medicalCouncil: e.target.value })}
                       className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
@@ -1033,7 +1020,7 @@ export const DoctorMaster = () => {
                     <input
                       type="number"
                       value={formData.experience} maxLength={50}
-                      onChange={e => setFormData({...formData, experience: e.target.value})}
+                      onChange={e => setFormData({ ...formData, experience: e.target.value })}
                       className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
@@ -1042,7 +1029,7 @@ export const DoctorMaster = () => {
                     <input
                       type="text"
                       value={formData.languages} maxLength={50}
-                      onChange={e => setFormData({...formData, languages: e.target.value})}
+                      onChange={e => setFormData({ ...formData, languages: e.target.value })}
                       className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
@@ -1050,7 +1037,7 @@ export const DoctorMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Doctor Type</label>
                     <select
                       value={formData.doctorType}
-                      onChange={e => setFormData({...formData, doctorType: e.target.value})}
+                      onChange={e => setFormData({ ...formData, doctorType: e.target.value })}
                       className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     >
                       <option value="Full-time">Full-time</option>
@@ -1062,7 +1049,7 @@ export const DoctorMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Consultation Type</label>
                     <select
                       value={formData.consultationType}
-                      onChange={e => setFormData({...formData, consultationType: e.target.value})}
+                      onChange={e => setFormData({ ...formData, consultationType: e.target.value })}
                       className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     >
                       <option value="OP">OP Only</option>
@@ -1075,7 +1062,7 @@ export const DoctorMaster = () => {
                     <input
                       type="date"
                       value={formData.licenseExpiryDate}
-                      onChange={e => setFormData({...formData, licenseExpiryDate: e.target.value})}
+                      onChange={e => setFormData({ ...formData, licenseExpiryDate: e.target.value })}
                       className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
@@ -1092,10 +1079,9 @@ export const DoctorMaster = () => {
                       type="number"
                       min="0"
                       value={formData.consultationFee} maxLength={50}
-                      onChange={e => setFormData({...formData, consultationFee: e.target.value})}
-                      className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${
-                        errors.consultationFee ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
-                      }`}
+                      onChange={e => setFormData({ ...formData, consultationFee: e.target.value })}
+                      className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.consultationFee ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
+                        }`}
                     />
                     {errors.consultationFee && <p className="text-red-500 text-xs mt-1">{errors.consultationFee}</p>}
                   </div>
@@ -1105,7 +1091,7 @@ export const DoctorMaster = () => {
                       type="number"
                       min="0"
                       value={formData.followUpFee} maxLength={50}
-                      onChange={e => setFormData({...formData, followUpFee: e.target.value})}
+                      onChange={e => setFormData({ ...formData, followUpFee: e.target.value })}
                       className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
@@ -1115,7 +1101,7 @@ export const DoctorMaster = () => {
                       type="number"
                       min="0"
                       value={formData.emergencyFee} maxLength={50}
-                      onChange={e => setFormData({...formData, emergencyFee: e.target.value})}
+                      onChange={e => setFormData({ ...formData, emergencyFee: e.target.value })}
                       className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
@@ -1125,7 +1111,7 @@ export const DoctorMaster = () => {
                       type="number"
                       min="0"
                       value={formData.teleConsultationFee} maxLength={50}
-                      onChange={e => setFormData({...formData, teleConsultationFee: e.target.value})}
+                      onChange={e => setFormData({ ...formData, teleConsultationFee: e.target.value })}
                       className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
@@ -1137,10 +1123,9 @@ export const DoctorMaster = () => {
                       type="number"
                       min="1"
                       value={formData.opDuration} maxLength={50}
-                      onChange={e => setFormData({...formData, opDuration: e.target.value})}
-                      className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${
-                        errors.opDuration ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
-                      }`}
+                      onChange={e => setFormData({ ...formData, opDuration: e.target.value })}
+                      className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.opDuration ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
+                        }`}
                     />
                     {errors.opDuration && <p className="text-red-500 text-xs mt-1">{errors.opDuration}</p>}
                   </div>
@@ -1150,7 +1135,7 @@ export const DoctorMaster = () => {
                       type="number"
                       min="1"
                       value={formData.maxPatients} maxLength={50}
-                      onChange={e => setFormData({...formData, maxPatients: e.target.value})}
+                      onChange={e => setFormData({ ...formData, maxPatients: e.target.value })}
                       className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
@@ -1159,7 +1144,7 @@ export const DoctorMaster = () => {
                       type="checkbox"
                       id="allowOnlineBooking"
                       checked={formData.allowOnlineBooking}
-                      onChange={e => setFormData({...formData, allowOnlineBooking: e.target.checked})}
+                      onChange={e => setFormData({ ...formData, allowOnlineBooking: e.target.checked })}
                       className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary"
                     />
                     <label htmlFor="allowOnlineBooking" className="text-sm text-slate-700">Allow Online Booking</label>
@@ -1179,11 +1164,10 @@ export const DoctorMaster = () => {
                           key={day}
                           type="button"
                           onClick={() => toggleDay(day)}
-                          className={`px-4 py-2 rounded-xl text-sm font-medium border transition-colors ${
-                            formData.availableDays.includes(day)
-                              ? 'bg-primary text-white border-primary'
-                              : 'bg-white text-slate-600 border-slate-200 hover:border-primary/50'
-                          }`}
+                          className={`px-4 py-2 rounded-xl text-sm font-medium border transition-colors ${formData.availableDays.includes(day)
+                            ? 'bg-primary text-white border-primary'
+                            : 'bg-white text-slate-600 border-slate-200 hover:border-primary/50'
+                            }`}
                         >
                           {day}
                         </button>
@@ -1191,7 +1175,7 @@ export const DoctorMaster = () => {
                     </div>
                     {errors.availableDays && <p className="text-red-500 text-xs mt-1">{errors.availableDays}</p>}
                   </div>
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -1200,10 +1184,9 @@ export const DoctorMaster = () => {
                       <input
                         type="time"
                         value={formData.fromTime}
-                        onChange={e => setFormData({...formData, fromTime: e.target.value})}
-                        className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${
-                          errors.fromTime ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
-                        }`}
+                        onChange={e => setFormData({ ...formData, fromTime: e.target.value })}
+                        className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.fromTime ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
+                          }`}
                       />
                       {errors.fromTime && <p className="text-red-500 text-xs mt-1">{errors.fromTime}</p>}
                     </div>
@@ -1214,10 +1197,9 @@ export const DoctorMaster = () => {
                       <input
                         type="time"
                         value={formData.toTime}
-                        onChange={e => setFormData({...formData, toTime: e.target.value})}
-                        className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${
-                          errors.toTime ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
-                        }`}
+                        onChange={e => setFormData({ ...formData, toTime: e.target.value })}
+                        className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.toTime ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
+                          }`}
                       />
                       {errors.toTime && <p className="text-red-500 text-xs mt-1">{errors.toTime}</p>}
                     </div>
@@ -1226,7 +1208,7 @@ export const DoctorMaster = () => {
                       <input
                         type="time"
                         value={formData.breakFrom}
-                        onChange={e => setFormData({...formData, breakFrom: e.target.value})}
+                        onChange={e => setFormData({ ...formData, breakFrom: e.target.value })}
                         className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                       />
                     </div>
@@ -1235,7 +1217,7 @@ export const DoctorMaster = () => {
                       <input
                         type="time"
                         value={formData.breakTo}
-                        onChange={e => setFormData({...formData, breakTo: e.target.value})}
+                        onChange={e => setFormData({ ...formData, breakTo: e.target.value })}
                         className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                       />
                     </div>
@@ -1247,10 +1229,9 @@ export const DoctorMaster = () => {
                         type="number"
                         min="1"
                         value={formData.slotDuration} maxLength={50}
-                        onChange={e => setFormData({...formData, slotDuration: e.target.value})}
-                        className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${
-                          errors.slotDuration ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
-                        }`}
+                        onChange={e => setFormData({ ...formData, slotDuration: e.target.value })}
+                        className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.slotDuration ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
+                          }`}
                       />
                       {errors.slotDuration && <p className="text-red-500 text-xs mt-1">{errors.slotDuration}</p>}
                     </div>
@@ -1262,7 +1243,7 @@ export const DoctorMaster = () => {
                         type="checkbox"
                         id="availableEmergency"
                         checked={formData.availableEmergency}
-                        onChange={e => setFormData({...formData, availableEmergency: e.target.checked})}
+                        onChange={e => setFormData({ ...formData, availableEmergency: e.target.checked })}
                         className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary"
                       />
                       <label htmlFor="availableEmergency" className="text-sm text-slate-700">Available for Emergency</label>
@@ -1272,7 +1253,7 @@ export const DoctorMaster = () => {
                         type="checkbox"
                         id="availableTele"
                         checked={formData.availableTele}
-                        onChange={e => setFormData({...formData, availableTele: e.target.checked})}
+                        onChange={e => setFormData({ ...formData, availableTele: e.target.checked })}
                         className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary"
                       />
                       <label htmlFor="availableTele" className="text-sm text-slate-700">Available for Tele Consultation</label>
@@ -1282,7 +1263,7 @@ export const DoctorMaster = () => {
               )}
 
               {activeTab === 'documents' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                   {[
                     { label: 'Doctor Photo', note: 'Display Image', field: 'doctorPhoto' },
                     { label: 'Signature Image', note: 'Prescription print', field: 'signatureImage' },
@@ -1292,16 +1273,16 @@ export const DoctorMaster = () => {
                     <div key={idx} className="border border-slate-200 rounded-xl p-4 flex flex-col gap-2 relative">
                       <label className="block text-sm font-medium text-slate-700">{doc.label}</label>
                       <span className="text-xs text-slate-500 mb-2">{doc.note}</span>
-                      
+
                       <div className="border-2 border-dashed border-slate-200 rounded-lg p-6 flex flex-col items-center justify-center text-center hover:bg-slate-50 transition-colors relative overflow-hidden group h-32">
                         {formData[doc.field as keyof typeof formData] ? (
                           <div className="flex flex-col items-center gap-2">
                             <span className="text-sm font-medium text-emerald-600">File Uploaded</span>
-                            <img 
-                              src={`http://localhost:8000${formData[doc.field as keyof typeof formData]}`} 
-                              alt="preview" 
-                              className="h-16 object-contain" 
-                              onError={(e) => { e.currentTarget.style.display = 'none'; }} 
+                            <img
+                              src={`http://localhost:8000${formData[doc.field as keyof typeof formData]}`}
+                              alt="preview"
+                              className="h-16 object-contain"
+                              onError={(e) => { e.currentTarget.style.display = 'none'; }}
                             />
                             <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                               <span className="text-white text-xs font-medium">Click to change</span>
@@ -1314,8 +1295,8 @@ export const DoctorMaster = () => {
                             <p className="text-xs text-slate-500 mt-1">or drag and drop</p>
                           </>
                         )}
-                        <input 
-                          type="file" 
+                        <input
+                          type="file"
                           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                           onChange={(e) => handleFileUpload(e, doc.field as keyof DoctorRecord)}
                           accept="image/*,.pdf"
@@ -1334,7 +1315,7 @@ export const DoctorMaster = () => {
                     </label>
                     <select
                       value={formData.status}
-                      onChange={e => setFormData({...formData, status: e.target.value})}
+                      onChange={e => setFormData({ ...formData, status: e.target.value })}
                       className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     >
                       <option value="Active">Active</option>
@@ -1346,11 +1327,11 @@ export const DoctorMaster = () => {
                     <input
                       type="text"
                       value={formData.remarks} maxLength={250}
-                      onChange={e => setFormData({...formData, remarks: e.target.value})}
+                      onChange={e => setFormData({ ...formData, remarks: e.target.value })}
                       className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
-                  
+
                   {selectedRecord && (
                     <>
                       <div className="pt-4 border-t border-slate-200 md:col-span-2">
@@ -1438,7 +1419,7 @@ export const DoctorMaster = () => {
           <p className="text-slate-500 text-sm mb-6">
             {successMessage}
           </p>
-          
+
           <div className="flex items-center justify-center w-full">
             <Button variant="filled" color="primary" className="w-full" onClick={() => setIsSuccessOpen(false)}>
               OK

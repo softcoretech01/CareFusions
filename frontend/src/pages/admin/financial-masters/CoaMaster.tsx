@@ -246,7 +246,7 @@ export const CoaMaster = () => {
 
       {!isFormOpen ? (
         <>
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-3xl font-bold text-slate-800">Chart of Accounts</h1>
               <p className="text-slate-500 mt-1"></p>
@@ -392,12 +392,11 @@ export const CoaMaster = () => {
         </>
       ) : (
         <>
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex justify-between items-center mb-2">
             <div>
               <h1 className="text-2xl font-bold text-slate-800">
                 {selectedRecord ? `Edit Account: ${selectedRecord.accountName}` : 'Add New Account'}
               </h1>
-              <p className="text-slate-500 text-sm">Configure chart of accounts details</p>
             </div>
           </div>
 
@@ -525,3 +524,5 @@ export const CoaMaster = () => {
     </motion.div>
   );
 };
+
+

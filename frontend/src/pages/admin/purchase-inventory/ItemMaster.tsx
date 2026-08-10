@@ -491,7 +491,7 @@ export const ItemMaster = () => {
         title={`${selectedRecord ? 'Edit' : 'Add'} Item Master`}
         size="3xl"
       >
-        <div className="space-y-4 max-h-[70vh] overflow-y-auto px-1">
+        <div className="space-y-4 px-1">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Item Code</label>

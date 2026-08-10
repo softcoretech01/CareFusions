@@ -19,9 +19,9 @@ export const ActiveInpatients = () => {
   const [searchParams] = useSearchParams();
   const wardIdParam = searchParams.get('ward');
   const selectedWard = wardIdParam ? wards.find(w => w.id === Number(wardIdParam)) : null;
-  
+
   const [activeViewer, setActiveViewer] = useState<{ patientId: string; category: 'Lab' | 'Radiology' } | null>(null);
-  
+
   const [search, setSearch] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -47,11 +47,11 @@ export const ActiveInpatients = () => {
   };
 
   const activePatients = patients.filter(p => p.status === 'Admitted' || p.status === 'Discharge Requested');
-  
+
   const filteredPatients = activePatients.filter(p => {
-    const matchesSearch = p.patientName.toLowerCase().includes(appliedSearch.toLowerCase()) || 
-                          p.uhid.toLowerCase().includes(appliedSearch.toLowerCase());
-    
+    const matchesSearch = p.patientName.toLowerCase().includes(appliedSearch.toLowerCase()) ||
+      p.uhid.toLowerCase().includes(appliedSearch.toLowerCase());
+
     let matchesDate = true;
     if (appliedDateFrom && appliedDateTo) {
       const pDate = new Date(p.admissionDate).toISOString().split('T')[0];
@@ -83,34 +83,38 @@ export const ActiveInpatients = () => {
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col h-[calc(100vh-10rem)]">
-        <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-4 bg-slate-50/50 flex-wrap">
-          <div className="relative w-64">
+        <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-3 bg-slate-50/50 flex-nowrap overflow-x-auto custom-scrollbar">
+          <div className="relative w-64 shrink-0">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Search patients..."
+              placeholder="Search by patient name, UHID"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary"
             />
           </div>
-          
-          <DateFilter
-            dateFrom={dateFrom}
-            dateTo={dateTo}
-            onDateFromChange={setDateFrom}
-            onDateToChange={setDateTo}
-            onSearch={handleSearch}
-            onReset={handleReset}
-          />
 
-          <select 
-            value={selectedRoom} 
+          <div className="shrink-0 scale-95 origin-left">
+            <DateFilter
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              onDateFromChange={setDateFrom}
+              onDateToChange={setDateTo}
+              onSearch={handleSearch}
+              onReset={handleReset}
+            />
+          </div>
+
+          <div className="hidden md:block h-6 w-px bg-slate-200 shrink-0 mx-1" />
+
+          <select
+            value={selectedRoom}
             onChange={(e) => setSelectedRoom(e.target.value)}
-            className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary"
+            className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm outline-none focus:border-primary shrink-0 w-40"
           >
             <option value="All">All Rooms</option>
-            {availableRooms.map(r => <option key={r} value={r}>Room no {r}</option>)}
+            {availableRooms.map(r => <option key={r} value={r}>Room {r}</option>)}
           </select>
         </div>
 
@@ -137,7 +141,7 @@ export const ActiveInpatients = () => {
                 filteredPatients.map(patient => {
                   const ward = wards.find(w => w.id === patient.currentWardId);
                   const bed = beds.find(b => b.id === patient.currentBedId);
-                  
+
                   const admitDate = new Date(patient.admissionDate);
                   const losDays = Math.max(0, Math.floor((Date.now() - admitDate.getTime()) / (1000 * 60 * 60 * 24)));
 
@@ -162,28 +166,28 @@ export const ActiveInpatients = () => {
                         {losDays} Days
                       </td>
                       <td className="px-4 py-3 flex items-center gap-2">
-                        <button 
+                        <button
                           onClick={() => navigate(`/ipd/visit/${patient.id}`)}
                           className="px-3 py-1.5 bg-primary/10 text-primary hover:bg-primary hover:text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5"
                         >
                           <FileText className="w-3.5 h-3.5" /> View EMR
                         </button>
-                        
+
                         {(() => {
                           const patientOrders = getOrdersByPatient(patient.uhid);
                           const hasLab = patientOrders.some(o => o.category === 'Lab' && (o.status === 'Completed' || o.status === 'Partial' || o.status === 'Verified'));
                           const hasScan = patientOrders.some(o => o.category === 'Radiology' && (o.status === 'Completed' || o.status === 'Partial' || o.status === 'Verified'));
-                          
+
                           return (
                             <>
-                              <button 
+                              <button
                                 onClick={() => hasLab && setActiveViewer({ patientId: patient.uhid, category: 'Lab' })}
                                 className={`p-1.5 rounded-lg transition-colors ${hasLab ? 'text-teal-600 bg-teal-50 hover:bg-teal-100' : 'text-slate-300 cursor-not-allowed'}`}
                                 title={hasLab ? "View Lab Results" : "No Lab Results"}
                               >
                                 <FlaskConical className="w-4 h-4" />
                               </button>
-                              <button 
+                              <button
                                 onClick={() => hasScan && setActiveViewer({ patientId: patient.uhid, category: 'Radiology' })}
                                 className={`p-1.5 rounded-lg transition-colors ${hasScan ? 'text-purple-600 bg-purple-50 hover:bg-purple-100' : 'text-slate-300 cursor-not-allowed'}`}
                                 title={hasScan ? "View Scan Reports" : "No Scan Reports"}
@@ -204,10 +208,10 @@ export const ActiveInpatients = () => {
       </div>
 
       {activeViewer && (
-        <ResultViewer 
-          patientId={activeViewer.patientId} 
-          category={activeViewer.category} 
-          onClose={() => setActiveViewer(null)} 
+        <ResultViewer
+          patientId={activeViewer.patientId}
+          category={activeViewer.category}
+          onClose={() => setActiveViewer(null)}
         />
       )}
     </div>

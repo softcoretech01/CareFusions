@@ -317,7 +317,7 @@ export const HospitalMaster = () => {
       {!isFormOpen ? (
         <>
           {/* Header */}
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-2">
             <div>
               <h1 className="text-3xl font-bold text-slate-800">Hospital Master</h1>
               <p className="text-slate-500 mt-1"></p>
@@ -365,13 +365,13 @@ export const HospitalMaster = () => {
               <table className="w-full text-left border-collapse">
                 <thead className="bg-slate-50/80 sticky top-0 backdrop-blur-sm z-10">
                   <tr>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Hospital Code</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Hospital Name</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Registration No</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">City</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Contact Number</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Action</th>
+                    <th className="px-6 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider">Hospital Code</th>
+                    <th className="px-6 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider">Hospital Name</th>
+                    <th className="px-6 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider">Registration No</th>
+                    <th className="px-6 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider">City</th>
+                    <th className="px-6 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider">Contact Number</th>
+                    <th className="px-6 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
@@ -385,17 +385,17 @@ export const HospitalMaster = () => {
                     <>
                       {filteredRecords.map((row) => (
                         <tr key={row.id} className="hover:bg-slate-50/50 transition-colors group">
-                          <td className="px-6 py-4 text-sm font-semibold text-slate-600">{row.code}</td>
-                          <td className="px-6 py-4 text-sm font-bold text-slate-900">{row.name}</td>
-                          <td className="px-6 py-4 text-sm font-medium text-slate-500">{row.registrationNo}</td>
-                          <td className="px-6 py-4 text-sm font-medium text-slate-500">{row.city}</td>
-                          <td className="px-6 py-4 text-sm font-medium text-slate-500">{row.contactNumber}</td>
-                          <td className="px-6 py-4">
+                          <td className="px-6 py-2 text-sm font-semibold text-slate-600">{row.code}</td>
+                          <td className="px-6 py-2 text-sm font-bold text-slate-900">{row.name}</td>
+                          <td className="px-6 py-2 text-sm font-medium text-slate-500">{row.registrationNo}</td>
+                          <td className="px-6 py-2 text-sm font-medium text-slate-500">{row.city}</td>
+                          <td className="px-6 py-2 text-sm font-medium text-slate-500">{row.contactNumber}</td>
+                          <td className="px-6 py-2">
                             <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${row.status === 'Inactive' ? 'bg-warning/10 text-warning' : 'bg-success/10 text-success'}`}>
                               {row.status}
                             </span>
                           </td>
-                          <td className="px-6 py-4 text-right">
+                          <td className="px-6 py-2 text-right">
                             <div className="flex items-center justify-end gap-2 transition-opacity">
                               <Button variant="text" color="primary" icon={Edit2} className="!p-2" aria-label="Edit" onClick={() => handleEdit(row)} />
                               <Button variant="text" color="danger" icon={Trash2} className="!p-2" aria-label="Delete" onClick={() => handleDeleteRequest(row)} />
@@ -431,7 +431,7 @@ export const HospitalMaster = () => {
       ) : (
         <>
           {/* Form Header */}
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-3xl font-bold text-slate-800">{selectedRecord ? 'Edit Hospital Master' : 'Create Hospital Master'}</h1>
               <p className="text-slate-500 mt-1"></p>
@@ -557,24 +557,22 @@ export const HospitalMaster = () => {
               {/* Address */}
               <div className="mb-8">
                 <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Address</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="md:col-span-2">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Address Line 1 <span className="text-danger">*</span></label>
-                    <input
-                      type="text"
-                      value={formData.address1} maxLength={250}
+                    <textarea
+                      value={formData.address1} maxLength={250} rows={1}
                       onChange={(e) => setFormData({ ...formData, address1: e.target.value })}
-                      className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.address1 ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
+                      className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.address1 ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all resize-y`}
                     />
                     {formErrors.address1 && <p className="text-xs text-danger mt-1">{formErrors.address1}</p>}
                   </div>
-                  <div className="md:col-span-2">
+                  <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Address Line 2</label>
-                    <input
-                      type="text"
-                      value={formData.address2} maxLength={250}
+                    <textarea
+                      value={formData.address2} maxLength={250} rows={1}
                       onChange={(e) => setFormData({ ...formData, address2: e.target.value })}
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-y"
                     />
                   </div>
                   <div>
@@ -672,13 +670,12 @@ export const HospitalMaster = () => {
                     </select>
                     {formErrors.status && <p className="text-xs text-danger mt-1">{formErrors.status}</p>}
                   </div>
-                  <div className="md:col-span-2">
+                  <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Remarks</label>
-                    <input
-                      type="text"
-                      value={formData.remarks} maxLength={250}
+                    <textarea
+                      value={formData.remarks} maxLength={250} rows={1}
                       onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-y"
                     />
                   </div>
                 </div>
@@ -760,3 +757,4 @@ export const HospitalMaster = () => {
     </motion.div>
   );
 };
+

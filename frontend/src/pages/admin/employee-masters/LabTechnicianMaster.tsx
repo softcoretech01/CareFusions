@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { 
-  Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle, 
+import {
+  Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle,
   Save, RefreshCw, Upload, CheckCircle2, X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -66,27 +66,27 @@ const emptyData: Omit<LabTechnicianRecord, 'id'> = {
 const API_BASE = import.meta.env.VITE_API_URL as string;
 
 const mapApiToRecord = (item: any): LabTechnicianRecord => ({
-  id:                 item.id,
-  technicianId:       item.technicianId as string,
-  employeeCode:       item.employeeCode as string,
-  name:               item.name as string,
-  qualification:      item.qualification as string,
-  department:         item.department as string,
-  laboratory:         item.laboratory as string,
-  hospital:           item.hospital as string || '',
-  branch:             item.branch as string || '',
-  mobile:             item.mobile as string,
-  email:              item.email as string || '',
-  address:            item.address as string || '',
-  joiningDate:        item.joiningDate ? String(item.joiningDate) : '',
-  experience:         item.experience != null ? String(item.experience) : '',
-  shift:              item.shift as string,
-  manager:            item.manager as string || '',
-  status:             item.status as string,
-  remarks:            item.remarks as string || '',
-  profilePhoto:       item.profilePhoto as string || '',
+  id: item.id,
+  technicianId: item.technicianId as string,
+  employeeCode: item.employeeCode as string,
+  name: item.name as string,
+  qualification: item.qualification as string,
+  department: item.department as string,
+  laboratory: item.laboratory as string,
+  hospital: item.hospital as string || '',
+  branch: item.branch as string || '',
+  mobile: item.mobile as string,
+  email: item.email as string || '',
+  address: item.address as string || '',
+  joiningDate: item.joiningDate ? String(item.joiningDate) : '',
+  experience: item.experience != null ? String(item.experience) : '',
+  shift: item.shift as string,
+  manager: item.manager as string || '',
+  status: item.status as string,
+  remarks: item.remarks as string || '',
+  profilePhoto: item.profilePhoto as string || '',
   qualificationCertificate: item.qualificationCertificate as string || '',
-  idProof:            item.idProof as string || '',
+  idProof: item.idProof as string || '',
 });
 
 export const LabTechnicianMaster = () => {
@@ -94,7 +94,7 @@ export const LabTechnicianMaster = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  
+
   // Filter States
   const [showFilters, setShowFilters] = useState(false);
   const [filterLaboratory, setFilterLaboratory] = useState('');
@@ -115,9 +115,9 @@ export const LabTechnicianMaster = () => {
   const [successMessage, setSuccessMessage] = useState('');
 
   // Dropdowns
-  const [hospitals, setHospitals] = useState<{name: string}[]>([]);
-  const [branches, setBranches] = useState<{name: string}[]>([]);
-  const [departments, setDepartments] = useState<{departmentName: string}[]>([]);
+  const [hospitals, setHospitals] = useState<{ name: string }[]>([]);
+  const [branches, setBranches] = useState<{ name: string }[]>([]);
+  const [departments, setDepartments] = useState<{ departmentName: string }[]>([]);
 
   const fetchTechnicians = async () => {
     try {
@@ -233,7 +233,7 @@ export const LabTechnicianMaster = () => {
         experience: formData.experience ? Number(formData.experience) : null,
         shift: formData.shift,
         manager: formData.manager || null,
-        
+
         profilePhoto: formData.profilePhoto || null,
         qualificationCertificate: formData.qualificationCertificate || null,
         idProof: formData.idProof || null,
@@ -243,7 +243,7 @@ export const LabTechnicianMaster = () => {
         ...(selectedRecord ? { modifiedBy: 'Dr. John Doe' } : { createdBy: 'Dr. John Doe' })
       };
 
-      const url = selectedRecord 
+      const url = selectedRecord
         ? `${API_BASE}/lab-technicians/${selectedRecord.id}`
         : `${API_BASE}/lab-technicians/`;
       const method = selectedRecord ? 'PUT' : 'POST';
@@ -272,14 +272,14 @@ export const LabTechnicianMaster = () => {
 
   const confirmDelete = async () => {
     if (!selectedRecord) return;
-    
+
     try {
       const res = await fetch(`${API_BASE}/lab-technicians/${selectedRecord.id}`, {
         method: 'DELETE'
       });
-      
+
       if (!res.ok) throw new Error('Failed to delete lab technician');
-      
+
       await fetchTechnicians();
       setIsDeleteOpen(false);
       setSuccessMessage('This record has been deleted successfully.');
@@ -309,10 +309,10 @@ export const LabTechnicianMaster = () => {
   };
 
   const filteredRecords = records.filter(record => {
-    const matchesSearch = 
+    const matchesSearch =
       record.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       record.technicianId.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     const matchesLaboratory = !filterLaboratory || record.laboratory === filterLaboratory;
     const matchesShift = !filterShift || record.shift === filterShift;
     const matchesStatus = !filterStatus || record.status === filterStatus;
@@ -325,14 +325,14 @@ export const LabTechnicianMaster = () => {
   const pagedRecords = filteredRecords.slice((_page - 1) * itemsPerPage, _page * itemsPerPage);
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       className="h-full flex flex-col relative"
     >
       {!isFormOpen ? (
         <>
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-3xl font-bold text-slate-800">Lab Technician Master</h1>
               <p className="text-slate-500 mt-1"></p>
@@ -365,16 +365,16 @@ export const LabTechnicianMaster = () => {
                 />
               </div>
               <div className="flex items-center gap-2">
-              <button onClick={() => setShowFilters(!showFilters)} title="Filters" className={showFilters ? "p-2 border rounded-lg transition-colors border-primary bg-primary/5 text-primary" : "p-2 border rounded-lg transition-colors border-slate-200 text-slate-500 hover:bg-slate-50"}>
-                <Filter className="w-4 h-4" />
-              </button>
-              <button onClick={() => { setSearchTerm(''); setFilterLaboratory(''); setFilterShift(''); setFilterStatus(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
-                <X className="w-4 h-4" />
-              </button>
-              <button onClick={() => exportToExcel(records, 'LabTechnicianMaster')} title="Export to Excel" className="p-2 border border-emerald-200 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 transition-colors">
-                <Download className="w-4 h-4" />
-              </button>
-            </div>
+                <button onClick={() => setShowFilters(!showFilters)} title="Filters" className={showFilters ? "p-2 border rounded-lg transition-colors border-primary bg-primary/5 text-primary" : "p-2 border rounded-lg transition-colors border-slate-200 text-slate-500 hover:bg-slate-50"}>
+                  <Filter className="w-4 h-4" />
+                </button>
+                <button onClick={() => { setSearchTerm(''); setFilterLaboratory(''); setFilterShift(''); setFilterStatus(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+                <button onClick={() => exportToExcel(records, 'LabTechnicianMaster')} title="Export to Excel" className="p-2 border border-emerald-200 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 transition-colors">
+                  <Download className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
             <AnimatePresence>
@@ -443,24 +443,23 @@ export const LabTechnicianMaster = () => {
                         <td className="px-4 py-3 text-slate-600">{record.qualification}</td>
                         <td className="px-4 py-3 text-slate-600">{record.shift}</td>
                         <td className="px-4 py-3 text-center">
-                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                            record.status === 'Active' 
-                              ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' 
+                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${record.status === 'Active'
+                              ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
                               : 'bg-red-50 text-red-600 border border-red-200'
-                          }`}>
+                            }`}>
                             {record.status}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-center">
                           <div className="flex items-center justify-center gap-2">
-                            <button 
+                            <button
                               onClick={() => handleEdit(record)}
                               className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"
                               title="Edit"
                             >
                               <Edit2 className="w-4 h-4" />
                             </button>
-                            <button 
+                            <button
                               onClick={() => handleDeleteRequest(record)}
                               className="p-1.5 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                               title="Delete"
@@ -505,21 +504,20 @@ export const LabTechnicianMaster = () => {
         </>
       ) : (
         <>
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex justify-between items-center mb-2">
             <div>
               <h1 className="text-2xl font-bold text-slate-800">
                 {selectedRecord ? `Edit Technician: ${selectedRecord.name}` : 'Add New Technician'}
               </h1>
-              <p className="text-slate-500 text-sm">Fill in the complete lab technician profile</p>
             </div>
           </div>
 
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden">
-            <div className="flex-1 overflow-y-auto p-6 space-y-8">
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
               {/* Basic Information */}
               <section>
                 <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Basic Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Technician ID <span className="text-red-500">*</span></label>
                     <input
@@ -531,22 +529,22 @@ export const LabTechnicianMaster = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Employee Code <span className="text-red-500">*</span></label>
-                    <input type="text" value={formData.employeeCode} onChange={e => setFormData({...formData, employeeCode: e.target.value})} maxLength={10} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.employeeCode ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
+                    <input type="text" value={formData.employeeCode} onChange={e => setFormData({ ...formData, employeeCode: e.target.value })} maxLength={10} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.employeeCode ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
                     {errors.employeeCode && <p className="text-red-500 text-xs mt-1">{errors.employeeCode}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Technician Name <span className="text-red-500">*</span></label>
-                    <input type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} maxLength={50} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.name ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
+                    <input type="text" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} maxLength={50} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.name ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
                     {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Qualification <span className="text-red-500">*</span></label>
-                    <input type="text" value={formData.qualification} onChange={e => setFormData({...formData, qualification: e.target.value})} placeholder="e.g., B.Sc MLT, DMLT" maxLength={50} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.qualification ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
+                    <input type="text" value={formData.qualification} onChange={e => setFormData({ ...formData, qualification: e.target.value })} placeholder="e.g., B.Sc MLT, DMLT" maxLength={50} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.qualification ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
                     {errors.qualification && <p className="text-red-500 text-xs mt-1">{errors.qualification}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Department <span className="text-red-500">*</span></label>
-                    <select value={formData.department} onChange={e => setFormData({...formData, department: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.department ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
+                    <select value={formData.department} onChange={e => setFormData({ ...formData, department: e.target.value })} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.department ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
                       <option value="">Select Department</option>
                       {departments.map((d, i) => (
                         <option key={i} value={d.departmentName}>{d.departmentName}</option>
@@ -556,7 +554,7 @@ export const LabTechnicianMaster = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Laboratory <span className="text-red-500">*</span></label>
-                    <select value={formData.laboratory} onChange={e => setFormData({...formData, laboratory: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.laboratory ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
+                    <select value={formData.laboratory} onChange={e => setFormData({ ...formData, laboratory: e.target.value })} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.laboratory ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
                       <option value="">Select Laboratory</option>
                       {Object.values(LaboratoryEnum).map((lab) => (
                         <option key={lab} value={lab}>{lab}</option>
@@ -566,7 +564,7 @@ export const LabTechnicianMaster = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Hospital <span className="text-red-500">*</span></label>
-                    <select value={formData.hospital} onChange={e => setFormData({...formData, hospital: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.hospital ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
+                    <select value={formData.hospital} onChange={e => setFormData({ ...formData, hospital: e.target.value })} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.hospital ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
                       <option value="">Select Hospital</option>
                       {hospitals.map((h, i) => (
                         <option key={i} value={h.name}>{h.name}</option>
@@ -576,7 +574,7 @@ export const LabTechnicianMaster = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Branch <span className="text-red-500">*</span></label>
-                    <select value={formData.branch} onChange={e => setFormData({...formData, branch: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.branch ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
+                    <select value={formData.branch} onChange={e => setFormData({ ...formData, branch: e.target.value })} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.branch ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
                       <option value="">Select Branch</option>
                       {branches.map((b, i) => (
                         <option key={i} value={b.name}>{b.name}</option>
@@ -590,19 +588,19 @@ export const LabTechnicianMaster = () => {
               {/* Contact Information */}
               <section>
                 <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Contact Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Mobile Number <span className="text-red-500">*</span></label>
-                    <input type="text" value={formData.mobile} onChange={e => setFormData({...formData, mobile: e.target.value})} maxLength={10} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.mobile ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
+                    <input type="text" value={formData.mobile} onChange={e => setFormData({ ...formData, mobile: e.target.value })} maxLength={10} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.mobile ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
                     {errors.mobile && <p className="text-red-500 text-xs mt-1">{errors.mobile}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
-                    <input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} maxLength={20} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <input type="email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} maxLength={20} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
-                  <div className="md:col-span-2">
+                  <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Address</label>
-                    <input type="text" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} maxLength={250} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <input type="text" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} maxLength={250} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                 </div>
               </section>
@@ -610,14 +608,14 @@ export const LabTechnicianMaster = () => {
               {/* Employment Details */}
               <section>
                 <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Employment Details</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Joining Date</label>
-                    <input type="date" value={formData.joiningDate} onChange={e => setFormData({...formData, joiningDate: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <input type="date" value={formData.joiningDate} onChange={e => setFormData({ ...formData, joiningDate: e.target.value })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Shift <span className="text-red-500">*</span></label>
-                    <select value={formData.shift} onChange={e => setFormData({...formData, shift: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.shift ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
+                    <select value={formData.shift} onChange={e => setFormData({ ...formData, shift: e.target.value })} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.shift ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
                       <option value="">Select Shift</option>
                       <option value="Morning">Morning</option>
                       <option value="Evening">Evening</option>
@@ -627,11 +625,11 @@ export const LabTechnicianMaster = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Experience (Years)</label>
-                    <input type="number" min="0" value={formData.experience} onChange={e => setFormData({...formData, experience: e.target.value})} maxLength={50} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <input type="number" min="0" value={formData.experience} onChange={e => setFormData({ ...formData, experience: e.target.value })} maxLength={50} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Reporting Manager</label>
-                    <input type="text" value={formData.manager} onChange={e => setFormData({...formData, manager: e.target.value})} maxLength={50} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <input type="text" value={formData.manager} onChange={e => setFormData({ ...formData, manager: e.target.value })} maxLength={50} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                 </div>
               </section>
@@ -641,8 +639,8 @@ export const LabTechnicianMaster = () => {
                 <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Documents</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   {[
-                    { label: 'Profile Photo', field: 'profilePhoto' }, 
-                    { label: 'Qualification Certificate', field: 'qualificationCertificate' }, 
+                    { label: 'Profile Photo', field: 'profilePhoto' },
+                    { label: 'Qualification Certificate', field: 'qualificationCertificate' },
                     { label: 'ID Proof', field: 'idProof' }
                   ].map((doc, i) => (
                     <div key={i} className="border border-slate-200 rounded-xl p-4 flex flex-col gap-2 relative">
@@ -651,8 +649,8 @@ export const LabTechnicianMaster = () => {
                         {formData[doc.field as keyof typeof formData] ? (
                           <div className="flex flex-col items-center gap-2">
                             <span className="text-sm font-medium text-emerald-600">File Uploaded</span>
-                            <img 
-                              src={`${API_BASE.replace('/api/v1', '')}${formData[doc.field as keyof typeof formData]}`} 
+                            <img
+                              src={`${API_BASE.replace('/api/v1', '')}${formData[doc.field as keyof typeof formData]}`}
                               alt={doc.label}
                               className="h-16 object-contain"
                               onError={(e) => {
@@ -688,14 +686,14 @@ export const LabTechnicianMaster = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Status <span className="text-red-500">*</span></label>
-                    <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
+                    <select value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
                       <option value="Active">Active</option>
                       <option value="Inactive">Inactive</option>
                     </select>
                   </div>
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-slate-700 mb-1">Remarks</label>
-                    <input type="text" value={formData.remarks} onChange={e => setFormData({...formData, remarks: e.target.value})} maxLength={250} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <input type="text" value={formData.remarks} onChange={e => setFormData({ ...formData, remarks: e.target.value })} maxLength={250} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                 </div>
               </section>
@@ -758,7 +756,7 @@ export const LabTechnicianMaster = () => {
           <p className="text-slate-500 text-sm mb-6">
             {successMessage}
           </p>
-          
+
           <div className="flex items-center justify-center w-full">
             <Button variant="filled" color="primary" className="w-full" onClick={() => setIsSuccessOpen(false)}>
               OK
@@ -769,3 +767,5 @@ export const LabTechnicianMaster = () => {
     </motion.div>
   );
 };
+
+

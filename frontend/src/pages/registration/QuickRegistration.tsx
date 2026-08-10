@@ -433,7 +433,7 @@ export const QuickRegistration = () => {
                 <User className="w-5 h-5 text-primary" />
                 <h3 className="text-lg font-bold text-slate-800">Basic Information</h3>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Title</label>
                   <select
@@ -444,7 +444,7 @@ export const QuickRegistration = () => {
                       {options.Title.map((o: string) => <option key={o} value={o}>{o}</option>)}
                     </select>
                 </div>
-                <div className="md:col-span-3">
+                <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Patient Name <span className="text-red-500">*</span></label>
                   <input
                     type="text"

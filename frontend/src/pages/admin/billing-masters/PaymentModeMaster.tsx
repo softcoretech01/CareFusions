@@ -239,7 +239,7 @@ export const PaymentModeMaster = () => {
 
       {!isFormOpen ? (
         <>
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-3xl font-bold text-slate-800">Payment Mode Master</h1>
               <p className="text-slate-500 mt-1"></p>
@@ -399,12 +399,11 @@ export const PaymentModeMaster = () => {
         </>
       ) : (
         <>
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex justify-between items-center mb-2">
             <div>
               <h1 className="text-2xl font-bold text-slate-800">
                 {selectedRecord ? `Edit Payment Mode: ${selectedRecord.paymentMode}` : 'Add New Payment Mode'}
               </h1>
-              <p className="text-slate-500 text-sm">Configure hospital payment mode</p>
             </div>
           </div>
 
@@ -413,7 +412,7 @@ export const PaymentModeMaster = () => {
               {/* Basic Information */}
               <section>
                 <h3 className="text-base font-bold text-slate-800 mb-3 border-b border-slate-100 pb-1.5">Basic Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Payment Code</label>
                     <input type="text" value={selectedRecord ? selectedRecord.paymentCode : (nextCode || 'Auto-generating…')} disabled readOnly className="w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed" />
@@ -426,9 +425,9 @@ export const PaymentModeMaster = () => {
                     <input type="text" maxLength={LIMITS.paymentMode} value={formData.paymentMode} onChange={e => setFormData({...formData, paymentMode: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.paymentMode ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
                     {errors.paymentMode && <p className="text-red-500 text-xs mt-1">{errors.paymentMode}</p>}
                   </div>
-                  <div className="md:col-span-2">
+                  <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
-                    <input type="text" maxLength={LIMITS.description} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <textarea maxLength={LIMITS.description} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} rows={1} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                 </div>
               </section>
@@ -521,3 +520,5 @@ export const PaymentModeMaster = () => {
     </motion.div>
   );
 };
+
+
