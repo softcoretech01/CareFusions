@@ -55,6 +55,22 @@ export const NewAdmission = () => {
     }
   }, [state]);
 
+  // The admission request only carries UHID/name/clinical fields — it has no
+  // age, gender or blood group. Pull those from the registered-patient record
+  // matched by UHID. Runs again once the patient directory finishes loading, so
+  // "Process Admission" fills the demographics even if patients loaded late.
+  useEffect(() => {
+    if (!state?.request) return;
+    const patient = registeredPatients.find(p => p.uhid === state.request.uhid);
+    if (!patient) return;
+    setForm(prev => ({
+      ...prev,
+      age: patient.age ? String(patient.age) : prev.age,
+      gender: patient.gender || prev.gender,
+      bloodGroup: (patient.bloodGroup as string) || prev.bloodGroup,
+    }));
+  }, [state, registeredPatients]);
+
   const roomsInWard = useMemo(() => {
     if (!form.wardId) return [];
     const bedsInWard = beds.filter(b => b.wardId === Number(form.wardId));
