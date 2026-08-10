@@ -3,7 +3,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from typing import List, Dict, Any
 from app.database import get_db
-from app.schemas.radiology import RadiologyOrderResponse, RadiologyTestUpdate
+from app.schemas.radiology import RadiologyOrderResponse, RadiologyTestUpdate, RadiologyOrderCreate
+import uuid
 
 router = APIRouter(
     prefix="/radiology/orders",
@@ -56,6 +57,44 @@ def get_radiology_orders(db: Session = Depends(get_db)):
         
         return list(orders_dict.values())
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("", response_model=Dict[str, Any])
+def create_radiology_order(order_data: RadiologyOrderCreate, db: Session = Depends(get_db)):
+    try:
+        order_number = f"RAD-{str(uuid.uuid4())[:8].upper()}"
+        
+        query = text("""
+            INSERT INTO hospital.Rad_Order (OrderNumber, Category, VisitType, Uhid, PatientName, OrderedBy, CreatedBy)
+            VALUES (:order_number, :category, :visit_type, :uhid, :patient_name, :ordered_by, 'Admin')
+        """)
+        
+        db.execute(query, {
+            "order_number": order_number,
+            "category": order_data.category,
+            "visit_type": order_data.visit_type,
+            "uhid": order_data.uhid,
+            "patient_name": order_data.patient_name,
+            "ordered_by": order_data.ordered_by
+        })
+        
+        order_id = db.execute(text("SELECT LAST_INSERT_ID()")).scalar()
+        
+        for test in order_data.tests:
+            test_query = text("""
+                INSERT INTO hospital.Rad_OrderTest (OrderId, TestCode, TestName, Status)
+                VALUES (:order_id, :test_code, :test_name, 'Pending')
+            """)
+            db.execute(test_query, {
+                "order_id": order_id,
+                "test_code": test.testCode or test.testName,
+                "test_name": test.testName
+            })
+            
+        db.commit()
+        return {"order_id": order_id, "order_number": order_number, "message": "Order created successfully"}
+    except Exception as e:
+        db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/{order_id}/tests/{test_id}")
