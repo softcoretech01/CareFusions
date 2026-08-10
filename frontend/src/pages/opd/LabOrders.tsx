@@ -134,10 +134,10 @@ export const LabOrders = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="space-y-1">
-                        {visit.labOrders.map((order: any) => {
+                        {visit.labOrders.map((order: any, idx: number) => {
                           const realStatus = getLabStatus(visit.uhid, order.testName, order.status);
                           return (
-                          <div key={order.id} className="flex items-center gap-2">
+                          <div key={order.id || idx} className="flex items-center gap-2">
                             <span className="text-sm font-medium text-slate-700">{order.testName}</span>
                             <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${
                               realStatus === 'Ordered' ? 'bg-amber-100 text-amber-700' :
@@ -154,10 +154,10 @@ export const LabOrders = () => {
                     <td className="px-6 py-4 text-sm font-medium text-slate-700">{visit.doctorName}</td>
                     <td className="px-6 py-4">
                       <div className="space-y-1">
-                        {visit.labOrders.map((order: any) => {
+                        {visit.labOrders.map((order: any, idx: number) => {
                           const realStatus = getLabStatus(visit.uhid, order.testName, order.status);
                           return (
-                          <div key={order.id} className="flex items-center">
+                          <div key={order.id || idx} className="flex items-center">
                             <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md ${
                               realStatus === 'Completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
                             }`}>
