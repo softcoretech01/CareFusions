@@ -3,7 +3,7 @@ from typing import List, Optional
 from datetime import datetime
 
 class RadiologyTestBase(BaseModel):
-    test_id: int
+    test_id: Optional[int] = None
     test_code: Optional[str] = None
     test_name: str
     status: str

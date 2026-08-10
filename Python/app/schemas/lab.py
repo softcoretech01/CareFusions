@@ -1,70 +1,68 @@
 from pydantic import BaseModel
 from typing import List, Optional
-from datetime import datetime
+from enum import Enum
 
-class LabTestBase(BaseModel):
-    test_id: Optional[int] = None
-    test_code: Optional[str] = None
-    test_name: str
-    normal_range: Optional[str] = None
-    unit: Optional[str] = None
-    status: Optional[str] = "Pending"
-    result_value: Optional[str] = None
-    result_file: Optional[str] = None
-    is_abnormal: Optional[bool] = False
-    is_critical: Optional[bool] = False
-    collected_at: Optional[datetime] = None
-    accepted_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
-    verified_at: Optional[datetime] = None
-    verified_by: Optional[str] = None
-    acknowledged_at: Optional[datetime] = None
-    acknowledged_by: Optional[str] = None
+class VisitType(str, Enum):
+    OP = "OP"
+    IP = "IP"
+    ER = "ER"
 
-class LabTestCreate(BaseModel):
+class Category(str, Enum):
+    Lab = "Lab"
+    Radiology = "Radiology"
+
+class Priority(str, Enum):
+    Routine = "Routine"
+    Urgent = "Urgent"
+    Stat = "Stat"
+
+class TestStatus(str, Enum):
+    Pending = "Pending"
+    SampleCollected = "Sample Collected"
+    SampleAccepted = "Sample Accepted"
+    Processing = "Processing"
+    Completed = "Completed"
+    Verified = "Verified"
+
+class TestCreate(BaseModel):
     testId: Optional[int] = None
     testCode: Optional[str] = None
     testName: str
     normalRange: Optional[str] = None
     unit: Optional[str] = None
 
-class LabOrderCreate(BaseModel):
-    category: str = "Lab"
-    visit_type: str = "OP"
+class OrderCreate(BaseModel):
+    category: Category
+    visitType: VisitType
     uhid: str
-    patient_name: str
-    ordered_by: Optional[str] = None
-    priority: str = "Routine"
-    clinical_notes: Optional[str] = None
-    tests: List[LabTestCreate]
+    patientName: str
+    orderedBy: Optional[str] = None
+    priority: Priority
+    clinicalNotes: Optional[str] = None
+    tests: List[TestCreate]
+    user: Optional[str] = None
 
-class LabTestUpdateResult(BaseModel):
-    result_value: Optional[str] = None
-    result_file: Optional[str] = None
-    is_abnormal: bool = False
-    is_critical: bool = False
+class TestStatusUpdate(BaseModel):
+    status: TestStatus
+    user: Optional[str] = None
 
-class LabTestUpdateStatus(BaseModel):
-    status: str
+class TestResultUpdate(BaseModel):
+    resultValue: Optional[str] = None
+    resultFile: Optional[str] = None
+    user: Optional[str] = None
 
-class LabTestResponse(LabTestBase):
-    order_test_id: int
+class VerifyIn(BaseModel):
+    verifiedBy: str
 
-class LabOrderBase(BaseModel):
-    order_number: str
-    category: str = "Lab"
-    visit_type: str
-    uhid: str
-    patient_name: str
-    ordered_by: Optional[str] = None
-    ordered_at: datetime
-    priority: Optional[str] = None
-    clinical_notes: Optional[str] = None
-    status: str
-    age: Optional[str] = None
-    gender: Optional[str] = None
-    mobile_number: Optional[str] = None
+class AckIn(BaseModel):
+    acknowledgedBy: Optional[str] = None
 
-class LabOrderResponse(LabOrderBase):
-    order_id: int
-    tests: List[LabTestResponse] = []
+class QcCreate(BaseModel):
+    category: Category
+    qcDate: str
+    machineName: str
+    testName: str
+    expectedValue: float
+    actualValue: float
+    remarks: Optional[str] = None
+    user: Optional[str] = None
