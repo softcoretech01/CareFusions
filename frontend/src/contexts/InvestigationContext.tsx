@@ -255,7 +255,45 @@ export const InvestigationProvider = ({ children }: { children: ReactNode }) => 
     }
   }, []);
 
-  const fetchRadiologyQCLogs = useCallback(async () => {
+  const fetchLabOrders = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/lab/orders`);
+      const labOrders = response.data.map((order: any) => ({
+        id: order.order_number,
+        type: order.visit_type,
+        category: order.category,
+        patientId: order.uhid,
+        patientName: order.patient_name,
+        orderedBy: order.ordered_by || 'Unknown',
+        orderedAt: order.ordered_at,
+        status: order.status,
+        age: order.age,
+        gender: order.gender,
+        mobileNumber: order.mobile_number,
+        tests: order.tests.map((test: any) => ({
+          id: `TEST-${test.order_test_id}`,
+          name: test.test_name,
+          status: test.status,
+          resultValue: test.result_value || '',
+          resultFile: test.result_file || '',
+          isCritical: test.is_critical,
+          completedAt: test.completed_at,
+          verifiedAt: test.verified_at,
+          verifiedBy: test.verified_by,
+          acknowledgedAt: test.acknowledged_at
+        }))
+      }));
+      setOrders(prev => {
+        // Filter out existing lab orders (mock ones or old fetched ones)
+        const nonLabOrders = prev.filter(o => o.category !== 'Lab');
+        return [...nonLabOrders, ...labOrders];
+      });
+    } catch (error) {
+      console.error('Failed to fetch lab orders', error);
+    }
+  };
+
+  const fetchRadiologyQCLogs = async () => {
     try {
       const res = await fetch(`${API_BASE}/radiology/qc`);
       if (!res.ok) throw new Error(await res.text());
@@ -282,7 +320,121 @@ export const InvestigationProvider = ({ children }: { children: ReactNode }) => 
   useEffect(() => {
     fetchRadiologyOrders();
     fetchRadiologyQCLogs();
-  }, [fetchRadiologyOrders, fetchRadiologyQCLogs]);
+    fetchLabOrders();
+  }, []);
+
+  const addOrder = async (order: InvestigationOrder) => {
+    setOrders(prev => [order, ...prev]);
+    
+    if (order.category === 'Lab') {
+      try {
+        await axios.post(`${API_URL}/lab/orders`, {
+          category: order.category,
+          visit_type: order.type,
+          uhid: order.patientId,
+          patient_name: order.patientName,
+          ordered_by: order.orderedBy,
+          priority: 'Routine',
+          tests: order.tests.map(t => ({
+            testName: t.name,
+            testCode: t.name
+          }))
+        });
+        fetchLabOrders();
+      } catch (error) {
+        console.error('Failed to create lab order', error);
+      }
+    } else if (order.category === 'Radiology') {
+      try {
+        await axios.post(`${API_URL}/radiology/orders`, {
+          category: order.category,
+          visit_type: order.type,
+          uhid: order.patientId,
+          patient_name: order.patientName,
+          ordered_by: order.orderedBy,
+          priority: 'Routine',
+          tests: order.tests.map(t => ({
+            testName: t.name,
+            testCode: t.name
+          }))
+        });
+        fetchRadiologyOrders();
+      } catch (error) {
+        console.error('Failed to create radiology order', error);
+      }
+    }
+  };
+
+  const addQCLog = (log: QCLog) => {
+    setQcLogs(prev => [log, ...prev]);
+  };
+
+  const updateOrderStatusBasedOnTests = (updatedTests: InvestigationTest[]): InvestigationOrder['status'] => {
+    const allCompleted = updatedTests.every(t => t.status === 'Completed' || t.status === 'Verified');
+    const allVerified = updatedTests.every(t => t.status === 'Verified');
+    const someCompleted = updatedTests.some(t => t.status === 'Completed' || t.status === 'Verified');
+    
+    if (allVerified) return 'Verified';
+    if (allCompleted) return 'Completed';
+    if (someCompleted) return 'Partial';
+    
+    const allCollected = updatedTests.every(t => t.status === 'Sample Collected' || t.status === 'Sample Accepted' || t.status === 'Processing');
+    if (allCollected) return 'Sample Collected';
+    
+    return 'Pending';
+  };
+
+  const updateTestResult = async (orderId: string, testId: string, resultValue?: string, resultFile?: string, isCritical?: boolean) => {
+    const order = orders.find(o => o.id === orderId);
+    
+    // Optimistic UI Update
+    setOrders(prev => prev.map(o => {
+      if (o.id !== orderId) return o;
+
+      const updatedTests = o.tests.map(test => {
+        if (test.id !== testId) return test;
+        return {
+          ...test,
+          resultValue,
+          resultFile,
+          isCritical,
+          status: 'Completed' as const,
+          completedAt: new Date().toISOString()
+        };
+      });
+
+      return {
+        ...o,
+        tests: updatedTests,
+        status: updateOrderStatusBasedOnTests(updatedTests)
+      };
+    }));
+
+    if (order?.category === 'Radiology') {
+      try {
+        await axios.put(`${API_URL}/radiology/orders/${orderId}/tests/${testId}`, {
+          result_value: resultValue,
+          result_file: resultFile,
+          is_critical: isCritical
+        });
+        // re-fetch to ensure sync with backend
+        fetchRadiologyOrders();
+      } catch (error) {
+        console.error('Failed to update radiology test', error);
+      }
+    } else if (order?.category === 'Lab') {
+      try {
+        await axios.put(`${API_URL}/lab/orders/tests/${testId}/result`, {
+          result_value: resultValue,
+          result_file: resultFile,
+          is_critical: isCritical
+        });
+        fetchLabOrders();
+      } catch (error) {
+        console.error('Failed to update lab test result', error);
+      }
+    }
+  };
 
   const acknowledgeRadiologyAlert = async (testId: string) => {
     try {
@@ -307,16 +459,83 @@ export const InvestigationProvider = ({ children }: { children: ReactNode }) => 
         actual_value: parseFloat(log.actualValue),
         deviation: parseFloat(log.deviation),
         status: log.status,
-        remarks: log.remarks,
-      }),
-    });
-    // The QC screen reports the failure to the user, so let it surface.
-    if (!res.ok) throw new Error(await res.text());
-    await fetchRadiologyQCLogs();
+        remarks: log.remarks
+      });
+      fetchRadiologyQCLogs();
+    } catch (error) {
+      console.error('Failed to add radiology QC log', error);
+      throw error;
+    }
   };
 
-  const getOrdersByPatient = (patientId: string) =>
-    orders.filter(o => o.patientId === patientId);
+  const updateTestStatus = async (orderId: string, testId: string, status: InvestigationTest['status']) => {
+    const order = orders.find(o => o.id === orderId);
+
+    setOrders(prev => prev.map(o => {
+      if (o.id !== orderId) return o;
+
+      const updatedTests = o.tests.map(test => {
+        if (test.id !== testId) return test;
+        const now = new Date().toISOString();
+        return {
+          ...test,
+          status,
+          collectedAt: status === 'Sample Collected' ? now : test.collectedAt,
+          acceptedAt: status === 'Sample Accepted' ? now : test.acceptedAt,
+        };
+      });
+
+      return {
+        ...o,
+        tests: updatedTests,
+        status: updateOrderStatusBasedOnTests(updatedTests)
+      };
+    }));
+
+    if (order?.category === 'Lab') {
+      try {
+        await axios.put(`${API_URL}/lab/orders/tests/${testId}/status`, {
+          status: status
+        });
+        fetchLabOrders();
+      } catch (error) {
+        console.error('Failed to update lab test status', error);
+      }
+    }
+  };
+
+  const verifyTest = async (orderId: string, testId: string, verifiedBy: string) => {
+    const order = orders.find(o => o.id === orderId);
+
+    setOrders(prev => prev.map(o => {
+      if (o.id !== orderId) return o;
+
+      const updatedTests = o.tests.map(test => {
+        if (test.id !== testId) return test;
+        return {
+          ...test,
+          status: 'Verified' as const,
+          verifiedAt: new Date().toISOString(),
+          verifiedBy
+        };
+      });
+
+      return {
+        ...o,
+        tests: updatedTests,
+        status: updateOrderStatusBasedOnTests(updatedTests)
+      };
+    }));
+
+    if (order?.category === 'Lab') {
+      try {
+        await axios.put(`${API_URL}/lab/orders/tests/${testId}/verify`);
+        fetchLabOrders();
+      } catch (error) {
+        console.error('Failed to verify lab test', error);
+      }
+    }
+  };
 
   const addQCLog = (log: QCLog) => {
     (async () => {

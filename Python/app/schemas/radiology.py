@@ -21,6 +21,10 @@ class RadiologyTestUpdate(BaseModel):
     result_file: Optional[str] = None
     is_critical: bool = False
 
+class RadiologyTestCreate(BaseModel):
+    testName: str
+    testCode: Optional[str] = None
+
 class RadiologyTestResponse(RadiologyTestBase):
     order_test_id: int
 
@@ -36,6 +40,15 @@ class RadiologyOrderBase(BaseModel):
     age: Optional[str] = None
     gender: Optional[str] = None
     mobile_number: Optional[str] = None
+
+class RadiologyOrderCreate(BaseModel):
+    category: str = "Radiology"
+    visit_type: str = "OP"
+    uhid: str
+    patient_name: str
+    ordered_by: Optional[str] = None
+    priority: str = "Routine"
+    tests: List[RadiologyTestCreate]
 
 class RadiologyOrderResponse(RadiologyOrderBase):
     order_id: int

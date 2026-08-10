@@ -147,10 +147,10 @@ BEGIN
             A.QueueToken AS queueToken,
             A.AppointmentNumber AS appointmentNumber,
             A.Uhid AS uhid,
-            P.PatientName AS patientName,
+            COALESCE(P.PatientName, A.PatientName) AS patientName,
             P.Age AS age,
             P.Gender AS gender,
-            P.MobileNumber AS mobileNumber,
+            COALESCE(P.MobileNumber, A.MobileNumber) AS mobileNumber,
             A.Doctor AS doctorName,
             A.Department AS department,
             A.AppointmentDate AS date,
@@ -158,7 +158,7 @@ BEGIN
             A.Type AS visitType,
             A.Priority AS priority,
             A.Status AS status,
-            'Pending' AS billingStatus,
+            IF((SELECT COUNT(*) FROM hospital.OpBill B WHERE B.Uhid = A.Uhid AND DATE(B.BillDate) = A.AppointmentDate AND B.PaymentStatus = 'Paid') > 0, 'Completed', 'Pending') AS billingStatus,
             COALESCE(V.IsFinalized, 0) AS isFinalized,
             (
                 SELECT JSON_ARRAYAGG(

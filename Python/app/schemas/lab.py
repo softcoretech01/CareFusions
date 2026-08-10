@@ -1,87 +1,70 @@
-"""Pydantic schemas for the Laboratory / Investigations module."""
+from pydantic import BaseModel
 from typing import List, Optional
-from enum import Enum
-from pydantic import BaseModel, Field, field_validator
+from datetime import datetime
 
+class LabTestBase(BaseModel):
+    test_id: Optional[int] = None
+    test_code: Optional[str] = None
+    test_name: str
+    normal_range: Optional[str] = None
+    unit: Optional[str] = None
+    status: Optional[str] = "Pending"
+    result_value: Optional[str] = None
+    result_file: Optional[str] = None
+    is_abnormal: Optional[bool] = False
+    is_critical: Optional[bool] = False
+    collected_at: Optional[datetime] = None
+    accepted_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    verified_at: Optional[datetime] = None
+    verified_by: Optional[str] = None
+    acknowledged_at: Optional[datetime] = None
+    acknowledged_by: Optional[str] = None
 
-class CategoryEnum(str, Enum):
-    lab = "Lab"
-    radiology = "Radiology"
+class LabTestCreate(BaseModel):
+    testId: Optional[int] = None
+    testCode: Optional[str] = None
+    testName: str
+    normalRange: Optional[str] = None
+    unit: Optional[str] = None
 
+class LabOrderCreate(BaseModel):
+    category: str = "Lab"
+    visit_type: str = "OP"
+    uhid: str
+    patient_name: str
+    ordered_by: Optional[str] = None
+    priority: str = "Routine"
+    clinical_notes: Optional[str] = None
+    tests: List[LabTestCreate]
 
-class VisitTypeEnum(str, Enum):
-    op = "OP"
-    ip = "IP"
+class LabTestUpdateResult(BaseModel):
+    result_value: Optional[str] = None
+    result_file: Optional[str] = None
+    is_abnormal: bool = False
+    is_critical: bool = False
 
+class LabTestUpdateStatus(BaseModel):
+    status: str
 
-class PriorityEnum(str, Enum):
-    routine = "Routine"
-    urgent = "Urgent"
-    stat = "STAT"
+class LabTestResponse(LabTestBase):
+    order_test_id: int
 
+class LabOrderBase(BaseModel):
+    order_number: str
+    category: str = "Lab"
+    visit_type: str
+    uhid: str
+    patient_name: str
+    ordered_by: Optional[str] = None
+    ordered_at: datetime
+    priority: Optional[str] = None
+    clinical_notes: Optional[str] = None
+    status: str
+    age: Optional[str] = None
+    gender: Optional[str] = None
+    mobile_number: Optional[str] = None
 
-class TestStatusEnum(str, Enum):
-    pending = "Pending"
-    collected = "Sample Collected"
-    accepted = "Sample Accepted"
-    processing = "Processing"
-    completed = "Completed"
-    verified = "Verified"
-
-
-class OrderTestIn(BaseModel):
-    testId: Optional[int] = Field(None, gt=0)
-    testCode: Optional[str] = Field(None, max_length=50)
-    testName: str = Field(..., min_length=1, max_length=200)
-    normalRange: Optional[str] = Field(None, max_length=100)
-    unit: Optional[str] = Field(None, max_length=50)
-
-
-class OrderCreate(BaseModel):
-    category: CategoryEnum = CategoryEnum.lab
-    visitType: VisitTypeEnum = VisitTypeEnum.op
-    uhid: str = Field(..., min_length=1, max_length=30)
-    patientName: str = Field(..., min_length=1, max_length=150)
-    orderedBy: Optional[str] = Field(None, max_length=150)
-    priority: PriorityEnum = PriorityEnum.routine
-    clinicalNotes: Optional[str] = Field(None, max_length=500)
-    tests: List[OrderTestIn] = Field(..., min_length=1)
-    user: Optional[str] = Field("Admin", max_length=150)
-
-    @field_validator("patientName")
-    @classmethod
-    def name_chars(cls, v):
-        # Letters, spaces and the punctuation that legitimately appears in names.
-        if v and not all(c.isalpha() or c in " .'-" for c in v):
-            raise ValueError("Patient name may contain letters, spaces, . ' - only")
-        return v
-
-
-class TestStatusUpdate(BaseModel):
-    status: TestStatusEnum
-    user: Optional[str] = Field("Admin", max_length=150)
-
-
-class TestResultUpdate(BaseModel):
-    resultValue: Optional[str] = Field(None, max_length=255)
-    resultFile: Optional[str] = Field(None, max_length=500)
-    user: Optional[str] = Field("Admin", max_length=150)
-
-
-class VerifyIn(BaseModel):
-    verifiedBy: str = Field(..., min_length=1, max_length=150)
-
-
-class AckIn(BaseModel):
-    acknowledgedBy: Optional[str] = Field("Admin", max_length=150)
-
-
-class QcCreate(BaseModel):
-    category: CategoryEnum = CategoryEnum.lab
-    qcDate: str = Field(..., min_length=10, max_length=10)   # YYYY-MM-DD
-    machineName: str = Field(..., min_length=1, max_length=150)
-    testName: str = Field(..., min_length=1, max_length=200)
-    expectedValue: float
-    actualValue: float
-    remarks: Optional[str] = Field(None, max_length=500)
-    user: Optional[str] = Field("Admin", max_length=150)
+class LabOrderResponse(LabOrderBase):
+    order_id: int
+    tests: List[LabTestResponse] = []

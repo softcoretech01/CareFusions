@@ -297,8 +297,8 @@ export const DoctorConsultation = () => {
                 <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
                 <span className="text-xs font-bold text-red-600 uppercase">Allergies</span>
               </div>
-              {visit.allergies.map(a => (
-                <span key={a} className="inline-block text-xs bg-red-100 text-red-700 font-bold px-2 py-0.5 rounded-full mr-1 mb-1">{a}</span>
+              {visit.allergies.map((a, i) => (
+                <span key={a || i} className="inline-block text-xs bg-red-100 text-red-700 font-bold px-2 py-0.5 rounded-full mr-1 mb-1">{a}</span>
               ))}
             </div>
           )}
@@ -384,8 +384,8 @@ export const DoctorConsultation = () => {
                 <div className="mt-8">
                   <h4 className="text-sm font-bold text-slate-600 mb-3">Saved Diagnoses</h4>
                   <div className="space-y-3">
-                    {visit.diagnoses.map(d => (
-                      <div key={d.id} className="flex items-start justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
+                    {visit.diagnoses.map((d, i) => (
+                      <div key={d.id || i} className="flex items-start justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
                         <p className="text-slate-800">{d.description}</p>
                         <button onClick={() => removeDiagnosis(visit.id, d.id)} className="p-1.5 hover:bg-red-50 rounded-lg transition-colors shrink-0">
                           <Trash2 className="w-4 h-4 text-red-400" />
@@ -408,8 +408,8 @@ export const DoctorConsultation = () => {
                 </div>
               ) : (
                 <div className="space-y-6">
-                  {patientHistory.map(past => (
-                    <div key={past.id} className="p-4 border border-slate-100 rounded-2xl bg-slate-50/50">
+                  {patientHistory.map((past, i) => (
+                    <div key={past.id || i} className="p-4 border border-slate-100 rounded-2xl bg-slate-50/50">
                       <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
                         <div>
                           <p className="font-bold text-slate-800 text-sm flex items-center gap-2">
@@ -433,8 +433,8 @@ export const DoctorConsultation = () => {
                         <div>
                           <h4 className="text-xs font-bold text-slate-500 uppercase mb-1">Prescriptions</h4>
                           <div className="space-y-1">
-                            {past.prescriptions.map(p => (
-                              <p key={p.id} className="text-sm text-slate-700">
+                            {past.prescriptions.map((p, i) => (
+                              <p key={p.id || i} className="text-sm text-slate-700">
                                 • {p.medicineName} <span className="text-slate-400">(Qty: {p.quantity} {UOM_MAP[p.type] || ''})</span>
                               </p>
                             ))}
@@ -502,9 +502,9 @@ export const DoctorConsultation = () => {
                     <option value="">Select from Master...</option>
                     {apiMedicines
                       .filter(m => !rxForm.type || m.dosageForm === rxForm.type)
-                      .map(m => {
+                      .map((m, i) => {
                         const name = m.brandName || m.genericName;
-                        return <option key={m.id} value={name}>{name}</option>;
+                        return <option key={m.id || m.medicineId || name || i} value={name}>{name}</option>;
                       })}
                   </select>
                 </div>
@@ -530,8 +530,8 @@ export const DoctorConsultation = () => {
                 <div>
                   <h4 className="text-sm font-bold text-slate-600 mb-3">Prescribed Medicines</h4>
                   <div className="space-y-2">
-                    {visit.prescriptions.map(p => (
-                      <div key={p.id} className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-200">
+                    {visit.prescriptions.map((p, i) => (
+                      <div key={p.id || i} className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-200">
                         <div className="flex items-center gap-3">
                           <span className="text-xs font-bold bg-primary/10 text-primary px-2.5 py-1 rounded-lg">
                             {p.type}
@@ -641,8 +641,8 @@ export const DoctorConsultation = () => {
               {visit.diagnoses.length > 0 && (
                 <div>
                   <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Diagnoses</h4>
-                  {visit.diagnoses.map(d => (
-                    <p key={d.id} className="text-sm text-slate-700 bg-slate-50 p-2 rounded-lg border border-slate-100 mb-2">
+                  {visit.diagnoses.map((d, i) => (
+                    <p key={d.id || i} className="text-sm text-slate-700 bg-slate-50 p-2 rounded-lg border border-slate-100 mb-2">
                       {d.description}
                     </p>
                   ))}
@@ -652,8 +652,8 @@ export const DoctorConsultation = () => {
               {visit.prescriptions.length > 0 && (
                 <div>
                   <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Prescriptions</h4>
-                  {visit.prescriptions.map(p => (
-                    <div key={p.id} className="text-sm text-slate-700 mb-1 flex items-center gap-2">
+                  {visit.prescriptions.map((p, i) => (
+                    <div key={p.id || i} className="text-sm text-slate-700 mb-1 flex items-center gap-2">
                       <span className="text-[10px] font-bold bg-slate-200 px-1.5 py-0.5 rounded">{p.type}</span>
                       {p.medicineName} <span className="text-slate-400">— Qty: {p.quantity} {UOM_MAP[p.type] || ''}</span>
                     </div>
@@ -664,14 +664,14 @@ export const DoctorConsultation = () => {
               {visit.labOrders.length > 0 && (
                 <div>
                   <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Lab Orders</h4>
-                  {visit.labOrders.map(l => <div key={l.id} className="text-sm text-slate-700 mb-1">• {l.testName}</div>)}
+                  {visit.labOrders.map((l, i) => <div key={l.id || i} className="text-sm text-slate-700 mb-1">• {l.testName}</div>)}
                 </div>
               )}
 
               {visit.radiologyOrders.length > 0 && (
                 <div>
                   <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Radiology Orders</h4>
-                  {visit.radiologyOrders.map(r => <div key={r.id} className="text-sm text-slate-700 mb-1">• {r.bodyPart} ({r.modality})</div>)}
+                  {visit.radiologyOrders.map((r, i) => <div key={r.id || i} className="text-sm text-slate-700 mb-1">• {r.bodyPart} ({r.modality})</div>)}
                 </div>
               )}
 
