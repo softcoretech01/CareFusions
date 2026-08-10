@@ -118,6 +118,13 @@ BEGIN
         ORDER BY TechnicianId DESC;
 
     -- ==================================================================
+    -- GETNEXTCODE
+    -- ==================================================================
+    ELSEIF p_Opt = 'GETNEXTCODE' THEN
+        SELECT CONCAT('LAB-', LPAD(IFNULL(MAX(TechnicianId), 0) + 1, 3, '0')) AS NextCode
+        FROM Master_LabTechnician;
+
+    -- ==================================================================
     -- INSERT
     -- ==================================================================
     ELSEIF p_Opt = 'INSERT' THEN

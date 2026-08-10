@@ -81,6 +81,13 @@ BEGIN
         ORDER BY ConsultationId DESC;
 
     -- ==================================================================
+    -- GETNEXTCODE
+    -- ==================================================================
+    ELSEIF p_Opt = 'GETNEXTCODE' THEN
+        SELECT CONCAT('CON-', LPAD(COALESCE(MAX(CAST(SUBSTRING(ConsultationCode, 5) AS UNSIGNED)), 0) + 1, 3, '0')) AS NextCode
+        FROM Master_ConsultationType;
+
+    -- ==================================================================
     -- INSERT
     -- ==================================================================
     ELSEIF p_Opt = 'INSERT' THEN

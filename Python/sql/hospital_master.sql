@@ -165,6 +165,13 @@ BEGIN
           AND IsDeleted = 0;
 
     -- --------------------------------------------------------
+    -- GETNEXTCODE: Generate next code
+    -- --------------------------------------------------------
+    ELSEIF p_Opt = 'GETNEXTCODE' THEN
+        SELECT CONCAT('HOS-', LPAD(COALESCE(MAX(HospitalId), 0) + 1, 3, '0')) AS NextCode
+        FROM Master_Hospital;
+
+    -- --------------------------------------------------------
     -- INSERT: Create new hospital record
     -- --------------------------------------------------------
     ELSEIF p_Opt = 'INSERT' THEN

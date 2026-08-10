@@ -118,6 +118,13 @@ BEGIN
           AND IsDeleted = 0;
 
     -- --------------------------------------------------------
+    -- GETNEXTCODE: Generate next code
+    -- --------------------------------------------------------
+    ELSEIF p_Opt = 'GETNEXTCODE' THEN
+        SELECT CONCAT('DPT-', LPAD(COALESCE(MAX(CAST(SUBSTRING(DepartmentCode, 5) AS UNSIGNED)), 0) + 1, 3, '0')) AS NextCode
+        FROM Master_Department;
+
+    -- --------------------------------------------------------
     -- INSERT: Auto-generate DPT-001 code, insert new department
     -- --------------------------------------------------------
     ELSEIF p_Opt = 'INSERT' THEN
