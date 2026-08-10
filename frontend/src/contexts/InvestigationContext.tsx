@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode, useRef } from 'react';
+import axios from 'axios';
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
 const LAB = `${API_BASE}/lab`;
@@ -129,77 +130,8 @@ export const InvestigationProvider = ({ children }: { children: ReactNode }) => 
     setHasLoaded(true);
   }, []);
 
-  // Client-supplied order/test ids are ignored — the server assigns the
-  // authoritative order number and test ids, and fills reference range/unit
-  // from the test master.
-  const addOrder = (order: InvestigationOrder) => {
-    (async () => {
-      try {
-        const res = await fetch(`${LAB}/orders`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            category: order.category,
-            visitType: order.type,
-            uhid: order.patientId,
-            patientName: order.patientName,
-            orderedBy: order.orderedBy || null,
-            priority: order.priority || 'Routine',
-            clinicalNotes: order.clinicalNotes || null,
-            tests: order.tests.map(t => ({
-              testId: t.testId ?? null,
-              testCode: t.testCode ?? null,
-              testName: t.name,
-              normalRange: t.normalRange ?? null,
-              unit: t.unit ?? null,
-            })),
-          }),
-        });
-        if (!res.ok) throw new Error(await res.text());
-        await refresh();
-      } catch (e) {
-        console.error('[Investigations] create order failed', e);
-      }
-    })();
-  };
-
   // Abnormal/critical flags are derived server-side from each test's own
   // reference range, so the client no longer guesses them.
-  const updateTestResult = (_orderId: string, testId: string, resultValue?: string, resultFile?: string) => {
-    (async () => {
-      try {
-        await fetch(`${LAB}/orders/tests/${testId}/result`, {
-          method: 'PUT', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ resultValue: resultValue ?? null, resultFile: resultFile ?? null }),
-        });
-        await refresh();
-      } catch (e) { console.error('[Investigations] save result failed', e); }
-    })();
-  };
-
-  const updateTestStatus = (_orderId: string, testId: string, status: InvestigationTest['status']) => {
-    (async () => {
-      try {
-        await fetch(`${LAB}/orders/tests/${testId}/status`, {
-          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status }),
-        });
-        await refresh();
-      } catch (e) { console.error('[Investigations] update status failed', e); }
-    })();
-  };
-
-  const verifyTest = (_orderId: string, testId: string, verifiedBy: string) => {
-    (async () => {
-      try {
-        await fetch(`${LAB}/orders/tests/${testId}/verify`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ verifiedBy }),
-        });
-        await refresh();
-      } catch (e) { console.error('[Investigations] verify failed', e); }
-    })();
-  };
-
   // Critical-alert acknowledgement is persisted now, instead of being
   // component state that vanished on refresh.
   const acknowledgeAlert = (testId: string, acknowledgedBy = 'Admin') => {
@@ -315,7 +247,7 @@ export const InvestigationProvider = ({ children }: { children: ReactNode }) => 
     } catch (e) {
       console.error('[Investigations] radiology QC load failed', e);
     }
-  }, []);
+  };
 
   useEffect(() => {
     fetchRadiologyOrders();
@@ -325,7 +257,7 @@ export const InvestigationProvider = ({ children }: { children: ReactNode }) => 
 
   const addOrder = async (order: InvestigationOrder) => {
     setOrders(prev => [order, ...prev]);
-    
+
     if (order.category === 'Lab') {
       try {
         await axios.post(`${API_URL}/lab/orders`, {
@@ -373,20 +305,20 @@ export const InvestigationProvider = ({ children }: { children: ReactNode }) => 
     const allCompleted = updatedTests.every(t => t.status === 'Completed' || t.status === 'Verified');
     const allVerified = updatedTests.every(t => t.status === 'Verified');
     const someCompleted = updatedTests.some(t => t.status === 'Completed' || t.status === 'Verified');
-    
+
     if (allVerified) return 'Verified';
     if (allCompleted) return 'Completed';
     if (someCompleted) return 'Partial';
-    
+
     const allCollected = updatedTests.every(t => t.status === 'Sample Collected' || t.status === 'Sample Accepted' || t.status === 'Processing');
     if (allCollected) return 'Sample Collected';
-    
+
     return 'Pending';
   };
 
   const updateTestResult = async (orderId: string, testId: string, resultValue?: string, resultFile?: string, isCritical?: boolean) => {
     const order = orders.find(o => o.id === orderId);
-    
+
     // Optimistic UI Update
     setOrders(prev => prev.map(o => {
       if (o.id !== orderId) return o;
@@ -447,19 +379,21 @@ export const InvestigationProvider = ({ children }: { children: ReactNode }) => 
   };
 
   const addRadiologyQCLog = async (log: Omit<QCLog, 'id'>) => {
-    const res = await fetch(`${API_BASE}/radiology/qc`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        qc_number: `R-QC-${Math.floor(1000 + Math.random() * 9000)}`,
-        qc_date: log.date,
-        machine_name: log.machineName,
-        test_name: log.testName,
-        expected_value: parseFloat(log.expectedValue),
-        actual_value: parseFloat(log.actualValue),
-        deviation: parseFloat(log.deviation),
-        status: log.status,
-        remarks: log.remarks
+    try {
+      const res = await fetch(`${API_BASE}/radiology/qc`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          qc_number: `R-QC-${Math.floor(1000 + Math.random() * 9000)}`,
+          qc_date: log.date,
+          machine_name: log.machineName,
+          test_name: log.testName,
+          expected_value: parseFloat(log.expectedValue),
+          actual_value: parseFloat(log.actualValue),
+          deviation: parseFloat(log.deviation),
+          status: log.status,
+          remarks: log.remarks
+        })
       });
       fetchRadiologyQCLogs();
     } catch (error) {
@@ -537,23 +471,8 @@ export const InvestigationProvider = ({ children }: { children: ReactNode }) => 
     }
   };
 
-  const addQCLog = (log: QCLog) => {
-    (async () => {
-      try {
-        await fetch(`${LAB}/qc`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            qcDate: log.date,
-            machineName: log.machineName,
-            testName: log.testName,
-            expectedValue: parseFloat(log.expectedValue) || 0,
-            actualValue: parseFloat(log.actualValue) || 0,
-            remarks: log.remarks || null,
-          }),
-        });
-        await refresh();
-      } catch (e) { console.error('[Investigations] save QC failed', e); }
-    })();
+  const getOrdersByPatient = (patientId: string) => {
+    return orders.filter(o => o.patientId === patientId);
   };
 
   return (

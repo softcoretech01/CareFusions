@@ -20,8 +20,10 @@ from app.routers import (
     appointment, permission, auth,
     doctor_schedule, ipd, op_billing, ip_billing, billing_reports, radiology_orders, radiology_qc, lab_orders,
     purchase_requisition, rfq, vendor_quotation, purchase_order, goods_receipt, purchase_return,
-    vendor_catalog, approval, procurement_dashboard
+    vendor_catalog, approval, procurement_dashboard,
+    doctor_specialization, housekeeping, ipd_clinical, pharmacy, insurance, inventory, executive
 )
+
 
 # ── Logging ──────────────────────────────────────────────────
 logging.basicConfig(
@@ -128,7 +130,6 @@ app.include_router(housekeeping.router,          prefix="/api/v1")
 app.include_router(ipd.router,                   prefix="/api/v1")
 app.include_router(ipd_clinical.router,          prefix="/api/v1")
 app.include_router(pharmacy.router,              prefix="/api/v1")
-app.include_router(lab.router,                   prefix="/api/v1")
 app.include_router(insurance.router,              prefix="/api/v1")
 app.include_router(inventory.router,              prefix="/api/v1")
 app.include_router(executive.router,              prefix="/api/v1")
