@@ -222,8 +222,11 @@ BEGIN
     -- SAVE_CLINICAL: Upsert clinical data using JSON
     -- ==============================================================
     ELSEIF p_Opt = 'SAVE_CLINICAL' THEN
-        -- Get or Create Visit
-        SELECT VisitId INTO v_VisitId FROM hospital.Trn_OpdVisit WHERE AppointmentId = p_AppointmentId AND IsDeleted = 0 LIMIT 1;
+        -- Get or Create Visit. FOR UPDATE takes a current-read lock on the visit
+        -- row so two concurrent SAVE_CLINICAL calls on the same appointment
+        -- serialise instead of racing — the second would otherwise hit MariaDB
+        -- error 1020 ("Record has changed since last read") on the UPDATE below.
+        SELECT VisitId INTO v_VisitId FROM hospital.Trn_OpdVisit WHERE AppointmentId = p_AppointmentId AND IsDeleted = 0 LIMIT 1 FOR UPDATE;
         
         IF v_VisitId IS NULL THEN
             INSERT INTO hospital.Trn_OpdVisit (AppointmentId, Uhid, CreatedBy) VALUES (p_AppointmentId, p_Uhid, p_CreatedBy);

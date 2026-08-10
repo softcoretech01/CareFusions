@@ -4,7 +4,7 @@ import { useIPD } from '../../contexts/IPDContext';
 import { usePatients } from '../../contexts/PatientContext';
 import { useDoctorSchedules } from '../../contexts/DoctorScheduleContext';
 import type { GlobalPatientRecord } from '../../contexts/PatientContext';
-import { UserPlus, Save, ArrowLeft, CheckCircle2, Bed, Stethoscope, BedDouble, Search } from 'lucide-react';
+import { UserPlus, Save, ArrowLeft, CheckCircle2, Bed, Stethoscope, BedDouble, Search, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export const NewAdmission = () => {
@@ -200,19 +200,37 @@ export const NewAdmission = () => {
                 <input
                   type="text"
                   value={uhidSearch}
+                  // Once a registered patient is locked in (picked, or carried in
+                  // from a "Process Admission" request) the UHID is fixed and no
+                  // longer editable — use Clear to choose a different patient.
+                  readOnly={isRegisteredPatient}
                   onChange={e => {
+                    if (isRegisteredPatient) return;
                     setUhidSearch(e.target.value);
                     setShowList(true);
-                    // Typing invalidates a previously-picked patient until re-selected.
                     if (form.uhid) setForm({ ...form, uhid: '', patientName: '', age: '' });
                   }}
-                  onFocus={() => setShowList(true)}
+                  onFocus={() => { if (!isRegisteredPatient) setShowList(true); }}
                   autoComplete="off"
                   placeholder="Search registered patient (UHID / Name / Mobile)"
-                  className={`${fieldCls('uhid')} pl-9`}
+                  className={`${fieldCls('uhid')} pl-9 ${isRegisteredPatient ? 'pr-9 bg-slate-100 text-slate-600 cursor-not-allowed' : ''}`}
                 />
+                {isRegisteredPatient && (
+                  <button
+                    type="button"
+                    title="Change patient"
+                    onClick={() => {
+                      setForm({ ...form, uhid: '', patientName: '', age: '' });
+                      setUhidSearch('');
+                      setShowList(false);
+                    }}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
               </div>
-              {showList && uhidSearch.trim() && (
+              {showList && !isRegisteredPatient && uhidSearch.trim() && (
                 <div className="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg max-h-56 overflow-y-auto">
                   {matchedPatients.length === 0 ? (
                     <div className="px-3 py-2 text-sm text-slate-400">No registered patient found</div>

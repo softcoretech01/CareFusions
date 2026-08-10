@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
 
 // ── Status flow ────────────────────────────────────────────────────────────
 export type OPDVisitStatus =
@@ -253,13 +253,48 @@ export const OPDVisitProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // Persisting the clinical record is debounced and serialised per visit.
+  // Previously every edit fired its own /save-clinical POST from inside the
+  // state updater — and because React StrictMode double-invokes updaters, each
+  // save ran twice. Two concurrent SAVE_CLINICAL calls on the same appointment
+  // race on the visit-row UPDATE and MariaDB rejects the loser with error 1020
+  // ("Record has changed since last read"). Coalescing rapid edits into one
+  // save, with only one request in flight at a time, removes that race.
+  const saveTimer = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
+  const latestVisit = useRef<Record<number, OPDVisit>>({});
+  const inFlight = useRef<Record<number, boolean>>({});
+  const resavePending = useRef<Record<number, boolean>>({});
+
+  const flushSave = useCallback(async (visitId: number) => {
+    if (inFlight.current[visitId]) { resavePending.current[visitId] = true; return; }
+    const visit = latestVisit.current[visitId];
+    if (!visit) return;
+    inFlight.current[visitId] = true;
+    try {
+      await syncToBackend(visit);
+    } finally {
+      inFlight.current[visitId] = false;
+      // Edits that arrived mid-save are persisted with the newest state.
+      if (resavePending.current[visitId]) {
+        resavePending.current[visitId] = false;
+        flushSave(visitId);
+      }
+    }
+  }, []);
+
+  const scheduleSave = useCallback((visit: OPDVisit) => {
+    latestVisit.current[visit.id] = visit;               // latest wins
+    clearTimeout(saveTimer.current[visit.id]);
+    saveTimer.current[visit.id] = setTimeout(() => flushSave(visit.id), 500);
+  }, [flushSave]);
+
   const applyUpdateAndSync = (visitId: number, updater: (v: OPDVisit) => OPDVisit) => {
     setVisits(prev => {
       const next = prev.map(v => v.id === visitId ? updater(v) : v);
       const updatedVisit = next.find(v => v.id === visitId);
-      if (updatedVisit) {
-        setTimeout(() => syncToBackend(updatedVisit), 0);
-      }
+      // Safe under StrictMode's double-invoke: both runs just set the same
+      // "latest" and reset one timer, collapsing to a single debounced save.
+      if (updatedVisit) scheduleSave(updatedVisit);
       return next;
     });
   };
