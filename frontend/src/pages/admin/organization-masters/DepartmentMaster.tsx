@@ -227,6 +227,8 @@ export const DepartmentMaster = () => {
         if (left > right) return sortConfig.direction === 'asc' ? 1 : -1;
         return 0;
       });
+    } else {
+      result.sort((a, b) => b.id - a.id);
     }
 
     return result;

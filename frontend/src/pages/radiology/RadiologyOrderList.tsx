@@ -20,7 +20,7 @@ export const RadiologyOrderList = () => {
     if (toDate && new Date(order.orderedAt) > new Date(toDate + 'T23:59:59')) return false;
     if (searchQuery && !order.id.toLowerCase().includes(searchQuery.toLowerCase()) && !order.patientName.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     return true;
-  });
+  }).sort((a, b) => Number(b.id) - Number(a.id));
 
   const handleUploadClick = (order: InvestigationOrder) => {
     setActiveOrder(order);
