@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle, Save, RefreshCw, CheckCircle2, X
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
 import { exportToExcel } from '../../../utils/exportToExcel';
@@ -94,6 +94,10 @@ export const BranchMaster = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Filter States
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterStatus, setFilterStatus] = useState('');
 
   // Modal States
   const [isFormOpen, setIsFormOpen]         = useState(false);
@@ -263,13 +267,16 @@ export const BranchMaster = () => {
     }
   };
 
-  const filteredRecords = records.filter(r =>
-    r.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    r.code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    r.hospital?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    r.city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    r.status?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredRecords = records.filter(r => {
+    const matchesSearch = r.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      r.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      r.hospital.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      r.city.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      r.status.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesStatus = filterStatus ? r.status === filterStatus : true;
+    return matchesSearch && matchesStatus;
+  });
 
 
   return (
@@ -306,10 +313,18 @@ export const BranchMaster = () => {
                 />
               </div>
               <div className="flex items-center gap-2">
-                <button className="p-2 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 transition-colors" title="Filters">
+                <button 
+                  onClick={() => setShowFilters(!showFilters)}
+                  className={`p-2 border rounded-lg transition-colors ${showFilters ? 'border-primary bg-primary/5 text-primary' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                  title="Filters"
+                >
                   <Filter className="w-4 h-4" />
                 </button>
-                <button onClick={() => { setSearchTerm(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
+                <button 
+                  onClick={() => { setSearchTerm(''); setFilterStatus(''); setShowFilters(false); }} 
+                  title="Clear search & filters" 
+                  className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors"
+                >
                   <X className="w-4 h-4" />
                 </button>
                 <button onClick={() => exportToExcel(records, 'BranchMaster')} title="Export to Excel" className="p-2 border border-emerald-200 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 transition-colors">
@@ -317,6 +332,29 @@ export const BranchMaster = () => {
                 </button>
               </div>
             </div>
+
+            <AnimatePresence>
+              {showFilters && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="border-b border-slate-100 bg-slate-50 overflow-hidden"
+                >
+                  <div className="p-4 flex gap-4">
+                    <select
+                      value={filterStatus}
+                      onChange={(e) => setFilterStatus(e.target.value)}
+                      className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                    >
+                      <option value="">All Statuses</option>
+                      <option value="Active">Active</option>
+                      <option value="Inactive">Inactive</option>
+                    </select>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Table */}
             <div className="flex-1 overflow-auto">
