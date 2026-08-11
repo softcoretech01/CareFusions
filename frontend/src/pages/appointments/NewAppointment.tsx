@@ -7,6 +7,7 @@ import type { GlobalPatientRecord } from '../../contexts/PatientContext';
 import { useNavigate } from 'react-router-dom';
 import { useDoctorSchedules } from '../../contexts/DoctorScheduleContext';
 import { getBookedSlots } from '../../data/doctorSchedules';
+import toast from 'react-hot-toast';
 
 // Departments are derived from the doctors configured in Doctor Master,
 // so the list always matches doctors that actually exist.
@@ -49,7 +50,7 @@ function isSlotInPast(dateStr: string, timeStr: string): boolean {
 export const NewAppointment = () => {
   const { addAppointment, appointments, generateAppointmentNumber } = useAppointments();
   const { getDoctorsWithAvailability, doctorSchedules } = useDoctorSchedules();
-  const { patients, addPatient, generateUhid } = usePatients();
+  const { patients, addPatient } = usePatients();
   const navigate = useNavigate();
 
   const [step, setStep] = useState(1);
@@ -58,8 +59,11 @@ export const NewAppointment = () => {
   const [selectedPatient, setSelectedPatient] = useState<GlobalPatientRecord | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
 
-  // Provisional UHID for a new patient — shown in the field and used on confirm.
-  const [newUhid] = useState(() => generateUhid());
+  // A new patient's UHID is assigned by the backend when they're registered on
+  // confirm (see handleConfirm) — it is NOT invented on the client. The old code
+  // previewed a client/next-UHID number, but nothing was persisted, so two
+  // walk-ins in a row both reused the same UHID-…-000N and collided.
+  const [saving, setSaving] = useState(false);
 
   const [formData, setFormData] = useState({
     patientName: '',
@@ -128,15 +132,44 @@ export const NewAppointment = () => {
     else setStep(prev => prev - 1);
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     let uhidToUse = '';
 
     if (selectedPatient) {
-      // Existing patient — reuse their UHID
+      // Existing patient — reuse their UHID.
       uhidToUse = selectedPatient.uhid;
     } else {
-      // New patient — use the UHID already shown in the field
-      uhidToUse = newUhid;
+      // New patient — register them in the backend so they get a UNIQUE,
+      // server-assigned UHID and appear in Patient Registration. Previously the
+      // client invented the UHID, so back-to-back walk-ins reused the same one.
+      setSaving(true);
+      try {
+        const now = new Date();
+        const pad = (n: number) => String(n).padStart(2, '0');
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/quick-registrations/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            RegistrationDate: now.toISOString().split('T')[0],
+            RegistrationTime: `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`,
+            Title: formData.gender === 'Female' ? 'Mrs.' : 'Mr.',
+            PatientName: formData.patientName || 'Walk-in Patient',
+            Gender: formData.gender,
+            Age: parseInt(formData.age) || 0,
+            MobileNumber: formData.mobileNumber || '0000000000',
+            Department: formData.department || null,
+            Doctor: formData.doctor || null,
+          }),
+        });
+        if (!res.ok) throw new Error(await res.text());
+        const created = await res.json();
+        uhidToUse = created.Uhid;
+      } catch {
+        setSaving(false);
+        toast.error('Could not register the new patient. Please try again.');
+        return;
+      }
+      setSaving(false);
       addPatient({
         id: Date.now(),
         uhid: uhidToUse,
@@ -301,7 +334,7 @@ export const NewAppointment = () => {
               {!selectedPatient && (
                 <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-600">
                   <UserPlus className="w-3.5 h-3.5" />
-                  <span>New patient — UHID <span className="font-mono font-bold">{newUhid}</span> will be auto-generated and added to registration</span>
+                  <span>New patient — a UHID will be auto-generated and added to registration on confirm</span>
                 </div>
               )}
             </div>
@@ -321,7 +354,7 @@ export const NewAppointment = () => {
                   <label className="block text-sm font-medium text-slate-700 mb-2">UHID</label>
                   <input
                     type="text"
-                    value={selectedPatient ? selectedPatient.uhid : newUhid}
+                    value={selectedPatient ? selectedPatient.uhid : 'Auto-generated on confirm'}
                     readOnly
                     disabled
                     className="w-full px-4 py-2.5 border rounded-xl bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed font-mono font-semibold"
@@ -640,8 +673,8 @@ export const NewAppointment = () => {
             Continue to {step === 1 ? 'Doctor' : step === 2 ? 'Schedule' : 'Confirm'}
           </Button>
         ) : (
-          <Button variant="filled" color="primary" icon={CheckCircle} onClick={handleConfirm}>
-            Confirm Appointment
+          <Button variant="filled" color="primary" icon={CheckCircle} onClick={handleConfirm} disabled={saving}>
+            {saving ? 'Registering…' : 'Confirm Appointment'}
           </Button>
         )}
       </div>

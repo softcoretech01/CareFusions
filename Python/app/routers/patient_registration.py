@@ -219,6 +219,32 @@ def get_today_registrations(db: Session = Depends(get_db)):
         out.append(d)
     return out
 
+@router.get("/next-uhid")
+def get_next_uhid(db: Session = Depends(get_db)):
+    """Preview the UHID the next registration will get.
+
+    Mirrors SpPatientRegistration exactly: UHID-<year>-<PatientId>, where the
+    PatientId is the table's next AUTO_INCREMENT. Declared BEFORE /{patient_id}
+    so "next-uhid" isn't parsed as an id. Provisional — the definitive UHID is
+    still assigned by the stored procedure on insert.
+    """
+    try:
+        year = db.execute(text("SELECT YEAR(CURDATE())")).scalar()
+        nxt = db.execute(text(
+            "SELECT AUTO_INCREMENT FROM information_schema.TABLES "
+            "WHERE TABLE_SCHEMA = 'registration' AND TABLE_NAME = 'PatientRegistration'"
+        )).scalar()
+        if not nxt:
+            nxt = db.execute(text(
+                "SELECT COALESCE(MAX(PatientId), 0) + 1 FROM registration.PatientRegistration"
+            )).scalar()
+        seq = int(nxt or 1)
+        return {"uhid": f"UHID-{year}-{seq:04d}", "nextId": seq}
+    except Exception as e:
+        logger.error(f"[GET /patients/next-uhid] Error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate next UHID")
+
+
 @router.get("/{patient_id}", response_model=PatientRegistrationResponse)
 def get_patient(patient_id: int, db: Session = Depends(get_db)):
     """Retrieve a specific patient by ID."""

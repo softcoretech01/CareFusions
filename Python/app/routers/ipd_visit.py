@@ -127,7 +127,11 @@ def save_ipd_clinical(request: IpdClinicalSaveRequest, db: Session = Depends(get
             if request.medication.administrations:
                 administrations_json = json.dumps(request.medication.administrations)
                 
-            if request.medication.medicineId and request.medication.administrations is not None:
+            # A NON-EMPTY administrations map means "toggle admin checkboxes on an
+            # existing med"; an empty/absent one means "add a new medication".
+            # (Was `is not None`, so an empty {} from Add-Medication misrouted to
+            # the update path and the new med never inserted.)
+            if request.medication.medicineId and request.medication.administrations:
                 cursor.execute("""
                     CALL hospital.SpIpdClinicalOperations(
                         'UPDATE_MEDICATION_ADMIN', %s, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,

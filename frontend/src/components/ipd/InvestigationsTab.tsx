@@ -21,7 +21,7 @@ interface InvestigationsTabProps {
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
 
-export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({ admissionId }) => {
+export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({ admissionId, patientName }) => {
   const [orders, setOrders] = useState<InvestigationOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
@@ -29,23 +29,37 @@ export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({ admissionI
   const [selectedScans, setSelectedScans] = useState<string[]>([]);
   const [customTest, setCustomTest] = useState('');
   const [customScan, setCustomScan] = useState('');
+  const [uhid, setUhid] = useState('');
 
-  const commonLabs = [
-    'Complete Blood Count (CBC)',
-    'Liver Function Test (LFT)',
-    'Kidney Function Test (KFT)',
-    'Urine Routine',
-    'Lipid Profile',
-    'Thyroid Profile'
-  ];
+  // Lab tests and radiology scans come from their admin masters — the Lab Test
+  // Master (/tests) and the Radiology Service Master (/radiology-services) —
+  // rather than a hardcoded list, so the checkboxes reflect whatever is
+  // configured there. Only Active rows are offered.
+  const [commonLabs, setCommonLabs] = useState<string[]>([]);
+  const [commonScans, setCommonScans] = useState<string[]>([]);
 
-  const commonScans = [
-    'X-Ray Chest (PA View)',
-    'USG Abdomen',
-    'CT Scan Head',
-    'MRI Brain',
-    '2D Echo'
-  ];
+  useEffect(() => {
+    let alive = true;
+    Promise.all([
+      fetch(`${API_BASE}/tests/`).then(r => (r.ok ? r.json() : [])),
+      fetch(`${API_BASE}/radiology-services/`).then(r => (r.ok ? r.json() : [])),
+    ]).then(([labs, scans]) => {
+      if (!alive) return;
+      setCommonLabs(
+        (Array.isArray(labs) ? labs : [])
+          .filter((t: any) => t.status === 'Active')
+          .map((t: any) => t.testName)
+          .filter(Boolean),
+      );
+      setCommonScans(
+        (Array.isArray(scans) ? scans : [])
+          .filter((s: any) => s.status === 'Active')
+          .map((s: any) => s.serviceName)
+          .filter(Boolean),
+      );
+    }).catch(e => console.error('[Investigations] master lists load failed', e));
+    return () => { alive = false; };
+  }, []);
   
   const fetchInvestigations = async () => {
     setIsLoading(true);
@@ -53,6 +67,9 @@ export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({ admissionI
       const res = await fetch(`${API_BASE}/ipd-visits/${admissionId}/details`);
       if (res.ok) {
         const data = await res.json();
+        // Keep the patient's UHID so ordered investigations can be routed to
+        // the Lab and Radiology modules as real orders.
+        if (data?.admissionInfo?.Uhid) setUhid(data.admissionInfo.Uhid);
         if (data && data.investigations) {
           const mapped = data.investigations.map((i: any) => ({
             id: String(i.InvestigationId),
@@ -103,24 +120,53 @@ export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({ admissionI
 
     try {
       let successCount = 0;
+
+      // 1) Record the investigations on the IPD visit (so they show on this tab).
       for (const test of allTests) {
-        const payload = {
-          admissionId: admissionId,
-          investigation: {
-            testName: test,
-            status: 'Ordered'
-          }
-        };
         const res = await fetch(`${API_BASE}/ipd-visits/save-clinical`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+          body: JSON.stringify({ admissionId, investigation: { testName: test, status: 'Ordered' } }),
         });
         if (res.ok) successCount++;
       }
-      
+
+      // 2) Route the order to the Laboratory module as a real lab order, so the
+      //    lab technician sees it in Test Orders.
+      if (labTests.length > 0 && uhid) {
+        await fetch(`${API_BASE}/lab/orders`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            category: 'Lab', visitType: 'IP', uhid, patientName,
+            orderedBy: 'IPD Ward', priority: 'Routine',
+            clinicalNotes: 'Ordered from IPD Investigations',
+            tests: labTests.map(name => ({ testName: name })),
+            user: 'IPD Ward',
+          }),
+        });
+      }
+
+      // 3) Route the scans to the Radiology module, so they appear on the
+      //    radiology worklist. (Radiology uses snake_case fields.)
+      if (scanTests.length > 0 && uhid) {
+        await fetch(`${API_BASE}/radiology/orders`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            category: 'Radiology', visit_type: 'IP', uhid, patient_name: patientName,
+            ordered_by: 'IPD Ward', priority: 'Routine',
+            tests: scanTests.map(name => ({ testName: name })),
+          }),
+        });
+      }
+
       if (successCount > 0) {
-        toast.success(`Ordered ${successCount} investigation(s) successfully`);
+        const routed = [
+          labTests.length ? `${labTests.length} to Laboratory` : '',
+          scanTests.length ? `${scanTests.length} to Radiology` : '',
+        ].filter(Boolean).join(' · ');
+        toast.success(`Ordered ${successCount} investigation(s)${routed ? ` (${routed})` : ''}`);
         setIsAdding(false);
         setSelectedLabs([]);
         setSelectedScans([]);
@@ -173,6 +219,9 @@ export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({ admissionI
             <div className="space-y-3 bg-white p-4 rounded-xl border border-slate-200">
               <h5 className="font-bold text-slate-700 text-sm border-b border-slate-100 pb-2">Laboratory Tests</h5>
               <div className="space-y-2">
+                {commonLabs.length === 0 && (
+                  <p className="text-xs text-slate-400 py-1">No lab tests configured in the Test Master. Add a custom test below.</p>
+                )}
                 {commonLabs.map(lab => (
                   <label key={lab} className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
                     <input 
@@ -200,6 +249,9 @@ export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({ admissionI
             <div className="space-y-3 bg-white p-4 rounded-xl border border-slate-200">
               <h5 className="font-bold text-slate-700 text-sm border-b border-slate-100 pb-2">Radiology / Scans</h5>
               <div className="space-y-2">
+                {commonScans.length === 0 && (
+                  <p className="text-xs text-slate-400 py-1">No scans configured in the Radiology Service Master. Add a custom scan below.</p>
+                )}
                 {commonScans.map(scan => (
                   <label key={scan} className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
                     <input 

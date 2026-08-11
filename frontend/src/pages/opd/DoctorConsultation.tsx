@@ -20,6 +20,7 @@ interface ApiRadiologyService {
 }
 import { User, AlertTriangle, Hash, Activity, Pill, FlaskConical, ScanLine, CheckCircle, Plus, Trash2, Eye, BookOpen, ArrowLeft, RefreshCw, History, Calendar } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { uid } from '../../utils/uid';
 
 const TABS = [
   { id: 'history', label: 'History', icon: History },
@@ -276,7 +277,7 @@ export const DoctorConsultation = () => {
         patientName: visit.patientName,
         orderedBy: visit.doctorName,
         orderedAt: new Date().toISOString(),
-        tests: visit.labOrders.map(l => ({ id: crypto.randomUUID(), name: l.testName, status: 'Pending' })),
+        tests: visit.labOrders.map(l => ({ id: uid(), name: l.testName, status: 'Pending' })),
         status: 'Pending'
       });
     }
@@ -291,7 +292,7 @@ export const DoctorConsultation = () => {
         patientName: visit.patientName,
         orderedBy: visit.doctorName,
         orderedAt: new Date().toISOString(),
-        tests: visit.radiologyOrders.map(r => ({ id: crypto.randomUUID(), name: r.bodyPart, status: 'Pending' })),
+        tests: visit.radiologyOrders.map(r => ({ id: uid(), name: r.bodyPart, status: 'Pending' })),
         status: 'Pending'
       });
     }
