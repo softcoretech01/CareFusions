@@ -1,14 +1,39 @@
 
 import { useParams, useNavigate } from 'react-router-dom';
-import { usePharmacyBilling } from '../../contexts/PharmacyBillingContext';
+import { useEffect, useState } from 'react';
 import { Printer, ArrowLeft } from 'lucide-react';
+import axios from 'axios';
+
+const API_BASE = import.meta.env.VITE_API_URL as string;
 
 export const BillingPrintTemplate = () => {
   const { id } = useParams<{ id: string }>();
-  const { bills } = usePharmacyBilling();
   const navigate = useNavigate();
+  const [bill, setBill] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-  const bill = bills.find(b => b.billId === id);
+  useEffect(() => {
+    const fetchBill = async () => {
+      try {
+        const response = await axios.get(`${API_BASE}/billing-reports/`);
+        const found = response.data.find((b: any) => b.BillNumber === id);
+        setBill(found);
+      } catch (err) {
+        console.error("Failed to fetch bill", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchBill();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen gap-4">
+        <p className="text-slate-500 text-lg">Loading bill...</p>
+      </div>
+    );
+  }
 
   if (!bill) {
     return (
@@ -19,7 +44,7 @@ export const BillingPrintTemplate = () => {
     );
   }
 
-  const isIP = bill.patientId?.startsWith('IP');
+  const isIP = bill.Type === 'IP';
   const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
 
   return (
@@ -44,97 +69,96 @@ export const BillingPrintTemplate = () => {
       <div className="max-w-4xl mx-auto bg-white shadow-xl rounded-2xl print:shadow-none print:rounded-none print:max-w-full overflow-hidden">
 
         {/* Header */}
-        <div className="bg-primary px-10 py-8 text-white print:px-8 print:py-6">
+        <div className="bg-primary px-10 py-8 text-white print:px-6 print:py-4">
           <div className="flex items-start justify-between">
             <div>
-              <h1 className="text-3xl font-extrabold tracking-wide">CENTRAL GENERAL HOSPITAL</h1>
-              <p className="text-white/80 text-sm mt-1">123, Hospital Road, Health City — 600001</p>
-              <p className="text-white/80 text-sm">Phone: +91 44 1234 5678 | Email: billing@cgh.in</p>
+              <h1 className="text-3xl font-extrabold tracking-wide">CareFusions</h1>
+              <p className="text-white/80 text-sm mt-1 print:text-xs">123, Hospital Road, Health City — 600001</p>
+              <p className="text-white/80 text-sm print:text-xs">Phone: +91 44 1234 5678 | Email: billing@carefusions.in</p>
             </div>
             <div className="text-right">
-              <div className="text-2xl font-bold bg-white/20 px-4 py-2 rounded-xl">
+              <div className="text-2xl font-bold bg-white/20 px-4 py-2 rounded-xl print:text-xl print:px-3 print:py-1">
                 {isIP ? 'IP BILL' : 'OP BILL'}
               </div>
-              <p className="text-white/70 text-xs mt-2">{today}</p>
+              <p className="text-white/70 text-xs mt-2 print:mt-1">{today}</p>
             </div>
           </div>
         </div>
 
         {/* Bill Meta */}
-        <div className="grid grid-cols-2 gap-6 px-10 py-6 border-b border-slate-200 bg-slate-50 print:px-8">
-          <div className="space-y-1">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Bill To</p>
-            <p className="text-xl font-bold text-slate-900">{bill.patientName}</p>
-            <p className="text-sm text-slate-500">{bill.patientId}</p>
+        <div className="grid grid-cols-2 gap-6 px-10 py-6 border-b border-slate-200 bg-slate-50 print:px-6 print:py-3 print:gap-4">
+          <div className="space-y-1 print:space-y-0.5">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider print:text-[10px]">Bill To</p>
+            <p className="text-xl font-bold text-slate-900 print:text-lg">{bill.PatientName || 'Walk-in'}</p>
+            <p className="text-sm text-slate-500 print:text-xs">{bill.PatientId || '-'}</p>
           </div>
-          <div className="text-right space-y-1">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Bill Details</p>
-            <p className="text-sm"><span className="font-semibold">Bill No:</span> {bill.billId}</p>
-            <p className="text-sm"><span className="font-semibold">Date:</span> {new Date(bill.date).toLocaleDateString('en-IN')}</p>
-            <p className="text-sm"><span className="font-semibold">Mode:</span> {bill.paymentMode}</p>
-            <span className={`inline-block mt-1 px-3 py-1 text-xs font-bold rounded-full ${bill.paymentStatus === 'Paid' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-              {bill.paymentStatus}
+          <div className="text-right space-y-1 print:space-y-0.5">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider print:text-[10px]">Bill Details</p>
+            <p className="text-sm print:text-xs"><span className="font-semibold">Bill No:</span> {bill.BillNumber}</p>
+            <p className="text-sm print:text-xs"><span className="font-semibold">Date:</span> {new Date(bill.Date).toLocaleDateString('en-IN')}</p>
+            <p className="text-sm print:text-xs"><span className="font-semibold">Mode:</span> {bill.PaymentMode || 'Cash'}</p>
+            <span className={`inline-block mt-1 px-3 py-1 text-xs font-bold rounded-full print:mt-0 ${bill.PaymentStatus === 'Paid' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+              {bill.PaymentStatus}
             </span>
           </div>
         </div>
 
         {/* Items Table */}
-        <div className="px-10 py-6 print:px-8">
-          <table className="w-full text-sm">
+        <div className="px-10 py-6 print:px-6 print:py-3 print:text-xs">
+          <table className="w-full text-sm print:text-xs">
             <thead>
               <tr className="bg-primary/5 border border-slate-200 rounded-lg">
-                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">#</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Description</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">Unit Price (₹)</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider">Qty</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">Total (₹)</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider print:py-2">#</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider print:py-2">Description</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider print:py-2">Unit Price (₹)</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider print:py-2">Qty</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider print:py-2">Total (₹)</th>
               </tr>
             </thead>
             <tbody>
-              {bill.items.map((item, idx) => (
-                <tr key={idx} className={`border-b border-slate-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}`}>
-                  <td className="px-4 py-3 text-slate-500">{idx + 1}</td>
-                  <td className="px-4 py-3 text-slate-800 font-medium">{item.medicineName}</td>
-                  <td className="px-4 py-3 text-right text-slate-700">₹{item.unitPrice.toFixed(2)}</td>
-                  <td className="px-4 py-3 text-center text-slate-700">{item.quantity}</td>
-                  <td className="px-4 py-3 text-right font-bold text-slate-900">₹{item.subtotal.toFixed(2)}</td>
+              {bill.Items && bill.Items.length > 0 ? (
+                bill.Items.map((item: any, idx: number) => (
+                  <tr key={idx} className={`border-b border-slate-100 ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}`}>
+                    <td className="px-4 py-3 text-slate-500 print:py-1.5">{idx + 1}</td>
+                    <td className="px-4 py-3 text-slate-800 font-medium print:py-1.5">{item.ItemDescription}</td>
+                    <td className="px-4 py-3 text-right text-slate-700 print:py-1.5">₹{parseFloat(item.UnitPrice).toFixed(2)}</td>
+                    <td className="px-4 py-3 text-center text-slate-700 print:py-1.5">{item.Quantity}</td>
+                    <td className="px-4 py-3 text-right font-bold text-slate-900 print:py-1.5">₹{parseFloat(item.Subtotal).toFixed(2)}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={5} className="px-4 py-8 text-center text-slate-400 print:py-4">No items found</td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
 
-        {/* Totals */}
-        <div className="px-10 pb-8 print:px-8">
-          <div className="ml-auto w-80 space-y-2 border-t border-slate-200 pt-4">
-            <div className="flex justify-between text-sm text-slate-600">
-              <span>Subtotal</span>
-              <span>₹{bill.totalAmount.toFixed(2)}</span>
+        {/* Summary */}
+        <div className="px-10 py-6 border-t border-slate-200 print:px-6 print:py-3">
+          <div className="flex flex-col items-end gap-2 text-sm print:text-xs print:gap-1">
+            <div className="flex justify-between w-64 print:w-48">
+              <span className="text-slate-500">Subtotal:</span>
+              <span className="font-medium text-slate-900">₹{(bill.TotalAmount || 0).toFixed(2)}</span>
             </div>
-            <div className="flex justify-between text-sm text-slate-600">
-              <span>Discount</span>
-              <span className="text-green-600">- ₹{(bill.discount || 0).toFixed(2)}</span>
+            <div className="flex justify-between w-64 print:w-48">
+              <span className="text-slate-500">Discount:</span>
+              <span className="font-medium text-emerald-600">- ₹{(bill.Discount || 0).toFixed(2)}</span>
             </div>
-            <div className="flex justify-between text-sm text-slate-600">
-              <span>Tax (GST)</span>
-              <span>₹{(bill.tax || 0).toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between text-lg font-extrabold text-slate-900 border-t-2 border-primary pt-3 mt-2">
-              <span>NET TOTAL</span>
-              <span className="text-primary">₹{bill.netAmount.toFixed(2)}</span>
+            <div className="flex justify-between w-64 pt-2 border-t border-slate-200 print:w-48 print:pt-1">
+              <span className="font-bold text-slate-700">Net Total:</span>
+              <span className="text-2xl font-black text-primary print:text-xl">₹{(bill.NetAmount || 0).toFixed(2)}</span>
             </div>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="bg-slate-50 border-t border-slate-200 px-10 py-6 print:px-8 text-center">
-          <p className="text-xs text-slate-400">
-            This is a computer-generated bill and does not require a signature. For queries, contact billing@cgh.in
-          </p>
-          <p className="text-xs text-slate-400 mt-1">Thank you for choosing Central General Hospital</p>
+        <div className="bg-slate-50 px-10 py-6 text-center text-xs text-slate-400 print:px-6 print:py-2 print:text-[10px]">
+          <p>This is a computer-generated invoice and does not require a signature.</p>
+          <p className="mt-1 print:mt-0.5">Thank you for choosing CareFusions. Wishing you a speedy recovery!</p>
         </div>
       </div>
-
       <style>{`
         @media print {
           body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
