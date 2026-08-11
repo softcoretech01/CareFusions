@@ -8,14 +8,14 @@ const API_BASE = import.meta.env.VITE_API_URL as string;
 
 // Each KPI counts one or more live endpoints (summed). Values are fetched, not hardcoded.
 const KPI_DEFS = [
-  { label: 'Total Hospitals', icon: Building2,   color: 'text-primary',     bg: 'bg-primary/10',      apis: ['/hospitals/'] },
-  { label: 'Total Doctors',   icon: Stethoscope, color: 'text-secondary',   bg: 'bg-secondary/10',    apis: ['/doctors/'] },
-  { label: 'Employees',       icon: Users,       color: 'text-success',     bg: 'bg-success/10',      apis: ['/nurses/', '/pharmacists/', '/lab-technicians/', '/receptionists/'] },
-  { label: 'Medicines',       icon: Pill,        color: 'text-purple-500',  bg: 'bg-purple-500/10',   apis: ['/medicines/'] },
-  { label: 'Lab Tests',       icon: Microscope,  color: 'text-warning',     bg: 'bg-warning/10',      apis: ['/tests/'] },
-  { label: 'Insurances',      icon: ShieldCheck, color: 'text-info',        bg: 'bg-info/10',         apis: ['/insurance-providers/'] },
-  { label: 'System Users',    icon: UserCog,     color: 'text-danger',      bg: 'bg-danger/10',       apis: ['/users/'] },
-  { label: 'Master Configs',  icon: Settings,    color: 'text-slate-500',   bg: 'bg-slate-500/10',    apis: ['/sms-templates/', '/email-templates/', '/whatsapp-templates/', '/push-templates/', '/reminder-rules/'] },
+  { label: 'Total Hospitals', icon: Building2, color: 'text-primary', bg: 'bg-primary/10', apis: ['/hospitals/'] },
+  { label: 'Total Doctors', icon: Stethoscope, color: 'text-secondary', bg: 'bg-secondary/10', apis: ['/doctors/'] },
+  { label: 'Employees', icon: Users, color: 'text-success', bg: 'bg-success/10', apis: ['/nurses/', '/pharmacists/', '/lab-technicians/', '/receptionists/'] },
+  { label: 'Medicines', icon: Pill, color: 'text-purple-500', bg: 'bg-purple-500/10', apis: ['/medicines/'] },
+  { label: 'Lab Tests', icon: Microscope, color: 'text-warning', bg: 'bg-warning/10', apis: ['/tests/'] },
+  { label: 'Insurances', icon: ShieldCheck, color: 'text-info', bg: 'bg-info/10', apis: ['/insurance-providers/'] },
+  { label: 'System Users', icon: UserCog, color: 'text-danger', bg: 'bg-danger/10', apis: ['/users/'] },
+  { label: 'Master Configs', icon: Settings, color: 'text-slate-500', bg: 'bg-slate-500/10', apis: ['/sms-templates/', '/email-templates/', '/whatsapp-templates/', '/push-templates/', '/reminder-rules/'] },
 ];
 
 const relTime = (iso: string) => {
@@ -109,7 +109,6 @@ export const Dashboard = () => {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-sm text-slate-500 mt-1">Live counts across all master data.</p>
         </div>
         <button
           onClick={loadAll}
