@@ -5,7 +5,19 @@ import { useAppointments } from '../../contexts/AppointmentContext';
 import { useIPD } from '../../contexts/IPDContext';
 import { useInvestigations } from '../../contexts/InvestigationContext';
 import type { Diagnosis, PrescriptionItem, LabOrder, RadiologyOrder } from '../../contexts/OPDVisitContext';
-import { LAB_TESTS, RADIOLOGY_SERVICES } from '../../data/opdData';
+const API_BASE = import.meta.env.VITE_API_URL as string;
+
+// Types for live master data
+interface ApiLabTest {
+  code: string;
+  name: string;
+  category: string;
+}
+
+interface ApiRadiologyService {
+  name: string;
+  modality: string;
+}
 import { User, AlertTriangle, Hash, Activity, Pill, FlaskConical, ScanLine, CheckCircle, Plus, Trash2, Eye, BookOpen, ArrowLeft, RefreshCw, History, Calendar } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -58,13 +70,69 @@ export const DoctorConsultation = () => {
     .filter(v => v.uhid === visit?.uhid && v.id !== visit?.id && v.status === 'Completed')
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
+  // ── Lab Tests from Master API ──
+  const [apiLabTests, setApiLabTests] = useState<ApiLabTest[]>([]);
+  const [labTestsLoading, setLabTestsLoading] = useState(true);
+
+  // ── Radiology Services from Master API ──
+  const [apiRadiologyServices, setApiRadiologyServices] = useState<ApiRadiologyService[]>([]);
+  const [radServicesLoading, setRadServicesLoading] = useState(true);
+
   // ── Medicine Data from API ──
   const [apiMedicines, setApiMedicines] = useState<any[]>([]);
 
   useEffect(() => {
+    // Fetch Lab Tests from Master_LabTest
+    const fetchLabTests = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/tests/`);
+        if (res.ok) {
+          const data = await res.json();
+          const active = data
+            .filter((item: any) => item.status === 'Active')
+            .map((item: any): ApiLabTest => ({
+              code: item.testCode,
+              name: item.testName,
+              category: item.testCategory || '',
+            }));
+          setApiLabTests(active);
+        }
+      } catch (e) {
+        console.error('Failed to fetch lab tests from master', e);
+      } finally {
+        setLabTestsLoading(false);
+      }
+    };
+
+    // Fetch Radiology Services from Master_RadiologyService
+    const fetchRadiologyServices = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/radiology-services/`);
+        if (res.ok) {
+          const data = await res.json();
+          const active = data
+            .filter((item: any) => item.status === 'Active')
+            .map((item: any): ApiRadiologyService => ({
+              name: item.serviceName,
+              modality: item.serviceCategory || '',
+            }));
+          setApiRadiologyServices(active);
+        }
+      } catch (e) {
+        console.error('Failed to fetch radiology services from master', e);
+      } finally {
+        setRadServicesLoading(false);
+      }
+    };
+
+    fetchLabTests();
+    fetchRadiologyServices();
+  }, []);
+
+  useEffect(() => {
     const fetchMedicines = async () => {
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/medicines`);
+        const res = await fetch(`${API_BASE}/medicines`);
         if (res.ok) {
           const data = await res.json();
           // Filter to only active medicines
@@ -152,7 +220,7 @@ export const DoctorConsultation = () => {
     toast.success('Added to prescription');
   };
 
-  const toggleLabOrder = (test: typeof LAB_TESTS[0]) => {
+  const toggleLabOrder = (test: ApiLabTest) => {
     const isSelected = selectedLabs.includes(test.code);
     if (isSelected) {
       const order = visit.labOrders.find(o => o.testCode === test.code);
@@ -172,7 +240,7 @@ export const DoctorConsultation = () => {
     }
   };
 
-  const toggleRadiologyOrder = (svc: typeof RADIOLOGY_SERVICES[0]) => {
+  const toggleRadiologyOrder = (svc: ApiRadiologyService) => {
     const isSelected = selectedRadiology.includes(svc.name);
     if (isSelected) {
       const order = visit.radiologyOrders.find(o => o.bodyPart === svc.name);
@@ -560,29 +628,35 @@ export const DoctorConsultation = () => {
                 <span className="text-xs bg-primary text-white px-2 py-1 rounded-lg">{selectedLabs.length} Selected</span>
               </h3>
 
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {LAB_TESTS.map(test => {
-                  const checked = selectedLabs.includes(test.code);
-                  return (
-                    <label
-                      key={test.code}
-                      className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${checked ? 'bg-primary/5 border-primary/40' : 'bg-slate-50 border-slate-200 hover:border-primary/30'
-                        }`}
-                    >
-                      <input
-                        type="checkbox"
-                        className="mt-0.5 w-4 h-4 accent-primary rounded"
-                        checked={checked}
-                        onChange={() => toggleLabOrder(test)}
-                      />
-                      <div className="flex-1">
-                        <div className={`text-sm font-bold ${checked ? 'text-primary' : 'text-slate-700'}`}>{test.name}</div>
-                        <div className="text-[10px] text-slate-400 mt-0.5">{test.category}</div>
-                      </div>
-                    </label>
-                  );
-                })}
-              </div>
+              {labTestsLoading ? (
+                <div className="text-sm text-slate-400 py-6 text-center">Loading lab tests...</div>
+              ) : apiLabTests.length === 0 ? (
+                <div className="text-sm text-slate-400 py-6 text-center">No active lab tests found. Please add tests in Lab Master.</div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {apiLabTests.map(test => {
+                    const checked = selectedLabs.includes(test.code);
+                    return (
+                      <label
+                        key={test.code}
+                        className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${checked ? 'bg-primary/5 border-primary/40' : 'bg-slate-50 border-slate-200 hover:border-primary/30'
+                          }`}
+                      >
+                        <input
+                          type="checkbox"
+                          className="mt-0.5 w-4 h-4 accent-primary rounded"
+                          checked={checked}
+                          onChange={() => toggleLabOrder(test)}
+                        />
+                        <div className="flex-1">
+                          <div className={`text-sm font-bold ${checked ? 'text-primary' : 'text-slate-700'}`}>{test.name}</div>
+                          <div className="text-[10px] text-slate-400 mt-0.5">{test.category}</div>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
@@ -594,29 +668,35 @@ export const DoctorConsultation = () => {
                 <span className="text-xs bg-primary text-white px-2 py-1 rounded-lg">{selectedRadiology.length} Selected</span>
               </h3>
 
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {RADIOLOGY_SERVICES.map(svc => {
-                  const checked = selectedRadiology.includes(svc.name);
-                  return (
-                    <label
-                      key={svc.name}
-                      className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${checked ? 'bg-purple-50 border-purple-300' : 'bg-slate-50 border-slate-200 hover:border-purple-300'
-                        }`}
-                    >
-                      <input
-                        type="checkbox"
-                        className="mt-0.5 w-4 h-4 accent-purple-600 rounded"
-                        checked={checked}
-                        onChange={() => toggleRadiologyOrder(svc)}
-                      />
-                      <div className="flex-1">
-                        <div className={`text-sm font-bold ${checked ? 'text-purple-700' : 'text-slate-700'}`}>{svc.name}</div>
-                        <div className="text-[10px] text-slate-400 mt-0.5">{svc.modality}</div>
-                      </div>
-                    </label>
-                  );
-                })}
-              </div>
+              {radServicesLoading ? (
+                <div className="text-sm text-slate-400 py-6 text-center">Loading radiology services...</div>
+              ) : apiRadiologyServices.length === 0 ? (
+                <div className="text-sm text-slate-400 py-6 text-center">No active radiology services found. Please add services in Radiology Master.</div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {apiRadiologyServices.map(svc => {
+                    const checked = selectedRadiology.includes(svc.name);
+                    return (
+                      <label
+                        key={svc.name}
+                        className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${checked ? 'bg-purple-50 border-purple-300' : 'bg-slate-50 border-slate-200 hover:border-purple-300'
+                          }`}
+                      >
+                        <input
+                          type="checkbox"
+                          className="mt-0.5 w-4 h-4 accent-purple-600 rounded"
+                          checked={checked}
+                          onChange={() => toggleRadiologyOrder(svc)}
+                        />
+                        <div className="flex-1">
+                          <div className={`text-sm font-bold ${checked ? 'text-purple-700' : 'text-slate-700'}`}>{svc.name}</div>
+                          <div className="text-[10px] text-slate-400 mt-0.5">{svc.modality}</div>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
