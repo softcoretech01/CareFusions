@@ -276,7 +276,7 @@ export const DoctorConsultation = () => {
         patientName: visit.patientName,
         orderedBy: visit.doctorName,
         orderedAt: new Date().toISOString(),
-        tests: visit.labOrders.map(l => ({ id: crypto.randomUUID(), name: l.testName, status: 'Pending' })),
+        tests: visit.labOrders.map(l => ({ id: Math.random().toString(36).substring(2, 10) + Date.now().toString(36), name: l.testName, status: 'Pending' })),
         status: 'Pending'
       });
     }
@@ -291,7 +291,7 @@ export const DoctorConsultation = () => {
         patientName: visit.patientName,
         orderedBy: visit.doctorName,
         orderedAt: new Date().toISOString(),
-        tests: visit.radiologyOrders.map(r => ({ id: crypto.randomUUID(), name: r.bodyPart, status: 'Pending' })),
+        tests: visit.radiologyOrders.map(r => ({ id: Math.random().toString(36).substring(2, 10) + Date.now().toString(36), name: r.bodyPart, status: 'Pending' })),
         status: 'Pending'
       });
     }
