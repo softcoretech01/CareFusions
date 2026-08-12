@@ -9,6 +9,8 @@ interface DateFilterProps {
   onReset?: () => void;
   searchQuery?: string;
   onSearchChange?: (val: string) => void;
+  defaultDateFrom?: string;
+  defaultDateTo?: string;
 }
 
 export const DateFilter = ({
@@ -18,6 +20,8 @@ export const DateFilter = ({
   onDateToChange,
   onSearch,
   onReset,
+  defaultDateFrom,
+  defaultDateTo,
 }: DateFilterProps) => {
   // Format local date manually to avoid UTC offset issues
   const formatYYYYMMDD = (d: Date) => {
@@ -29,8 +33,8 @@ export const DateFilter = ({
 
   const today = new Date();
   const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-  const defaultFrom = formatYYYYMMDD(firstDay);
-  const defaultTo = formatYYYYMMDD(today);
+  const defaultFrom = defaultDateFrom || formatYYYYMMDD(firstDay);
+  const defaultTo = defaultDateTo || formatYYYYMMDD(today);
 
   // Seed a default range (this month → today) ONLY if the parent hasn't set
   // one. This is a controlled component: the inputs reflect the parent's
