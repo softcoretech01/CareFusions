@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Search, Plus, X, Bed, CheckCircle, Printer, FileText } from 'lucide-react';
+import { DateFilter } from '../../components/ui/DateFilter';
 import axios from 'axios';
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
@@ -47,6 +48,14 @@ export const IPBilling = () => {
   const [selectedPatientId, setSelectedPatientId] = useState('');
   const [mobileNumber, setMobileNumber] = useState('');
   
+  const todayStr = (() => {
+    const today = new Date();
+    return today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+  })();
+  
+  const [dateFrom, setDateFrom] = useState(todayStr);
+  const [dateTo, setDateTo] = useState(todayStr);
+
   const [successMsg, setSuccessMsg] = useState('');
   
   const [isInsurancePaid, setIsInsurancePaid] = useState(false);
@@ -135,6 +144,36 @@ export const IPBilling = () => {
     return (p.uhid?.toLowerCase() || '').includes(sId) ||
            (p.patientName?.toLowerCase() || '').includes(sId) ||
            (p.admissionNumber?.toLowerCase() || '').includes(sId);
+  });
+
+  const pendingDischarges = admissions.filter(p => {
+    if (p.status !== 'Discharged' && p.status !== 'Discharge Requested') return false;
+    
+    // Assume billed if there's any bill for this UHID with a BillDate >= admissionDate
+    const hasBill = bills.some(b => 
+      b.Uhid === p.uhid && 
+      new Date(b.BillDate) >= new Date(p.admissionDate) &&
+      (b.PaymentStatus === 'Paid' || b.PaymentStatus === 'Pending') // IP Bills usually just mean it's billed
+    );
+    
+    if (hasBill) return false;
+    if (!dateFrom || !dateTo) return true;
+    
+    // Use dischargeDate if available, else admissionDate
+    const dateToCheck = p.dischargeInfo?.dischargeDate || p.admissionDate;
+    if (dateToCheck) {
+      const visitDate = new Date(dateToCheck);
+      const localDateStr = visitDate.getFullYear() + '-' + String(visitDate.getMonth() + 1).padStart(2, '0') + '-' + String(visitDate.getDate()).padStart(2, '0');
+      return localDateStr >= dateFrom && localDateStr <= dateTo;
+    }
+    return true;
+  });
+
+  const filteredBills = bills.filter(bill => {
+    if (!dateFrom || !dateTo) return true;
+    const billDate = new Date(bill.BillDate);
+    const localDateStr = billDate.getFullYear() + '-' + String(billDate.getMonth() + 1).padStart(2, '0') + '-' + String(billDate.getDate()).padStart(2, '0');
+    return localDateStr >= dateFrom && localDateStr <= dateTo;
   });
 
   const selectPatient = (patient: any) => {
@@ -259,28 +298,29 @@ export const IPBilling = () => {
               <span className="text-sm font-semibold">{successMsg}</span>
             </div>
           )}
-          <div className="max-w-xl" ref={wrapperRef}>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Search by IP ID / UHID / Name</label>
-            <div className="relative flex gap-2">
-              <div className="flex-1 flex border border-slate-200 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all">
-                <span className="bg-primary/10 px-4 py-3 text-primary font-bold text-sm border-r border-slate-200 flex items-center">
-                  ID
-                </span>
-                <input
-                  type="text"
-                  placeholder="Type 'IP' to see suggestions..."
-                  className="flex-1 px-4 py-3 text-sm focus:outline-none"
-                  value={searchId}
-                  onChange={e => { setSearchId(e.target.value); setShowSuggestions(true); }}
-                  onFocus={() => setShowSuggestions(true)}
-                  onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                />
-              </div>
-              <button onClick={handleSearch} className="bg-primary text-white px-5 py-3 rounded-lg hover:bg-primary/90 transition-colors shrink-0">
-                <Search className="w-5 h-5" />
-              </button>
-              {showSuggestions && searchId && (
-                <div className="absolute top-full left-0 right-14 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden z-50">
+          <div className="flex flex-col md:flex-row gap-4 items-end justify-between w-full">
+            <div className="max-w-xl w-full" ref={wrapperRef}>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Search by IP ID / UHID / Name</label>
+              <div className="relative flex gap-2">
+                <div className="flex-1 flex border border-slate-200 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all">
+                  <span className="bg-primary/10 px-4 py-3 text-primary font-bold text-sm border-r border-slate-200 flex items-center">
+                    ID
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="Type 'IP' to see suggestions..."
+                    className="flex-1 px-4 py-3 text-sm focus:outline-none"
+                    value={searchId}
+                    onChange={e => { setSearchId(e.target.value); setShowSuggestions(true); }}
+                    onFocus={() => setShowSuggestions(true)}
+                    onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                  />
+                </div>
+                <button onClick={handleSearch} className="bg-primary text-white px-5 py-3 rounded-lg hover:bg-primary/90 transition-colors shrink-0">
+                  <Search className="w-5 h-5" />
+                </button>
+                {showSuggestions && searchId && (
+                  <div className="absolute top-full left-0 right-14 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden z-50">
                   {filteredSuggestions.length > 0 ? (
                     <ul className="max-h-60 overflow-y-auto">
                       {filteredSuggestions.map(p => (
@@ -303,12 +343,58 @@ export const IPBilling = () => {
               )}
             </div>
           </div>
+            
+          <div className="shrink-0">
+            <label className="block text-sm font-medium text-slate-700 mb-2">Filter Recent Bills</label>
+            <DateFilter 
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              onDateFromChange={setDateFrom}
+              onDateToChange={setDateTo}
+              defaultDateFrom={todayStr}
+              defaultDateTo={todayStr}
+            />
+          </div>
+        </div>
 
           {!patientName ? (
-            <div className="border-2 border-dashed border-slate-200 rounded-xl p-16 flex flex-col items-center justify-center text-slate-400 bg-slate-50/50">
-              <Bed className="w-12 h-12 mb-3 opacity-30" />
-              <p className="text-sm font-medium">Search for an IP ID above to load patient admission and charge details.</p>
-            </div>
+            pendingDischarges.length > 0 ? (
+              <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-emerald-500" />
+                  Pending Discharges
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {pendingDischarges.map((adm, idx) => (
+                    <div 
+                      key={idx} 
+                      onClick={() => selectPatient(adm)}
+                      className="bg-white border border-slate-200 p-5 rounded-xl hover:border-primary/50 hover:shadow-md transition-all cursor-pointer group"
+                    >
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-bold text-slate-900 group-hover:text-primary transition-colors">{adm.patientName}</p>
+                          <p className="text-xs text-slate-500 mt-1">
+                            {adm.admissionNumber} • {adm.uhid}
+                          </p>
+                          <p className="text-xs text-slate-500 mt-0.5 text-ellipsis overflow-hidden whitespace-nowrap max-w-[250px]">
+                            {adm.specialty} • {adm.admittingDoctor}
+                          </p>
+                        </div>
+                        <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                          <Plus className="w-4 h-4" />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="border-2 border-dashed border-slate-200 rounded-xl p-16 flex flex-col items-center justify-center text-slate-400 bg-slate-50/50">
+                <Bed className="w-12 h-12 mb-3 opacity-30" />
+                <p className="text-sm font-medium">Search for an IP ID above to load patient admission and charge details.</p>
+              </div>
+            )
           ) : (
             <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
               <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex items-center gap-3">
@@ -438,9 +524,9 @@ export const IPBilling = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {bills.length === 0 ? (
-              <tr><td colSpan={8} className="px-6 py-10 text-center text-slate-400">No recent IP bills found.</td></tr>
-            ) : bills.map((bill, idx) => (
+            {filteredBills.length === 0 ? (
+              <tr><td colSpan={8} className="px-6 py-10 text-center text-slate-400">No recent IP bills found for the selected dates.</td></tr>
+            ) : filteredBills.map((bill, idx) => (
               <tr key={bill.IpBillId || idx} className="hover:bg-slate-50">
                 <td className="px-6 py-4 font-mono font-medium text-slate-900">{bill.BillNumber}</td>
                 <td className="px-6 py-4 font-mono text-slate-500 text-xs">{bill.Uhid}</td>
