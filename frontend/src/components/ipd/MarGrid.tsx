@@ -2,6 +2,13 @@ import { useState, useEffect } from 'react';
 import { Pill, Plus, Check, Loader2, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
+interface MasterMedicine {
+  id: number;
+  brandName: string;
+  genericName: string;
+  status: string;
+}
+
 export interface MarMedication {
   id: string;
   medicineId: number;
@@ -20,6 +27,7 @@ const API_BASE = import.meta.env.VITE_API_URL as string;
 
 export const MarGrid: React.FC<MarGridProps> = ({ patientId }) => {
   const [medications, setMedications] = useState<MarMedication[]>([]);
+  const [medicines, setMedicines] = useState<MasterMedicine[]>([]);   // from /medicines master
   const [isLoading, setIsLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
   const [formData, setFormData] = useState({
@@ -72,6 +80,19 @@ export const MarGrid: React.FC<MarGridProps> = ({ patientId }) => {
   useEffect(() => {
     fetchMedications();
   }, [patientId]);
+
+  // Medicine dropdown comes from the Medicine master (Active only).
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/medicines/`);
+        if (res.ok) {
+          const data = await res.json();
+          setMedicines((Array.isArray(data) ? data : []).filter((m: MasterMedicine) => m.status === 'Active'));
+        }
+      } catch { /* offline — dropdown just shows no options */ }
+    })();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

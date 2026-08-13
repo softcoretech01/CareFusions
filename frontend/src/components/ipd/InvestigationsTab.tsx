@@ -1,198 +1,122 @@
 import { useState, useEffect } from 'react';
 import { FlaskConical, Plus, Loader2, CheckCircle, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
-
-export interface InvestigationOrder {
-  id: string;
-  type: 'Lab' | 'Radiology';
-  testId: number;
-  testName: string;
-  status: 'Ordered' | 'Sample Collected' | 'In Progress' | 'Completed';
-  result?: string;
-  normalRange?: string;
-  orderDate: string;
-  priority: 'Routine' | 'Urgent' | 'STAT';
-}
+import { useInvestigations } from '../../contexts/InvestigationContext';
 
 interface InvestigationsTabProps {
   admissionId: number;
   patientName: string;
+  uhid: string;
 }
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
 
-export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({ admissionId, patientName }) => {
-  const [orders, setOrders] = useState<InvestigationOrder[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+interface RadiologyServiceOption {
+  id: number;
+  serviceName: string;
+  status: string;
+}
+
+export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({ patientName, uhid }) => {
+  // Orders + lab catalogue come from the shared Investigation context — the
+  // SAME source the Lab and Radiology menus read from, so an order placed here
+  // shows up there too.
+  const { catalogue, addOrder, getOrdersByPatient, loading } = useInvestigations();
+
+  const [radiologyServices, setRadiologyServices] = useState<RadiologyServiceOption[]>([]);
   const [isAdding, setIsAdding] = useState(false);
   const [selectedLabs, setSelectedLabs] = useState<string[]>([]);
   const [selectedScans, setSelectedScans] = useState<string[]>([]);
   const [customTest, setCustomTest] = useState('');
   const [customScan, setCustomScan] = useState('');
-  const [uhid, setUhid] = useState('');
+  const [placing, setPlacing] = useState(false);
 
-  // Lab tests and radiology scans come from their admin masters — the Lab Test
-  // Master (/tests) and the Radiology Service Master (/radiology-services) —
-  // rather than a hardcoded list, so the checkboxes reflect whatever is
-  // configured there. Only Active rows are offered.
-  const [commonLabs, setCommonLabs] = useState<string[]>([]);
-  const [commonScans, setCommonScans] = useState<string[]>([]);
-
+  // Radiology exam list comes from the Radiology Service master.
   useEffect(() => {
-    let alive = true;
-    Promise.all([
-      fetch(`${API_BASE}/tests/`).then(r => (r.ok ? r.json() : [])),
-      fetch(`${API_BASE}/radiology-services/`).then(r => (r.ok ? r.json() : [])),
-    ]).then(([labs, scans]) => {
-      if (!alive) return;
-      setCommonLabs(
-        (Array.isArray(labs) ? labs : [])
-          .filter((t: any) => t.status === 'Active')
-          .map((t: any) => t.testName)
-          .filter(Boolean),
-      );
-      setCommonScans(
-        (Array.isArray(scans) ? scans : [])
-          .filter((s: any) => s.status === 'Active')
-          .map((s: any) => s.serviceName)
-          .filter(Boolean),
-      );
-    }).catch(e => console.error('[Investigations] master lists load failed', e));
-    return () => { alive = false; };
-  }, []);
-  
-  const fetchInvestigations = async () => {
-    setIsLoading(true);
-    try {
-      const res = await fetch(`${API_BASE}/ipd-visits/${admissionId}/details`);
-      if (res.ok) {
-        const data = await res.json();
-        // Keep the patient's UHID so ordered investigations can be routed to
-        // the Lab and Radiology modules as real orders.
-        if (data?.admissionInfo?.Uhid) setUhid(data.admissionInfo.Uhid);
-        if (data && data.investigations) {
-          const mapped = data.investigations.map((i: any) => ({
-            id: String(i.InvestigationId),
-            type: (i.TestName || '').includes('X-Ray') || (i.TestName || '').includes('CT') || (i.TestName || '').includes('MRI') || (i.TestName || '').includes('USG') || (i.TestName || '').includes('Echo') ? 'Radiology' : 'Lab',
-            testId: i.InvestigationId,
-            testName: i.TestName,
-            status: i.Status || 'Ordered',
-            result: i.Result || '',
-            normalRange: i.NormalRange || '',
-            orderDate: i.RecordedAt,
-            priority: 'Routine'
-          }));
-          setOrders(mapped);
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/radiology-services/`);
+        if (res.ok) {
+          const data = await res.json();
+          setRadiologyServices(
+            (Array.isArray(data) ? data : []).filter((s: RadiologyServiceOption) => s.status === 'Active')
+          );
         }
-      }
-    } catch (e) {
-      toast.error('Failed to load investigations');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      } catch { /* offline — picker just shows custom entry */ }
+    })();
+  }, []);
 
-  useEffect(() => {
-    fetchInvestigations();
-  }, [admissionId]);
+  // This patient's lab + radiology orders (unified with the Lab/Radiology menus).
+  const orders = getOrdersByPatient(uhid);
 
-  const handleToggleLab = (lab: string) => {
-    setSelectedLabs(prev => prev.includes(lab) ? prev.filter(l => l !== lab) : [...prev, lab]);
-  };
-
-  const handleToggleScan = (scan: string) => {
-    setSelectedScans(prev => prev.includes(scan) ? prev.filter(s => s !== scan) : [...prev, scan]);
-  };
+  const toggle = (list: string[], set: (v: string[]) => void, val: string) =>
+    set(list.includes(val) ? list.filter(x => x !== val) : [...list, val]);
 
   const handlePlaceOrder = async () => {
     const labTests = [...selectedLabs];
     if (customTest.trim()) labTests.push(customTest.trim());
-
     const scanTests = [...selectedScans];
     if (customScan.trim()) scanTests.push(customScan.trim());
 
-    const allTests = [...labTests, ...scanTests];
-
-    if (allTests.length === 0) {
+    if (labTests.length === 0 && scanTests.length === 0) {
       toast.error('Please select at least one test to order.');
       return;
     }
+    if (!uhid) {
+      toast.error('Patient UHID missing — cannot place order.');
+      return;
+    }
 
+    setPlacing(true);
+    const now = new Date().toISOString();
     try {
-      let successCount = 0;
-
-      // 1) Record the investigations on the IPD visit (so they show on this tab).
-      for (const test of allTests) {
-        const res = await fetch(`${API_BASE}/ipd-visits/save-clinical`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ admissionId, investigation: { testName: test, status: 'Ordered' } }),
-        });
-        if (res.ok) successCount++;
-      }
-
-      // 2) Route the order to the Laboratory module as a real lab order, so the
-      //    lab technician sees it in Test Orders.
-      if (labTests.length > 0 && uhid) {
-        await fetch(`${API_BASE}/lab/orders`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            category: 'Lab', visitType: 'IP', uhid, patientName,
-            orderedBy: 'IPD Ward', priority: 'Routine',
-            clinicalNotes: 'Ordered from IPD Investigations',
-            tests: labTests.map(name => ({ testName: name })),
-            user: 'IPD Ward',
-          }),
+      if (labTests.length > 0) {
+        addOrder({
+          id: `IPD-LAB-${Date.now()}`,
+          type: 'IP',
+          category: 'Lab',
+          patientId: uhid,
+          patientName,
+          orderedBy: 'Doctor',
+          orderedAt: now,
+          tests: labTests.map((name, i) => ({ id: `T-${Date.now()}-L${i}`, name, status: 'Pending' })),
+          status: 'Pending',
         });
       }
-
-      // 3) Route the scans to the Radiology module, so they appear on the
-      //    radiology worklist. (Radiology uses snake_case fields.)
-      if (scanTests.length > 0 && uhid) {
-        await fetch(`${API_BASE}/radiology/orders`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            category: 'Radiology', visit_type: 'IP', uhid, patient_name: patientName,
-            ordered_by: 'IPD Ward', priority: 'Routine',
-            tests: scanTests.map(name => ({ testName: name })),
-          }),
+      if (scanTests.length > 0) {
+        addOrder({
+          id: `IPD-RAD-${Date.now()}`,
+          type: 'IP',
+          category: 'Radiology',
+          patientId: uhid,
+          patientName,
+          orderedBy: 'Doctor',
+          orderedAt: now,
+          tests: scanTests.map((name, i) => ({ id: `T-${Date.now()}-R${i}`, name, status: 'Pending' })),
+          status: 'Pending',
         });
       }
-
-      if (successCount > 0) {
-        const routed = [
-          labTests.length ? `${labTests.length} to Laboratory` : '',
-          scanTests.length ? `${scanTests.length} to Radiology` : '',
-        ].filter(Boolean).join(' · ');
-        toast.success(`Ordered ${successCount} investigation(s)${routed ? ` (${routed})` : ''}`);
-        setIsAdding(false);
-        setSelectedLabs([]);
-        setSelectedScans([]);
-        setCustomTest('');
-        setCustomScan('');
-        fetchInvestigations();
-      } else {
-        toast.error('Failed to order tests');
-      }
-    } catch (e) {
-      toast.error('Failed to order tests');
+      toast.success('Investigation order placed — sent to Lab / Radiology.');
+      setIsAdding(false);
+      setSelectedLabs([]);
+      setSelectedScans([]);
+      setCustomTest('');
+      setCustomScan('');
+    } finally {
+      setPlacing(false);
     }
   };
 
   const getStatusColor = (status: string) => {
-    switch(status) {
-      case 'Completed': return 'bg-emerald-100 text-emerald-700 border-emerald-200';
-      case 'In Progress': return 'bg-blue-100 text-blue-700 border-blue-200';
-      case 'Sample Collected': return 'bg-purple-100 text-purple-700 border-purple-200';
-      default: return 'bg-amber-100 text-amber-700 border-amber-200';
+    switch (status) {
+      case 'Completed':
+      case 'Verified':          return 'bg-emerald-100 text-emerald-700 border-emerald-200';
+      case 'Processing':        return 'bg-blue-100 text-blue-700 border-blue-200';
+      case 'Sample Collected':
+      case 'Sample Accepted':   return 'bg-purple-100 text-purple-700 border-purple-200';
+      default:                  return 'bg-amber-100 text-amber-700 border-amber-200';
     }
   };
-
-  if (isLoading) {
-    return <div className="flex justify-center py-10"><Loader2 className="w-8 h-8 animate-spin text-slate-400" /></div>;
-  }
 
   return (
     <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 space-y-6">
@@ -201,7 +125,7 @@ export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({ admissionI
           <FlaskConical className="w-5 h-5 text-primary" /> Investigations
         </h3>
         {!isAdding && (
-          <button 
+          <button
             onClick={() => setIsAdding(true)}
             className="px-4 py-2 bg-primary/10 text-primary font-bold rounded-xl text-sm flex items-center gap-2 hover:bg-primary hover:text-white transition-colors"
           >
@@ -213,30 +137,31 @@ export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({ admissionI
       {isAdding && (
         <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 mb-6">
           <h4 className="font-bold text-slate-800 mb-4">New Investigation Order</h4>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Laboratory Section */}
+            {/* Laboratory — from Lab Test master */}
             <div className="space-y-3 bg-white p-4 rounded-xl border border-slate-200">
-              <h5 className="font-bold text-slate-700 text-sm border-b border-slate-100 pb-2">Laboratory Tests</h5>
-              <div className="space-y-2">
-                {commonLabs.length === 0 && (
-                  <p className="text-xs text-slate-400 py-1">No lab tests configured in the Test Master. Add a custom test below.</p>
-                )}
-                {commonLabs.map(lab => (
-                  <label key={lab} className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
-                    <input 
-                      type="checkbox" 
+              <h5 className="font-bold text-slate-700 text-sm border-b border-slate-100 pb-2">
+                Laboratory Tests <span className="text-slate-400 font-normal">(from master)</span>
+              </h5>
+              <div className="space-y-2 max-h-56 overflow-y-auto custom-scrollbar">
+                {catalogue.length === 0 ? (
+                  <p className="text-xs text-slate-400">No lab tests in master. Use custom entry below.</p>
+                ) : catalogue.map(t => (
+                  <label key={t.testId} className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                    <input
+                      type="checkbox"
                       className="rounded border-slate-300 text-primary focus:ring-primary"
-                      checked={selectedLabs.includes(lab)}
-                      onChange={() => handleToggleLab(lab)}
+                      checked={selectedLabs.includes(t.testName)}
+                      onChange={() => toggle(selectedLabs, setSelectedLabs, t.testName)}
                     />
-                    {lab}
+                    {t.testName}
                   </label>
                 ))}
               </div>
               <div className="pt-2">
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   placeholder="+ Add Custom Lab Test"
                   value={customTest}
                   onChange={e => setCustomTest(e.target.value)}
@@ -245,28 +170,29 @@ export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({ admissionI
               </div>
             </div>
 
-            {/* Radiology Section */}
+            {/* Radiology — from Radiology Service master */}
             <div className="space-y-3 bg-white p-4 rounded-xl border border-slate-200">
-              <h5 className="font-bold text-slate-700 text-sm border-b border-slate-100 pb-2">Radiology / Scans</h5>
-              <div className="space-y-2">
-                {commonScans.length === 0 && (
-                  <p className="text-xs text-slate-400 py-1">No scans configured in the Radiology Service Master. Add a custom scan below.</p>
-                )}
-                {commonScans.map(scan => (
-                  <label key={scan} className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
-                    <input 
-                      type="checkbox" 
+              <h5 className="font-bold text-slate-700 text-sm border-b border-slate-100 pb-2">
+                Radiology / Scans <span className="text-slate-400 font-normal">(from master)</span>
+              </h5>
+              <div className="space-y-2 max-h-56 overflow-y-auto custom-scrollbar">
+                {radiologyServices.length === 0 ? (
+                  <p className="text-xs text-slate-400">No radiology services in master. Use custom entry below.</p>
+                ) : radiologyServices.map(s => (
+                  <label key={s.id} className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                    <input
+                      type="checkbox"
                       className="rounded border-slate-300 text-primary focus:ring-primary"
-                      checked={selectedScans.includes(scan)}
-                      onChange={() => handleToggleScan(scan)}
+                      checked={selectedScans.includes(s.serviceName)}
+                      onChange={() => toggle(selectedScans, setSelectedScans, s.serviceName)}
                     />
-                    {scan}
+                    {s.serviceName}
                   </label>
                 ))}
               </div>
               <div className="pt-2">
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   placeholder="+ Add Custom Scan"
                   value={customScan}
                   onChange={e => setCustomScan(e.target.value)}
@@ -277,13 +203,26 @@ export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({ admissionI
           </div>
 
           <div className="flex justify-end gap-2 pt-4 mt-4 border-t border-slate-200">
-            <button onClick={() => setIsAdding(false)} className="px-4 py-2 bg-slate-200 text-slate-700 font-bold rounded-xl text-sm hover:bg-slate-300 transition-colors">Cancel</button>
-            <button onClick={handlePlaceOrder} className="px-4 py-2 bg-primary text-white font-bold rounded-xl text-sm hover:bg-primary/90 transition-colors">Place Order</button>
+            <button
+              onClick={() => setIsAdding(false)}
+              className="px-4 py-2 bg-slate-200 text-slate-700 font-bold rounded-xl text-sm hover:bg-slate-300 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handlePlaceOrder}
+              disabled={placing}
+              className="px-4 py-2 bg-primary text-white font-bold rounded-xl text-sm hover:bg-primary/90 transition-colors disabled:opacity-50"
+            >
+              {placing ? 'Placing…' : 'Place Order'}
+            </button>
           </div>
         </div>
       )}
 
-      {orders.length === 0 ? (
+      {loading && orders.length === 0 ? (
+        <div className="flex justify-center py-10"><Loader2 className="w-8 h-8 animate-spin text-slate-400" /></div>
+      ) : orders.length === 0 ? (
         <div className="text-center py-12 text-slate-400 font-medium">
           <FlaskConical className="w-12 h-12 mx-auto text-slate-200 mb-3" />
           No investigations ordered yet.
@@ -297,28 +236,36 @@ export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({ admissionI
                   <div className="flex items-center gap-2 mb-1">
                     <span className="font-mono text-xs font-bold text-slate-500">ID: {order.id}</span>
                     <span className={`px-2 py-0.5 text-[10px] font-bold rounded-md uppercase ${
-                      order.type === 'Lab' ? 'bg-blue-50 text-blue-600 border border-blue-200' : 'bg-purple-50 text-purple-600 border border-purple-200'
+                      order.category === 'Lab'
+                        ? 'bg-blue-50 text-blue-600 border border-blue-200'
+                        : 'bg-purple-50 text-purple-600 border border-purple-200'
                     }`}>
-                      {order.type}
+                      {order.category}
                     </span>
                   </div>
-                  <div className="text-xs text-slate-500">Ordered on {new Date(order.orderDate).toLocaleString()}</div>
+                  <div className="text-xs text-slate-500">Ordered on {new Date(order.orderedAt).toLocaleString()}</div>
                 </div>
                 <div className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 border ${getStatusColor(order.status)}`}>
-                  {order.status === 'Completed' ? <CheckCircle className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />}
+                  {order.status === 'Completed' || order.status === 'Verified'
+                    ? <CheckCircle className="w-3.5 h-3.5" />
+                    : <Clock className="w-3.5 h-3.5" />}
                   {order.status}
                 </div>
               </div>
 
               <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm py-1">
-                    <span className="font-medium text-slate-700">{order.testName}</span>
-                    {order.status === 'Completed' ? (
-                      <span className="text-green-600 font-bold text-xs flex items-center gap-1"><CheckCircle className="w-3.5 h-3.5" /> Result Available: {order.result}</span>
+                {order.tests.map(test => (
+                  <div key={test.id} className="flex items-center justify-between text-sm py-1">
+                    <span className="font-medium text-slate-700">{test.name}</span>
+                    {test.status === 'Completed' || test.status === 'Verified' ? (
+                      <span className="text-green-600 font-bold text-xs flex items-center gap-1">
+                        <CheckCircle className="w-3.5 h-3.5" /> {test.resultValue ? `Result: ${test.resultValue}` : 'Completed'}
+                      </span>
                     ) : (
-                      <span className="text-slate-400 text-xs">Pending</span>
+                      <span className="text-slate-400 text-xs">{test.status}</span>
                     )}
                   </div>
+                ))}
               </div>
             </div>
           ))}

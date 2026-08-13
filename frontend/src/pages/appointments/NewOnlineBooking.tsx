@@ -50,7 +50,7 @@ function isSlotInPast(dateStr: string, timeStr: string): boolean {
 export const NewOnlineBooking = () => {
   const { addAppointment, appointments, generateAppointmentNumber } = useAppointments();
   const { getDoctorsWithAvailability, doctorSchedules } = useDoctorSchedules();
-  const { patients, addPatient } = usePatients();
+  const { patients, addPatient, generateUhid } = usePatients();
   const navigate = useNavigate();
 
   const [step, setStep] = useState(1);
@@ -337,7 +337,7 @@ export const NewOnlineBooking = () => {
               {!selectedPatient && (
                 <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-600">
                   <UserPlus className="w-3.5 h-3.5" />
-                  <span>New patient — a UHID will be auto-generated and registered on booking</span>
+                  <span>New patient — UHID {generateUhid()} will be registered on booking</span>
                 </div>
               )}
             </div>
@@ -357,7 +357,7 @@ export const NewOnlineBooking = () => {
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">UHID</label>
                   <input
                     type="text"
-                    value={selectedPatient ? selectedPatient.uhid : 'Auto-generated on booking'}
+                    value={selectedPatient ? selectedPatient.uhid : generateUhid()}
                     readOnly
                     disabled
                     className="w-full px-4 py-2.5 border rounded-xl text-sm bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed font-mono font-semibold"
@@ -631,7 +631,7 @@ export const NewOnlineBooking = () => {
               selectedPatient ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-amber-50 text-amber-700 border border-amber-200'
             }`}>
               {selectedPatient ? <UserCheck className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
-              {selectedPatient ? `Existing Patient · UHID: ${selectedPatient.uhid}` : 'New Patient · UHID will be auto-generated'}
+              {selectedPatient ? `Existing Patient · UHID: ${selectedPatient.uhid}` : `New Patient · UHID: ${generateUhid()}`}
             </div>
 
             <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200 grid grid-cols-2 gap-y-5 gap-x-8 max-w-2xl mx-auto">

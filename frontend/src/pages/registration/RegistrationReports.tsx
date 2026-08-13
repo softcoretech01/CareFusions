@@ -1,8 +1,6 @@
 import { useState } from 'react';
-import { LineChart, PieChart, Users, FileText, Download, Activity, Heart, Shield } from 'lucide-react';
-import { Button } from '../../components/ui/Button';
+import { LineChart, PieChart, Users, Activity, Heart, Shield } from 'lucide-react';
 import { useEffect } from 'react';
-import { exportToExcel } from '../../utils/exportToExcel';
 import ReactApexChart from 'react-apexcharts';
 import { DateFilter } from '../../components/ui/DateFilter';
 
@@ -111,7 +109,6 @@ const trendLabels = reportData?.trends?.map((t: any) => {
             onSearch={handleSearch}
             onReset={handleReset}
           />
-          <Button variant="filled" color="primary" icon={Download}>Export PDF</Button>
         </div>
       </div>
 
@@ -186,7 +183,6 @@ const trendLabels = reportData?.trends?.map((t: any) => {
         <div className="bg-white rounded-3xl shadow-sm border border-slate-100 flex flex-col overflow-hidden">
           <div className="p-6 border-b border-slate-100 flex items-center justify-between">
             <h3 className="text-lg font-bold text-slate-800">Recent Registrations List</h3>
-            <Button variant="outline" size="sm" icon={FileText} onClick={() => exportToExcel(reportData?.recent || [], 'RegistrationReports')}>Export CSV</Button>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm whitespace-nowrap">
