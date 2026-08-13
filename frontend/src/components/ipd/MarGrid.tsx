@@ -1,7 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Pill, Plus, Check, Loader2 } from 'lucide-react';
-import { medicinesData } from '../../data/medicinesData';
+import { Pill, Plus, Check, Loader2, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+
+interface MasterMedicine {
+  id: number;
+  brandName: string;
+  genericName: string;
+  status: string;
+}
 
 export interface MarMedication {
   id: string;
@@ -21,6 +27,7 @@ const API_BASE = import.meta.env.VITE_API_URL as string;
 
 export const MarGrid: React.FC<MarGridProps> = ({ patientId }) => {
   const [medications, setMedications] = useState<MarMedication[]>([]);
+  const [medicines, setMedicines] = useState<MasterMedicine[]>([]);   // from /medicines master
   const [isLoading, setIsLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
   const [formData, setFormData] = useState({
@@ -29,6 +36,20 @@ export const MarGrid: React.FC<MarGridProps> = ({ patientId }) => {
     frequency: 'OD',
     route: 'Oral'
   });
+
+  // Medicines come from the Pharmacy Medicine Master (/medicines), Active only,
+  // instead of a hardcoded list — so the dropdown reflects the pharmacy catalogue.
+  const [medicines, setMedicines] = useState<any[]>([]);
+  useEffect(() => {
+    fetch(`${API_BASE}/medicines`)
+      .then(r => (r.ok ? r.json() : []))
+      .then((data: any[]) =>
+        setMedicines(
+          (Array.isArray(data) ? data : []).filter(m => m.status === 'Active' || m.status === 'active'),
+        ),
+      )
+      .catch(e => console.error('[MAR] medicine master load failed', e));
+  }, []);
 
   const fetchMedications = async () => {
     setIsLoading(true);
@@ -60,6 +81,19 @@ export const MarGrid: React.FC<MarGridProps> = ({ patientId }) => {
     fetchMedications();
   }, [patientId]);
 
+  // Medicine dropdown comes from the Medicine master (Active only).
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/medicines/`);
+        if (res.ok) {
+          const data = await res.json();
+          setMedicines((Array.isArray(data) ? data : []).filter((m: MasterMedicine) => m.status === 'Active'));
+        }
+      } catch { /* offline — dropdown just shows no options */ }
+    })();
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.medicineId || !formData.dosage) {
@@ -67,9 +101,13 @@ export const MarGrid: React.FC<MarGridProps> = ({ patientId }) => {
       return;
     }
 
-    const med = medicinesData.find(m => m.id === Number(formData.medicineId));
+    const med = medicines.find(m => m.id === Number(formData.medicineId));
     if (!med) return;
-    
+
+    // A brand-new MAR entry has no administrations yet. Crucially we must NOT
+    // send `administrations` here: the backend treats a present administrations
+    // object as an "update the admin checkboxes on an existing med" call, so an
+    // empty {} made the new medication silently not insert.
     const payload = {
       admissionId: patientId,
       medication: {
@@ -78,7 +116,6 @@ export const MarGrid: React.FC<MarGridProps> = ({ patientId }) => {
         dosage: formData.dosage,
         frequency: formData.frequency,
         route: formData.route,
-        administrations: {}
       }
     };
 
@@ -104,9 +141,9 @@ export const MarGrid: React.FC<MarGridProps> = ({ patientId }) => {
   const toggleAdministration = async (medId: string, medicineId: number, slot: string) => {
     const med = medications.find(m => m.id === medId);
     if (!med) return;
-    
+
     const newAdmin = { ...med.administrations, [slot]: !med.administrations[slot] };
-    
+
     setMedications(meds => meds.map(m => {
       if (m.id === medId) {
         return { ...m, administrations: newAdmin };
@@ -125,7 +162,7 @@ export const MarGrid: React.FC<MarGridProps> = ({ patientId }) => {
         administrations: newAdmin
       }
     };
-    
+
     try {
       await fetch(`${API_BASE}/ipd-visits/save-clinical`, {
         method: 'POST',
@@ -134,6 +171,20 @@ export const MarGrid: React.FC<MarGridProps> = ({ patientId }) => {
       });
     } catch (e) {
       toast.error('Failed to sync administration');
+    }
+  };
+
+  // Delete removes the row from hospital.IpdMedication by MedicationId — the same
+  // table save-clinical writes to — so a med added here can also be removed here.
+  const handleDelete = async (id: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/ipd/medications/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error(await res.text());
+      toast.success('Medication removed');
+      fetchMedications();
+    } catch (e) {
+      console.error('[MAR] delete failed', e);
+      toast.error('Failed to remove medication');
     }
   };
 
@@ -169,7 +220,8 @@ export const MarGrid: React.FC<MarGridProps> = ({ patientId }) => {
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Medication</label>
                 <select required value={formData.medicineId} onChange={e => setFormData({ ...formData, medicineId: e.target.value })} className={inputCls}>
                   <option value="">Select Medicine</option>
-                  {medicinesData.map(m => (
+                  {medicines.length === 0 && <option value="" disabled>No medicines in the Pharmacy master</option>}
+                  {medicines.map(m => (
                     <option key={m.id} value={m.id}>{m.brandName} ({m.genericName})</option>
                   ))}
                 </select>
@@ -225,6 +277,7 @@ export const MarGrid: React.FC<MarGridProps> = ({ patientId }) => {
                 {timeSlots.map(slot => (
                   <th key={slot} className="px-2 py-3 font-bold text-center w-24">{slot}</th>
                 ))}
+                <th className="px-2 py-3 font-bold text-right">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -249,8 +302,8 @@ export const MarGrid: React.FC<MarGridProps> = ({ patientId }) => {
                         <button
                           onClick={() => toggleAdministration(med.id, med.medicineId, slot)}
                           className={`w-8 h-8 mx-auto rounded-lg flex items-center justify-center transition-colors border ${
-                            isGiven 
-                              ? 'bg-emerald-500 border-emerald-600 text-white shadow-sm' 
+                            isGiven
+                              ? 'bg-emerald-500 border-emerald-600 text-white shadow-sm'
                               : 'bg-white border-slate-200 text-slate-300 hover:border-emerald-300 hover:text-emerald-400'
                           }`}
                           title={isGiven ? `Given in ${slot}` : `Mark given in ${slot}`}
@@ -260,6 +313,15 @@ export const MarGrid: React.FC<MarGridProps> = ({ patientId }) => {
                       </td>
                     );
                   })}
+                  <td className="px-2 py-3 text-right">
+                    <button
+                      onClick={() => handleDelete(med.id)}
+                      title="Remove medication"
+                      className="text-red-400 hover:text-red-600 p-1"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>

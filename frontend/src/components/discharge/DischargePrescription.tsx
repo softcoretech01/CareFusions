@@ -1,7 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Trash2, AlertCircle } from 'lucide-react';
-import { medicinesData } from '../../data/medicinesData';
 import toast from 'react-hot-toast';
+
+const API_BASE = import.meta.env.VITE_API_URL as string;
+
+interface MasterMedicine {
+  id: number;
+  brandName: string;
+  genericName: string;
+  strength: string;
+  status: string;
+}
 
 export interface DischargeItem {
   id: string;
@@ -33,6 +42,20 @@ export const DischargePrescription = ({
   const [duration, setDuration] = useState('');
   const [quantity, setQuantity] = useState('');
   const [notes, setNotes] = useState('');
+  const [medicines, setMedicines] = useState<MasterMedicine[]>([]);   // from /medicines master
+
+  // Discharge medicine dropdown comes from the Medicine master (Active only).
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/medicines/`);
+        if (res.ok) {
+          const data = await res.json();
+          setMedicines((Array.isArray(data) ? data : []).filter((m: MasterMedicine) => m.status === 'Active'));
+        }
+      } catch { /* offline — dropdown just shows no options */ }
+    })();
+  }, []);
 
   const handleAddItem = () => {
     if (!selectedMedicineId || !dosage || !duration || !quantity) {
@@ -40,7 +63,7 @@ export const DischargePrescription = ({
       return;
     }
 
-    const selectedMedicine = medicinesData.find(m => m.id === selectedMedicineId);
+    const selectedMedicine = medicines.find(m => m.id === selectedMedicineId);
     if (!selectedMedicine) {
       toast.error('Medicine not found');
       return;
@@ -92,7 +115,7 @@ export const DischargePrescription = ({
               className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
             >
               <option value="">-- Select Medicine --</option>
-              {medicinesData.filter(m => m.status === 'Active').map(medicine => (
+              {medicines.map(medicine => (
                 <option key={medicine.id} value={medicine.id}>
                   {medicine.brandName} - {medicine.genericName} ({medicine.strength})
                 </option>
