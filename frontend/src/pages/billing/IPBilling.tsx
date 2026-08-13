@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Search, Plus, X, Bed, CheckCircle, Printer, FileText } from 'lucide-react';
+import { DateFilter } from '../../components/ui/DateFilter';
 import axios from 'axios';
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
@@ -35,20 +36,28 @@ interface BillResponse {
 export const IPBilling = () => {
   const { state } = useLocation();
   const [bills, setBills] = useState<BillResponse[]>([]);
-  
+
   // From IPD
   const [admissions, setAdmissions] = useState<any[]>([]);
-  
+
   const [searchId, setSearchId] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [items, setItems] = useState<BillItem[]>([]);
-  
+
   const [patientName, setPatientName] = useState('');
   const [selectedPatientId, setSelectedPatientId] = useState('');
   const [mobileNumber, setMobileNumber] = useState('');
-  
+
+  const todayStr = (() => {
+    const today = new Date();
+    return today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+  })();
+
+  const [dateFrom, setDateFrom] = useState(todayStr);
+  const [dateTo, setDateTo] = useState(todayStr);
+
   const [successMsg, setSuccessMsg] = useState('');
-  
+
   const [isInsurancePaid, setIsInsurancePaid] = useState(false);
   const [insuranceDetails, setInsuranceDetails] = useState<any>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -63,28 +72,28 @@ export const IPBilling = () => {
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
-    
+
     // Check for passed claim data (e.g., from Insurance screen)
     if (state?.claimData && state?.dischargeCosts && !patientName) {
       const { claimData, dischargeCosts } = state;
       setPatientName(claimData.patient || claimData.patientName);
       setSelectedPatientId(claimData.uhid);
       setSearchId(claimData.uhid);
-      
+
       // Attempt to get mobile number from patient API just in case it wasn't passed
       fetchPatientMobile(claimData.uhid);
-      
+
       const newItems = [];
       let idCounter = 1;
-      
+
       if (Number(dischargeCosts.operation) > 0) newItems.push({ id: `ITM-${idCounter++}`, description: 'Operation Cost', price: Number(dischargeCosts.operation), qty: 1, total: Number(dischargeCosts.operation) });
       if (Number(dischargeCosts.medication) > 0) newItems.push({ id: `ITM-${idCounter++}`, description: 'Medication Cost', price: Number(dischargeCosts.medication), qty: 1, total: Number(dischargeCosts.medication) });
       if (Number(dischargeCosts.dischargeMedication) > 0) newItems.push({ id: `ITM-${idCounter++}`, description: 'Discharge Medication', price: Number(dischargeCosts.dischargeMedication), qty: 1, total: Number(dischargeCosts.dischargeMedication) });
       if (Number(dischargeCosts.ward) > 0) newItems.push({ id: `ITM-${idCounter++}`, description: 'Ward Cost', price: Number(dischargeCosts.ward), qty: 1, total: Number(dischargeCosts.ward) });
       if (Number(dischargeCosts.other) > 0) newItems.push({ id: `ITM-${idCounter++}`, description: 'Other Costs', price: Number(dischargeCosts.other), qty: 1, total: Number(dischargeCosts.other) });
-      
+
       setItems(newItems);
-      
+
       if (claimData.balance <= 0) {
         setIsInsurancePaid(true);
       }
@@ -115,7 +124,7 @@ export const IPBilling = () => {
       console.error("Failed to fetch admissions", error);
     }
   };
-  
+
   const fetchPatientMobile = async (uhid: string) => {
     try {
       // Find patient from registration
@@ -133,8 +142,38 @@ export const IPBilling = () => {
   const filteredSuggestions = admissions.filter(p => {
     const sId = (searchId || '').toLowerCase();
     return (p.uhid?.toLowerCase() || '').includes(sId) ||
-           (p.patientName?.toLowerCase() || '').includes(sId) ||
-           (p.admissionNumber?.toLowerCase() || '').includes(sId);
+      (p.patientName?.toLowerCase() || '').includes(sId) ||
+      (p.admissionNumber?.toLowerCase() || '').includes(sId);
+  });
+
+  const pendingDischarges = admissions.filter(p => {
+    if (p.status !== 'Discharged' && p.status !== 'Discharge Requested') return false;
+
+    // Assume billed if there's any bill for this UHID with a BillDate >= admissionDate
+    const hasBill = bills.some(b =>
+      b.Uhid === p.uhid &&
+      new Date(b.BillDate) >= new Date(p.admissionDate) &&
+      (b.PaymentStatus === 'Paid' || b.PaymentStatus === 'Pending') // IP Bills usually just mean it's billed
+    );
+
+    if (hasBill) return false;
+    if (!dateFrom || !dateTo) return true;
+
+    // Use dischargeDate if available, else admissionDate
+    const dateToCheck = p.dischargeInfo?.dischargeDate || p.admissionDate;
+    if (dateToCheck) {
+      const visitDate = new Date(dateToCheck);
+      const localDateStr = visitDate.getFullYear() + '-' + String(visitDate.getMonth() + 1).padStart(2, '0') + '-' + String(visitDate.getDate()).padStart(2, '0');
+      return localDateStr >= dateFrom && localDateStr <= dateTo;
+    }
+    return true;
+  });
+
+  const filteredBills = bills.filter(bill => {
+    if (!dateFrom || !dateTo) return true;
+    const billDate = new Date(bill.BillDate);
+    const localDateStr = billDate.getFullYear() + '-' + String(billDate.getMonth() + 1).padStart(2, '0') + '-' + String(billDate.getDate()).padStart(2, '0');
+    return localDateStr >= dateFrom && localDateStr <= dateTo;
   });
 
   const selectPatient = (patient: any) => {
@@ -145,7 +184,7 @@ export const IPBilling = () => {
 
   const handleSearch = (idToSearch?: any) => {
     const query = (typeof idToSearch === 'string' ? idToSearch : searchId || '').toLowerCase();
-    const foundIPD = admissions.find(p => 
+    const foundIPD = admissions.find(p =>
       (p.uhid?.toLowerCase() || '') === query ||
       (p.patientName?.toLowerCase() || '') === query ||
       (p.admissionNumber?.toLowerCase() || '') === query
@@ -154,9 +193,9 @@ export const IPBilling = () => {
       setSearchId(foundIPD.uhid || '');
       setPatientName(foundIPD.patientName);
       setSelectedPatientId(foundIPD.uhid);
-      
+
       fetchPatientMobile(foundIPD.uhid);
-      
+
       const stayDays = foundIPD.expectedStayDays || 1;
       const newItems = [
         { id: 'ITM-001', description: `Room Charges (${stayDays} Days)`, price: 1500, qty: stayDays, total: 1500 * stayDays },
@@ -195,10 +234,10 @@ export const IPBilling = () => {
       alert('Please select a patient and add items first.');
       return;
     }
-    
+
     let validMobile = mobileNumber;
     if (!validMobile || validMobile.length !== 10) {
-      validMobile = "9999999999"; 
+      validMobile = "9999999999";
     }
 
     const payload = {
@@ -227,7 +266,7 @@ export const IPBilling = () => {
     try {
       const response = await axios.post(`${API_BASE}/ip-billing/`, payload);
       setSuccessMsg(`Bill ${response.data.BillNumber} generated successfully for ${patientName}!`);
-      
+
       setPatientName('');
       setSearchId('');
       setSelectedPatientId('');
@@ -235,9 +274,9 @@ export const IPBilling = () => {
       setItems([]);
       setIsInsurancePaid(false);
       setInsuranceDetails(null);
-      
+
       fetchBills();
-      
+
       setTimeout(() => setSuccessMsg(''), 4000);
     } catch (error: any) {
       console.error("Error generating IP bill:", error);
@@ -259,56 +298,103 @@ export const IPBilling = () => {
               <span className="text-sm font-semibold">{successMsg}</span>
             </div>
           )}
-          <div className="max-w-xl" ref={wrapperRef}>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Search by IP ID / UHID / Name</label>
-            <div className="relative flex gap-2">
-              <div className="flex-1 flex border border-slate-200 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all">
-                <span className="bg-primary/10 px-4 py-3 text-primary font-bold text-sm border-r border-slate-200 flex items-center">
-                  ID
-                </span>
-                <input
-                  type="text"
-                  placeholder="Type 'IP' to see suggestions..."
-                  className="flex-1 px-4 py-3 text-sm focus:outline-none"
-                  value={searchId}
-                  onChange={e => { setSearchId(e.target.value); setShowSuggestions(true); }}
-                  onFocus={() => setShowSuggestions(true)}
-                  onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                />
-              </div>
-              <button onClick={handleSearch} className="bg-primary text-white px-5 py-3 rounded-lg hover:bg-primary/90 transition-colors shrink-0">
-                <Search className="w-5 h-5" />
-              </button>
-              {showSuggestions && searchId && (
-                <div className="absolute top-full left-0 right-14 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden z-50">
-                  {filteredSuggestions.length > 0 ? (
-                    <ul className="max-h-60 overflow-y-auto">
-                      {filteredSuggestions.map(p => (
-                        <li key={p.uhid} onClick={() => selectPatient(p)}
-                          className="px-4 py-3 hover:bg-primary/5 cursor-pointer flex items-center gap-3 border-b border-slate-50 last:border-0 transition-colors">
-                          <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                            <Bed className="w-4 h-4" />
-                          </div>
-                          <div>
-                            <p className="text-sm font-bold text-slate-800">{p.patientName}</p>
-                            <p className="text-xs text-slate-500">{p.uhid} · Ward {p.currentWardId} · {p.expectedStayDays || 1} days</p>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <div className="px-4 py-3 text-sm text-slate-500">No matching patients found.</div>
-                  )}
+          <div className="flex flex-col md:flex-row gap-4 items-end justify-between w-full">
+            <div className="max-w-xl w-full" ref={wrapperRef}>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Search by IP ID / UHID / Name</label>
+              <div className="relative flex gap-2">
+                <div className="flex-1 flex border border-slate-200 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all">
+                  <span className="bg-primary/10 px-4 py-3 text-primary font-bold text-sm border-r border-slate-200 flex items-center">
+                    ID
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="Type UHID or patient name..."
+                    className="flex-1 px-4 py-3 text-sm focus:outline-none"
+                    value={searchId}
+                    onChange={e => { setSearchId(e.target.value); setShowSuggestions(true); }}
+                    onFocus={() => setShowSuggestions(true)}
+                    onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                  />
                 </div>
-              )}
+                <button onClick={handleSearch} className="bg-primary text-white px-5 py-3 rounded-lg hover:bg-primary/90 transition-colors shrink-0">
+                  <Search className="w-5 h-5" />
+                </button>
+                {showSuggestions && searchId && (
+                  <div className="absolute top-full left-0 right-14 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden z-50">
+                    {filteredSuggestions.length > 0 ? (
+                      <ul className="max-h-60 overflow-y-auto">
+                        {filteredSuggestions.map(p => (
+                          <li key={p.uhid} onClick={() => selectPatient(p)}
+                            className="px-4 py-3 hover:bg-primary/5 cursor-pointer flex items-center gap-3 border-b border-slate-50 last:border-0 transition-colors">
+                            <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                              <Bed className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold text-slate-800">{p.patientName}</p>
+                              <p className="text-xs text-slate-500">{p.uhid} · Ward {p.currentWardId} · {p.expectedStayDays || 1} days</p>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <div className="px-4 py-3 text-sm text-slate-500">No matching patients found.</div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="shrink-0">
+              <label className="block text-sm font-medium text-slate-700 mb-2">Filter Recent Bills</label>
+              <DateFilter
+                dateFrom={dateFrom}
+                dateTo={dateTo}
+                onDateFromChange={setDateFrom}
+                onDateToChange={setDateTo}
+                defaultDateFrom={todayStr}
+                defaultDateTo={todayStr}
+              />
             </div>
           </div>
 
           {!patientName ? (
-            <div className="border-2 border-dashed border-slate-200 rounded-xl p-16 flex flex-col items-center justify-center text-slate-400 bg-slate-50/50">
-              <Bed className="w-12 h-12 mb-3 opacity-30" />
-              <p className="text-sm font-medium">Search for an IP ID above to load patient admission and charge details.</p>
-            </div>
+            pendingDischarges.length > 0 ? (
+              <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-emerald-500" />
+                  Pending Discharges
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {pendingDischarges.map((adm, idx) => (
+                    <div
+                      key={idx}
+                      onClick={() => selectPatient(adm)}
+                      className="bg-white border border-slate-200 p-5 rounded-xl hover:border-primary/50 hover:shadow-md transition-all cursor-pointer group"
+                    >
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-bold text-slate-900 group-hover:text-primary transition-colors">{adm.patientName}</p>
+                          <p className="text-xs text-slate-500 mt-1">
+                            {adm.admissionNumber} • {adm.uhid}
+                          </p>
+                          <p className="text-xs text-slate-500 mt-0.5 text-ellipsis overflow-hidden whitespace-nowrap max-w-[250px]">
+                            {adm.specialty} • {adm.admittingDoctor}
+                          </p>
+                        </div>
+                        <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                          <Plus className="w-4 h-4" />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="border-2 border-dashed border-slate-200 rounded-xl p-16 flex flex-col items-center justify-center text-slate-400 bg-slate-50/50">
+                <Bed className="w-12 h-12 mb-3 opacity-30" />
+                <p className="text-sm font-medium">Search for an IP ID above to load patient admission and charge details.</p>
+              </div>
+            )
           ) : (
             <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
               <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex items-center gap-3">
@@ -438,9 +524,9 @@ export const IPBilling = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {bills.length === 0 ? (
-              <tr><td colSpan={8} className="px-6 py-10 text-center text-slate-400">No recent IP bills found.</td></tr>
-            ) : bills.map((bill, idx) => (
+            {filteredBills.length === 0 ? (
+              <tr><td colSpan={8} className="px-6 py-10 text-center text-slate-400">No recent IP bills found for the selected dates.</td></tr>
+            ) : filteredBills.map((bill, idx) => (
               <tr key={bill.IpBillId || idx} className="hover:bg-slate-50">
                 <td className="px-6 py-4 font-mono font-medium text-slate-900">{bill.BillNumber}</td>
                 <td className="px-6 py-4 font-mono text-slate-500 text-xs">{bill.Uhid}</td>

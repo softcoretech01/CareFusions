@@ -327,27 +327,27 @@ export const ReceptionistMaster = () => {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <select
                       value={filterCounter}
-                      onChange={(e) => setFilterCounter(e.target.value)}
+                      onChange={(e) => { setFilterCounter(e.target.value); setCurrentPage(1); }}
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     >
                       <option value="">All Counters</option>
-                      <option value="Front Desk A">Front Desk A</option>
-                      <option value="Front Desk B">Front Desk B</option>
-                      <option value="Emergency Counter">Emergency Counter</option>
+                      {Array.from(new Set(records.map(r => r.counter).filter(Boolean))).map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
                     </select>
                     <select
                       value={filterShift}
-                      onChange={(e) => setFilterShift(e.target.value)}
+                      onChange={(e) => { setFilterShift(e.target.value); setCurrentPage(1); }}
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     >
                       <option value="">All Shifts</option>
-                      <option value="Morning">Morning</option>
-                      <option value="Evening">Evening</option>
-                      <option value="Night">Night</option>
+                      {Array.from(new Set(records.map(r => r.shift).filter(Boolean))).map(s => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
                     </select>
                     <select
                       value={filterStatus}
-                      onChange={(e) => setFilterStatus(e.target.value)}
+                      onChange={(e) => { setFilterStatus(e.target.value); setCurrentPage(1); }}
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     >
                       <option value="">All Statuses</option>

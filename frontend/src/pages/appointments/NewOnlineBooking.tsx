@@ -50,7 +50,7 @@ function isSlotInPast(dateStr: string, timeStr: string): boolean {
 export const NewOnlineBooking = () => {
   const { addAppointment, appointments, generateAppointmentNumber } = useAppointments();
   const { getDoctorsWithAvailability, doctorSchedules } = useDoctorSchedules();
-  const { patients, addPatient, generateUhid } = usePatients();
+  const { patients, addPatient } = usePatients();
   const navigate = useNavigate();
 
   const [step, setStep] = useState(1);
@@ -59,8 +59,6 @@ export const NewOnlineBooking = () => {
   const [selectedPatient, setSelectedPatient] = useState<GlobalPatientRecord | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
 
-  // Provisional UHID for a new patient — computed once, shown in the field, and
-  // used on confirm so the displayed value is exactly what gets saved.
   // A new patient's UHID is assigned by the backend when they're registered on
   // booking (see handleConfirm) — it is NOT invented on the client. The old code
   // generated a UHID here, which collided (every new patient got UHID-…-0001).
@@ -163,7 +161,7 @@ export const NewOnlineBooking = () => {
         if (!res.ok) throw new Error(await res.text());
         const created = await res.json();
         uhidToUse = created.Uhid;
-      } catch {
+      } catch (e) {
         setSaving(false);
         toast.error('Could not register the new patient. Please try again.');
         return;
@@ -337,7 +335,7 @@ export const NewOnlineBooking = () => {
               {!selectedPatient && (
                 <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-600">
                   <UserPlus className="w-3.5 h-3.5" />
-                  <span>New patient — UHID {generateUhid()} will be registered on booking</span>
+                  <span>New patient — a UHID will be auto-generated and registered on booking</span>
                 </div>
               )}
             </div>
@@ -357,7 +355,7 @@ export const NewOnlineBooking = () => {
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">UHID</label>
                   <input
                     type="text"
-                    value={selectedPatient ? selectedPatient.uhid : generateUhid()}
+                    value={selectedPatient ? selectedPatient.uhid : 'Auto-generated on booking'}
                     readOnly
                     disabled
                     className="w-full px-4 py-2.5 border rounded-xl text-sm bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed font-mono font-semibold"
@@ -631,7 +629,7 @@ export const NewOnlineBooking = () => {
               selectedPatient ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-amber-50 text-amber-700 border border-amber-200'
             }`}>
               {selectedPatient ? <UserCheck className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
-              {selectedPatient ? `Existing Patient · UHID: ${selectedPatient.uhid}` : `New Patient · UHID: ${generateUhid()}`}
+              {selectedPatient ? `Existing Patient · UHID: ${selectedPatient.uhid}` : 'New Patient · UHID will be auto-generated'}
             </div>
 
             <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200 grid grid-cols-2 gap-y-5 gap-x-8 max-w-2xl mx-auto">
