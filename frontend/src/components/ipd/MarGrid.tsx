@@ -37,7 +37,6 @@ export const MarGrid: React.FC<MarGridProps> = ({ patientId }) => {
     route: 'Oral'
   });
 
-
   const fetchMedications = async () => {
     setIsLoading(true);
     try {
