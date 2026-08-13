@@ -102,6 +102,30 @@ def get_quick_registrations(db: Session = Depends(get_db)):
     rows = _call_sp(db, "SELECT_ALL")
     return rows
 
+@router.get("/next-uhid")
+def get_next_uhid(db: Session = Depends(get_db)):
+    """Preview the UHID the next quick registration will get.
+
+    Mirrors SpQuickRegistration: UHID-<year>-Q<QuickRegistrationId>, where the id
+    is the table's next AUTO_INCREMENT. Declared BEFORE /{id} so "next-uhid" is
+    not parsed as an id. Provisional — the definitive UHID is assigned on insert.
+    """
+    try:
+        year = db.execute(text("SELECT YEAR(CURDATE())")).scalar()
+        nxt = db.execute(text(
+            "SELECT AUTO_INCREMENT FROM information_schema.TABLES "
+            "WHERE TABLE_SCHEMA = 'registration' AND TABLE_NAME = 'QuickRegistration'"
+        )).scalar()
+        if not nxt:
+            nxt = db.execute(text(
+                "SELECT COALESCE(MAX(QuickRegistrationId), 0) + 1 FROM registration.QuickRegistration"
+            )).scalar()
+        seq = int(nxt or 1)
+        return {"uhid": f"UHID-{year}-Q{seq:04d}", "nextId": seq}
+    except Exception:
+        raise HTTPException(status_code=500, detail="Failed to generate next UHID")
+
+
 @router.get("/{id}", response_model=QuickRegistrationResponse)
 def get_quick_registration(id: int, db: Session = Depends(get_db)):
     rows = _call_sp(db, "SELECT_BY_ID", record_id=id)

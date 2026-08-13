@@ -37,20 +37,6 @@ export const MarGrid: React.FC<MarGridProps> = ({ patientId }) => {
     route: 'Oral'
   });
 
-  // Medicines come from the Pharmacy Medicine Master (/medicines), Active only,
-  // instead of a hardcoded list — so the dropdown reflects the pharmacy catalogue.
-  const [medicines, setMedicines] = useState<any[]>([]);
-  useEffect(() => {
-    fetch(`${API_BASE}/medicines`)
-      .then(r => (r.ok ? r.json() : []))
-      .then((data: any[]) =>
-        setMedicines(
-          (Array.isArray(data) ? data : []).filter(m => m.status === 'Active' || m.status === 'active'),
-        ),
-      )
-      .catch(e => console.error('[MAR] medicine master load failed', e));
-  }, []);
-
   const fetchMedications = async () => {
     setIsLoading(true);
     try {

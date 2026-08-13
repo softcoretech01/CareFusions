@@ -63,6 +63,8 @@ export const NewOnlineBooking = () => {
   // booking (see handleConfirm) — it is NOT invented on the client. The old code
   // generated a UHID here, which collided (every new patient got UHID-…-0001).
   const [saving, setSaving] = useState(false);
+  // Provisional preview of the UHID the backend will assign on booking.
+  const [nextUhid, setNextUhid] = useState('');
 
   const [formData, setFormData] = useState({
     patientName: '',
@@ -75,6 +77,19 @@ export const NewOnlineBooking = () => {
     date: new Date().toISOString().split('T')[0],
     timeSlot: '',
   });
+
+  // Fetch the next UHID (quick-registration format) so it can be previewed.
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/quick-registrations/next-uhid`);
+        if (res.ok) {
+          const data = await res.json();
+          setNextUhid(data.uhid ?? '');
+        }
+      } catch { /* offline — field falls back to placeholder text */ }
+    })();
+  }, []);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -335,7 +350,7 @@ export const NewOnlineBooking = () => {
               {!selectedPatient && (
                 <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-600">
                   <UserPlus className="w-3.5 h-3.5" />
-                  <span>New patient — a UHID will be auto-generated and registered on booking</span>
+                  <span>New patient — UHID <span className="font-mono font-bold">{nextUhid || '…'}</span> will be registered on booking</span>
                 </div>
               )}
             </div>
@@ -355,7 +370,7 @@ export const NewOnlineBooking = () => {
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">UHID</label>
                   <input
                     type="text"
-                    value={selectedPatient ? selectedPatient.uhid : 'Auto-generated on booking'}
+                    value={selectedPatient ? selectedPatient.uhid : (nextUhid || 'Auto-generating…')}
                     readOnly
                     disabled
                     className="w-full px-4 py-2.5 border rounded-xl text-sm bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed font-mono font-semibold"
@@ -629,7 +644,7 @@ export const NewOnlineBooking = () => {
               selectedPatient ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-amber-50 text-amber-700 border border-amber-200'
             }`}>
               {selectedPatient ? <UserCheck className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
-              {selectedPatient ? `Existing Patient · UHID: ${selectedPatient.uhid}` : 'New Patient · UHID will be auto-generated'}
+              {selectedPatient ? `Existing Patient · UHID: ${selectedPatient.uhid}` : `New Patient · UHID: ${nextUhid || '…'}`}
             </div>
 
             <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200 grid grid-cols-2 gap-y-5 gap-x-8 max-w-2xl mx-auto">
