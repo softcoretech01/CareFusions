@@ -78,6 +78,8 @@ const mapNew = (r: any): GlobalPatientRecord => ({
   department: r.Department,
   doctor: r.PrimaryDoctor,
   bloodGroup: r.BloodGroup,
+  insuranceProviderId: r.InsuranceProvider,
+  policyNumber: r.PolicyNumber,
 });
 
 const mapQuick = (r: any): GlobalPatientRecord => ({

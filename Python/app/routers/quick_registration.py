@@ -106,7 +106,7 @@ def get_quick_registrations(db: Session = Depends(get_db)):
 def get_next_uhid(db: Session = Depends(get_db)):
     """Preview the UHID the next quick registration will get.
 
-    Mirrors SpQuickRegistration: UHID-<year>-Q<QuickRegistrationId>, where the id
+    Mirrors SpQuickRegistration: UHID-<year>-<QuickRegistrationId>, where the id
     is the table's next AUTO_INCREMENT. Declared BEFORE /{id} so "next-uhid" is
     not parsed as an id. Provisional — the definitive UHID is assigned on insert.
     """
@@ -121,7 +121,7 @@ def get_next_uhid(db: Session = Depends(get_db)):
                 "SELECT COALESCE(MAX(QuickRegistrationId), 0) + 1 FROM registration.QuickRegistration"
             )).scalar()
         seq = int(nxt or 1)
-        return {"uhid": f"UHID-{year}-Q{seq:04d}", "nextId": seq}
+        return {"uhid": f"UHID-{year}-{seq:04d}", "nextId": seq}
     except Exception:
         raise HTTPException(status_code=500, detail="Failed to generate next UHID")
 

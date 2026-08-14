@@ -299,6 +299,65 @@ def create_document(payload: DocumentCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail="Failed to post stock movement")
 
 
+@router.put("/documents/{doc_id}")
+def update_document(doc_id: int, payload: DocumentCreate, db: Session = Depends(get_db)):
+    """Update a stock movement document.
+    
+    Note: Since stock movements are immediately posted to the ledger, this endpoint
+    only updates the document metadata and items for correction purposes. It does NOT
+    reverse or recalculate the stock ledger or lot quantities.
+    """
+    try:
+        doc = db.execute(text("SELECT * FROM inventory.Inventory_Document WHERE DocId = :doc_id"), {"doc_id": doc_id}).fetchone()
+        if not doc:
+            raise HTTPException(status_code=404, detail="Document not found")
+            
+        db.execute(text("""
+            UPDATE inventory.Inventory_Document
+            SET DepartmentName = :dept, VendorName = :vendor, ReferenceNo = :ref,
+                RequestedBy = :req, ApprovedBy = :app, Reason = :reason, Remarks = :rem
+            WHERE DocId = :doc_id
+        """), {
+            "dept": payload.departmentName, "vendor": payload.vendorName,
+            "ref": payload.referenceNo, "req": payload.requestedBy,
+            "app": payload.approvedBy, "reason": payload.reason,
+            "rem": payload.remarks, "doc_id": doc_id
+        })
+        
+        db.execute(text("DELETE FROM inventory.Inventory_DocumentItem WHERE DocId = :doc_id"), {"doc_id": doc_id})
+        
+        for i in payload.items:
+            db.execute(text("""
+                INSERT INTO inventory.Inventory_DocumentItem 
+                (DocId, ItemId, ItemName, BatchNo, MfgDate, ExpiryDate, Quantity, Rate, Value, Uom, Remarks)
+                SELECT :doc_id, :item_id, COALESCE(ItemName, 'Unknown'), :batch, :mfg, :exp, :qty, :rate, :val, 
+                       COALESCE(:uom, Uom), :rem
+                FROM admin.Master_Item WHERE ItemId = :item_id
+            """), {
+                "doc_id": doc_id, "item_id": i.itemId, 
+                "batch": i.batchNo or "-", "mfg": i.mfgDate, "exp": i.expiryDate,
+                "qty": i.quantity, "rate": i.rate or 0, "val": i.quantity * (i.rate or 0),
+                "uom": i.uom, "rem": i.remarks or ""
+            })
+            
+        db.execute(text("""
+            UPDATE inventory.Inventory_Document d
+            SET TotalItems = (SELECT COUNT(*) FROM inventory.Inventory_DocumentItem WHERE DocId = :doc_id),
+                TotalQty   = (SELECT COALESCE(SUM(ABS(Quantity)), 0) FROM inventory.Inventory_DocumentItem WHERE DocId = :doc_id),
+                TotalValue = (SELECT COALESCE(SUM(ABS(Value)), 0) FROM inventory.Inventory_DocumentItem WHERE DocId = :doc_id)
+            WHERE d.DocId = :doc_id
+        """), {"doc_id": doc_id})
+        
+        db.commit()
+        return {"message": "Document updated"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"[PUT /inventory/documents/{doc_id}] {e}")
+        raise HTTPException(status_code=500, detail="Failed to update document")
+
+
 @router.delete("/documents/{doc_id}")
 def delete_document(doc_id: int, db: Session = Depends(get_db)):
     """Remove a movement document. Stock is NOT reversed — post a correcting

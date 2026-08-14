@@ -202,11 +202,13 @@ interface InventoryContextType {
   loading: boolean;
   error: string | null;
   clearError: () => void;
-  refresh: () => Promise<void>;
+  /** Re-fetch everything. Pass silent=true to skip the loading flag (background sync). */
+  refresh: (silent?: boolean) => Promise<void>;
   hasLoaded: boolean;
   /** Lots issuable from a store, nearest expiry first. */
   getIssuableLots: (storeId: number) => Promise<IssuableLot[]>;
   postDocument: (input: PostDocumentInput) => Promise<{ docNumber: string } | null>;
+  updateDocument: (docId: number, input: PostDocumentInput) => Promise<boolean>;
   deleteDocument: (docId: number) => Promise<boolean>;
 }
 
@@ -232,9 +234,11 @@ export const InventoryProvider = ({ children }: { children: ReactNode }) => {
 
   // Everything is owned by the backend (inventory schema). Stock, ledger and
   // documents always move together because the SP posts them in one call.
-  const refresh = useCallback(async () => {
-    if (hasLoaded) return;
-    setLoading(true);
+  const refresh = useCallback(async (silent = false) => {
+    // Always re-fetch. The initial-load guard lives in the useInventory() loader
+    // below; if refresh() short-circuited on hasLoaded, a post/delete could never
+    // re-sync and newly added data only appeared after a full page reload.
+    if (!silent) setLoading(true);
     const get = (path: string) => fetch(`${INV}/${path}`).then(r => r.json());
     const [st, it, lots, docs, led, low, exp, val, dash] = await Promise.allSettled([
       get('stores'), get('items'), get('stock'), get('documents'), get('ledger'),
@@ -253,11 +257,21 @@ export const InventoryProvider = ({ children }: { children: ReactNode }) => {
     ok<ValuationRow[]>(val, setValuation);
     if (dash.status === 'fulfilled' && dash.value && !Array.isArray(dash.value)) setDashboard(dash.value);
     if (lots.status === 'rejected') console.error('[Inventory] stock load failed', lots.reason);
-    setLoading(false);
+    if (!silent) setLoading(false);
     setHasLoaded(true);
-  }, [hasLoaded]);
+  }, []);
 
-  // Removed automatic useEffect for refresh
+  // Re-sync silently when the user returns to the tab/window, so data added
+  // elsewhere (another module or tab) shows without a manual reload.
+  useEffect(() => {
+    const sync = () => { if (!document.hidden) refresh(true); };
+    window.addEventListener('focus', sync);
+    document.addEventListener('visibilitychange', sync);
+    return () => {
+      window.removeEventListener('focus', sync);
+      document.removeEventListener('visibilitychange', sync);
+    };
+  }, [refresh]);
 
   const getIssuableLots = useCallback(async (storeId: number): Promise<IssuableLot[]> => {
     try {
@@ -295,6 +309,28 @@ export const InventoryProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const updateDocument = async (docId: number, input: PostDocumentInput) => {
+    setError(null);
+    try {
+      const res = await fetch(`${INV}/documents/${docId}`, {
+        method: 'PUT', headers: JSON_HEADERS, body: JSON.stringify(input),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        const detail = Array.isArray(body?.detail)
+          ? body.detail.map((d: any) => d.msg).join('; ')
+          : body?.detail || 'Failed to update document';
+        throw new Error(detail);
+      }
+      await refresh();
+      return true;
+    } catch (e: any) {
+      console.error('[Inventory] update document failed', e);
+      setError(e.message || 'Failed to update document');
+      return false;
+    }
+  };
+
   const deleteDocument = async (docId: number) => {
     try {
       const res = await fetch(`${INV}/documents/${docId}`, { method: 'DELETE' });
@@ -311,7 +347,7 @@ export const InventoryProvider = ({ children }: { children: ReactNode }) => {
     <InventoryContext.Provider
       value={{
         stores, items, stock, documents, ledger, lowStock, expiring, valuation, dashboard,
-        loading, hasLoaded, error, clearError, refresh, getIssuableLots, postDocument, deleteDocument,
+        loading, hasLoaded, error, clearError, refresh, getIssuableLots, postDocument, updateDocument, deleteDocument,
       }}
     >
       {children}

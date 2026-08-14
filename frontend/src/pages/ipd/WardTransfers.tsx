@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Pagination } from '@/components/ui/Pagination';
 import { usePagination } from '@/hooks/usePagination';
 import { useIPD } from '../../contexts/IPDContext';
-import { Search, Plus, Eye, Pencil, X, ArrowRightLeft } from 'lucide-react';
+import { Search, Plus, Eye, Pencil, X, ArrowRightLeft, Bed, CheckCircle2 } from 'lucide-react';
 import { Modal } from '../../components/ui/Modal';
 import { DateFilter } from '../../components/ui/DateFilter';
 import { IpdErrorBanner } from './IpdErrorBanner';
@@ -60,6 +60,7 @@ export const WardTransfers = () => {
   const [selectedPatientId, setSelectedPatientId] = useState<number | null>(null);
   const [transferForm, setTransferForm] = useState({
     targetWardId: '',
+    targetRoomNumber: '',
     targetBedId: '',
     reason: ''
   });
@@ -119,7 +120,6 @@ export const WardTransfers = () => {
   const selectedPatient = patients.find(p => p.id === selectedPatientId);
   const currentWard = wards.find(w => w.id === selectedPatient?.currentWardId);
   const currentBed = beds.find(b => b.id === selectedPatient?.currentBedId);
-  const availableBeds = beds.filter(b => b.wardId === Number(transferForm.targetWardId) && b.status === 'Available');
 
   const handleTransfer = (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,9 +130,20 @@ export const WardTransfers = () => {
     allocateBed(selectedPatientId, Number(transferForm.targetBedId), transferForm.reason);
     toast.success('Patient transferred successfully!');
     setSelectedPatientId(null);
-    setTransferForm({ targetWardId: '', targetBedId: '', reason: '' });
+    setTransferForm({ targetWardId: '', targetRoomNumber: '', targetBedId: '', reason: '' });
     setShowModal(false);
   };
+
+  const roomsInTargetWard = useMemo(() => {
+    if (!transferForm.targetWardId) return [];
+    const bedsInWard = beds.filter(b => b.wardId === Number(transferForm.targetWardId));
+    return Array.from(new Set(bedsInWard.map(b => b.roomNumber)));
+  }, [transferForm.targetWardId, beds]);
+
+  const bedsInTargetRoom = useMemo(() => {
+    if (!transferForm.targetWardId || !transferForm.targetRoomNumber) return [];
+    return beds.filter(b => b.wardId === Number(transferForm.targetWardId) && b.roomNumber === transferForm.targetRoomNumber);
+  }, [transferForm.targetWardId, transferForm.targetRoomNumber, beds]);
 
   const openViewModal = (t: TransferWithPatient) => {
     setViewTransfer(t);
@@ -165,7 +176,7 @@ export const WardTransfers = () => {
         <button
           onClick={() => {
             setSelectedPatientId(null);
-            setTransferForm({ targetWardId: '', targetBedId: '', reason: '' });
+            setTransferForm({ targetWardId: '', targetRoomNumber: '', targetBedId: '', reason: '' });
             setShowModal(true);
           }}
           className="px-4 py-2 bg-primary text-white font-bold rounded-xl flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-sm"
@@ -293,35 +304,76 @@ export const WardTransfers = () => {
             </div>
           )}
 
-          <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Target Ward</label>
-            <select
-              value={transferForm.targetWardId}
-              onChange={e => setTransferForm({ ...transferForm, targetWardId: e.target.value, targetBedId: '' })}
-              className={inputCls}
-              required
-            >
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Target Ward</label>
+              <select
+                value={transferForm.targetWardId}
+                onChange={e => setTransferForm({ ...transferForm, targetWardId: e.target.value, targetRoomNumber: '', targetBedId: '' })}
+                className={inputCls}
+                required
+              >
               <option value="">Select Target Ward</option>
-              {wards.filter(w => 
-                w.id !== currentWard?.id && 
-                (w.genderRestriction === 'Any' || w.genderRestriction === selectedPatient?.gender)
-              ).map(w => <option key={w.id} value={w.id}>{w.name} ({w.type})</option>)}
+              {wards
+                .filter(w => w.genderRestriction === 'Any' || w.genderRestriction === selectedPatient?.gender)
+                .map(w => <option key={w.id} value={w.id}>{w.name} ({w.type})</option>)}
             </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Target Room</label>
+              <select
+                value={transferForm.targetRoomNumber}
+                onChange={e => setTransferForm({ ...transferForm, targetRoomNumber: e.target.value, targetBedId: '' })}
+                className={inputCls}
+                required
+                disabled={!transferForm.targetWardId}
+              >
+                <option value="">Select Room</option>
+                {roomsInTargetWard.map(room => <option key={room} value={room}>{room}</option>)}
+              </select>
+            </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Target Bed</label>
-            <select
-              value={transferForm.targetBedId}
-              onChange={e => setTransferForm({ ...transferForm, targetBedId: e.target.value })}
-              className={inputCls}
-              required
-              disabled={!transferForm.targetWardId}
-            >
-              <option value="">Select Bed</option>
-              {availableBeds.map(b => <option key={b.id} value={b.id}>{b.bedNumber} (Room {b.roomNumber})</option>)}
-            </select>
-          </div>
+          {/* Visual Bed Selection */}
+          {transferForm.targetRoomNumber && (
+            <div className="border border-slate-100 bg-slate-50/50 rounded-xl p-3">
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Select an Available Bed</h3>
+              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                {bedsInTargetRoom.map(bed => {
+                  const isAvailable = bed.status === 'Available';
+                  const isSelected = transferForm.targetBedId === String(bed.id);
+                  return (
+                    <div
+                      key={bed.id}
+                      onClick={() => { if (isAvailable) setTransferForm({ ...transferForm, targetBedId: String(bed.id) }); }}
+                      className={`relative flex flex-col items-center justify-center p-2 rounded-xl border-2 transition-all ${isAvailable
+                          ? isSelected
+                            ? 'border-primary bg-primary/5 cursor-pointer shadow-sm'
+                            : 'border-slate-200 bg-white hover:border-primary/50 cursor-pointer hover:shadow-sm'
+                          : 'border-red-100 bg-red-50/50 cursor-not-allowed opacity-75'
+                        }`}
+                    >
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center mb-1 ${isAvailable ? (isSelected ? 'bg-primary text-white' : 'bg-slate-100 text-slate-500') : 'bg-red-100 text-red-500'
+                        }`}>
+                        <Bed className="w-4 h-4" />
+                      </div>
+                      <span className={`font-bold text-xs ${isSelected ? 'text-primary' : 'text-slate-700'}`}>{bed.bedNumber}</span>
+                      <span className={`text-[9px] uppercase tracking-wider font-bold mt-0.5 px-1.5 py-0.5 rounded-full ${isAvailable ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
+                        }`}>
+                        {bed.status}
+                      </span>
+                      {isSelected && (
+                        <div className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-primary text-white rounded-full flex items-center justify-center shadow-sm">
+                          <CheckCircle2 className="w-3 h-3" />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Reason for Transfer</label>

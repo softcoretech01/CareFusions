@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Pagination } from '@/components/ui/Pagination';
 import { usePagination } from '@/hooks/usePagination';
-import { Search, Plus, FileText, CheckCircle, Clock, Ban, X, AlertCircle, Edit, Trash2, IndianRupee } from 'lucide-react';
+import { Search, Plus, FileText, CheckCircle, Clock, Ban, X, AlertCircle, Edit, Trash2, IndianRupee, UploadCloud } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useInsurance } from '../../contexts/InsuranceContext';
 import { useIPD } from '../../contexts/IPDContext';
 
+const API_BASE = import.meta.env.VITE_API_URL as string;
 const inr = (n: number) => `₹${(n ?? 0).toLocaleString('en-IN')}`;
 const TABS = ['All', 'Submitted', 'In Process', 'Settled', 'Denied'] as const;
 
@@ -31,6 +32,10 @@ export const ClaimsManagement = () => {
   const [approvedInput, setApprovedInput] = useState('');
   const [denyReason, setDenyReason] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
+  // Attached documents are captured client-side; no claim-document endpoint yet.
+  const [claimDocs, setClaimDocs] = useState<File[]>([]);
+  // Real IP bills (hospital.Ip_Bill) — the discharge breakdown is read from here.
+  const [ipBills, setIpBills] = useState<any[]>([]);
 
   const [form, setForm] = useState({
     uhid: '', patient: '', providerId: '', insurer: '',
@@ -38,6 +43,14 @@ export const ClaimsManagement = () => {
   });
 
   useEffect(() => { refresh(); }, [refresh]);
+
+  // Load real IP bills once; the discharge bill for a UHID is matched from these.
+  useEffect(() => {
+    fetch(`${API_BASE}/ip-billing/`)
+      .then(r => (r.ok ? r.json() : []))
+      .then(d => setIpBills(Array.isArray(d) ? d : []))
+      .catch(() => setIpBills([]));
+  }, []);
 
   // Discharged / discharge-requested inpatients are the claimable population.
   const matchedAdmission = useMemo(() => {
@@ -89,6 +102,35 @@ export const ClaimsManagement = () => {
     return true;
   });
 
+  // The patient's actual IP discharge bill (latest one on file for the UHID).
+  const ipBill = useMemo(() => {
+    const u = form.uhid.trim().toLowerCase();
+    if (u.length < 4) return null;
+    const matches = ipBills.filter(b => (b.Uhid || '').toLowerCase() === u);
+    return matches.length ? matches.reduce((a, b) => (b.IpBillId > a.IpBillId ? b : a)) : null;
+  }, [form.uhid, ipBills]);
+
+  // Real discharge bill line-items straight from IP billing — no hardcoded rates.
+  const billItems = useMemo(
+    () => (ipBill?.Items || []).map((it: any) => ({
+      desc: it.ItemDescription, qty: Number(it.Quantity), unit: Number(it.UnitPrice),
+      subtotal: Number(it.Subtotal ?? Number(it.Quantity) * Number(it.UnitPrice)),
+    })),
+    [ipBill],
+  );
+  const calculatedTotal = billItems.reduce((s: number, i: { subtotal: number }) => s + i.subtotal, 0);
+
+  // Total Billed and the patient name come from the matched IP bill.
+  useEffect(() => {
+    if (ipBill) {
+      setForm(prev => ({
+        ...prev,
+        billedAmount: String(Math.round(calculatedTotal)),
+        patient: prev.patient || ipBill.PatientName || '',
+      }));
+    }
+  }, [ipBill, calculatedTotal]);
+
   const billed = Number(form.billedAmount) || 0;
   const claimed = Number(form.claimedAmount) || 0;
   const patientBalance = Math.max(0, billed - claimed);
@@ -108,6 +150,7 @@ export const ClaimsManagement = () => {
   const resetForm = () => {
     setForm({ uhid: '', patient: '', providerId: '', insurer: '', billedAmount: '', preAuthorizedAmount: '', claimedAmount: '' });
     setErrors({});
+    setClaimDocs([]);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -326,104 +369,162 @@ export const ClaimsManagement = () => {
       {/* ── New claim ── */}
       {showNewModal && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[92vh] overflow-y-auto">
-            <div className="px-5 py-3 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 sticky top-0">
-              <h2 className="text-lg font-bold text-slate-800">New Insurance Claim</h2>
-              <button onClick={() => setShowNewModal(false)} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
-                <X className="w-5 h-5 text-slate-500" />
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[92vh] overflow-y-auto custom-scrollbar">
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-start bg-white sticky top-0 z-10">
+              <div>
+                <h2 className="text-xl font-bold text-slate-800">Submit New Claim</h2>
+                <p className="text-xs text-slate-500">Fill in the claim details</p>
+              </div>
+              <button onClick={() => setShowNewModal(false)}
+                className="flex items-center gap-1.5 text-slate-500 hover:text-slate-700 text-sm font-medium">
+                <X className="w-5 h-5" /> Cancel
               </button>
             </div>
-            <form onSubmit={handleSubmit} className="p-5 space-y-3">
-              <div className="grid grid-cols-2 gap-3">
+            <form onSubmit={handleSubmit} className="p-6 space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Patient UHID *</label>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">UHID</label>
                   <input type="text" value={form.uhid}
                     onChange={e => setForm({ ...form, uhid: e.target.value })}
                     className={inputCls('uhid')} placeholder="e.g. UHID-2026-0003" />
                   {errors.uhid && <p className="text-[11px] text-red-500 mt-1">{errors.uhid}</p>}
+                  {form.uhid.trim().length >= 4 && ipBill && (
+                    <p className="text-[11px] text-emerald-600 mt-1.5 flex items-center gap-1">
+                      <CheckCircle className="w-3.5 h-3.5" /> IP Patient found and discharge records loaded.
+                    </p>
+                  )}
+                  {form.uhid.trim().length >= 4 && !ipBill && (
+                    <p className="text-[11px] text-amber-600 mt-1.5 flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5" /> No IP discharge bill found for this UHID.
+                    </p>
+                  )}
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Patient Name *</label>
-                  <input type="text" value={form.patient}
-                    onChange={e => setForm({ ...form, patient: e.target.value.replace(/[^A-Za-z\s.'-]/g, '') })}
-                    className={inputCls('patient')} placeholder="Auto-fills from admission" />
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Patient Name</label>
+                  <input type="text" value={form.patient} readOnly
+                    className={`${inputCls('patient')} bg-slate-100 text-slate-600`}
+                    placeholder="Enter or auto-fetch name" />
                   {errors.patient && <p className="text-[11px] text-red-500 mt-1">{errors.patient}</p>}
                 </div>
               </div>
 
-              {form.uhid.trim().length >= 4 && (
-                matchedAdmission ? (
-                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-800 space-y-0.5">
-                    <p className="font-bold flex items-center gap-1">
-                      <CheckCircle className="w-3.5 h-3.5" /> Linked to admission {matchedAdmission.admissionNumber}
-                    </p>
-                    <p>
-                      {matchedAdmission.status} · {matchedAdmission.specialty || '—'} ·
-                      Expected stay {matchedAdmission.expectedStayDays || 0} day(s)
-                    </p>
-                    <p>Diagnosis: {matchedAdmission.provisionalDiagnosis || '—'}</p>
-                  </div>
-                ) : (
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800 flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 shrink-0" />
-                    No discharged inpatient found for this UHID — the claim will not be linked to an admission.
-                  </div>
-                )
-              )}
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Insurer *</label>
-                  <select value={form.providerId}
-                    onChange={e => setForm({ ...form, providerId: e.target.value })}
-                    className={inputCls('providerId')}>
-                    <option value="">Select Insurer…</option>
-                    {providers.map(p => (
-                      <option key={p.providerId} value={p.providerId}>{p.providerName}</option>
-                    ))}
-                  </select>
-                  {errors.providerId && <p className="text-[11px] text-red-500 mt-1">{errors.providerId}</p>}
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Pre-Authorised Amount (₹)</label>
-                  <input type="text" inputMode="numeric" value={form.preAuthorizedAmount}
-                    onChange={e => setForm({ ...form, preAuthorizedAmount: e.target.value.replace(/\D/g, '') })}
-                    className={inputCls('preAuthorizedAmount')} placeholder="0" />
-                  {relatedPreAuth?.status === 'Approved' && (
-                    <p className="text-[11px] text-emerald-600 mt-1">From approved pre-auth {relatedPreAuth.id}</p>
-                  )}
-                </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Insurance Provider</label>
+                <select value={form.providerId}
+                  onChange={e => setForm({ ...form, providerId: e.target.value })}
+                  className={inputCls('providerId')}>
+                  <option value="">Select Insurer…</option>
+                  {providers.map(p => (
+                    <option key={p.providerId} value={p.providerId}>{p.providerName}</option>
+                  ))}
+                </select>
+                {errors.providerId && <p className="text-[11px] text-red-500 mt-1">{errors.providerId}</p>}
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              {billItems.length > 0 && (
+                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                  <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-primary" />
+                    <h3 className="text-sm font-bold text-slate-800">Discharge Bill Breakdown</h3>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                        <tr>
+                          <th className="px-4 py-2.5 text-left">Item Description</th>
+                          <th className="px-4 py-2.5 text-right">Qty/Days</th>
+                          <th className="px-4 py-2.5 text-right">Unit Price</th>
+                          <th className="px-4 py-2.5 text-right">Total (₹)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {billItems.map((it: { desc: string; qty: number; unit: number; subtotal: number }, idx: number) => (
+                          <tr key={idx}>
+                            <td className="px-4 py-2.5 text-slate-700">{it.desc}</td>
+                            <td className="px-4 py-2.5 text-right text-slate-600">{it.qty}</td>
+                            <td className="px-4 py-2.5 text-right text-slate-600">{it.unit.toLocaleString('en-IN')}</td>
+                            <td className="px-4 py-2.5 text-right font-bold text-slate-800">{it.subtotal.toLocaleString('en-IN')}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot className="bg-emerald-50/60 border-t border-slate-100">
+                        <tr>
+                          <td colSpan={3} className="px-4 py-3 text-right font-bold text-slate-700">Calculated Total Bill</td>
+                          <td className="px-4 py-3 text-right font-bold text-primary">₹{calculatedTotal.toLocaleString('en-IN')}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Total Billed (₹) *</label>
-                  <input type="text" inputMode="numeric" value={form.billedAmount}
-                    onChange={e => setForm({ ...form, billedAmount: e.target.value.replace(/\D/g, '') })}
-                    className={inputCls('billedAmount')} placeholder="From the final hospital bill" />
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Total Billed (₹)</label>
+                  <input type="text" value={form.billedAmount} readOnly
+                    className={`${inputCls('billedAmount')} bg-slate-100 text-slate-600`} placeholder="0" />
                   {errors.billedAmount && <p className="text-[11px] text-red-500 mt-1">{errors.billedAmount}</p>}
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Claimed from Insurer (₹) *</label>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Pre-Auth (₹)</label>
+                  <input type="text" inputMode="numeric" value={form.preAuthorizedAmount}
+                    onChange={e => setForm({ ...form, preAuthorizedAmount: e.target.value.replace(/\D/g, '') })}
+                    className={inputCls('preAuthorizedAmount')} placeholder="0" />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Claimed (₹)</label>
                   <input type="text" inputMode="numeric" value={form.claimedAmount}
-                    onChange={e => setForm({ ...form, claimedAmount: e.target.value.replace(/\D/g, '') })}
+                    onChange={e => {
+                      let val = e.target.value.replace(/\D/g, '');
+                      const numericVal = Number(val);
+                      const billedVal = Number(form.billedAmount) || 0;
+                      if (numericVal > billedVal) {
+                        val = billedVal.toString();
+                      }
+                      setForm({ ...form, claimedAmount: val });
+                    }}
                     className={inputCls('claimedAmount')} placeholder="0" />
                   {errors.claimedAmount && <p className="text-[11px] text-red-500 mt-1">{errors.claimedAmount}</p>}
                 </div>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Balance Amount</label>
+                  <div className="w-full px-3 py-1.5 bg-rose-50 border border-rose-200 rounded-xl text-sm font-bold text-rose-600">
+                    {inr(patientBalance)}
+                  </div>
+                </div>
               </div>
 
-              <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Patient responsibility</span>
-                <span className="font-bold text-slate-800">{inr(patientBalance)}</span>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Attach Final Bill &amp; Discharge Summary</label>
+                <label
+                  onDragOver={e => e.preventDefault()}
+                  onDrop={e => { e.preventDefault(); setClaimDocs(prev => [...prev, ...Array.from(e.dataTransfer.files || [])]); }}
+                  className="flex flex-col items-center justify-center gap-1 border-2 border-dashed border-slate-200 rounded-xl px-4 py-8 text-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors">
+                  <input type="file" multiple accept=".pdf" className="hidden"
+                    onChange={e => setClaimDocs(prev => [...prev, ...Array.from(e.target.files || [])])} />
+                  <UploadCloud className="w-6 h-6 text-slate-400" />
+                  <span className="text-sm text-slate-600 font-medium">Click or drag to upload PDFs</span>
+                  <span className="text-[11px] text-slate-400">Up to 25MB total</span>
+                </label>
+                {claimDocs.length > 0 && (
+                  <ul className="mt-2 space-y-1">
+                    {claimDocs.map((f, i) => (
+                      <li key={i} className="flex items-center justify-between text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
+                        <span className="truncate text-slate-700 flex items-center gap-1.5"><FileText className="w-3.5 h-3.5 text-slate-400" />{f.name}</span>
+                        <button type="button" onClick={() => setClaimDocs(prev => prev.filter((_, idx) => idx !== i))} className="text-slate-400 hover:text-red-600"><X className="w-3.5 h-3.5" /></button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
 
-              <div className="pt-2 flex gap-3">
+              <div className="pt-1 flex justify-end gap-3">
                 <button type="button" onClick={() => setShowNewModal(false)}
-                  className="flex-1 px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition-colors text-sm">
+                  className="px-6 py-2.5 border border-slate-200 bg-white text-slate-700 font-bold rounded-xl hover:bg-slate-50 text-sm">
                   Cancel
                 </button>
                 <button type="submit"
-                  className="flex-1 px-4 py-2 bg-primary text-white font-bold rounded-xl hover:bg-primary/90 transition-colors text-sm">
+                  className="px-6 py-2.5 bg-primary text-white font-bold rounded-xl hover:bg-primary/90 text-sm">
                   Submit Claim
                 </button>
               </div>
@@ -522,7 +623,10 @@ export const ClaimsManagement = () => {
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Claimed (₹)</label>
                   <input type="text" inputMode="numeric" value={editingClaim.claimedAmount ?? 0}
                     onChange={e => {
-                      const claimedAmount = Number(e.target.value.replace(/\D/g, '')) || 0;
+                      let claimedAmount = Number(e.target.value.replace(/\D/g, '')) || 0;
+                      if (claimedAmount > (editingClaim.amount || 0)) {
+                        claimedAmount = editingClaim.amount || 0;
+                      }
                       setEditingClaim({ ...editingClaim, claimedAmount, balance: Math.max(0, (editingClaim.amount || 0) - claimedAmount) });
                     }}
                     className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm" />

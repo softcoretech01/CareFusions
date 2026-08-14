@@ -96,7 +96,7 @@ def execute_sql_file():
             );
             
             SET @new_id = LAST_INSERT_ID();
-            SET @new_uhid = CONCAT('UHID-', YEAR(CURDATE()), '-Q', LPAD(@new_id, 4, '0'));
+            SET @new_uhid = CONCAT('UHID-', YEAR(CURDATE()), '-', LPAD(@new_id, 4, '0'));
             
             UPDATE registration.QuickRegistration SET Uhid = @new_uhid WHERE QuickRegistrationId = @new_id;
             

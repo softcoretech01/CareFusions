@@ -1,6 +1,8 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import { Pagination } from '../../components/ui/Pagination';
-import { Plus, Search, X, Trash2, FileText, AlertCircle, PackageCheck } from 'lucide-react';
+import { PageHeader } from '../../components/inventory/PageHeader';
+import { AutoStatusBadge } from '../../components/inventory/StatusBadge';
+import { Plus, Search, X, Trash2, FileText, AlertCircle, PackageCheck, Eye, Pencil, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
   useInventory, type DocType, type IssuableLot, type MovementDocument,
@@ -8,12 +10,15 @@ import {
 import {
   lettersOnly, digitsOnly, decimalOnly, signedDigits, alphanumeric, freeText, LIMITS,
 } from '../../utils/inputRules';
+import { inr } from '../../utils/inr';
+import { exportToExcel } from '../../utils/exportToExcel';
+import { useDepartments } from '../../hooks/useMasterOptions';
 
 /** Local calendar day (YYYY-MM-DD) — safe against UTC parsing skew. */
 const localDay = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-const inr = (n: number) => `₹${(n ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+const dayOf = (s: string | null | undefined) => (s ? localDay(new Date(s)) : '—');
 
 export interface MovementConfig {
   docType: DocType;
@@ -37,10 +42,99 @@ export interface MovementConfig {
   numberLabel: string;
 }
 
+// Reference-matching labels per document type, kept here so the trivial wrapper
+// files stay untouched. `config` still drives all behaviour flags.
+interface Presentation {
+  crumb: string;
+  title: string;
+  newLabel: string;
+  modalTitle: string;
+  confirmLabel: string;
+  qtyLabel: string;
+}
+const PRESENTATION: Record<DocType, Presentation> = {
+  RECEIPT: { crumb: 'Stock In', title: 'Process Stock In', newLabel: 'New Receipt', modalTitle: 'New Stock In', confirmLabel: 'Confirm Stock In', qtyLabel: 'Receive Qty' },
+  ISSUE: { crumb: 'Stock Out', title: 'Stock Out', newLabel: 'New Stock Out', modalTitle: 'New Stock Out', confirmLabel: 'Confirm Stock Out', qtyLabel: 'Stock Out Qty' },
+  RETURN: { crumb: 'Stock Return', title: 'Stock Return', newLabel: 'New Return', modalTitle: 'New Stock Return', confirmLabel: 'Post Return', qtyLabel: 'Return Qty' },
+  TRANSFER: { crumb: 'Stock Transfer', title: 'Stock Transfer', newLabel: 'Initiate Transfer', modalTitle: 'Initiate Stock Transfer', confirmLabel: 'Execute Transfer', qtyLabel: 'Transfer Qty' },
+  ADJUSTMENT: { crumb: 'Stock Adjustment', title: 'Stock Adjustment', newLabel: 'New Adjustment', modalTitle: 'New Stock Adjustment', confirmLabel: 'Post Adjustment', qtyLabel: 'Adjust Qty' },
+};
+
+interface Column {
+  label: string;
+  align?: 'left' | 'right';
+  render: (d: MovementDocument) => ReactNode;
+}
+
+const buildColumns = (docType: DocType): Column[] => {
+  const num = (d: MovementDocument): ReactNode => <span className="font-bold text-primary">{d.docNumber}</span>;
+  switch (docType) {
+    case 'RECEIPT':
+      return [
+        { label: 'GRN No', render: num },
+        { label: 'PO Number', render: d => d.referenceNo || '—' },
+        { label: 'Vendor', render: d => d.vendorName || '—' },
+        { label: 'Target Store', render: d => d.toStoreName || '—' },
+        { label: 'Received Date', render: d => dayOf(d.docDate) },
+        { label: 'Total Items', align: 'right', render: d => d.totalItems },
+        { label: 'Status', render: d => <AutoStatusBadge status={d.status || 'Received'} /> },
+      ];
+    case 'ISSUE':
+      return [
+        { label: 'Stock Out No', render: num },
+        { label: 'Date', render: d => dayOf(d.docDate) },
+        { label: 'Destination', render: d => d.departmentName || '—' },
+        { label: 'Store', render: d => d.fromStoreName || '—' },
+        { label: 'Requested By', render: d => d.requestedBy || '—' },
+        { label: 'Total Items', align: 'right', render: d => d.totalItems },
+        { label: 'Total Qty', align: 'right', render: d => <span className="font-semibold text-slate-800">{d.totalQty}</span> },
+      ];
+    case 'RETURN':
+      return [
+        { label: 'Return No', render: num },
+        { label: 'Date', render: d => dayOf(d.docDate) },
+        { label: 'Source (Returned From)', render: d => d.fromStoreName || d.departmentName || '—' },
+        { label: 'Returned By', render: d => d.requestedBy || '—' },
+        { label: 'Reason', render: d => d.reason || '—' },
+        { label: 'Items', align: 'right', render: d => d.totalItems },
+        { label: 'Total Qty', align: 'right', render: d => <span className="font-semibold text-slate-800">{d.totalQty}</span> },
+        { label: 'Status', render: d => <AutoStatusBadge status={d.status || 'Pending'} /> },
+      ];
+    case 'TRANSFER':
+      return [
+        {
+          label: 'Transfer No', render: d => (
+            <div>
+              <div className="font-bold text-primary">{d.docNumber}</div>
+              {d.requestedBy && <div className="text-[11px] uppercase tracking-wide text-slate-400">By: {d.requestedBy}</div>}
+            </div>
+          ),
+        },
+        { label: 'Date', render: d => dayOf(d.docDate) },
+        { label: 'Source Store', render: d => d.fromStoreName || '—' },
+        { label: 'Destination Store', render: d => d.toStoreName || '—' },
+        { label: 'Total Items', align: 'right', render: d => d.totalItems },
+        { label: 'Total Qty', align: 'right', render: d => <span className="font-semibold text-slate-800">{d.totalQty}</span> },
+        { label: 'Status', render: d => <AutoStatusBadge status={d.status || 'Pending'} /> },
+      ];
+    default: // ADJUSTMENT
+      return [
+        { label: 'Adjustment No', render: num },
+        { label: 'Date', render: d => dayOf(d.docDate) },
+        { label: 'Store', render: d => d.fromStoreName || '—' },
+        { label: 'Reason', render: d => d.reason || '—' },
+        { label: 'Items', align: 'right', render: d => d.totalItems },
+        { label: 'Total Qty', align: 'right', render: d => <span className="font-semibold text-slate-800">{d.totalQty}</span> },
+        { label: 'Status', render: d => <AutoStatusBadge status={d.status || 'Posted'} /> },
+      ];
+  }
+};
+
 interface LineDraft {
   key: string;
   itemId: number;
   itemName: string;
+  category?: string;
   batchNo: string;
   mfgDate: string;
   expiryDate: string;
@@ -51,17 +145,26 @@ interface LineDraft {
   remarks: string;
 }
 
-const DEPARTMENTS = ['Operation Theatre', 'ICU', 'General Ward', 'Emergency', 'Radiology', 'Laboratory', 'OPD'];
-
 export const MovementScreen = ({ config }: { config: MovementConfig }) => {
   const {
-    stores, items, documents, loading, error, clearError,
-    getIssuableLots, postDocument, deleteDocument,
+    stores, items, stock, documents, loading, error, clearError,
+    getIssuableLots, postDocument, updateDocument, deleteDocument,
   } = useInventory();
+
+  const pres = PRESENTATION[config.docType];
+  const columns = useMemo(() => buildColumns(config.docType), [config.docType]);
+  // Departments come from the Department Master (Active only), so a department
+  // added there shows up here — no hardcoded list to keep in sync.
+  const { options: departmentOptions } = useDepartments();
 
   const [showForm, setShowForm] = useState(false);
   const [viewDoc, setViewDoc] = useState<MovementDocument | null>(null);
+  const [editingDoc, setEditingDoc] = useState<MovementDocument | null>(null);
   const [search, setSearch] = useState('');
+  const [storeFilter, setStoreFilter] = useState('');
+  // Draft vs applied date range so the header Search/Cancel buttons do real work.
+  const [draftFrom, setDraftFrom] = useState('');
+  const [draftTo, setDraftTo] = useState('');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -90,17 +193,48 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
       || (d.requestedBy || '').toLowerCase().includes(s)
       || (d.vendorName || '').toLowerCase().includes(s)
       || (d.departmentName || '').toLowerCase().includes(s))) return false;
+    if (storeFilter && String(d.fromStoreId) !== storeFilter && String(d.toStoreId) !== storeFilter) return false;
     if (d.docDate) {
       const day = localDay(new Date(d.docDate));
       if (fromDate && day < fromDate) return false;
       if (toDate && day > toDate) return false;
     }
     return true;
-  }), [documents, config.docType, search, fromDate, toDate]);
+  }), [documents, config.docType, search, storeFilter, fromDate, toDate]);
+
+  // The item's most recently updated stock lot — the source for the default
+  // batch, expiry and cost when an item is picked.
+  const latestLotFor = (itemId: number) => {
+    const its = stock.filter(s => s.itemId === itemId);
+    return its.length ? its.reduce((a, b) => (b.stockId > a.stockId ? b : a)) : null;
+  };
+
+  // Items have no price column, so the lot's moving-average rate is the closest
+  // "last rate" the DB holds.
+  const lastRateFor = (itemId: number): string => {
+    const lot = latestLotFor(itemId);
+    return lot?.valuationRate ? String(lot.valuationRate) : '';
+  };
+
+  // A fresh batch code for items with no existing lot to inherit a batch from.
+  const genBatch = () => `BAT-${String(Date.now()).slice(-6)}`;
+
+  // Current on-hand quantity for an item, summed across every store's lots.
+  const onHandFor = (itemId: number): number =>
+    stock.filter(s => s.itemId === itemId).reduce((sum, s) => sum + s.quantity, 0);
+
+  // Outbound lines (issue/transfer) can't move more than the chosen lot holds —
+  // cap the quantity at the lot's available balance as the user types.
+  const clampToAvailable = (raw: string, available?: number): string => {
+    const digits = digitsOnly(raw, LIMITS.qty);
+    if (available === undefined || digits === '') return digits;
+    return Number(digits) > available ? String(available) : digits;
+  };
 
   const resetForm = () => {
     setFromStoreId(''); setToStoreId(''); setDepartmentName(''); setVendorName('');
     setReferenceNo(''); setRequestedBy(''); setReason(''); setRemarks(''); setLines([]);
+    setEditingDoc(null);
     clearError();
   };
 
@@ -118,17 +252,30 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
   // Source movements pick an existing lot; inbound movements pick a catalogue item.
   const selectLot = (key: string, stockId: string) => {
     const lot = lots.find(l => String(l.stockId) === stockId);
-    if (!lot) { updateLine(key, { itemId: 0, itemName: '', batchNo: '', available: undefined }); return; }
+    if (!lot) { updateLine(key, { itemId: 0, itemName: '', batchNo: '', available: undefined, category: '', rate: '' }); return; }
     updateLine(key, {
-      itemId: lot.itemId, itemName: lot.itemName, batchNo: lot.batchNo,
+      itemId: lot.itemId, itemName: lot.itemName, batchNo: lot.batchNo, category: lot.category,
       uom: lot.uom, available: lot.quantity, expiryDate: lot.expiryDate || '',
+      rate: String(lot.valuationRate || 0),
     });
   };
 
   const selectItem = (key: string, itemId: string) => {
     const item = items.find(i => String(i.itemId) === itemId);
-    if (!item) { updateLine(key, { itemId: 0, itemName: '', uom: '' }); return; }
-    updateLine(key, { itemId: item.itemId, itemName: item.itemName, uom: item.uom });
+    if (!item) { updateLine(key, { itemId: 0, itemName: '', uom: '', category: '', rate: '', batchNo: '', expiryDate: '' }); return; }
+    // Selecting an item applies what the DB knows: unit, category and last cost.
+    const lot = latestLotFor(item.itemId);
+    const patch: Partial<LineDraft> = {
+      itemId: item.itemId, itemName: item.itemName, uom: item.uom, category: item.category,
+    };
+    if (config.needsRate) patch.rate = lot?.valuationRate ? String(lot.valuationRate) : '';
+    // Inbound lines (return) carry a batch/expiry — show the item's current lot
+    // values, or auto-generate a batch when it has no stock yet.
+    if (!config.needsSource) {
+      patch.batchNo = lot?.batchNo && lot.batchNo !== '-' ? lot.batchNo : genBatch();
+      patch.expiryDate = lot?.expiryDate || '';
+    }
+    updateLine(key, patch);
   };
 
   const totalQty = lines.reduce((s, l) => s + Math.abs(Number(l.quantity) || 0), 0);
@@ -153,13 +300,40 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
     return null;
   };
 
+  const handleEdit = (doc: MovementDocument) => {
+    setFromStoreId(doc.fromStoreId ? String(doc.fromStoreId) : '');
+    setToStoreId(doc.toStoreId ? String(doc.toStoreId) : '');
+    setDepartmentName(doc.departmentName || '');
+    setVendorName(doc.vendorName || '');
+    setReferenceNo(doc.referenceNo || '');
+    setRequestedBy(doc.requestedBy || '');
+    setReason(doc.reason || '');
+    setRemarks(doc.remarks || '');
+    setLines(doc.items.map((it, idx) => ({
+      key: `edit-${idx}`,
+      itemId: it.itemId,
+      itemName: it.itemName,
+      category: '',
+      batchNo: it.batchNo,
+      mfgDate: it.mfgDate || '',
+      expiryDate: it.expiryDate || '',
+      uom: it.uom,
+      quantity: String(config.allowNegative ? it.quantity : Math.abs(it.quantity)),
+      rate: it.rate ? String(it.rate) : lastRateFor(it.itemId),
+      remarks: it.remarks || '',
+    })));
+    setEditingDoc(doc);
+    clearError();
+    setShowForm(true);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const problem = validate();
     if (problem) { toast.error(problem); return; }
 
     setSubmitting(true);
-    const result = await postDocument({
+    const payload = {
       docType: config.docType,
       fromStoreId: config.needsSource ? Number(fromStoreId) : null,
       toStoreId: config.needsDestination ? Number(toStoreId) : null,
@@ -175,17 +349,28 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
         mfgDate: l.mfgDate || null,
         expiryDate: l.expiryDate || null,
         quantity: Number(l.quantity),
-        rate: config.needsRate ? Number(l.rate) || 0 : 0,
+        rate: Number(l.rate) || 0,
         uom: l.uom || null,
         remarks: l.remarks || null,
       })),
-    });
-    setSubmitting(false);
+    };
 
-    if (result) {
-      toast.success(`${config.numberLabel} ${result.docNumber} posted`);
-      setShowForm(false);
-      resetForm();
+    if (editingDoc) {
+      const ok = await updateDocument(editingDoc.docId, payload);
+      setSubmitting(false);
+      if (ok) {
+        toast.success(`${config.numberLabel} ${editingDoc.docNumber} updated`);
+        setShowForm(false);
+        resetForm();
+      }
+    } else {
+      const result = await postDocument(payload);
+      setSubmitting(false);
+      if (result) {
+        toast.success(`${config.numberLabel} ${result.docNumber} posted`);
+        setShowForm(false);
+        resetForm();
+      }
     }
   };
 
@@ -195,7 +380,7 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
     toast[ok ? 'success' : 'error'](ok ? 'Document deleted' : 'Failed to delete document');
   };
 
-  const inputCls = 'w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary';
+  const inputCls = 'w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary';
 
   const PAGE_SIZE = 10;
   const [page, setPage] = useState(1);
@@ -205,20 +390,38 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
   useEffect(() => { if (page > totalPages) setPage(1); }, [page, totalPages]);
   const paged = docs.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
+  const applyDates = () => { setFromDate(draftFrom); setToDate(draftTo); };
+  const clearDates = () => { setDraftFrom(''); setDraftTo(''); setFromDate(''); setToDate(''); };
+  const openForm = () => { resetForm(); addLine(); setShowForm(true); };
+
+  const dateInput = 'h-10 px-3 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 focus:outline-none focus:border-primary';
+
+  const exportDocs = () => exportToExcel(docs.map(d => ({
+    Number: d.docNumber, Date: dayOf(d.docDate), From: d.fromStoreName, To: d.toStoreName || d.departmentName,
+    Vendor: d.vendorName, Reference: d.referenceNo, Reason: d.reason, RequestedBy: d.requestedBy,
+    Items: d.totalItems, Qty: d.totalQty, Value: d.totalValue, Status: d.status,
+  })), `${config.docType.toLowerCase()}_documents`);
+
   return (
-    <div className="space-y-3">
-      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3">
-        <div>
-          <h1 className="text-xl font-bold text-slate-800">{config.title}</h1>
-          <p className="text-xs text-slate-500">{config.subtitle}</p>
-        </div>
-        <button
-          onClick={() => { resetForm(); addLine(); setShowForm(true); }}
-          className="px-4 py-2 bg-primary text-white font-bold rounded-xl hover:bg-primary/90 transition-colors flex items-center gap-2 shadow-sm text-sm w-max"
-        >
-          <Plus className="w-4 h-4" /> {config.submitLabel}
-        </button>
-      </div>
+    <div className="space-y-4">
+      <PageHeader
+        crumb={pres.crumb}
+        title={pres.title}
+        right={
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="text-slate-500">From :</span>
+            <input type="date" value={draftFrom} onChange={e => setDraftFrom(e.target.value)} className={dateInput} />
+            <span className="text-slate-500">to :</span>
+            <input type="date" value={draftTo} onChange={e => setDraftTo(e.target.value)} className={dateInput} />
+            <button onClick={applyDates} className="h-10 px-4 bg-primary hover:bg-primary-hover text-white rounded-lg text-sm font-bold">Search</button>
+            <button onClick={clearDates} className="h-10 px-4 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-sm font-bold">Cancel</button>
+            <button onClick={openForm}
+              className="h-10 px-4 bg-primary hover:bg-primary-hover text-white rounded-lg text-sm font-bold flex items-center gap-2 shadow-sm">
+              <Plus className="w-4 h-4" /> {pres.newLabel}
+            </button>
+          </div>
+        }
+      />
 
       {error && (
         <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 flex items-start gap-2">
@@ -228,62 +431,54 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
         </div>
       )}
 
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-2.5 flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 min-w-[220px] max-w-md">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-3 flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 min-w-[240px]">
+          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text" value={search} onChange={e => setSearch(e.target.value)}
-            placeholder={`Search ${config.numberLabel.toLowerCase()} no, person or party...`}
-            className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-primary"
+            placeholder={`Search by ${pres.crumb} No or Requester...`}
+            className="w-full h-11 pl-10 pr-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-primary focus:bg-white"
           />
         </div>
-        <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)}
-          className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600" />
-        <span className="text-slate-400 text-sm">to</span>
-        <input type="date" value={toDate} onChange={e => setToDate(e.target.value)}
-          className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600" />
-        <button onClick={() => { setSearch(''); setFromDate(''); setToDate(''); }}
-          className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-200">Clear</button>
+        <select value={storeFilter} onChange={e => setStoreFilter(e.target.value)}
+          className="h-11 px-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-600 focus:outline-none focus:border-primary">
+          <option value="">All Stores</option>
+          {stores.map(s => <option key={s.storeId} value={s.storeId}>{s.storeName}</option>)}
+        </select>
+        <button onClick={exportDocs}
+          className="h-11 px-4 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 flex items-center gap-2">
+          <Download className="w-4 h-4" /> Export
+        </button>
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto custom-scrollbar">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-xs font-semibold text-slate-500 uppercase tracking-wider">
               <tr>
-                <th className="px-3 py-2 text-left">{config.numberLabel} No</th>
-                <th className="px-3 py-2 text-left">Date</th>
-                {config.needsSource && <th className="px-3 py-2 text-left">From</th>}
-                {(config.needsDestination || config.needsDepartment) && <th className="px-3 py-2 text-left">To</th>}
-                {config.needsVendor && <th className="px-3 py-2 text-left">Vendor</th>}
-                {config.reasons && <th className="px-3 py-2 text-left">Reason</th>}
-                <th className="px-3 py-2 text-right">Items</th>
-                <th className="px-3 py-2 text-right">Total Qty</th>
-                <th className="px-3 py-2 text-right">Value</th>
-                <th className="px-3 py-2 text-center">Action</th>
+                {columns.map(c => (
+                  <th key={c.label} className={`px-4 py-3 ${c.align === 'right' ? 'text-right' : 'text-left'}`}>{c.label}</th>
+                ))}
+                <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {paged.map(d => (
                 <tr key={d.docId} className="hover:bg-slate-50/70 transition-colors">
-                  <td className="px-3 py-2 font-bold text-primary whitespace-nowrap">{d.docNumber}</td>
-                  <td className="px-3 py-2 text-slate-600 whitespace-nowrap">
-                    {d.docDate ? new Date(d.docDate).toLocaleDateString('en-GB') : '—'}
-                  </td>
-                  {config.needsSource && <td className="px-3 py-2 text-slate-600">{d.fromStoreName || '—'}</td>}
-                  {(config.needsDestination || config.needsDepartment) && (
-                    <td className="px-3 py-2 text-slate-600">{d.toStoreName || d.departmentName || '—'}</td>
-                  )}
-                  {config.needsVendor && <td className="px-3 py-2 text-slate-600">{d.vendorName || '—'}</td>}
-                  {config.reasons && <td className="px-3 py-2 text-slate-600">{d.reason || '—'}</td>}
-                  <td className="px-3 py-2 text-right text-slate-700">{d.totalItems}</td>
-                  <td className="px-3 py-2 text-right font-semibold text-slate-800">{d.totalQty}</td>
-                  <td className="px-3 py-2 text-right text-slate-700">{inr(d.totalValue)}</td>
-                  <td className="px-3 py-2">
-                    <div className="flex items-center justify-center gap-1">
+                  {columns.map(c => (
+                    <td key={c.label} className={`px-4 py-3 whitespace-nowrap ${c.align === 'right' ? 'text-right' : 'text-left text-slate-600'}`}>
+                      {c.render(d)}
+                    </td>
+                  ))}
+                  <td className="px-4 py-3">
+                    <div className="flex items-center justify-end gap-1">
                       <button onClick={() => setViewDoc(d)} title="View"
-                        className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors">
-                        <FileText className="w-4 h-4" />
+                        className="p-1.5 text-slate-400 hover:text-primary hover:bg-slate-100 rounded transition-colors">
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => handleEdit(d)} title="Edit"
+                        className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded transition-colors">
+                        <Pencil className="w-4 h-4" />
                       </button>
                       <button onClick={() => handleDelete(d)} title="Delete"
                         className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors">
@@ -295,8 +490,9 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
               ))}
               {docs.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="px-3 py-8 text-center text-slate-400">
-                    {loading ? 'Loading…' : `No ${config.title.toLowerCase()} records yet.`}
+                  <td colSpan={columns.length + 1} className="px-3 py-14 text-center text-slate-400">
+                    <FileText className="w-9 h-9 mx-auto text-slate-200 mb-2" />
+                    {loading ? 'Loading…' : `No ${pres.title.toLowerCase()} records yet.`}
                   </td>
                 </tr>
               )}
@@ -306,32 +502,32 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
         <Pagination page={page} pageSize={PAGE_SIZE} totalItems={totalRows} onPageChange={setPage} />
       </div>
 
-      {/* ── New movement ── */}
+      {/* ── New / Edit movement ── */}
       {showForm && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[92vh] overflow-y-auto">
-            <div className="px-4 py-2.5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 sticky top-0 z-10">
-              <h2 className="text-lg font-bold text-slate-800">{config.submitLabel}</h2>
-              <button onClick={() => setShowForm(false)} className="p-2 hover:bg-slate-200 rounded-full">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-5xl max-h-[92vh] overflow-y-auto custom-scrollbar">
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0 z-10">
+              <h2 className="text-xl font-bold text-slate-800">{editingDoc ? `Edit ${editingDoc.docNumber}` : pres.modalTitle}</h2>
+              <button onClick={() => setShowForm(false)} className="p-2 hover:bg-slate-100 rounded-full">
                 <X className="w-5 h-5 text-slate-500" />
               </button>
             </div>
-            <form onSubmit={handleSubmit} className="p-5 space-y-3">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <form onSubmit={handleSubmit} className="p-6 space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {config.needsSource && (
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Source Store *</label>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Source Store</label>
                     <select value={fromStoreId} onChange={e => { setFromStoreId(e.target.value); setLines([]); addLine(); }} className={inputCls}>
-                      <option value="">Select store…</option>
+                      <option value="">Select Store</option>
                       {stores.map(s => <option key={s.storeId} value={s.storeId}>{s.storeName}</option>)}
                     </select>
                   </div>
                 )}
                 {config.needsDestination && (
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Destination Store *</label>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">{config.docType === 'RETURN' ? 'Return To' : 'Destination Store'}</label>
                     <select value={toStoreId} onChange={e => setToStoreId(e.target.value)} className={inputCls}>
-                      <option value="">Select store…</option>
+                      <option value="">Select Destination</option>
                       {stores.filter(s => String(s.storeId) !== fromStoreId).map(s => (
                         <option key={s.storeId} value={s.storeId}>{s.storeName}</option>
                       ))}
@@ -340,141 +536,167 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
                 )}
                 {config.needsDepartment && (
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Issue To (Department) *</label>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Destination</label>
                     <select value={departmentName} onChange={e => setDepartmentName(e.target.value)} className={inputCls}>
-                      <option value="">Select department…</option>
-                      {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+                      <option value="">Select Destination</option>
+                      {departmentOptions.map(d => (
+                        <option key={d.id} value={d.departmentName}>{d.departmentName}</option>
+                      ))}
                     </select>
                   </div>
                 )}
                 {config.needsVendor && (
                   <>
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Vendor</label>
+                      <label className="block text-sm font-semibold text-slate-700 mb-1.5">Vendor</label>
                       <input type="text" value={vendorName} maxLength={LIMITS.shortText}
                         onChange={e => setVendorName(freeText(e.target.value, LIMITS.shortText))}
                         className={inputCls} placeholder="Supplier name" />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">PO / GRN Reference</label>
+                      <label className="block text-sm font-semibold text-slate-700 mb-1.5">PO / GRN Reference</label>
                       <input type="text" value={referenceNo} maxLength={LIMITS.reference}
                         onChange={e => setReferenceNo(alphanumeric(e.target.value, LIMITS.reference))}
                         className={inputCls} placeholder="e.g. PO-2026-001" />
                     </div>
                   </>
                 )}
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Requested By</label>
+                  <input type="text" value={requestedBy}
+                    maxLength={LIMITS.name}
+                    onChange={e => setRequestedBy(lettersOnly(e.target.value))}
+                    className={inputCls} placeholder="Name" />
+                </div>
                 {config.reasons && (
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Reason *</label>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Reason</label>
                     <select value={reason} onChange={e => setReason(e.target.value)} className={inputCls}>
                       <option value="">Select reason…</option>
                       {config.reasons.map(r => <option key={r} value={r}>{r}</option>)}
                     </select>
                   </div>
                 )}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Requested / Done By</label>
-                  <input type="text" value={requestedBy}
-                    maxLength={LIMITS.name}
-                    onChange={e => setRequestedBy(lettersOnly(e.target.value))}
-                    className={inputCls} placeholder="Name" />
-                </div>
+                {config.docType === 'TRANSFER' && (
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Reason / Remarks</label>
+                    <input type="text" value={remarks} maxLength={LIMITS.notes}
+                      onChange={e => setRemarks(freeText(e.target.value, LIMITS.notes))}
+                      className={inputCls} placeholder="Optional" />
+                  </div>
+                )}
               </div>
 
-              <div className="border border-slate-200 rounded-xl overflow-hidden">
-                <div className="bg-slate-50 px-4 py-2 flex items-center justify-between">
-                  <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider">Items</h3>
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-base font-bold text-slate-800">Items for {pres.crumb}</h3>
                   <button type="button" onClick={addLine}
-                    className="text-xs font-bold text-primary hover:underline flex items-center gap-1">
-                    <Plus className="w-3 h-3" /> Add line
+                    className="px-3 py-1.5 border border-primary text-primary rounded-lg text-sm font-bold hover:bg-primary/5 flex items-center gap-1.5">
+                    <Plus className="w-4 h-4" /> Add Item
                   </button>
                 </div>
-                <div className="p-3 space-y-2">
-                  {config.needsSource && !fromStoreId && (
-                    <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2">
-                      Select a source store to load its available stock.
-                    </p>
-                  )}
-                  {lines.map(line => (
-                    <div key={line.key} className="grid grid-cols-12 gap-2 items-start">
-                      <div className="col-span-4">
-                        {config.needsSource ? (
-                          <select
-                            value={lots.find(l => l.itemId === line.itemId && l.batchNo === line.batchNo)?.stockId ?? ''}
-                            onChange={e => selectLot(line.key, e.target.value)}
-                            className={inputCls} disabled={!fromStoreId}>
-                            <option value="">Select stock lot…</option>
-                            {lots.map(l => (
-                              <option key={l.stockId} value={l.stockId}>
-                                {l.itemName} · {l.batchNo} · {l.quantity} {l.uom}
-                                {l.expiryDate ? ` · exp ${new Date(l.expiryDate).toLocaleDateString('en-GB')}` : ''}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <select value={line.itemId || ''} onChange={e => selectItem(line.key, e.target.value)} className={inputCls}>
-                            <option value="">Select item…</option>
-                            {items.map(i => <option key={i.itemId} value={i.itemId}>{i.itemName} ({i.itemCode})</option>)}
-                          </select>
+                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50 text-xs font-bold text-slate-600">
+                        <tr>
+                          <th className="px-3 py-2.5 text-left">Select Item</th>
+                          <th className="px-3 py-2.5 text-left">Category</th>
+                          {!config.needsSource && <th className="px-3 py-2.5 text-left">Batch</th>}
+                          {!config.needsSource && <th className="px-3 py-2.5 text-left">Expiry</th>}
+                          <th className="px-3 py-2.5 text-left">Available Qty</th>
+                          <th className="px-3 py-2.5 text-left">{pres.qtyLabel}</th>
+                          {config.needsRate && <th className="px-3 py-2.5 text-left">Rate ₹</th>}
+                          <th className="px-3 py-2.5 text-left">{config.docType === 'RETURN' ? 'Condition / Remarks' : config.docType === 'ISSUE' ? 'Damages / Remarks' : 'Remarks'}</th>
+                          <th className="px-3 py-2.5"></th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {lines.map(line => (
+                          <tr key={line.key} className="align-top">
+                            <td className="px-3 py-2 min-w-[200px]">
+                              {config.needsSource ? (
+                                <select
+                                  value={lots.find(l => l.itemId === line.itemId && l.batchNo === line.batchNo)?.stockId ?? ''}
+                                  onChange={e => selectLot(line.key, e.target.value)}
+                                  className={inputCls} disabled={!fromStoreId}>
+                                  <option value="">Select stock lot…</option>
+                                  {lots.map(l => (
+                                    <option key={l.stockId} value={l.stockId}>
+                                      {l.itemName} · {l.batchNo} · {l.quantity} {l.uom}
+                                      {l.expiryDate ? ` · exp ${dayOf(l.expiryDate)}` : ''}
+                                    </option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <select value={line.itemId || ''} onChange={e => selectItem(line.key, e.target.value)} className={inputCls}>
+                                  <option value="">Select item…</option>
+                                  {items.map(i => <option key={i.itemId} value={i.itemId}>{i.itemName} ({i.itemCode})</option>)}
+                                </select>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-slate-500">{line.category || '—'}</td>
+                            {!config.needsSource && (
+                              <td className="px-3 py-2 min-w-[110px]">
+                                <input type="text" value={line.batchNo} placeholder="Batch"
+                                  maxLength={LIMITS.batch}
+                                  onChange={e => updateLine(line.key, { batchNo: alphanumeric(e.target.value, LIMITS.batch) })} className={inputCls} />
+                              </td>
+                            )}
+                            {!config.needsSource && (
+                              <td className="px-3 py-2 min-w-[140px]">
+                                <input type="date" value={line.expiryDate} title="Expiry date"
+                                  onChange={e => updateLine(line.key, { expiryDate: e.target.value })} className={inputCls} />
+                              </td>
+                            )}
+                            <td className="px-3 py-2 text-slate-600 whitespace-nowrap">
+                              {line.available !== undefined
+                                ? `${line.available} ${line.uom}`
+                                : line.itemId ? `${onHandFor(line.itemId)} ${line.uom}` : '—'}
+                            </td>
+                            <td className="px-3 py-2 min-w-[90px]">
+                              <input
+                                type="text" inputMode="numeric" value={line.quantity} placeholder="0"
+                                onChange={e => updateLine(line.key, {
+                                  quantity: config.allowNegative
+                                    ? signedDigits(e.target.value)
+                                    : clampToAvailable(e.target.value, line.available),
+                                })}
+                                className={inputCls} />
+                            </td>
+                            {config.needsRate && (
+                              <td className="px-3 py-2 min-w-[90px]">
+                                <input type="text" inputMode="decimal" value={line.rate} placeholder="0.00"
+                                  maxLength={LIMITS.amount}
+                                  onChange={e => updateLine(line.key, { rate: decimalOnly(e.target.value) })}
+                                  className={inputCls} />
+                              </td>
+                            )}
+                            <td className="px-3 py-2 min-w-[140px]">
+                              <input type="text" value={line.remarks} placeholder="Remarks"
+                                maxLength={LIMITS.remarks}
+                                onChange={e => updateLine(line.key, { remarks: freeText(e.target.value) })} className={inputCls} />
+                            </td>
+                            <td className="px-3 py-2">
+                              <button type="button" onClick={() => removeLine(line.key)}
+                                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors">
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                        {lines.length === 0 && (
+                          <tr>
+                            <td colSpan={9} className="px-3 py-8 text-center text-sm text-slate-400">
+                              {config.needsSource && !fromStoreId
+                                ? 'Please select a store and add items.'
+                                : 'Please add items to process.'}
+                            </td>
+                          </tr>
                         )}
-                        {line.available !== undefined && (
-                          <p className="text-[11px] text-slate-500 mt-1">Available: {line.available} {line.uom}</p>
-                        )}
-                      </div>
-                      {!config.needsSource && (
-                        <>
-                          <div className="col-span-2">
-                            <input type="text" value={line.batchNo} placeholder="Batch"
-                              maxLength={LIMITS.batch}
-                              onChange={e => updateLine(line.key, { batchNo: alphanumeric(e.target.value, LIMITS.batch) })} className={inputCls} />
-                          </div>
-                          <div className="col-span-2">
-                            <input type="date" value={line.expiryDate} title="Expiry date"
-                              onChange={e => updateLine(line.key, { expiryDate: e.target.value })} className={inputCls} />
-                          </div>
-                        </>
-                      )}
-                      <div className={config.needsSource ? 'col-span-2' : 'col-span-1'}>
-                        <input
-                          type="text" inputMode="numeric" value={line.quantity} placeholder="Qty"
-                          onChange={e => updateLine(line.key, {
-                            quantity: config.allowNegative
-                              ? signedDigits(e.target.value)
-                              : digitsOnly(e.target.value, LIMITS.qty),
-                          })}
-                          className={inputCls} />
-                      </div>
-                      {config.needsRate && (
-                        <div className="col-span-2">
-                          <input type="text" inputMode="decimal" value={line.rate} placeholder="Rate ₹"
-                            maxLength={LIMITS.amount}
-                            onChange={e => updateLine(line.key, { rate: decimalOnly(e.target.value) })}
-                            className={inputCls} />
-                        </div>
-                      )}
-                      <div className={config.needsSource ? (config.needsRate ? 'col-span-3' : 'col-span-5') : 'col-span-2'}>
-                        <input type="text" value={line.remarks} placeholder="Remarks"
-                          maxLength={LIMITS.remarks}
-                          onChange={e => updateLine(line.key, { remarks: freeText(e.target.value) })} className={inputCls} />
-                      </div>
-                      <div className="col-span-1 flex justify-end">
-                        <button type="button" onClick={() => removeLine(line.key)}
-                          className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                  {lines.length === 0 && (
-                    <p className="text-xs text-slate-400 text-center py-4">No lines yet — click "Add line".</p>
-                  )}
-                </div>
-                <div className="bg-slate-50 px-4 py-2 flex items-center justify-end gap-4 text-sm">
-                  <span className="text-slate-500">Lines: <b className="text-slate-800">{lines.length}</b></span>
-                  <span className="text-slate-500">Total Qty: <b className="text-slate-800">{totalQty}</b></span>
-                  {config.needsRate && (
-                    <span className="text-slate-500">Value: <b className="text-slate-800">{inr(totalValue)}</b></span>
-                  )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
 
@@ -485,22 +707,38 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
                 </p>
               )}
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Remarks</label>
-                <input type="text" value={remarks} maxLength={LIMITS.notes}
-                  onChange={e => setRemarks(freeText(e.target.value, LIMITS.notes))}
-                  className={inputCls} placeholder="Optional note for this document" />
+              {/* Summary */}
+              <div className="bg-primary/5 border border-primary/15 rounded-xl px-5 py-4 flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-2 text-primary font-bold">
+                  <PackageCheck className="w-5 h-5" /> {pres.crumb} Summary
+                </div>
+                <div className="flex items-center gap-8">
+                  <div className="text-center">
+                    <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Line Items</div>
+                    <div className="text-2xl font-bold text-slate-800">{lines.length}</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Total Quantity</div>
+                    <div className="text-2xl font-bold text-slate-800">{totalQty}</div>
+                  </div>
+                  {config.needsRate && (
+                    <div className="text-center">
+                      <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Value</div>
+                      <div className="text-2xl font-bold text-primary">{inr(totalValue)}</div>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              <div className="pt-1 flex gap-3">
+              <div className="pt-1 flex justify-end gap-3">
                 <button type="button" onClick={() => setShowForm(false)}
-                  className="flex-1 px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 text-sm">
+                  className="px-6 py-2.5 border border-slate-200 bg-white text-slate-700 font-bold rounded-xl hover:bg-slate-50 text-sm">
                   Cancel
                 </button>
                 <button type="submit" disabled={submitting}
-                  className="flex-1 px-4 py-2 bg-primary text-white font-bold rounded-xl hover:bg-primary/90 text-sm disabled:opacity-60 flex items-center justify-center gap-2">
+                  className="px-6 py-2.5 bg-primary text-white font-bold rounded-xl hover:bg-primary-hover text-sm disabled:opacity-60 flex items-center justify-center gap-2 shadow-sm">
                   <PackageCheck className="w-4 h-4" />
-                  {submitting ? 'Posting…' : `Post ${config.numberLabel}`}
+                  {submitting ? 'Saving…' : editingDoc ? `Update ${config.numberLabel}` : pres.confirmLabel}
                 </button>
               </div>
             </form>
@@ -511,24 +749,25 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
       {/* ── View ── */}
       {viewDoc && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="px-4 py-2.5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 sticky top-0">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <div className="px-5 py-3.5 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0">
               <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                 <FileText className="w-5 h-5 text-primary" /> {viewDoc.docNumber}
               </h2>
-              <button onClick={() => setViewDoc(null)} className="p-2 hover:bg-slate-200 rounded-full">
+              <button onClick={() => setViewDoc(null)} className="p-2 hover:bg-slate-100 rounded-full">
                 <X className="w-5 h-5 text-slate-500" />
               </button>
             </div>
             <div className="p-5 space-y-3">
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
-                <div><p className="text-xs text-slate-500">Date</p><p className="font-bold text-slate-800">{new Date(viewDoc.docDate).toLocaleString('en-GB')}</p></div>
+                <div><p className="text-xs text-slate-500">Date</p><p className="font-bold text-slate-800">{dayOf(viewDoc.docDate)}</p></div>
                 {viewDoc.fromStoreName && <div><p className="text-xs text-slate-500">From</p><p className="font-bold text-slate-800">{viewDoc.fromStoreName}</p></div>}
                 {(viewDoc.toStoreName || viewDoc.departmentName) && <div><p className="text-xs text-slate-500">To</p><p className="font-bold text-slate-800">{viewDoc.toStoreName || viewDoc.departmentName}</p></div>}
                 {viewDoc.vendorName && <div><p className="text-xs text-slate-500">Vendor</p><p className="font-bold text-slate-800">{viewDoc.vendorName}</p></div>}
                 {viewDoc.referenceNo && <div><p className="text-xs text-slate-500">Reference</p><p className="font-bold text-slate-800">{viewDoc.referenceNo}</p></div>}
                 {viewDoc.reason && <div><p className="text-xs text-slate-500">Reason</p><p className="font-bold text-slate-800">{viewDoc.reason}</p></div>}
                 {viewDoc.requestedBy && <div><p className="text-xs text-slate-500">By</p><p className="font-bold text-slate-800">{viewDoc.requestedBy}</p></div>}
+                {viewDoc.status && <div><p className="text-xs text-slate-500">Status</p><AutoStatusBadge status={viewDoc.status} /></div>}
               </div>
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 text-xs text-slate-500 uppercase">
