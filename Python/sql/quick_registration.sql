@@ -101,7 +101,10 @@ BEGIN
         );
 
         SET @new_id = LAST_INSERT_ID();
-        
+        SET @new_uhid = CONCAT('UHID-', YEAR(CURDATE()), '-', LPAD(@new_id, 4, '0'));
+
+        UPDATE registration.QuickRegistration SET Uhid = @new_uhid WHERE QuickRegistrationId = @new_id;
+
         SELECT RELEASE_LOCK('generate_uhid_lock') INTO @lock_released;
 
         SELECT * FROM registration.QuickRegistration WHERE QuickRegistrationId = @new_id;

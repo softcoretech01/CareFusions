@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Search, Filter, Plus, Edit2, Eye, PackageCheck, Trash2, Download, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Search, Filter, Plus, Edit2, Eye, PackageCheck, Trash2, Download, RefreshCw, AlertTriangle, CheckCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
@@ -156,6 +156,24 @@ export const GoodsReceipt = () => {
       } catch (err) {
         console.error(err);
       }
+    }
+  };
+
+  const handleAccept = async (record: GRNRecord) => {
+    const hasRejections = (record.items || []).some((i: GRNItem) => i.rejectedQty > 0);
+    const qcStatus = hasRejections ? 'Partial Pass' : 'Pass';
+    const payload = { ...record, status: 'Accepted', qcStatus };
+    try {
+      const res = await fetch(`${API_BASE}/grns/${record.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        fetchData();
+      }
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -341,22 +359,31 @@ export const GoodsReceipt = () => {
                   <td className="py-3 px-4 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <button onClick={() => handleView(record)} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="View Details"><Eye className="w-4 h-4" /></button>
-                      <button 
-                        onClick={() => record.status === 'Draft' && handleEdit(record)} 
-                        disabled={record.status !== 'Draft'}
-                        className={`p-1.5 rounded-lg transition-colors ${record.status !== 'Draft' ? 'text-slate-300 cursor-not-allowed opacity-50' : 'text-slate-400 hover:text-primary hover:bg-primary/10'}`} 
-                        title="Edit"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button 
-                        onClick={() => record.status === 'Draft' && handleDelete(record)} 
-                        disabled={record.status !== 'Draft'}
-                        className={`p-1.5 rounded-lg transition-colors ${record.status !== 'Draft' ? 'text-slate-300 cursor-not-allowed opacity-50' : 'text-slate-400 hover:text-red-500 hover:bg-red-50'}`} 
-                        title="Delete"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {record.status === 'Draft' && (
+                        <>
+                          <button 
+                            onClick={() => handleAccept(record)} 
+                            className="p-1.5 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors" 
+                            title="Accept"
+                          >
+                            <CheckCircle className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => handleEdit(record)} 
+                            className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" 
+                            title="Edit"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => handleDelete(record)} 
+                            className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" 
+                            title="Delete"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -541,7 +568,7 @@ export const GoodsReceipt = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {selectedRecord.items.map((item) => (
+                    {(selectedRecord.items || []).map((item) => (
                       <tr key={item.id} className="bg-white">
                         <td className="py-2 px-3 font-medium">{item.itemName}</td>
                         <td className="py-2 px-3 text-slate-600">{item.category || '-'}</td>
@@ -559,7 +586,7 @@ export const GoodsReceipt = () => {
                   <tfoot className="bg-slate-50 border-t border-slate-200">
                     <tr>
                       <td colSpan={7} className="py-3 px-4 text-right font-medium text-slate-700">Grand Total</td>
-                      <td className="py-3 px-3 text-right font-bold text-slate-800">₹{selectedRecord.items.reduce((sum: number, item: GRNItem) => sum + (item.totalPrice || 0), 0).toFixed(2)}</td>
+                      <td className="py-3 px-3 text-right font-bold text-slate-800">₹{(selectedRecord.items || []).reduce((sum: number, item: GRNItem) => sum + (item.totalPrice || 0), 0).toFixed(2)}</td>
                       <td colSpan={2}></td>
                     </tr>
                   </tfoot>

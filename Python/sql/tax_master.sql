@@ -77,8 +77,8 @@ BEGIN
         WHERE IsDeleted = 0
           AND (
             p_Search IS NULL OR p_Search = ''
-            OR TaxCode LIKE CONCAT('%', p_Search, '%')
-            OR CAST(GstPercentage AS CHAR) LIKE CONCAT('%', p_Search, '%')
+            OR TaxCode LIKE CONCAT('%', p_Search, '%') COLLATE utf8mb4_general_ci
+            OR CAST(GstPercentage AS CHAR) LIKE CONCAT('%', p_Search, '%') COLLATE utf8mb4_general_ci
           )
           AND (p_StatusFilter IS NULL OR p_StatusFilter = '' OR Status = p_StatusFilter)
         ORDER BY GstPercentage ASC;

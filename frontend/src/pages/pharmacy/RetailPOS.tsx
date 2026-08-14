@@ -46,8 +46,13 @@ export const RetailPOS = () => {
     setSearchQuery('');
   };
 
-  const handleUpdateQty = (id: string, qty: number) => {
-    if (qty <= 0) return;
+  const handleUpdateQty = (id: string, value: string) => {
+    if (value === '') {
+       setCart(prev => prev.map(item => item.id === id ? { ...item, cartQty: 0 } : item));
+       return;
+    }
+    const qty = parseInt(value, 10);
+    if (isNaN(qty) || qty < 0) return;
     const med = medicines.find((m: any) => m.id === id);
     if (!med || qty > med.quantity) return; // Cannot exceed stock
 
@@ -85,8 +90,8 @@ export const RetailPOS = () => {
       tax: tax,
       netAmount: netAmount,
       paymentMode: paymentMethod,
-      // Retail POS collects payment at the counter, so the sale is Paid.
-      paymentStatus: 'Paid'
+      // Retail POS generates bills as Pending by default, to be paid later from the reports screen.
+      paymentStatus: 'Pending'
     };
 
     if (addRetailBill) {
@@ -241,10 +246,10 @@ export const RetailPOS = () => {
                           type="number"
                           min="1"
                           max={item.quantity}
-                          value={item.cartQty}
+                          value={item.cartQty || ''}
                           // Block non-integer characters (e, E, +, -, .).
                           onKeyDown={(e) => ['e', 'E', '+', '-', '.'].includes(e.key) && e.preventDefault()}
-                          onChange={(e) => handleUpdateQty(item.id, parseInt(e.target.value) || 1)}
+                          onChange={(e) => handleUpdateQty(item.id, e.target.value)}
                           className="w-16 text-center border border-slate-200 rounded p-1 text-sm font-semibold focus:outline-none focus:border-primary bg-slate-50"
                         />
                       </td>

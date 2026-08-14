@@ -196,6 +196,26 @@ def upsert_policy(payload: PolicyUpsert, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail="Failed to save policy")
 
 
+@router.put("/policies/{policy_id}")
+def update_policy(policy_id: int, payload: PolicyUpsert, db: Session = Depends(get_db)):
+    try:
+        row = _sp(db, _POLICY, _POLICY_D, "UPSERT", PolicyId=policy_id,
+                  Uhid=payload.uhid, PatientName=payload.patientName,
+                  PolicyNumber=payload.policyNumber, ProviderId=payload.providerId,
+                  InsurerName=payload.insurerName, TpaId=payload.tpaId, TpaName=payload.tpaName,
+                  PlanName=payload.planName, Status=payload.status.value,
+                  ValidUntil=payload.validUntil or None, SumInsured=payload.sumInsured,
+                  BalanceAmount=payload.balanceAmount, NetworkHospital=int(payload.networkHospital),
+                  CopayPercentage=payload.copayPercentage, Deductible=payload.deductible,
+                  User=payload.user or "Admin").fetchone()
+        db.commit()
+        return _map_policy(row)
+    except Exception as e:
+        db.rollback()
+        logger.error(f"[PUT /insurance/policies/{policy_id}] {e}")
+        raise HTTPException(status_code=500, detail="Failed to update policy")
+
+
 @router.delete("/policies/{policy_id}")
 def delete_policy(policy_id: int, db: Session = Depends(get_db)):
     try:

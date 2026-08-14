@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Pagination } from '@/components/ui/Pagination';
 import { usePagination } from '@/hooks/usePagination';
-import { Search, CheckCircle, XCircle, Shield, Plus, X, AlertTriangle } from 'lucide-react';
+import { Search, CheckCircle, XCircle, Shield, Plus, X, AlertTriangle, Edit, Eye } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { usePatients } from '../../contexts/PatientContext';
 import { useInsurance, type Policy } from '../../contexts/InsuranceContext';
@@ -26,6 +26,7 @@ export const EligibilityVerification = () => {
   // Controls the UHID patient-picker dropdown in the Add-Insurance modal.
   const [uhidOpen, setUhidOpen] = useState(false);
   const [form, setForm] = useState({
+    policyId: null as number | null,
     uhid: '', name: '', providerId: '', insurer: '',
     policyNumber: '', validUntil: '', sumInsured: '',
     copayPercentage: '10', deductible: '0',
@@ -72,7 +73,22 @@ export const EligibilityVerification = () => {
   // Picking a patient fills both UHID and name; the name field is read-only
   // because it always comes from the selected patient's registration record.
   const selectPatient = (uhid: string, name: string) => {
-    setForm(prev => ({ ...prev, uhid, name }));
+    const patient = patients.find(p => p.uhid === uhid);
+    let autoProviderId = '';
+    if (patient?.insuranceProviderId) {
+      const provider = providers.find(p => p.providerId.toString() === patient.insuranceProviderId?.toString() || p.providerName === patient.insuranceProviderId);
+      if (provider) {
+        autoProviderId = provider.providerId.toString();
+      }
+    }
+    
+    setForm(prev => ({ 
+      ...prev, 
+      uhid, 
+      name,
+      providerId: autoProviderId || prev.providerId,
+      policyNumber: patient?.policyNumber || prev.policyNumber
+    }));
     setErrors(prev => ({ ...prev, uhid: '', name: '' }));
     setUhidOpen(false);
   };
@@ -100,6 +116,7 @@ export const EligibilityVerification = () => {
     setSaving(true);
     const provider = providers.find(p => String(p.providerId) === form.providerId);
     const ok = await savePolicy({
+      policyId: form.policyId ?? undefined,
       uhid: form.uhid.trim(),
       patientName: form.name.trim(),
       policyNumber: form.policyNumber.trim(),
@@ -121,7 +138,7 @@ export const EligibilityVerification = () => {
       setUhidOpen(false);
       setSearch(form.uhid);
       setNotFound(false);
-      setForm({ uhid: '', name: '', providerId: '', insurer: '', policyNumber: '', validUntil: '', sumInsured: '', copayPercentage: '10', deductible: '0' });
+      setForm({ policyId: null, uhid: '', name: '', providerId: '', insurer: '', policyNumber: '', validUntil: '', sumInsured: '', copayPercentage: '10', deductible: '0' });
     } else {
       toast.error('Failed to save policy. The policy number may already exist.');
     }
@@ -151,7 +168,10 @@ export const EligibilityVerification = () => {
           <p className="text-xs text-slate-500">Check a patient's policy coverage before admission or billing</p>
         </div>
         <button
-          onClick={() => setShowAddModal(true)}
+          onClick={() => {
+            setForm({ policyId: null, uhid: '', name: '', providerId: '', insurer: '', policyNumber: '', validUntil: '', sumInsured: '', copayPercentage: '10', deductible: '0' });
+            setShowAddModal(true);
+          }}
           className="px-4 py-2 bg-primary text-white font-bold rounded-xl hover:bg-primary/90 transition-colors flex items-center gap-2 shadow-sm text-sm w-max"
         >
           <Plus className="w-4 h-4" />
@@ -332,12 +352,36 @@ export const EligibilityVerification = () => {
                     )}
                   </td>
                   <td className="px-5 py-3">
-                    <button
-                      onClick={() => { setSearch(row.policyNumber); setNotFound(false); handleSearch(row.policyNumber); }}
-                      className="text-primary text-sm font-bold hover:underline"
-                    >
-                      View Details
-                    </button>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => {
+                          setForm({
+                            policyId: row.policyId,
+                            uhid: row.uhid,
+                            name: row.patientName,
+                            providerId: String(row.providerId || ''),
+                            insurer: row.insurerName,
+                            policyNumber: row.policyNumber,
+                            validUntil: row.validUntil ? row.validUntil.split('T')[0] : '',
+                            sumInsured: String(row.sumInsured),
+                            copayPercentage: String(row.copayPercentage),
+                            deductible: String(row.deductible),
+                          });
+                          setShowAddModal(true);
+                        }}
+                        className="text-slate-400 hover:text-blue-600 transition-colors"
+                        title="Edit Policy"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => { setSearch(row.policyNumber); setNotFound(false); handleSearch(row.policyNumber); }}
+                        className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="View Details"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -360,7 +404,7 @@ export const EligibilityVerification = () => {
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl overflow-hidden">
             <div className="px-5 py-3 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-              <h2 className="text-lg font-bold text-slate-800">Add Patient Insurance Details</h2>
+              <h2 className="text-lg font-bold text-slate-800">{form.policyId ? 'Edit' : 'Add'} Patient Insurance Details</h2>
               <button onClick={() => { setShowAddModal(false); setUhidOpen(false); }} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
                 <X className="w-5 h-5 text-slate-500" />
               </button>
@@ -442,7 +486,7 @@ export const EligibilityVerification = () => {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Valid Until *</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Expiry Date *</label>
                   <input
                     type="date" value={form.validUntil}
                     onChange={(e) => setForm({ ...form, validUntil: e.target.value })}
@@ -472,16 +516,6 @@ export const EligibilityVerification = () => {
                   />
                   {errors.copayPercentage && <p className="text-[11px] text-red-500 mt-1">{errors.copayPercentage}</p>}
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Deductible (₹)</label>
-                  <input
-                    type="text" inputMode="numeric" value={form.deductible}
-                    onChange={(e) => setForm({ ...form, deductible: digitsOnly(e.target.value, LIMITS.amount) })}
-                    maxLength={LIMITS.amount}
-                    className={inputCls('deductible')} placeholder="0"
-                  />
-                  {errors.deductible && <p className="text-[11px] text-red-500 mt-1">{errors.deductible}</p>}
-                </div>
               </div>
               <div className="pt-3 flex gap-3">
                 <button
@@ -499,7 +533,7 @@ export const EligibilityVerification = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>  
       )}
     </div>
   );

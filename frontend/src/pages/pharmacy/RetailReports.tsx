@@ -144,17 +144,22 @@ export const RetailReports = () => {
                           Paid
                         </span>
                       ) : (
-                        <button
-                          onClick={() => updateBillStatus(bill.billId, 'Paid')}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-100 text-amber-700 hover:bg-emerald-500 hover:text-white transition-colors"
-                        >
-                          <CreditCard className="w-3 h-3" />
-                          Pay Bill
-                        </button>
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
+                          Pending
+                        </span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <div className="flex items-center justify-center gap-2">
+                        {bill.paymentStatus !== 'Paid' && (
+                          <button
+                            onClick={() => updateBillStatus(bill.billId, 'Paid')}
+                            className="p-1.5 text-amber-600 hover:text-white hover:bg-amber-500 rounded transition-colors"
+                            title="Pay Bill"
+                          >
+                            <CreditCard className="w-4 h-4" />
+                          </button>
+                        )}
                         <button
                           onClick={() => setViewingBill({ ...bill })}
                           className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
