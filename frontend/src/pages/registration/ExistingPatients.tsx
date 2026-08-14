@@ -18,10 +18,17 @@ export const ExistingPatients = () => {
   
   const fetchPatients = async () => {
     try {
-      const res = await fetch(`${API_BASE}/patients/`);
-      if (res.ok) {
-        const data = await res.json();
-        const mappedData = data.map((d: any) => ({
+      const [patientsRes, quickRes, emergencyRes] = await Promise.all([
+        fetch(`${API_BASE}/patients/`),
+        fetch(`${API_BASE}/quick-registrations/`),
+        fetch(`${API_BASE}/emergency-registrations/`)
+      ]);
+
+      let allPatients: any[] = [];
+
+      if (patientsRes.ok) {
+        const data = await patientsRes.json();
+        allPatients = allPatients.concat(data.map((d: any) => ({
           id: d.PatientRegistrationId,
           uhid: d.Uhid,
           patientName: d.PatientName,
@@ -32,9 +39,45 @@ export const ExistingPatients = () => {
           patientCategory: d.PatientCategory,
           registrationDate: d.RegistrationDate,
           status: d.Status
-        }));
-        setPatients(mappedData);
+        })));
       }
+
+      if (quickRes.ok) {
+        const data = await quickRes.json();
+        allPatients = allPatients.concat(data.map((d: any) => ({
+          id: d.QuickRegistrationId,
+          uhid: d.Uhid,
+          patientName: d.PatientName,
+          gender: d.Gender,
+          age: d.Age,
+          mobileNumber: d.MobileNumber,
+          nationalId: '', 
+          patientCategory: '', 
+          registrationDate: d.RegistrationDate,
+          status: d.Status
+        })));
+      }
+
+      if (emergencyRes.ok) {
+        const data = await emergencyRes.json();
+        allPatients = allPatients.concat(data.map((d: any) => ({
+          id: d.EmergencyRegistrationId,
+          uhid: d.Uhid,
+          patientName: d.PatientName,
+          gender: d.Gender,
+          age: d.ApproximateAge,
+          mobileNumber: d.EmergencyContactPhone,
+          nationalId: '', 
+          patientCategory: '', 
+          registrationDate: d.RegistrationDate,
+          status: d.Status
+        })));
+      }
+
+      // Sort by Registration Date descending
+      allPatients.sort((a, b) => new Date(b.registrationDate).getTime() - new Date(a.registrationDate).getTime());
+
+      setPatients(allPatients);
     } catch (e) {
       console.error(e);
     }
@@ -304,8 +347,8 @@ export const ExistingPatients = () => {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredRecords.length > 0 ? (
-                filteredRecords.map((record) => (
-                  <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
+                filteredRecords.map((record, index) => (
+                  <tr key={`${record.uhid}-${index}`} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-4 py-3 font-semibold text-primary">{record.uhid}</td>
                     <td className="px-4 py-3 font-medium text-slate-800">{record.patientName}</td>
                     <td className="px-4 py-3 text-slate-600">{record.gender} / {record.age} Yrs</td>

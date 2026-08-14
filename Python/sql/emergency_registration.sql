@@ -52,18 +52,31 @@ BEGIN
         SELECT * FROM registration.EmergencyRegistration WHERE EmergencyRegistrationId = p_EmergencyRegistrationId;
 
     ELSEIF p_Opt = 'INSERT' THEN
+        SELECT GET_LOCK('generate_uhid_lock', 10) INTO @lock_acquired;
+        
+        SELECT MAX(CAST(SUBSTRING_INDEX(Uhid, '-', -1) AS UNSIGNED)) INTO @max_seq
+        FROM (
+            SELECT Uhid FROM registration.PatientRegistration WHERE Uhid LIKE CONCAT('UHID-', YEAR(CURDATE()), '-%')
+            UNION ALL
+            SELECT Uhid FROM registration.QuickRegistration WHERE Uhid LIKE CONCAT('UHID-', YEAR(CURDATE()), '-%')
+            UNION ALL
+            SELECT Uhid FROM registration.EmergencyRegistration WHERE Uhid LIKE CONCAT('UHID-', YEAR(CURDATE()), '-%')
+        ) AS AllUhids;
+        
+        SET @max_seq = IFNULL(@max_seq, 0) + 1;
+        SET @new_uhid = CONCAT('UHID-', YEAR(CURDATE()), '-', LPAD(@max_seq, 4, '0'));
+
         INSERT INTO registration.EmergencyRegistration (
-            RegistrationDate, RegistrationTime, PatientName, Gender, ApproximateAge,
+            Uhid, RegistrationDate, RegistrationTime, PatientName, Gender, ApproximateAge,
             EmergencyContactName, EmergencyContactPhone, Status, CreatedBy
         ) VALUES (
-            p_RegistrationDate, p_RegistrationTime, p_PatientName, p_Gender, p_ApproximateAge,
+            @new_uhid, p_RegistrationDate, p_RegistrationTime, p_PatientName, p_Gender, p_ApproximateAge,
             p_EmergencyContactName, p_EmergencyContactPhone, p_Status, p_CreatedBy
         );
 
         SET @new_id = LAST_INSERT_ID();
-        SET @new_uhid = CONCAT('UHID-EM-', YEAR(CURDATE()), '-', LPAD(@new_id, 4, '0'));
-
-        UPDATE registration.EmergencyRegistration SET Uhid = @new_uhid WHERE EmergencyRegistrationId = @new_id;
+        
+        SELECT RELEASE_LOCK('generate_uhid_lock') INTO @lock_released;
 
         SELECT * FROM registration.EmergencyRegistration WHERE EmergencyRegistrationId = @new_id;
 

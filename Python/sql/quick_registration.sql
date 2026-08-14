@@ -76,12 +76,26 @@ BEGIN
         SELECT * FROM registration.QuickRegistration WHERE QuickRegistrationId = p_QuickRegistrationId;
 
     ELSEIF p_Opt = 'INSERT' THEN
+        SELECT GET_LOCK('generate_uhid_lock', 10) INTO @lock_acquired;
+        
+        SELECT MAX(CAST(SUBSTRING_INDEX(Uhid, '-', -1) AS UNSIGNED)) INTO @max_seq
+        FROM (
+            SELECT Uhid FROM registration.PatientRegistration WHERE Uhid LIKE CONCAT('UHID-', YEAR(CURDATE()), '-%')
+            UNION ALL
+            SELECT Uhid FROM registration.QuickRegistration WHERE Uhid LIKE CONCAT('UHID-', YEAR(CURDATE()), '-%')
+            UNION ALL
+            SELECT Uhid FROM registration.EmergencyRegistration WHERE Uhid LIKE CONCAT('UHID-', YEAR(CURDATE()), '-%')
+        ) AS AllUhids;
+        
+        SET @max_seq = IFNULL(@max_seq, 0) + 1;
+        SET @new_uhid = CONCAT('UHID-', YEAR(CURDATE()), '-', LPAD(@max_seq, 4, '0'));
+
         INSERT INTO registration.QuickRegistration (
-            RegistrationDate, RegistrationTime, Title, PatientName, Gender, DateOfBirth, Age,
+            Uhid, RegistrationDate, RegistrationTime, Title, PatientName, Gender, DateOfBirth, Age,
             MobileNumber, AlternateMobile, VisitType, Department, Doctor, Priority, VisitReason,
             ConsultationRequired, ConsultationFee, PaymentMode, InsuranceRequired, Status, Remarks, CreatedBy
         ) VALUES (
-            p_RegistrationDate, p_RegistrationTime, p_Title, p_PatientName, p_Gender, p_DateOfBirth, p_Age,
+            @new_uhid, p_RegistrationDate, p_RegistrationTime, p_Title, p_PatientName, p_Gender, p_DateOfBirth, p_Age,
             p_MobileNumber, p_AlternateMobile, p_VisitType, p_Department, p_Doctor, p_Priority, p_VisitReason,
             p_ConsultationRequired, p_ConsultationFee, p_PaymentMode, p_InsuranceRequired, p_Status, p_Remarks, p_CreatedBy
         );
@@ -90,6 +104,8 @@ BEGIN
         SET @new_uhid = CONCAT('UHID-', YEAR(CURDATE()), '-', LPAD(@new_id, 4, '0'));
 
         UPDATE registration.QuickRegistration SET Uhid = @new_uhid WHERE QuickRegistrationId = @new_id;
+
+        SELECT RELEASE_LOCK('generate_uhid_lock') INTO @lock_released;
 
         SELECT * FROM registration.QuickRegistration WHERE QuickRegistrationId = @new_id;
 

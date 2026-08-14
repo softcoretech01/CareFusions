@@ -39,48 +39,19 @@ export const DuplicateCheck = () => {
 
   const [duplicateGroups, setDuplicateGroups] = useState<DuplicateGroup[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  
+
   useEffect(() => {
-    // Flexible Duplicate detection logic: Grouping by Name & Mobile, Mobile Number, or Patient Name
+    // Duplicate detection logic: Grouping strictly by UHID
     const groups: Record<string, { matchType: string; records: GlobalPatientRecord[] }> = {};
-    
-    // Group by Name & Mobile Match
-    patients.forEach(p => {
-      const nameStr = (p.patientName || `${p.firstName || ''} ${p.lastName || ''}`).toLowerCase().trim();
-      const mobileStr = (p.mobileNumber || '').trim();
 
-      if (nameStr.length >= 2 && mobileStr.length >= 4) {
-        const key = `namemobile_${nameStr}_${mobileStr}`;
-        if (!groups[key]) {
-          groups[key] = { matchType: 'Patient Name & Mobile Match', records: [] };
-        }
-        if (!groups[key].records.find(r => r.id === p.id)) {
-          groups[key].records.push(p);
-        }
-      }
-    });
-
-    // Group by Mobile Number Match
+    // Group by UHID Match
     patients.forEach(p => {
-      const mobileStr = (p.mobileNumber || '').trim();
-      if (mobileStr.length >= 4) {
-        const key = `mobile_${mobileStr}`;
-        if (!groups[key]) {
-          groups[key] = { matchType: 'Mobile Number Match', records: [] };
-        }
-        if (!groups[key].records.find(r => r.id === p.id)) {
-          groups[key].records.push(p);
-        }
-      }
-    });
+      const uhidStr = (p.uhid || '').trim();
 
-    // Group by Patient Name Match
-    patients.forEach(p => {
-      const nameStr = (p.patientName || `${p.firstName || ''} ${p.lastName || ''}`).toLowerCase().trim();
-      if (nameStr.length >= 2) {
-        const key = `name_${nameStr}`;
+      if (uhidStr.length > 0) {
+        const key = `uhid_${uhidStr}`;
         if (!groups[key]) {
-          groups[key] = { matchType: 'Patient Name Match', records: [] };
+          groups[key] = { matchType: 'UHID Match', records: [] };
         }
         if (!groups[key].records.find(r => r.id === p.id)) {
           groups[key].records.push(p);
@@ -90,25 +61,10 @@ export const DuplicateCheck = () => {
 
     const potentialDuplicates: DuplicateGroup[] = [];
     let groupId = 1;
-    
-    // Add groups with > 1 patient, prioritizing Name & Mobile Match over individual matches
-    const addedPatientIds = new Set<string>();
-    
-    // First add Name & Mobile Match groups
-    Object.keys(groups).forEach(k => {
-      if (k.startsWith('namemobile_') && groups[k].records.length > 1) {
-        potentialDuplicates.push({
-          id: `grp_${groupId++}`,
-          matchType: groups[k].matchType,
-          records: groups[k].records
-        });
-        groups[k].records.forEach(r => addedPatientIds.add(String(r.id)));
-      }
-    });
 
-    // Next add Mobile Match or Name Match groups if they reveal distinct candidate records
+    // Add groups with > 1 patient
     Object.keys(groups).forEach(k => {
-      if (!k.startsWith('namemobile_') && groups[k].records.length > 1) {
+      if (groups[k].records.length > 1) {
         potentialDuplicates.push({
           id: `grp_${groupId++}`,
           matchType: groups[k].matchType,
@@ -120,11 +76,11 @@ export const DuplicateCheck = () => {
     setDuplicateGroups(potentialDuplicates);
   }, [patients]);
 
-  const filteredGroups = duplicateGroups.filter(g => 
+  const filteredGroups = duplicateGroups.filter(g =>
     g.matchType.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    g.records.some(r => 
+    g.records.some(r =>
       r.uhid?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.patientName?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      r.patientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       r.mobileNumber?.includes(searchTerm)
     )
   );
@@ -191,9 +147,8 @@ export const DuplicateCheck = () => {
                           <td className="px-4 py-3 text-slate-600">{record.mobileNumber || '-'}</td>
                           <td className="px-4 py-3 text-slate-600">{record.registrationDate}</td>
                           <td className="px-4 py-3 text-center">
-                            <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${
-                              record.status === 'Active' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-600'
-                            }`}>
+                            <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${record.status === 'Active' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-600'
+                              }`}>
                               {record.status}
                             </span>
                           </td>
@@ -208,7 +163,7 @@ export const DuplicateCheck = () => {
             <div className="h-full flex flex-col items-center justify-center text-slate-500 py-12">
               <Users className="w-16 h-16 text-slate-200 mb-4" />
               <p className="text-xl font-bold text-slate-700">No Duplicates Found</p>
-              <p className="text-sm mt-1">Your database is clean. No matching records detected based on current criteria.</p>
+              <p className="text-sm mt-1">No matching records detected based on current criteria.</p>
             </div>
           )}
         </div>

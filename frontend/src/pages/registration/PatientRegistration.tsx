@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Search, Plus, Filter, Edit2, Download, Trash2, Printer, 
+import {
+  Search, Plus, Filter, Edit2, Download, Trash2, Printer,
   User, Phone, FileText, Heart, Shield, Activity, Calendar, FileDigit, Info,
   AlertTriangle
 } from 'lucide-react';
@@ -170,13 +170,18 @@ export const PatientRegistration = () => {
 
   const fetchPatients = async () => {
     try {
-      const res = await fetch(`${API_BASE}/patients/`);
-      if (res.ok) {
-        const data = await res.json();
-        
-        // Map backend PascalCase to frontend camelCase
-        const mappedData = data.map((d: any) => ({
-          id: d.PatientId,
+      const [patientsRes, quickRes, emergencyRes] = await Promise.all([
+        fetch(`${API_BASE}/patients/`),
+        fetch(`${API_BASE}/quick-registrations/`),
+        fetch(`${API_BASE}/emergency-registrations/`)
+      ]);
+
+      let allPatients: any[] = [];
+
+      if (patientsRes.ok) {
+        const data = await patientsRes.json();
+        allPatients = allPatients.concat(data.map((d: any) => ({
+          id: d.PatientId || d.PatientRegistrationId,
           uhid: d.Uhid,
           registrationDate: d.RegistrationDate,
           title: d.Title,
@@ -230,10 +235,62 @@ export const PatientRegistration = () => {
           emailConsent: d.EmailConsent,
           whatsappConsent: d.WhatsappConsent,
           status: d.Status,
-          remarks: d.Remarks
-        }));
-        setPatients(mappedData);
+          remarks: d.Remarks,
+          sourceType: 'Patient'
+        })));
       }
+
+      if (quickRes.ok) {
+        const data = await quickRes.json();
+        allPatients = allPatients.concat(data.map((d: any) => ({
+          id: d.QuickRegistrationId,
+          uhid: d.Uhid,
+          registrationDate: d.RegistrationDate,
+          title: d.Title || '',
+          patientName: d.PatientName,
+          gender: d.Gender,
+          dateOfBirth: d.DateOfBirth || '',
+          age: d.Age,
+          mobileNumber: d.MobileNumber,
+          alternateMobile: d.AlternateMobile || '',
+          patientType: d.VisitType || '',
+          department: d.Department || '',
+          primaryDoctor: d.Doctor || '',
+          insuranceRequired: d.InsuranceRequired || 'No',
+          status: d.Status,
+          remarks: d.Remarks || '',
+          sourceType: 'Quick'
+        })));
+      }
+
+      if (emergencyRes.ok) {
+        const data = await emergencyRes.json();
+        allPatients = allPatients.concat(data.map((d: any) => ({
+          id: d.EmergencyRegistrationId,
+          uhid: d.Uhid,
+          registrationDate: d.RegistrationDate,
+          patientName: d.PatientName,
+          gender: d.Gender,
+          age: d.ApproximateAge,
+          mobileNumber: d.EmergencyContactPhone || '',
+          emergencyContactName: d.EmergencyContactName || '',
+          emergencyRelationship: d.EmergencyRelationship || '',
+          emergencyMobile: d.EmergencyContactPhone || '',
+          status: d.Status,
+          remarks: d.Remarks || '',
+          sourceType: 'Emergency'
+        })));
+      }
+
+      const getSeq = (uhid: string) => {
+        if (!uhid) return 0;
+        const match = uhid.match(/\d+$/);
+        return match ? parseInt(match[0], 10) : 0;
+      };
+
+      allPatients.sort((a, b) => getSeq(b.uhid) - getSeq(a.uhid));
+
+      setPatients(allPatients);
     } catch (e) {
       console.error(e);
     }
@@ -261,9 +318,9 @@ export const PatientRegistration = () => {
         window.history.replaceState({}, document.title);
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state?.uhid]);
-  
+
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -349,7 +406,7 @@ export const PatientRegistration = () => {
     setIsDeleteOpen(true);
   };
 
-  
+
   const handleConfirmDeactivate = async () => {
     if (selectedRecord) {
       try {
@@ -371,10 +428,10 @@ export const PatientRegistration = () => {
 
   const confirmDelete = handleConfirmDeactivate;
 
-  
+
   const handleSave = async (e: React.FormEvent, isSaveAndNew: boolean = false) => {
     e.preventDefault();
-    
+
     // Map frontend camelCase back to backend PascalCase
     const payload = {
       RegistrationDate: formData.registrationDate,
@@ -451,7 +508,7 @@ export const PatientRegistration = () => {
       if (res.ok) {
         toast.success(selectedRecord ? 'Patient updated successfully' : 'Patient registered successfully');
         await fetchPatients();
-        
+
         if (isSaveAndNew) {
           setFormData({ ...initialFormState, uhid: '' });
           setSelectedRecord(null);
@@ -461,8 +518,8 @@ export const PatientRegistration = () => {
         }
       } else {
         const err = await res.json();
-        const errorMessage = Array.isArray(err.detail) 
-          ? err.detail.map((e: any) => `${e.loc.join('.')}: ${e.msg}`).join(', ') 
+        const errorMessage = Array.isArray(err.detail)
+          ? err.detail.map((e: any) => `${e.loc.join('.')}: ${e.msg}`).join(', ')
           : (err.detail || 'Failed to save patient');
         toast.error(errorMessage);
       }
@@ -484,12 +541,12 @@ export const PatientRegistration = () => {
   };
 
   const filteredRecords = patients.filter(record => {
-    const matchesSearch = 
+    const matchesSearch =
       record.uhid.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (record.patientName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (record.mobileNumber || '').includes(searchTerm) ||
       (record.aadhaarNumber || record.nationalId || '').includes(searchTerm);
-    
+
     const matchesPatientType = !filterPatientType || record.patientType === filterPatientType;
     const matchesGender = !filterGender || record.gender === filterGender;
     const matchesStatus = !filterStatus || record.status === filterStatus;
@@ -583,7 +640,7 @@ export const PatientRegistration = () => {
                 <tbody className="divide-y divide-slate-100">
                   {filteredRecords.length > 0 ? (
                     filteredRecords.map((record) => (
-                      <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
+                      <tr key={record.uhid} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-4 py-3 font-semibold text-primary">{record.uhid}</td>
                         <td className="px-4 py-3 font-medium text-slate-800">
                           {record.patientName || `${record.title || ''} `}
@@ -592,11 +649,10 @@ export const PatientRegistration = () => {
                         <td className="px-4 py-3 text-slate-600">{record.mobileNumber}</td>
                         <td className="px-4 py-3 text-slate-600">{record.registrationDate}</td>
                         <td className="px-4 py-3 text-center">
-                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                            record.status === 'Active' 
-                              ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' 
-                              : 'bg-red-50 text-red-600 border border-red-200'
-                          }`}>
+                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${record.status === 'Active'
+                            ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                            : 'bg-red-50 text-red-600 border border-red-200'
+                            }`}>
                             {record.status}
                           </span>
                         </td>
@@ -605,14 +661,14 @@ export const PatientRegistration = () => {
                             <button onClick={() => handlePrint(record)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Print Card">
                               <Printer className="w-4 h-4" />
                             </button>
-                            <button 
+                            <button
                               onClick={() => handleEdit(record)}
                               className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
                               title="Edit"
                             >
                               <Edit2 className="w-4 h-4" />
                             </button>
-                            <button 
+                            <button
                               onClick={() => handleDeleteRequest(record)}
                               className="p-1.5 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                               title="Deactivate"
@@ -669,7 +725,7 @@ export const PatientRegistration = () => {
 
           {/* Form Content - Scrolling */}
           <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
-            
+
             {/* Section 1 - Basic Information */}
             <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
               <div className="flex items-center gap-2 mb-6 border-b border-slate-100 pb-3">
@@ -681,10 +737,10 @@ export const PatientRegistration = () => {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Title <span className="text-red-500">*</span></label>
                   <select
                     value={formData.title}
-                      onChange={(e) => handleInputChange('title', e.target.value)}
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    >
-                      <option value="">Select Title</option>{options.Title.map((o: string) => <option key={o} value={o}>{o}</option>)}</select>
+                    onChange={(e) => handleInputChange('title', e.target.value)}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  >
+                    <option value="">Select Title</option>{options.Title.map((o: string) => <option key={o} value={o}>{o}</option>)}</select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Patient Name <span className="text-red-500">*</span></label>
@@ -701,10 +757,10 @@ export const PatientRegistration = () => {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Gender <span className="text-red-500">*</span></label>
                   <select
                     value={formData.gender}
-                      onChange={(e) => handleInputChange('gender', e.target.value)}
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    >
-                      <option value="">Select Gender</option>{options.Gender.map((o: string) => <option key={o} value={o}>{o}</option>)}</select>
+                    onChange={(e) => handleInputChange('gender', e.target.value)}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  >
+                    <option value="">Select Gender</option>{options.Gender.map((o: string) => <option key={o} value={o}>{o}</option>)}</select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Date of Birth <span className="text-red-500">*</span></label>
@@ -729,10 +785,10 @@ export const PatientRegistration = () => {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Marital Status</label>
                   <select
                     value={formData.maritalStatus}
-                      onChange={(e) => handleInputChange('maritalStatus', e.target.value)}
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    >
-                      <option value="">Select Status</option>{options.MaritalStatus.map((o: string) => <option key={o} value={o}>{o}</option>)}</select>
+                    onChange={(e) => handleInputChange('maritalStatus', e.target.value)}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  >
+                    <option value="">Select Status</option>{options.MaritalStatus.map((o: string) => <option key={o} value={o}>{o}</option>)}</select>
                 </div>
 
                 <div>
@@ -786,7 +842,7 @@ export const PatientRegistration = () => {
                     type="text"
                     value={formData.alternateMobile}
                     onChange={(e) => { const val = e.target.value; if (/^\d{0,10}$/.test(val)) handleInputChange('alternateMobile', val); }}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"  maxLength={10} />
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary" maxLength={10} />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
@@ -797,7 +853,7 @@ export const PatientRegistration = () => {
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Address Line 1 <span className="text-red-500">*</span></label>
                   <input
@@ -912,10 +968,10 @@ export const PatientRegistration = () => {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Other ID Type</label>
                   <select
                     value={formData.nationalIdType}
-                      onChange={(e) => handleInputChange('nationalIdType', e.target.value)}
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    >
-                      <option value="">Select ID Type</option>{options.NationalIdType.map((o: string) => <option key={o} value={o}>{o}</option>)}</select>
+                    onChange={(e) => handleInputChange('nationalIdType', e.target.value)}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  >
+                    <option value="">Select ID Type</option>{options.NationalIdType.map((o: string) => <option key={o} value={o}>{o}</option>)}</select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Other ID Number</label>
@@ -949,10 +1005,10 @@ export const PatientRegistration = () => {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Relationship <span className="text-red-500">*</span></label>
                   <select
                     value={formData.emergencyRelationship}
-                      onChange={(e) => handleInputChange('emergencyRelationship', e.target.value)}
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    >
-                      <option value="">Select Relationship</option>{options.EmergencyRelationship.map((o: string) => <option key={o} value={o}>{o}</option>)}</select>
+                    onChange={(e) => handleInputChange('emergencyRelationship', e.target.value)}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  >
+                    <option value="">Select Relationship</option>{options.EmergencyRelationship.map((o: string) => <option key={o} value={o}>{o}</option>)}</select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Mobile Number <span className="text-red-500">*</span></label>
@@ -960,7 +1016,7 @@ export const PatientRegistration = () => {
                     type="text"
                     value={formData.emergencyMobile}
                     onChange={(e) => { const val = e.target.value; if (/^\d{0,10}$/.test(val)) handleInputChange('emergencyMobile', val); }}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"  maxLength={10} />
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary" maxLength={10} />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Alternate Mobile</label>
@@ -968,7 +1024,7 @@ export const PatientRegistration = () => {
                     type="text"
                     value={formData.emergencyAlternateMobile}
                     onChange={(e) => { const val = e.target.value; if (/^\d{0,10}$/.test(val)) handleInputChange('emergencyAlternateMobile', val); }}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"  maxLength={10} />
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary" maxLength={10} />
                 </div>
                 <div className="md:col-span-4">
                   <label className="block text-sm font-medium text-slate-700 mb-1">Contact Address</label>
@@ -993,10 +1049,10 @@ export const PatientRegistration = () => {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Blood Group</label>
                   <select
                     value={formData.bloodGroup}
-                      onChange={(e) => handleInputChange('bloodGroup', e.target.value)}
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    >
-                      <option value="">Select Blood Group</option>{options.BloodGroups.map((o: string) => <option key={o} value={o}>{o}</option>)}</select>
+                    onChange={(e) => handleInputChange('bloodGroup', e.target.value)}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  >
+                    <option value="">Select Blood Group</option>{options.BloodGroups.map((o: string) => <option key={o} value={o}>{o}</option>)}</select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Allergies</label>
@@ -1030,10 +1086,10 @@ export const PatientRegistration = () => {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Organ Donor</label>
                   <select
                     value={formData.organDonor}
-                      onChange={(e) => handleInputChange('organDonor', e.target.value)}
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    >
-                      <option value="">Select Yes/No</option>{options.YesNo.map((o: string) => <option key={o} value={o}>{o}</option>)}</select>
+                    onChange={(e) => handleInputChange('organDonor', e.target.value)}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  >
+                    <option value="">Select Yes/No</option>{options.YesNo.map((o: string) => <option key={o} value={o}>{o}</option>)}</select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Disability (if any)</label>
@@ -1058,10 +1114,10 @@ export const PatientRegistration = () => {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Insurance Required <span className="text-red-500">*</span></label>
                   <select
                     value={formData.insuranceRequired}
-                      onChange={(e) => handleInputChange('insuranceRequired', e.target.value)}
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    >
-                      <option value="">Select Yes/No</option>{options.YesNo.map((o: string) => <option key={o} value={o}>{o}</option>)}</select>
+                    onChange={(e) => handleInputChange('insuranceRequired', e.target.value)}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  >
+                    <option value="">Select Yes/No</option>{options.YesNo.map((o: string) => <option key={o} value={o}>{o}</option>)}</select>
                 </div>
 
                 {formData.insuranceRequired === 'Yes' && (
@@ -1118,19 +1174,19 @@ export const PatientRegistration = () => {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Patient Type <span className="text-red-500">*</span></label>
                   <select
                     value={formData.patientType}
-                      onChange={(e) => handleInputChange('patientType', e.target.value)}
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    >
-                      <option value="">Select Patient Type</option>{options.PatientType.map((o: string) => <option key={o} value={o}>{o}</option>)}</select>
+                    onChange={(e) => handleInputChange('patientType', e.target.value)}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  >
+                    <option value="">Select Patient Type</option>{options.PatientType.map((o: string) => <option key={o} value={o}>{o}</option>)}</select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Registration Source</label>
                   <select
                     value={formData.registrationSource}
-                      onChange={(e) => handleInputChange('registrationSource', e.target.value)}
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    >
-                      <option value="">Select Source</option>{options.RegistrationSource.map((o: string) => <option key={o} value={o}>{o}</option>)}</select>
+                    onChange={(e) => handleInputChange('registrationSource', e.target.value)}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  >
+                    <option value="">Select Source</option>{options.RegistrationSource.map((o: string) => <option key={o} value={o}>{o}</option>)}</select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Referred By</label>
@@ -1219,10 +1275,10 @@ export const PatientRegistration = () => {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Status <span className="text-red-500">*</span></label>
                   <select
                     value={formData.status}
-                      onChange={(e) => handleInputChange('status', e.target.value)}
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    >
-                      <option value="">Select Status</option>{options.Status.map((o: string) => <option key={o} value={o}>{o}</option>)}</select>
+                    onChange={(e) => handleInputChange('status', e.target.value)}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  >
+                    <option value="">Select Status</option>{options.Status.map((o: string) => <option key={o} value={o}>{o}</option>)}</select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Remarks</label>
@@ -1245,7 +1301,7 @@ export const PatientRegistration = () => {
       {/* Deactivate Confirmation Modal */}
       {isDeleteOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden"
@@ -1259,13 +1315,13 @@ export const PatientRegistration = () => {
                 Are you sure you want to delete <strong>{selectedRecord?.patientName || selectedRecord?.firstName + ' ' + selectedRecord?.lastName}</strong>?
               </p>
               <div className="flex w-full gap-4">
-                <button 
+                <button
                   onClick={() => setIsDeleteOpen(false)}
                   className="flex-1 py-2.5 rounded-xl border-[1.5px] border-amber-500 text-amber-500 font-bold hover:bg-amber-50 transition-colors text-sm"
                 >
                   Cancel
                 </button>
-                <button 
+                <button
                   onClick={confirmDelete}
                   className="flex-1 py-2.5 rounded-xl bg-[#b91c1c] text-white font-bold hover:bg-[#991b1b] transition-colors text-sm shadow-md shadow-red-900/10"
                 >

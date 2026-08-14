@@ -13,7 +13,8 @@ router = APIRouter(prefix="/documents", tags=["Patient Documents"])
 
 SP_NAME = "registration.SpPatientDocument"
 
-UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "uploads")
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 def _call_sp(db: Session, opt: str, **kwargs) -> Any:
