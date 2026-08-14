@@ -170,13 +170,18 @@ export const PatientRegistration = () => {
 
   const fetchPatients = async () => {
     try {
-      const res = await fetch(`${API_BASE}/patients/`);
-      if (res.ok) {
-        const data = await res.json();
-        
-        // Map backend PascalCase to frontend camelCase
-        const mappedData = data.map((d: any) => ({
-          id: d.PatientId,
+      const [patientsRes, quickRes, emergencyRes] = await Promise.all([
+        fetch(`${API_BASE}/patients/`),
+        fetch(`${API_BASE}/quick-registrations/`),
+        fetch(`${API_BASE}/emergency-registrations/`)
+      ]);
+
+      let allPatients: any[] = [];
+
+      if (patientsRes.ok) {
+        const data = await patientsRes.json();
+        allPatients = allPatients.concat(data.map((d: any) => ({
+          id: d.PatientId || d.PatientRegistrationId,
           uhid: d.Uhid,
           registrationDate: d.RegistrationDate,
           title: d.Title,
@@ -230,10 +235,62 @@ export const PatientRegistration = () => {
           emailConsent: d.EmailConsent,
           whatsappConsent: d.WhatsappConsent,
           status: d.Status,
-          remarks: d.Remarks
-        }));
-        setPatients(mappedData);
+          remarks: d.Remarks,
+          sourceType: 'Patient'
+        })));
       }
+
+      if (quickRes.ok) {
+        const data = await quickRes.json();
+        allPatients = allPatients.concat(data.map((d: any) => ({
+          id: d.QuickRegistrationId,
+          uhid: d.Uhid,
+          registrationDate: d.RegistrationDate,
+          title: d.Title || '',
+          patientName: d.PatientName,
+          gender: d.Gender,
+          dateOfBirth: d.DateOfBirth || '',
+          age: d.Age,
+          mobileNumber: d.MobileNumber,
+          alternateMobile: d.AlternateMobile || '',
+          patientType: d.VisitType || '',
+          department: d.Department || '',
+          primaryDoctor: d.Doctor || '',
+          insuranceRequired: d.InsuranceRequired || 'No',
+          status: d.Status,
+          remarks: d.Remarks || '',
+          sourceType: 'Quick'
+        })));
+      }
+
+      if (emergencyRes.ok) {
+        const data = await emergencyRes.json();
+        allPatients = allPatients.concat(data.map((d: any) => ({
+          id: d.EmergencyRegistrationId,
+          uhid: d.Uhid,
+          registrationDate: d.RegistrationDate,
+          patientName: d.PatientName,
+          gender: d.Gender,
+          age: d.ApproximateAge,
+          mobileNumber: d.EmergencyContactPhone || '',
+          emergencyContactName: d.EmergencyContactName || '',
+          emergencyRelationship: d.EmergencyRelationship || '',
+          emergencyMobile: d.EmergencyContactPhone || '',
+          status: d.Status,
+          remarks: d.Remarks || '',
+          sourceType: 'Emergency'
+        })));
+      }
+
+      const getSeq = (uhid: string) => {
+        if (!uhid) return 0;
+        const match = uhid.match(/\d+$/);
+        return match ? parseInt(match[0], 10) : 0;
+      };
+      
+      allPatients.sort((a, b) => getSeq(b.uhid) - getSeq(a.uhid));
+      
+      setPatients(allPatients);
     } catch (e) {
       console.error(e);
     }
