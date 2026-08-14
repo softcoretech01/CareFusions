@@ -1,25 +1,44 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Stethoscope, FlaskConical, ScanLine, BarChart3, ChevronDown } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-const DEPARTMENTS = ['Cardiology', 'General Medicine', 'Orthopedics', 'Pediatrics', 'Dermatology', 'Neurology'];
-
-const navigation = [
-  { name: 'Dashboard', to: '/opd', icon: LayoutDashboard },
-  {
-    name: 'My Consultations',
-    icon: Stethoscope,
-    submenus: DEPARTMENTS.map(d => ({ name: d, to: `/opd/consultations/${d.toLowerCase().replace(' ', '-')}` }))
-  },
-  { name: 'Lab Orders', to: '/opd/lab-orders', icon: FlaskConical },
-  { name: 'Radiology Orders', to: '/opd/radiology', icon: ScanLine },
-  { name: 'Reports', to: '/opd/reports', icon: BarChart3 },
-];
+const API_BASE = import.meta.env.VITE_API_URL as string;
 
 export const OPDSidebar = () => {
   const navigate = useNavigate();
   const [openSubmenu, setOpenSubmenu] = useState<string | null>('My Consultations');
+  const [departments, setDepartments] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/departments/?status_filter=Active`);
+        if (res.ok) {
+          const data = await res.json();
+          setDepartments(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch departments", error);
+      }
+    };
+    fetchDepartments();
+  }, []);
+
+  const navigation = useMemo(() => [
+    { name: 'Dashboard', to: '/opd', icon: LayoutDashboard },
+    {
+      name: 'My Consultations',
+      icon: Stethoscope,
+      submenus: departments.map(d => ({ 
+        name: d.departmentName, 
+        to: `/opd/consultations/${(d.departmentName || '').toLowerCase().replace(/ /g, '-')}` 
+      }))
+    },
+    { name: 'Lab Orders', to: '/opd/lab-orders', icon: FlaskConical },
+    { name: 'Radiology Orders', to: '/opd/radiology', icon: ScanLine },
+    { name: 'Reports', to: '/opd/reports', icon: BarChart3 },
+  ], [departments]);
 
   return (
     <motion.aside
@@ -71,9 +90,9 @@ export const OPDSidebar = () => {
                 {/* Submenu items */}
                 {isOpen && (
                   <div className="pl-10 space-y-1 overflow-hidden mt-1 pb-1">
-                    {item.submenus.map(sub => (
+                    {item.submenus.map((sub, idx) => (
                       <NavLink
-                        key={sub.name}
+                        key={`${sub.name}-${idx}`}
                         to={sub.to}
                         className={({ isActive }) =>
                           `block px-3 py-2 rounded-lg text-xs transition-all ${isActive
