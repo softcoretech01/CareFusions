@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useOPDVisits } from '../../contexts/OPDVisitContext';
-import { Download, Search, Eye, Printer } from 'lucide-react';
+import { Download, Eye, Printer } from 'lucide-react';
 import { VisitDetailsModal } from '../../components/opd/VisitDetailsModal';
 import { exportToExcel } from '../../utils/exportToExcel';
 import { DateFilter } from '../../components/ui/DateFilter';

@@ -59,7 +59,7 @@ export const PatientIPDProfile = () => {
 
     requestDischarge(patient.id, dischargeInfo);
     toast.success('Discharge information saved. Patient moved to Discharge list.');
-    navigate('/ipd/inpatients');
+    navigate('/ipd/discharges');
   };
 
   return (

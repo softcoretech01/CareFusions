@@ -63,7 +63,7 @@ export const DepartmentMaster = () => {
 
   // Pagination & Sorting States
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage] = useState(10);
   const [sortConfig, setSortConfig] = useState<{ key: keyof DepartmentRecord | null, direction: 'asc' | 'desc' }>({ key: null, direction: 'asc' });
 
   // Filter States

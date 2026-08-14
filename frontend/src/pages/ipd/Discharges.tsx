@@ -1,30 +1,37 @@
 import { useState, useEffect } from 'react';
+import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 import { useIPD } from '../../contexts/IPDContext';
-import { Search, CheckCircle, Eye, Printer, AlertCircle } from 'lucide-react';
+import { Search, CheckCircle, Eye, Printer, AlertCircle, FileText, Edit, X } from 'lucide-react';
 import { IpdErrorBanner } from './IpdErrorBanner';
 import { DischargePrintTemplate } from '../../components/discharge/DischargePrintTemplate';
+import { DischargePrescription, type DischargeItem } from '../../components/discharge/DischargePrescription';
 import { WardTransferHistory } from '../../components/discharge/WardTransferHistory';
 import { DateFilter } from '../../components/ui/DateFilter';
 import toast from 'react-hot-toast';
 
-// Mock billing status map (patient id -> status)
-const MOCK_BILLING: Record<number, 'Cleared' | 'Pending' | 'Partial'> = {
-  1: 'Cleared',
-  2: 'Pending',
-  3: 'Partial',
-  4: 'Cleared',   // Priya Sharma — Discharge Requested
-  5: 'Pending',   // Ravi Kumar — Discharge Requested
-  6: 'Cleared',   // Sunita Verma — Discharged
-  7: 'Cleared',   // Arjun Mehta — Discharged
-};
+// No mock billing anymore, we fetch real bills from API
 
 export const Discharges = () => {
-  const { patients, beds, wards, dischargePatient, refreshAll } = useIPD();
+  const navigate = useNavigate();
+  const { patients, beds, wards, dischargePatient, requestDischarge, refreshAll } = useIPD();
+
+  const [bills, setBills] = useState<any[]>([]);
 
   // Bed and admission state moves constantly — re-pull whenever this screen
   // opens. Keyed to mount rather than the callback identity so it fires exactly
   // once per visit; the context holds an in-flight ref that prevents overlap.
-  useEffect(() => { refreshAll?.(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { 
+    refreshAll?.(); 
+    axios.get(`${import.meta.env.VITE_API_URL}/ip-billing/`).then(res => setBills(res.data)).catch(console.error);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const getBillingStatus = (uhid: string): 'Pending' | 'Cleared' | 'Partial' => {
+    const patientBills = bills.filter(b => b.Uhid === uhid);
+    if (patientBills.length === 0) return 'Pending';
+    if (patientBills.some(b => b.PaymentStatus === 'Partial')) return 'Partial';
+    return patientBills.some(b => b.PaymentStatus === 'Paid') ? 'Cleared' : 'Pending';
+  };
   const [search, setSearch] = useState('');
   const today = new Date().toISOString().split('T')[0];
   const [dateFrom, setDateFrom] = useState(today);
@@ -37,6 +44,9 @@ export const Discharges = () => {
   const [selectedPatient, setSelectedPatient] = useState<typeof patients[0] | null>(null);
   const [showDischargeModal, setShowDischargeModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editSummary, setEditSummary] = useState('');
+  const [editMedicines, setEditMedicines] = useState<DischargeItem[]>([]);
   const [printPatient, setPrintPatient] = useState<typeof patients[0] | null>(null);
 
   const handlePrint = (patient: typeof patients[0]) => {
@@ -106,6 +116,51 @@ export const Discharges = () => {
   const openViewModal = (patient: typeof patients[0]) => {
     setSelectedPatient(patient);
     setShowViewModal(true);
+  };
+
+  const openEditModal = (patient: typeof patients[0]) => {
+    setSelectedPatient(patient);
+    setEditSummary(patient.dischargeInfo?.dischargeSummary || '');
+    setEditMedicines(patient.dischargeInfo?.medicines.map(m => ({ ...m, id: m.medicineId.toString() })) || []);
+    setShowEditModal(true);
+  };
+
+  const handleEditSave = () => {
+    if (!selectedPatient) return;
+    
+    const dischargeInfo = {
+      dischargeDate: selectedPatient.dischargeInfo?.dischargeDate || new Date().toISOString().split('T')[0],
+      dischargeSummary: editSummary,
+      dischargedBy: selectedPatient.dischargeInfo?.dischargedBy || 'Admin',
+      medicines: editMedicines.map(m => ({
+        medicineId: m.medicineId,
+        medicineName: m.medicineName,
+        dosage: m.dosage,
+        frequency: m.frequency,
+        duration: m.duration,
+        quantity: m.quantity,
+        notes: m.notes || ''
+      }))
+    };
+
+    if (selectedPatient.status === 'Discharge Requested') {
+      requestDischarge(selectedPatient.id, dischargeInfo);
+    } else {
+      dischargePatient(selectedPatient.id, dischargeInfo);
+    }
+    
+    toast.success('Discharge information updated successfully');
+    setShowEditModal(false);
+    
+    // Redirect to IP Billing Generate Bill page
+    navigate('/billing/ip', {
+      state: {
+        uhid: selectedPatient.uhid,
+        patientName: selectedPatient.patientName
+      }
+    });
+    
+    setSelectedPatient(null);
   };
 
   const openPrintModal = (patient: typeof patients[0]) => {
@@ -186,7 +241,7 @@ export const Discharges = () => {
                       </td>
                       <td className="px-4 py-3">
                         {(() => {
-                          const billing = MOCK_BILLING[patient.id] || 'Pending';
+                          const billing = getBillingStatus(patient.uhid);
                           const cls = billing === 'Cleared'
                             ? 'bg-green-50 text-green-700 border-green-200'
                             : billing === 'Partial'
@@ -200,14 +255,24 @@ export const Discharges = () => {
                         })()}
                       </td>
                       <td className="px-4 py-3">
-                        {patient.status === 'Discharge Requested' ? (
-                          <button
-                            onClick={() => openDischargeModal(patient)}
-                            className="px-3 py-1.5 bg-primary text-white hover:bg-primary/90 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5"
-                          >
-                            Final Discharge <CheckCircle className="w-3.5 h-3.5" />
-                          </button>
-                        ) : (
+                        {patient.status === 'Discharge Requested' ? (() => {
+                          const billingStatus = getBillingStatus(patient.uhid);
+                          const isCleared = billingStatus === 'Cleared';
+                          return (
+                            <button
+                              onClick={() => isCleared && openDischargeModal(patient)}
+                              disabled={!isCleared}
+                              title={!isCleared ? "Billing must be cleared first" : ""}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${
+                                isCleared 
+                                  ? 'bg-primary text-white hover:bg-primary/90' 
+                                  : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                              }`}
+                            >
+                              Final Discharge <CheckCircle className="w-3.5 h-3.5" />
+                            </button>
+                          );
+                        })() : (
                           <span className="px-3 py-1.5 bg-green-50 text-green-700 text-xs font-bold rounded-lg border border-green-200 inline-block">
                             Discharged
                           </span>
@@ -222,15 +287,34 @@ export const Discharges = () => {
                           >
                             <Eye className="w-4 h-4" />
                           </button>
+                          
+                          <button
+                            onClick={() => openEditModal(patient)}
+                            className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                            title="Edit discharge details"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          
+                          {getBillingStatus(patient.uhid) !== 'Cleared' && (
+                            <button
+                              onClick={() => navigate('/billing/ip', { state: { autoLoadUhid: patient.uhid } })}
+                              className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                              title="Generate Bill"
+                            >
+                              <FileText className="w-4 h-4" />
+                            </button>
+                          )}
+
                           <button
                             onClick={() => {
-                              const billing = MOCK_BILLING[patient.id] || 'Pending';
+                              const billing = getBillingStatus(patient.uhid);
                               const cleared = billing === 'Cleared';
                               if (cleared) openPrintModal(patient);
                             }}
-                            disabled={!(MOCK_BILLING[patient.id] === 'Cleared')}
-                            className={`p-2 rounded-lg transition-colors ${MOCK_BILLING[patient.id] === 'Cleared' ? 'text-indigo-600 hover:bg-indigo-50' : 'text-slate-300 cursor-not-allowed'}`}
-                            title={MOCK_BILLING[patient.id] === 'Cleared' ? 'Print discharge summary' : 'Billing not cleared'}
+                            disabled={getBillingStatus(patient.uhid) !== 'Cleared'}
+                            className={`p-2 rounded-lg transition-colors ${getBillingStatus(patient.uhid) === 'Cleared' ? 'text-indigo-600 hover:bg-indigo-50' : 'text-slate-300 cursor-not-allowed'}`}
+                            title={getBillingStatus(patient.uhid) === 'Cleared' ? 'Print discharge summary' : 'Billing not cleared'}
                           >
                             <Printer className="w-4 h-4" />
                           </button>
@@ -381,6 +465,69 @@ export const Discharges = () => {
                 className="px-6 py-2.5 border border-slate-200 text-slate-700 rounded-lg font-medium hover:bg-slate-100 transition-colors"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Discharge Info Modal */}
+      {showEditModal && selectedPatient && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex flex-col items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <h2 className="text-xl font-bold text-slate-800">Edit Discharge Information</h2>
+              <button onClick={() => setShowEditModal(false)} className="p-2 hover:bg-slate-200 rounded-full transition-colors">
+                <X className="w-5 h-5 text-slate-500" />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto flex-1">
+              <div className="bg-primary/5 rounded-xl p-4 border border-primary/10 mb-6">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div>
+                    <span className="text-slate-500 block mb-1">Patient Name</span>
+                    <span className="font-bold text-slate-800">{selectedPatient.patientName}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block mb-1">UHID</span>
+                    <span className="font-bold text-slate-800">{selectedPatient.uhid}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block mb-1">Admission No</span>
+                    <span className="font-bold text-slate-800">{selectedPatient.admissionNumber}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block mb-1">Status</span>
+                    <span className="font-bold text-primary">{selectedPatient.status}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <div className="border-t border-slate-200 pt-6">
+                  <DischargePrescription 
+                    items={editMedicines}
+                    onItemsChange={setEditMedicines}
+                    dischargeSummary={editSummary}
+                    onSummaryChange={setEditSummary}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="px-5 py-4 border-t border-slate-100 flex justify-end gap-3 bg-slate-50/50 mt-auto">
+              <button 
+                onClick={() => setShowEditModal(false)}
+                className="px-6 py-2.5 text-slate-600 font-medium hover:bg-slate-200 rounded-xl transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleEditSave}
+                className="px-6 py-2.5 bg-primary text-white font-bold rounded-xl hover:bg-primary/90 transition-colors shadow-sm"
+              >
+                Save Changes
               </button>
             </div>
           </div>

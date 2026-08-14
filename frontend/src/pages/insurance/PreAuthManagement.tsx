@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Pagination } from '@/components/ui/Pagination';
 import { usePagination } from '@/hooks/usePagination';
-import { Plus, Search, FileText, CheckCircle, Clock, Ban, X, Edit, Trash2, Shield, AlertCircle } from 'lucide-react';
+import { Plus, Search, FileText, CheckCircle, Clock, Ban, X, Edit, Trash2, Shield, AlertCircle, UploadCloud } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { usePatients } from '../../contexts/PatientContext';
 import { useInsurance } from '../../contexts/InsuranceContext';
@@ -30,6 +30,9 @@ export const PreAuthManagement = () => {
   const [decisionAmount, setDecisionAmount] = useState('');
   const [decisionReason, setDecisionReason] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
+  // Supporting documents are captured client-side; there is no pre-auth document
+  // endpoint yet, so they are listed for the user but not persisted on submit.
+  const [docs, setDocs] = useState<File[]>([]);
 
   const [form, setForm] = useState({
     uhid: '', patient: '', providerId: '', insurer: '', diagnosis: '', amount: '',
@@ -88,6 +91,7 @@ export const PreAuthManagement = () => {
   const resetForm = () => {
     setForm({ uhid: '', patient: '', providerId: '', insurer: '', diagnosis: '', amount: '' });
     setErrors({});
+    setDocs([]);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -215,8 +219,6 @@ export const PreAuthManagement = () => {
                 <th className="px-4 py-3 text-left">Request No</th>
                 <th className="px-4 py-3 text-left">Patient</th>
                 <th className="px-4 py-3 text-left">Insurer</th>
-                <th className="px-4 py-3 text-left">Diagnosis</th>
-                <th className="px-4 py-3 text-right">Requested</th>
                 <th className="px-4 py-3 text-right">Sanctioned</th>
                 <th className="px-4 py-3 text-left">Date</th>
                 <th className="px-4 py-3 text-left">Status</th>
@@ -232,10 +234,6 @@ export const PreAuthManagement = () => {
                     <div className="text-xs text-slate-500">{req.uhid}</div>
                   </td>
                   <td className="px-4 py-3 text-slate-600">{req.insurer}</td>
-                  <td className="px-4 py-3 text-slate-600 max-w-[200px] truncate" title={req.diagnosis}>
-                    {req.diagnosis || '—'}
-                  </td>
-                  <td className="px-4 py-3 text-right font-semibold text-slate-800">{inr(req.amount)}</td>
                   <td className="px-4 py-3 text-right font-semibold text-emerald-600">
                     {req.approvedAmount != null ? inr(req.approvedAmount) : '—'}
                   </td>
@@ -252,13 +250,19 @@ export const PreAuthManagement = () => {
                       {req.status === 'Pending' && (
                         <>
                           <button
-                            onClick={() => { setDeciding({ req, action: 'Approved' }); setDecisionAmount(String(req.amount)); setDecisionReason(''); }}
+                            onClick={() => {
+                              updatePreAuthStatus(req.id, 'Approved', req.amount);
+                              toast.success('Pre-authorisation approved');
+                            }}
                             title="Approve"
                             className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded transition-colors">
                             <CheckCircle className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => { setDeciding({ req, action: 'Rejected' }); setDecisionAmount(''); setDecisionReason(''); }}
+                            onClick={() => {
+                              updatePreAuthStatus(req.id, 'Rejected');
+                              toast.success('Pre-authorisation rejected');
+                            }}
                             title="Reject"
                             className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors">
                             <Ban className="w-4 h-4" />
@@ -299,7 +303,7 @@ export const PreAuthManagement = () => {
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[92vh] overflow-y-auto">
             <div className="px-5 py-3 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 sticky top-0">
-              <h2 className="text-lg font-bold text-slate-800">New Pre-Authorisation Request</h2>
+              <h2 className="text-lg font-bold text-slate-800">New Pre-Auth Request</h2>
               <button onClick={() => setShowNewModal(false)} className="p-2 hover:bg-slate-200 rounded-full">
                 <X className="w-5 h-5 text-slate-500" />
               </button>
@@ -307,17 +311,17 @@ export const PreAuthManagement = () => {
             <form onSubmit={handleSubmit} className="p-5 space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Patient UHID *</label>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">UHID *</label>
                   <input type="text" value={form.uhid}
                     onChange={e => setForm({ ...form, uhid: e.target.value })}
-                    className={inputCls('uhid')} placeholder="e.g. UHID-2026-0003" />
+                    className={inputCls('uhid')} placeholder="e.g. UHID-2023-..." />
                   {errors.uhid && <p className="text-[11px] text-red-500 mt-1">{errors.uhid}</p>}
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Patient Name *</label>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Patient Name *</label>
                   <input type="text" value={form.patient}
                     onChange={e => setForm({ ...form, patient: e.target.value.replace(/[^A-Za-z\s.'-]/g, '') })}
-                    className={inputCls('patient')} placeholder="Auto-fills from policy" />
+                    className={inputCls('patient')} placeholder="Enter or auto-fetch name" />
                   {errors.patient && <p className="text-[11px] text-red-500 mt-1">{errors.patient}</p>}
                 </div>
               </div>
@@ -347,39 +351,62 @@ export const PreAuthManagement = () => {
                 )
               )}
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Insurer *</label>
-                  <select value={form.providerId}
-                    onChange={e => setForm({ ...form, providerId: e.target.value })}
-                    className={inputCls('providerId')}>
-                    <option value="">Select Insurer…</option>
-                    {providers.map(p => (
-                      <option key={p.providerId} value={p.providerId}>{p.providerName}</option>
-                    ))}
-                  </select>
-                  {errors.providerId && <p className="text-[11px] text-red-500 mt-1">{errors.providerId}</p>}
-                  {selectedProvider && !selectedProvider.preAuthRequired && (
-                    <p className="text-[11px] text-slate-500 mt-1">
-                      This insurer does not mandate pre-authorisation.
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Estimated Cost (₹) *</label>
-                  <input type="text" inputMode="numeric" value={form.amount}
-                    onChange={e => setForm({ ...form, amount: e.target.value.replace(/\D/g, '') })}
-                    className={inputCls('amount')} placeholder="0" />
-                  {errors.amount && <p className="text-[11px] text-red-500 mt-1">{errors.amount}</p>}
-                </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Insurance Provider *</label>
+                <select value={form.providerId}
+                  onChange={e => setForm({ ...form, providerId: e.target.value })}
+                  className={inputCls('providerId')}>
+                  <option value="">Select Insurer…</option>
+                  {providers.map(p => (
+                    <option key={p.providerId} value={p.providerId}>{p.providerName}</option>
+                  ))}
+                </select>
+                {errors.providerId && <p className="text-[11px] text-red-500 mt-1">{errors.providerId}</p>}
+                {selectedProvider && !selectedProvider.preAuthRequired && (
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    This insurer does not mandate pre-authorisation.
+                  </p>
+                )}
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Provisional Diagnosis *</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Estimated Cost (₹) *</label>
+                <input type="text" inputMode="numeric" value={form.amount}
+                  onChange={e => setForm({ ...form, amount: e.target.value.replace(/\D/g, '') })}
+                  className={inputCls('amount')} placeholder="Enter amount" />
+                {errors.amount && <p className="text-[11px] text-red-500 mt-1">{errors.amount}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Provisional Diagnosis *</label>
                 <textarea value={form.diagnosis} rows={2}
                   onChange={e => setForm({ ...form, diagnosis: e.target.value })}
                   className={inputCls('diagnosis')} placeholder="Clinical indication for the planned treatment" />
                 {errors.diagnosis && <p className="text-[11px] text-red-500 mt-1">{errors.diagnosis}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Supporting Documents</label>
+                <label
+                  onDragOver={e => e.preventDefault()}
+                  onDrop={e => { e.preventDefault(); setDocs(prev => [...prev, ...Array.from(e.dataTransfer.files || [])]); }}
+                  className="flex flex-col items-center justify-center gap-1 border-2 border-dashed border-slate-200 rounded-xl px-4 py-6 text-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors">
+                  <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png" className="hidden"
+                    onChange={e => setDocs(prev => [...prev, ...Array.from(e.target.files || [])])} />
+                  <UploadCloud className="w-6 h-6 text-slate-400" />
+                  <span className="text-sm text-slate-600 font-medium">Click or drag to upload Clinical Notes &amp; Estimates</span>
+                  <span className="text-[11px] text-slate-400">PDF, JPG up to 10MB</span>
+                </label>
+                {docs.length > 0 && (
+                  <ul className="mt-2 space-y-1">
+                    {docs.map((f, i) => (
+                      <li key={i} className="flex items-center justify-between text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
+                        <span className="truncate text-slate-700 flex items-center gap-1.5"><FileText className="w-3.5 h-3.5 text-slate-400" />{f.name}</span>
+                        <button type="button" onClick={() => setDocs(prev => prev.filter((_, idx) => idx !== i))} className="text-slate-400 hover:text-red-600"><X className="w-3.5 h-3.5" /></button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
 
               <div className="pt-2 flex gap-3">

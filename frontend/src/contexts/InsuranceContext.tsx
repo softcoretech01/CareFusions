@@ -300,8 +300,12 @@ export const InsuranceProvider = ({ children }: { children: ReactNode }) => {
   // component useState that was lost on every reload.
   const savePolicy: InsuranceContextType['savePolicy'] = async (policy) => {
     try {
-      const res = await fetch(`${INS}/policies`, {
-        method: 'POST', headers: JSON_HEADERS,
+      const isUpdate = !!policy.policyId;
+      const url = isUpdate ? `${INS}/policies/${policy.policyId}` : `${INS}/policies`;
+      const method = isUpdate ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method, headers: JSON_HEADERS,
         body: JSON.stringify({
           uhid: policy.uhid, patientName: policy.patientName,
           policyNumber: policy.policyNumber, insurerName: policy.insurerName,
