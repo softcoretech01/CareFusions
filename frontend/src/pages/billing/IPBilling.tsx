@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Search, Plus, X, Bed, CheckCircle, Printer, FileText } from 'lucide-react';
+import { Search, Plus, X, Bed, CheckCircle, Printer, FileText, Shield } from 'lucide-react';
 import { DateFilter } from '../../components/ui/DateFilter';
 import axios from 'axios';
 
@@ -60,6 +60,7 @@ export const IPBilling = () => {
 
   const [isInsurancePaid, setIsInsurancePaid] = useState(false);
   const [insuranceDetails, setInsuranceDetails] = useState<any>(null);
+  const [insurancePolicy, setInsurancePolicy] = useState<any>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -206,6 +207,21 @@ export const IPBilling = () => {
 
       setIsInsurancePaid(false);
       setInsuranceDetails(null);
+      setInsurancePolicy(null);
+
+      // Fetch active insurance policy
+      axios.get(`${API_BASE}/insurance/policies/search?q=${foundIPD.uhid}`).then(insRes => {
+        const policy = insRes.data;
+        if (policy) {
+          const validUntilDate = policy.validUntil ? new Date(policy.validUntil) : null;
+          if (policy.status === 'Active' && (!validUntilDate || validUntilDate >= new Date(new Date().setHours(0, 0, 0, 0)))) {
+            setInsurancePolicy(policy);
+          }
+        }
+      }).catch(() => {
+        // No active policy found
+      });
+
       return;
     }
 
@@ -228,6 +244,32 @@ export const IPBilling = () => {
   };
 
   const totalAmount = items.reduce((sum, item) => sum + item.total, 0);
+
+  useEffect(() => {
+    if (insurancePolicy) {
+      let amountAfterDeductible = totalAmount - (insurancePolicy.deductible || 0);
+      if (amountAfterDeductible < 0) amountAfterDeductible = 0;
+
+      let copayAmount = amountAfterDeductible * ((insurancePolicy.copayPercentage || 0) / 100);
+
+      let claimed = amountAfterDeductible - copayAmount;
+      if (insurancePolicy.sumInsured && claimed > insurancePolicy.sumInsured) {
+        claimed = insurancePolicy.sumInsured;
+      }
+
+      let balance = totalAmount - claimed;
+
+      setInsuranceDetails({
+        total: totalAmount,
+        claimed: claimed,
+        balance: balance,
+        provider: insurancePolicy.insurerName || insurancePolicy.providerId,
+        policyNo: insurancePolicy.policyNumber,
+        isPolicy: true
+      });
+      setIsInsurancePaid(balance <= 0 && totalAmount > 0);
+    }
+  }, [totalAmount, insurancePolicy]);
 
   const handleGenerateBill = async () => {
     if (!patientName || items.length === 0) {
@@ -274,6 +316,7 @@ export const IPBilling = () => {
       setItems([]);
       setIsInsurancePaid(false);
       setInsuranceDetails(null);
+      setInsurancePolicy(null);
 
       fetchBills();
 
@@ -423,9 +466,15 @@ export const IPBilling = () => {
                     </div>
                   ) : (
                     <div>
-                      <div className="flex items-center gap-2 text-rose-700 font-bold mb-3">
-                        <FileText className="w-5 h-5" /> Insurance Claim Processed - Patient Balance Due
-                      </div>
+                      {insuranceDetails.isPolicy ? (
+                        <div className="flex items-center gap-2 text-blue-700 font-bold mb-3">
+                          <Shield className="w-5 h-5" /> Active Insurance Applied ({insuranceDetails.provider} - {insuranceDetails.policyNo})
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 text-rose-700 font-bold mb-3">
+                          <FileText className="w-5 h-5" /> Insurance Claim Processed - Patient Balance Due
+                        </div>
+                      )}
                       <div className="grid grid-cols-3 gap-4 text-sm">
                         <div className="bg-white p-3 rounded-lg border border-rose-100 shadow-sm">
                           <p className="text-slate-500 font-semibold text-xs mb-1">Total Bill</p>
@@ -483,8 +532,12 @@ export const IPBilling = () => {
                       </tr>
                     ))}
                     <tr className="bg-primary/5 border-t-2 border-primary/20 font-bold">
-                      <td colSpan={3} className="px-5 py-4 text-right text-slate-700">Total Amount:</td>
-                      <td className="px-5 py-4 text-right text-primary text-lg">₹{totalAmount.toFixed(2)}</td>
+                      <td colSpan={3} className="px-5 py-4 text-right text-slate-700">
+                        {insuranceDetails ? 'Patient Payable:' : 'Total Amount:'}
+                      </td>
+                      <td className="px-5 py-4 text-right text-primary text-lg">
+                        ₹{(insuranceDetails ? insuranceDetails.balance : totalAmount).toFixed(2)}
+                      </td>
                       <td></td>
                     </tr>
                   </tbody>

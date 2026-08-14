@@ -167,7 +167,7 @@ def search_policy(q: str = Query(..., min_length=1), db: Session = Depends(get_d
     try:
         row = _sp(db, _POLICY, _POLICY_D, "SEARCH", Search=q).fetchone()
         if not row:
-            raise HTTPException(status_code=404, detail="No policy found for that UHID or policy number")
+            return None
         return _map_policy(row)
     except HTTPException:
         raise

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Printer, Download, Eye, X } from 'lucide-react';
+import { Printer, Download, Eye, X, Shield, Pill, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { DateFilter } from '../../components/ui/DateFilter';
 import axios from 'axios';
@@ -15,9 +15,80 @@ export const BillingReports = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedBill, setSelectedBill] = useState<any>(null);
 
+  const [insuranceDetails, setInsuranceDetails] = useState<any>(null);
+  const [prescriptions, setPrescriptions] = useState<any[]>([]);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+
   useEffect(() => {
     fetchBills();
   }, []);
+
+  useEffect(() => {
+    if (selectedBill) {
+      const fetchDetails = async () => {
+        setIsLoadingDetails(true);
+        setInsuranceDetails(null);
+        setPrescriptions([]);
+        
+        try {
+          if (selectedBill.PatientId) {
+            // 1. Fetch Insurance
+            try {
+              const insRes = await axios.get(`${API_BASE}/insurance/policies/search?q=${selectedBill.PatientId}`);
+              const policy = insRes.data;
+              if (policy) {
+                const validUntilDate = policy.validUntil ? new Date(policy.validUntil) : null;
+                if (policy.status === 'Active' && (!validUntilDate || validUntilDate >= new Date(new Date().setHours(0,0,0,0)))) {
+                   setInsuranceDetails(policy);
+                }
+              }
+            } catch (e) {
+              // No insurance or error
+            }
+
+            // 2. Fetch Prescriptions
+            let foundPrescriptions: any[] = [];
+            try {
+              if (selectedBill.Type === 'OP') {
+                 const opRes = await axios.get(`${API_BASE}/opd-visits/schedule`);
+                 const ops = opRes.data;
+                 const visit = ops.find((o: any) => o.uhid === selectedBill.PatientId);
+                 if (visit) {
+                    const detRes = await axios.get(`${API_BASE}/opd-visits/${visit.id}/details`);
+                    if (detRes.data.prescriptions) foundPrescriptions = detRes.data.prescriptions;
+                 }
+              } else if (selectedBill.Type === 'IP') {
+                 const ipRes = await axios.get(`${API_BASE}/ipd-visits/schedule`);
+                 const ips = ipRes.data;
+                 const admission = ips.find((i: any) => i.uhid === selectedBill.PatientId);
+                 if (admission) {
+                    const visitId = admission.admissionId || admission.id;
+                    const detRes = await axios.get(`${API_BASE}/ipd-visits/${visitId}/details`);
+                    if (detRes.data.prescriptions) foundPrescriptions = detRes.data.prescriptions;
+                    if (!foundPrescriptions.length && detRes.data.medications) {
+                       foundPrescriptions = detRes.data.medications.map((m: any) => ({
+                          MedicineName: m.MedicineName || m.medicine,
+                          Dosage: m.Dosage || m.dosage,
+                          Frequency: m.Frequency || m.frequency,
+                          Duration: m.Duration || m.duration,
+                          Alerts: m.Route || m.instructions
+                       }));
+                    }
+                 }
+              }
+              setPrescriptions(foundPrescriptions);
+            } catch (e) {
+              console.error("Prescriptions fetch error", e);
+            }
+          }
+        } finally {
+          setIsLoadingDetails(false);
+        }
+      };
+      
+      fetchDetails();
+    }
+  }, [selectedBill]);
 
   const fetchBills = async () => {
     try {
@@ -246,6 +317,69 @@ export const BillingReports = () => {
                   </span>
                 </div>
               </div>
+
+              {isLoadingDetails ? (
+                <div className="flex items-center justify-center py-6 text-slate-500">
+                  <Loader2 className="w-6 h-6 animate-spin mr-2" />
+                  Loading details...
+                </div>
+              ) : (
+                <>
+                  {insuranceDetails && (
+                    <div>
+                      <h4 className="font-bold text-slate-800 mb-3 border-b border-slate-100 pb-2 flex items-center gap-2">
+                        <Shield className="w-4 h-4 text-blue-500" />
+                        Active Insurance Details
+                      </h4>
+                      <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <p className="text-slate-500">Provider</p>
+                          <p className="font-bold text-slate-800">{insuranceDetails.insurerName || insuranceDetails.providerId}</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-500">Policy Number</p>
+                          <p className="font-bold text-slate-800">{insuranceDetails.policyNumber}</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-500">Sum Insured</p>
+                          <p className="font-bold text-slate-800">₹{Number(insuranceDetails.sumInsured || 0).toLocaleString()}</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-500">Co-pay & Deductible</p>
+                          <p className="font-bold text-slate-800">{insuranceDetails.copayPercentage}% / ₹{Number(insuranceDetails.deductible || 0).toLocaleString()}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {prescriptions && prescriptions.length > 0 && (
+                    <div>
+                      <h4 className="font-bold text-slate-800 mb-3 border-b border-slate-100 pb-2 flex items-center gap-2">
+                        <Pill className="w-4 h-4 text-emerald-500" />
+                        Prescription Details
+                      </h4>
+                      <div className="space-y-2">
+                        {prescriptions.map((p: any, idx: number) => (
+                          <div key={idx} className="bg-emerald-50/30 p-3 rounded-lg border border-emerald-100/50 text-sm flex justify-between items-center">
+                            <div>
+                              <p className="font-semibold text-slate-800">{p.MedicineName || p.medicineName || p.medicine}</p>
+                              <p className="text-xs text-slate-500 mt-1">
+                                {p.Type || p.type ? `[${p.Type || p.type}] ` : ''}
+                                {p.Dosage || p.dosage || p.Quantity || p.quantity || ''} 
+                                {p.Frequency || p.frequency ? ` • ${p.Frequency || p.frequency}` : ''}
+                                {p.Duration || p.duration ? ` • ${p.Duration || p.duration}` : ''}
+                              </p>
+                            </div>
+                            <span className="text-xs font-medium text-emerald-600 bg-emerald-100 px-2 py-1 rounded">
+                              {p.Alerts || p.instructions || 'Standard'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
 
               <div>
                 <h4 className="font-bold text-slate-800 mb-3 border-b border-slate-100 pb-2">Items</h4>
