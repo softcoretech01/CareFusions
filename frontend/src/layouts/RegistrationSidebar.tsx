@@ -18,7 +18,6 @@ const navigation: NavItem[] = [
   { name: 'Existing Patients', to: '/registration/patients', icon: Users },
   { name: "Today's Registrations", to: '/registration/today', icon: CalendarDays },
   { name: 'Patient Documents', to: '/registration/documents', icon: FolderOpen },
-  { name: 'Patient Alerts', to: '/registration/alerts', icon: BellRing },
   { name: 'Duplicate Patient Check', to: '/registration/duplicate', icon: CopyX },
   { name: 'Patient Merge', to: '/registration/merge', icon: Merge },
   { name: 'Visit History', to: '/registration/history', icon: History },

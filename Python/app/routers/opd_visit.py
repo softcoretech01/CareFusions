@@ -72,8 +72,9 @@ def get_opd_visit_details(appointment_id: int, db: Session = Depends(get_db)):
             NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
         )
     """)
+    import pymysql.cursors
     conn = db.connection().connection
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor(pymysql.cursors.DictCursor)
     
     try:
         cursor.execute("""
@@ -92,27 +93,20 @@ def get_opd_visit_details(appointment_id: int, db: Session = Depends(get_db)):
         if not result_sets or not result_sets[0]:
             raise HTTPException(status_code=404, detail="Visit details not found")
             
-        # The SP returns multiple result sets if found:
-        # 1. Trn_OpdVisit (Wait, no, the first result set was Trn_OpdVisit if found, actually wait, the SP returns Visit first? Let's check the SP:
-        # SP returns: Vitals, Triage, Diagnoses, Prescriptions, LabOrders, Radiology, Procedures, Visit.
-        # It's better to just return them in order.
-        
         if len(result_sets) == 1 and len(result_sets[0]) > 0 and 'Status' in result_sets[0][0]:
             return {"status": "NOT_FOUND"}
             
-        # We need to map them back to JSON structure
         data = {
-            "vitals": result_sets[0][0] if len(result_sets[0]) > 0 else None,
-            "triageInfo": result_sets[1][0] if len(result_sets[1]) > 0 else None,
-            "diagnoses": result_sets[2] if len(result_sets) > 2 else [],
-            "prescriptions": result_sets[3] if len(result_sets) > 3 else [],
-            "labOrders": result_sets[4] if len(result_sets) > 4 else [],
-            "radiologyOrders": result_sets[5] if len(result_sets) > 5 else [],
-            "procedures": result_sets[6] if len(result_sets) > 6 else [],
-            "visitInfo": result_sets[7][0] if len(result_sets) > 7 and len(result_sets[7]) > 0 else None
+            "visitInfo": result_sets[0][0] if len(result_sets) > 0 and len(result_sets[0]) > 0 else None,
+            "vitals": result_sets[1][0] if len(result_sets) > 1 and len(result_sets[1]) > 0 else None,
+            "triageInfo": result_sets[2][0] if len(result_sets) > 2 and len(result_sets[2]) > 0 else None,
+            "diagnoses": result_sets[3] if len(result_sets) > 3 else [],
+            "prescriptions": result_sets[4] if len(result_sets) > 4 else [],
+            "labOrders": result_sets[5] if len(result_sets) > 5 else [],
+            "radiologyOrders": result_sets[6] if len(result_sets) > 6 else [],
+            "procedures": result_sets[7] if len(result_sets) > 7 else []
         }
         
-        # Format keys for frontend (camelCase)
         if data["vitals"]:
             v = data["vitals"]
             data["vitals"] = {
@@ -135,6 +129,7 @@ def get_opd_visit_details(appointment_id: int, db: Session = Depends(get_db)):
         
     finally:
         cursor.close()
+
 
 
 @router.post("/save-clinical")
