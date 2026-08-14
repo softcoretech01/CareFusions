@@ -77,9 +77,7 @@ def _call_sp(db: Session, opt: str, **kwargs) -> Any:
         "p_EmailConsent": kwargs.get("EmailConsent", None),
         "p_WhatsappConsent": kwargs.get("WhatsappConsent", None),
         "p_Status": kwargs.get("Status", None),
-        "p_Remarks": kwargs.get("Remarks", None),
-        "p_CreatedBy": kwargs.get("CreatedBy", "Admin"),
-        "p_ModifiedBy": kwargs.get("ModifiedBy", "Admin")
+        "p_Remarks": kwargs.get("Remarks", None)
     }
 
     sql = text(f"""
@@ -95,7 +93,7 @@ def _call_sp(db: Session, opt: str, **kwargs) -> Any:
             :p_CurrentMedication, :p_OrganDonor, :p_Disability, :p_InsuranceRequired, 
             :p_InsuranceProvider, :p_Tpa, :p_PolicyNumber, :p_ValidTill, :p_PatientType, 
             :p_ReferredBy, :p_PrimaryDoctor, :p_Department, :p_RegistrationSource, 
-            :p_PrivacyConsent, :p_SmsConsent, :p_EmailConsent, :p_WhatsappConsent, :p_Status, :p_Remarks, :p_CreatedBy, :p_ModifiedBy
+            :p_PrivacyConsent, :p_SmsConsent, :p_EmailConsent, :p_WhatsappConsent, :p_Status, :p_Remarks
         )
     """)
 

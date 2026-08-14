@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Upload, FileText, Download, Trash2, Eye, FolderOpen } from 'lucide-react';
+import { Search, Upload, FileText, Download, Trash2, Eye, FolderOpen, AlertTriangle } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { useEffect } from 'react';
 
@@ -23,6 +23,7 @@ export const PatientDocuments = () => {
   const [patients, setPatients] = useState<any[]>([]);
   const [documents, setDocuments] = useState<DocumentRecord[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [documentToDelete, setDocumentToDelete] = useState<number | null>(null);
   const [selectedUhid, setSelectedUhid] = useState<string>('');
   
   const [isUploadOpen, setIsUploadOpen] = useState(false);
@@ -90,14 +91,19 @@ export const PatientDocuments = () => {
   const selectedPatient = patients.find(p => p.uhid === selectedUhid);
 
 
-  const handleDelete = async (documentId: number) => {
-    if (!confirm('Are you sure you want to delete this document?')) return;
+  const handleDelete = (documentId: number) => {
+    setDocumentToDelete(documentId);
+  };
+
+  const confirmDelete = async () => {
+    if (!documentToDelete) return;
     try {
-      const res = await fetch(`${API_BASE}/documents/${documentId}`, {
+      const res = await fetch(`${API_BASE}/documents/${documentToDelete}`, {
         method: 'DELETE'
       });
       if (res.ok) {
         fetchDocuments(selectedUhid); // Refresh the list
+        setDocumentToDelete(null);
       } else {
         setErrorMessage('Delete failed');
       }
@@ -226,7 +232,10 @@ export const PatientDocuments = () => {
                             </div>
                           </div>
                           <div className="flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg" onClick={() => window.open((doc as any).filePath, '_blank')}>
+                            <button className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg" onClick={() => {
+                              const backendUrl = API_BASE.replace('/api/v1', '');
+                              window.open(`${backendUrl}${(doc as any).filePath}`, '_blank');
+                            }}>
                               <Eye className="w-4 h-4" />
                             </button>
                             <button className="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg" onClick={() => exportToExcel(patients, 'PatientDocuments')}>
@@ -346,6 +355,36 @@ export const PatientDocuments = () => {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      {documentToDelete !== null && (
+        <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 text-center">
+            <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertTriangle className="w-8 h-8 text-red-600" />
+            </div>
+            <h2 className="text-xl font-bold text-slate-800 mb-2">Delete Record</h2>
+            <p className="text-slate-600 mb-6">
+              Are you sure you want to delete this document?
+            </p>
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={() => setDocumentToDelete(null)}
+                className="flex-1 px-4 py-2.5 border border-amber-500 text-amber-600 rounded-xl hover:bg-amber-50 font-medium transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={confirmDelete}
+                className="flex-1 px-4 py-2.5 bg-red-700 text-white rounded-xl hover:bg-red-800 font-medium transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

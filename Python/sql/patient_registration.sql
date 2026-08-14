@@ -61,7 +61,7 @@ CREATE TABLE IF NOT EXISTS PatientRegistration (
 );
 
 DELIMITER //
-
+DROP PROCEDURE IF EXISTS SpPatientRegistration;
 CREATE PROCEDURE SpPatientRegistration(
     IN p_Opt VARCHAR(20),
     IN p_PatientId INT,
@@ -127,8 +127,22 @@ BEGIN
         SELECT * FROM PatientRegistration WHERE PatientId = p_PatientId;
         
     ELSEIF p_Opt = 'INSERT' THEN
+        SELECT GET_LOCK('generate_uhid_lock', 10) INTO @lock_acquired;
+        
+        SELECT MAX(CAST(SUBSTRING_INDEX(Uhid, '-', -1) AS UNSIGNED)) INTO @max_seq
+        FROM (
+            SELECT Uhid FROM registration.PatientRegistration WHERE Uhid LIKE CONCAT('UHID-', YEAR(CURDATE()), '-%')
+            UNION ALL
+            SELECT Uhid FROM registration.QuickRegistration WHERE Uhid LIKE CONCAT('UHID-', YEAR(CURDATE()), '-%')
+            UNION ALL
+            SELECT Uhid FROM registration.EmergencyRegistration WHERE Uhid LIKE CONCAT('UHID-', YEAR(CURDATE()), '-%')
+        ) AS AllUhids;
+        
+        SET @max_seq = IFNULL(@max_seq, 0) + 1;
+        SET @new_uhid = CONCAT('UHID-', YEAR(CURDATE()), '-', LPAD(@max_seq, 4, '0'));
+
         INSERT INTO PatientRegistration (
-            RegistrationDate, Title, PatientName, Gender, DateOfBirth, Age,
+            Uhid, RegistrationDate, Title, PatientName, Gender, DateOfBirth, Age,
             MaritalStatus, BloodGroup, Nationality, Religion, Occupation,
             MobileNumber, AlternateMobile, Email, Address1, Address2,
             Country, State, District, City, PinCode, AadhaarNumber,
@@ -139,7 +153,7 @@ BEGIN
             PatientType, ReferredBy, PrimaryDoctor, Department, RegistrationSource,
             PrivacyConsent, SmsConsent, EmailConsent, WhatsappConsent, Status, Remarks
         ) VALUES (
-            p_RegistrationDate, p_Title, p_PatientName, p_Gender, p_DateOfBirth, p_Age,
+            @new_uhid, p_RegistrationDate, p_Title, p_PatientName, p_Gender, p_DateOfBirth, p_Age,
             p_MaritalStatus, p_BloodGroup, p_Nationality, p_Religion, p_Occupation,
             p_MobileNumber, p_AlternateMobile, p_Email, p_Address1, p_Address2,
             p_Country, p_State, p_District, p_City, p_PinCode, p_AadhaarNumber,
@@ -152,9 +166,8 @@ BEGIN
         );
         
         SET @new_id = LAST_INSERT_ID();
-        SET @new_uhid = CONCAT('UHID-', YEAR(CURDATE()), '-', LPAD(@new_id, 4, '0'));
         
-        UPDATE PatientRegistration SET Uhid = @new_uhid WHERE PatientId = @new_id;
+        SELECT RELEASE_LOCK('generate_uhid_lock') INTO @lock_released;
         
         SELECT * FROM PatientRegistration WHERE PatientId = @new_id;
         

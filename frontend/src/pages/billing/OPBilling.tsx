@@ -61,9 +61,9 @@ export const OPBilling = () => {
     const today = new Date();
     return today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
   })();
-  
-  const [dateFrom, setDateFrom] = useState(todayStr);
-  const [dateTo, setDateTo] = useState(todayStr);
+
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
   const [successMsg, setSuccessMsg] = useState('');
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -107,14 +107,14 @@ export const OPBilling = () => {
   });
 
   const pendingBills = patients.filter(p => {
-    const isPending = (p.status === 'Completed' || p.isFinalized) && 
-                      p.billingStatus !== 'Paid' && 
-                      p.billingStatus !== 'Billed' &&
-                      p.billingStatus !== 'Completed';
-    
+    const isPending = (p.status === 'Completed' || p.isFinalized) &&
+      p.billingStatus !== 'Paid' &&
+      p.billingStatus !== 'Billed' &&
+      p.billingStatus !== 'Completed';
+
     if (!isPending) return false;
     if (!dateFrom || !dateTo) return true;
-    
+
     if (p.date) {
       const visitDate = new Date(p.date);
       const localDateStr = visitDate.getFullYear() + '-' + String(visitDate.getMonth() + 1).padStart(2, '0') + '-' + String(visitDate.getDate()).padStart(2, '0');
@@ -326,7 +326,7 @@ export const OPBilling = () => {
             </div>
 
             <div className="shrink-0">
-              <DateFilter 
+              <DateFilter
                 dateFrom={dateFrom}
                 dateTo={dateTo}
                 onDateFromChange={setDateFrom}
@@ -352,9 +352,11 @@ export const OPBilling = () => {
                           <p className="text-xs text-slate-500 mt-1">{visit.queueToken} • {visit.uhid}</p>
                           <p className="text-xs text-slate-400 mt-0.5">{visit.department} • {visit.doctorName}</p>
                         </div>
-                        <div className="w-10 h-10 rounded-full bg-primary/5 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+
+                        {/* <div className="w-10 h-10 rounded-full bg-primary/5 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
                           <Plus className="w-5 h-5" />
-                        </div>
+                        </div> */}
+
                       </div>
                     ))}
                   </div>
