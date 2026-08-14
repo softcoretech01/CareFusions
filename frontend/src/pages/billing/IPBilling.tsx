@@ -53,8 +53,8 @@ export const IPBilling = () => {
     return today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
   })();
 
-  const [dateFrom, setDateFrom] = useState(todayStr);
-  const [dateTo, setDateTo] = useState(todayStr);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
   const [successMsg, setSuccessMsg] = useState('');
 
@@ -381,9 +381,7 @@ export const IPBilling = () => {
                             {adm.specialty} • {adm.admittingDoctor}
                           </p>
                         </div>
-                        <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
-                          <Plus className="w-4 h-4" />
-                        </div>
+
                       </div>
                     </div>
                   ))}

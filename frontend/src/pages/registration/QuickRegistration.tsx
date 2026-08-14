@@ -170,6 +170,16 @@ export const QuickRegistration = () => {
       Remarks: formData.remarks || null
     };
 
+    if (!payload.PatientName || payload.PatientName.trim() === '') {
+      toast.error('Patient Name is required');
+      return;
+    }
+
+    if (!payload.MobileNumber || !/^\d{10}$/.test(payload.MobileNumber)) {
+      toast.error('Mobile Number must be exactly 10 digits');
+      return;
+    }
+
     try {
       let res;
       if (selectedRecord) {
@@ -509,149 +519,6 @@ export const QuickRegistration = () => {
                     value={formData.alternateMobile}
                     onChange={(e) => { const val = e.target.value; if (/^\d{0,10}$/.test(val)) handleInputChange('alternateMobile', val); }}
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"  maxLength={10} />
-                </div>
-              </div>
-            </div>
-
-            {/* Section 3 - Visit Information */}
-            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-              <div className="flex items-center gap-2 mb-6 border-b border-slate-100 pb-3">
-                <Activity className="w-5 h-5 text-primary" />
-                <h3 className="text-lg font-bold text-slate-800">Visit Information</h3>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Visit Type <span className="text-red-500">*</span></label>
-                  <select
-                    value={formData.visitType}
-                      onChange={(e) => handleInputChange('visitType', e.target.value)}
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    >
-                      {options.VisitType.map((o: string) => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Department <span className="text-red-500">*</span></label>
-                  <select
-                    value={formData.department || ''}
-                      onChange={(e) => handleInputChange('department', e.target.value)}
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    >
-                      <option value="">Select Department</option>
-{options.Departments.map((o: string) => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Doctor <span className="text-red-500">*</span></label>
-                  <select
-                    value={formData.doctor || ''}
-                      onChange={(e) => handleInputChange('doctor', e.target.value)}
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    >
-                      <option value="">Select Doctor</option>
-{options.Doctors.map((o: string) => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Priority <span className="text-red-500">*</span></label>
-                  <select
-                    value={formData.priority}
-                      onChange={(e) => handleInputChange('priority', e.target.value)}
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    >
-                      {options.Priority.map((o: string) => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Visit Reason / Chief Complaint</label>
-                  <input
-                    type="text"
-                    value={formData.visitReason}
-                    onChange={(e) => handleInputChange('visitReason', e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Section 4 - Billing Information */}
-            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-              <div className="flex items-center gap-2 mb-6 border-b border-slate-100 pb-3">
-                <CreditCard className="w-5 h-5 text-primary" />
-                <h3 className="text-lg font-bold text-slate-800">Billing Information</h3>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Consultation Required <span className="text-red-500">*</span></label>
-                  <select
-                    value={formData.consultationRequired}
-                      onChange={(e) => handleInputChange('consultationRequired', e.target.value)}
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    >
-                      {options.YesNo.map((o: string) => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                </div>
-                {formData.consultationRequired === 'Yes' && (
-                  <>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Consultation Fee</label>
-                      <input
-                        type="number"
-                        value={formData.consultationFee}
-                        onChange={(e) => handleInputChange('consultationFee', parseFloat(e.target.value) || 0)}
-                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Payment Mode</label>
-                      <select
-                        value={formData.paymentMode}
-                      onChange={(e) => handleInputChange('paymentMode', e.target.value)}
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    >
-                      {options.PaymentMode.map((o: string) => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                    </div>
-                  </>
-                )}
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Insurance Required <span className="text-red-500">*</span></label>
-                  <select
-                    value={formData.insuranceRequired}
-                      onChange={(e) => handleInputChange('insuranceRequired', e.target.value)}
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    >
-                      {options.YesNo.map((o: string) => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                </div>
-              </div>
-            </div>
-
-            {/* Section 5 - System Information */}
-            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-              <div className="flex items-center gap-2 mb-6 border-b border-slate-100 pb-3">
-                <Info className="w-5 h-5 text-primary" />
-                <h3 className="text-lg font-bold text-slate-800">System Information</h3>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Status <span className="text-red-500">*</span></label>
-                  <select
-                    value={formData.status}
-                      onChange={(e) => handleInputChange('status', e.target.value)}
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    >
-                      {options.Status.map((o: string) => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Remarks</label>
-                  <input
-                    type="text"
-                    value={formData.remarks}
-                    onChange={(e) => handleInputChange('remarks', e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  />
                 </div>
               </div>
             </div>
