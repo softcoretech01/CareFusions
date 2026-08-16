@@ -64,6 +64,7 @@ DELIMITER //
 DROP PROCEDURE IF EXISTS SpPatientRegistration;
 CREATE PROCEDURE SpPatientRegistration(
     IN p_Opt VARCHAR(20),
+    IN p_Uhid VARCHAR(20),
     IN p_PatientId INT,
     IN p_RegistrationDate DATE,
     IN p_Title VARCHAR(10),
@@ -127,19 +128,27 @@ BEGIN
         SELECT * FROM PatientRegistration WHERE PatientId = p_PatientId;
         
     ELSEIF p_Opt = 'INSERT' THEN
-        SELECT GET_LOCK('generate_uhid_lock', 10) INTO @lock_acquired;
-        
-        SELECT MAX(CAST(SUBSTRING_INDEX(Uhid, '-', -1) AS UNSIGNED)) INTO @max_seq
-        FROM (
-            SELECT Uhid FROM registration.PatientRegistration WHERE Uhid LIKE CONCAT('UHID-', YEAR(CURDATE()), '-%')
-            UNION ALL
-            SELECT Uhid FROM registration.QuickRegistration WHERE Uhid LIKE CONCAT('UHID-', YEAR(CURDATE()), '-%')
-            UNION ALL
-            SELECT Uhid FROM registration.EmergencyRegistration WHERE Uhid LIKE CONCAT('UHID-', YEAR(CURDATE()), '-%')
-        ) AS AllUhids;
-        
-        SET @max_seq = IFNULL(@max_seq, 0) + 1;
-        SET @new_uhid = CONCAT('UHID-', YEAR(CURDATE()), '-', LPAD(@max_seq, 4, '0'));
+        IF p_Uhid IS NOT NULL AND p_Uhid != '' THEN
+            SET @new_uhid = p_Uhid;
+        ELSE
+            IF GET_LOCK('generate_uhid_lock', 10) = 0 THEN
+                SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'System is busy generating UHIDs, please try again.';
+            END IF;
+            
+            SELECT MAX(CAST(SUBSTRING_INDEX(Uhid, '-', -1) AS UNSIGNED)) INTO @max_seq
+            FROM (
+                SELECT Uhid FROM registration.PatientRegistration WHERE Uhid LIKE 'UHID-%'
+                UNION ALL
+                SELECT Uhid FROM registration.QuickRegistration WHERE Uhid LIKE 'UHID-%'
+                UNION ALL
+                SELECT Uhid FROM registration.EmergencyRegistration WHERE Uhid LIKE 'UHID-%'
+            ) AS AllUhids;
+            
+            SET @max_seq = IFNULL(@max_seq, 0) + 1;
+            SET @new_uhid = CONCAT('UHID-', YEAR(CURDATE()), '-', LPAD(@max_seq, 4, '0'));
+            
+            DO RELEASE_LOCK('generate_uhid_lock');
+        END IF;
 
         INSERT INTO PatientRegistration (
             Uhid, RegistrationDate, Title, PatientName, Gender, DateOfBirth, Age,
@@ -167,6 +176,7 @@ BEGIN
         
         SET @new_id = LAST_INSERT_ID();
         
+        COMMIT;
         SELECT RELEASE_LOCK('generate_uhid_lock') INTO @lock_released;
         
         SELECT * FROM PatientRegistration WHERE PatientId = @new_id;

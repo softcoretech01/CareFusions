@@ -120,7 +120,7 @@ class PatientRegistrationBase(BaseModel):
     Remarks: Optional[str] = Field(None, max_length=250)
 
 class PatientRegistrationCreate(PatientRegistrationBase):
-    pass
+    Uhid: Optional[str] = None
 
 class PatientRegistrationUpdate(PatientRegistrationBase):
     pass

@@ -76,15 +76,17 @@ BEGIN
         SELECT * FROM registration.QuickRegistration WHERE QuickRegistrationId = p_QuickRegistrationId;
 
     ELSEIF p_Opt = 'INSERT' THEN
-        SELECT GET_LOCK('generate_uhid_lock', 10) INTO @lock_acquired;
+        IF GET_LOCK('generate_uhid_lock', 10) = 0 THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'System is busy generating UHIDs, please try again.';
+        END IF;
         
         SELECT MAX(CAST(SUBSTRING_INDEX(Uhid, '-', -1) AS UNSIGNED)) INTO @max_seq
         FROM (
-            SELECT Uhid FROM registration.PatientRegistration WHERE Uhid LIKE CONCAT('UHID-', YEAR(CURDATE()), '-%')
+            SELECT Uhid FROM registration.PatientRegistration WHERE Uhid LIKE 'UHID-%'
             UNION ALL
-            SELECT Uhid FROM registration.QuickRegistration WHERE Uhid LIKE CONCAT('UHID-', YEAR(CURDATE()), '-%')
+            SELECT Uhid FROM registration.QuickRegistration WHERE Uhid LIKE 'UHID-%'
             UNION ALL
-            SELECT Uhid FROM registration.EmergencyRegistration WHERE Uhid LIKE CONCAT('UHID-', YEAR(CURDATE()), '-%')
+            SELECT Uhid FROM registration.EmergencyRegistration WHERE Uhid LIKE 'UHID-%'
         ) AS AllUhids;
         
         SET @max_seq = IFNULL(@max_seq, 0) + 1;
@@ -101,10 +103,8 @@ BEGIN
         );
 
         SET @new_id = LAST_INSERT_ID();
-        SET @new_uhid = CONCAT('UHID-', YEAR(CURDATE()), '-', LPAD(@new_id, 4, '0'));
 
-        UPDATE registration.QuickRegistration SET Uhid = @new_uhid WHERE QuickRegistrationId = @new_id;
-
+        COMMIT;
         SELECT RELEASE_LOCK('generate_uhid_lock') INTO @lock_released;
 
         SELECT * FROM registration.QuickRegistration WHERE QuickRegistrationId = @new_id;

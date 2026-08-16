@@ -282,6 +282,21 @@ export const PatientRegistration = () => {
         })));
       }
 
+      const uniquePatients = new Map();
+      allPatients.forEach(p => {
+        if (!uniquePatients.has(p.uhid)) {
+          uniquePatients.set(p.uhid, p);
+        } else {
+          const existing = uniquePatients.get(p.uhid);
+          if (p.sourceType === 'Patient') {
+            uniquePatients.set(p.uhid, p);
+          } else if (p.sourceType === 'Emergency' && existing.sourceType === 'Quick') {
+            uniquePatients.set(p.uhid, p);
+          }
+        }
+      });
+      allPatients = Array.from(uniquePatients.values());
+
       const getSeq = (uhid: string) => {
         if (!uhid) return 0;
         const match = uhid.match(/\d+$/);
@@ -340,6 +355,35 @@ export const PatientRegistration = () => {
     return age;
   };
 
+  const formatAgeDisplay = (dob: string) => {
+    if (!dob) return '';
+    const birthDate = new Date(dob);
+    const today = new Date();
+
+    let years = today.getFullYear() - birthDate.getFullYear();
+    let months = today.getMonth() - birthDate.getMonth();
+    let days = today.getDate() - birthDate.getDate();
+
+    if (days < 0) {
+      months--;
+      const prevMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+      days += prevMonth.getDate();
+    }
+
+    if (months < 0) {
+      years--;
+      months += 12;
+    }
+
+    if (years > 0) {
+      return `${years} ${years === 1 ? 'Year' : 'Years'}`;
+    } else if (months > 0) {
+      return `${months} ${months === 1 ? 'Month' : 'Months'}`;
+    } else {
+      return `${days} ${days === 1 ? 'Day' : 'Days'}`;
+    }
+  };
+
 
   const handleCreateNew = () => {
     setFormData({ ...initialFormState, uhid: '' });
@@ -348,7 +392,10 @@ export const PatientRegistration = () => {
   };
 
   const handleEdit = (record: any) => {
-    setFormData({ ...initialFormState, ...record });
+    const sanitizedRecord = Object.fromEntries(
+      Object.entries(record).map(([k, v]) => [k, v === null ? '' : v])
+    );
+    setFormData({ ...initialFormState, ...sanitizedRecord });
     setSelectedRecord(record);
     setIsFormOpen(true);
   };
@@ -378,7 +425,7 @@ export const PatientRegistration = () => {
             </div>
             <div class="row"><div class="label">UHID</div><div class="value">${record.uhid}</div></div>
             <div class="row"><div class="label">Patient Name</div><div class="value">${record.title || ''} ${record.patientName || record.firstName || ''}</div></div>
-            <div class="row"><div class="label">Gender / Age</div><div class="value">${record.gender} / ${record.age || record.approximateAge || 0} Yrs</div></div>
+            <div class="row"><div class="label">Gender / Age</div><div class="value">${record.gender} / ${record.dateOfBirth ? formatAgeDisplay(record.dateOfBirth) : (record.age || record.approximateAge || 0) + ' Yrs'}</div></div>
             <div class="row"><div class="label">Mobile Number</div><div class="value">${record.mobileNumber || 'N/A'}</div></div>
             <div class="row"><div class="label">Registration Date</div><div class="value">${record.registrationDate}</div></div>
             <div class="footer">
@@ -491,17 +538,25 @@ export const PatientRegistration = () => {
 
     try {
       let res;
-      if (selectedRecord) {
+      // If we are editing an existing full Patient Registration, use PUT.
+      // If we are upgrading a Quick/Emergency registration, use POST to create the full record.
+      if (selectedRecord && selectedRecord.sourceType === 'Patient') {
         res = await fetch(`${API_BASE}/patients/${selectedRecord.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
       } else {
+        // If it's an upgrade, we include the Uhid in the payload to preserve it
+        const postPayload = { ...payload };
+        if (selectedRecord && selectedRecord.uhid) {
+          (postPayload as any).Uhid = selectedRecord.uhid;
+        }
+
         res = await fetch(`${API_BASE}/patients/`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(postPayload)
         });
       }
 
@@ -645,7 +700,7 @@ export const PatientRegistration = () => {
                         <td className="px-4 py-3 font-medium text-slate-800">
                           {record.patientName || `${record.title || ''} `}
                         </td>
-                        <td className="px-4 py-3 text-slate-600">{record.gender} / {record.age || record.approximateAge || 0} Yrs</td>
+                        <td className="px-4 py-3 text-slate-600">{record.gender} / {record.dateOfBirth ? formatAgeDisplay(record.dateOfBirth) : `${record.age || record.approximateAge || 0} Yrs`}</td>
                         <td className="px-4 py-3 text-slate-600">{record.mobileNumber}</td>
                         <td className="px-4 py-3 text-slate-600">{record.registrationDate}</td>
                         <td className="px-4 py-3 text-center">
@@ -775,8 +830,8 @@ export const PatientRegistration = () => {
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Age (Auto)</label>
                   <input
-                    type="number"
-                    value={formData.age}
+                    type="text"
+                    value={formData.dateOfBirth ? formatAgeDisplay(formData.dateOfBirth) : formData.age}
                     readOnly
                     className="w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl focus:outline-none text-slate-500"
                   />

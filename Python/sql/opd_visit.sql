@@ -140,7 +140,7 @@ BEGIN
     -- ==============================================================
     -- GET_SCHEDULE: Fetch visits mapped from Appointments + Registration
     -- ==============================================================
-    IF p_Opt = 'GET_SCHEDULE' THEN
+    IF p_Opt IN ('GET_SCHEDULE', 'GET_EMR_SCHEDULE') THEN
         SELECT 
             A.AppointmentId AS id,
             A.AppointmentId AS appointmentId,
@@ -197,6 +197,23 @@ BEGIN
         WHERE A.IsDeleted = 0
           AND (p_Department IS NULL OR p_Department = '' OR A.Department = p_Department)
           AND (p_Date IS NULL OR A.AppointmentDate = p_Date)
+          AND (
+              p_Opt = 'GET_SCHEDULE' OR (
+                  p_Opt = 'GET_EMR_SCHEDULE' 
+                  AND NOT EXISTS (
+                      SELECT 1 FROM hospital.IPD_Admission IPD 
+                      WHERE IPD.Uhid = A.Uhid 
+                        AND IPD.IsDeleted = 0 
+                        AND IPD.Status IN ('Admitted', 'Discharge Requested')
+                  )
+                  AND NOT EXISTS (
+                      SELECT 1 FROM hospital.IPD_AdmissionRequest REQ
+                      WHERE REQ.Uhid = A.Uhid
+                        AND REQ.IsDeleted = 0
+                        AND REQ.Status = 'Pending'
+                  )
+              )
+          )
         ORDER BY A.AppointmentId ASC;
 
     -- ==============================================================

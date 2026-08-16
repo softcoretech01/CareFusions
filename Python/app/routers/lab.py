@@ -222,7 +222,7 @@ def create_order(payload: OrderCreate, db: Session = Depends(get_db)):
     except Exception as e:
         db.rollback()
         logger.error(f"[POST /lab/orders] {e}")
-        raise HTTPException(status_code=500, detail="Failed to create order")
+        raise HTTPException(status_code=500, detail=f"Failed to create order: {str(e)}")
 
 
 @router.patch("/orders/tests/{order_test_id}/status")

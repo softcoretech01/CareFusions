@@ -86,6 +86,7 @@ def execute_sql_file():
     part5 = """
     CREATE PROCEDURE registration.SpPatientRegistration(
         IN p_Opt VARCHAR(20),
+        IN p_Uhid VARCHAR(20),
         IN p_PatientId INT,
         IN p_RegistrationDate DATE,
         IN p_Title VARCHAR(10),
@@ -175,10 +176,34 @@ def execute_sql_file():
                 p_PrivacyConsent, p_SmsConsent, p_EmailConsent, p_WhatsappConsent, p_Status, p_Remarks, p_CreatedBy
             );
             
-            SET @new_id = LAST_INSERT_ID();
-            SET @new_uhid = CONCAT('UHID-', YEAR(CURDATE()), '-', LPAD(@new_id, 4, '0'));
+            IF p_Uhid IS NOT NULL AND p_Uhid != '' THEN
+                SET @new_uhid = p_Uhid;
+                SET @new_id = LAST_INSERT_ID();
+                UPDATE registration.PatientRegistration SET Uhid = @new_uhid WHERE PatientId = @new_id;
+            ELSE
+                IF GET_LOCK('generate_uhid_lock', 10) = 0 THEN
+                    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'System is busy generating UHIDs, please try again.';
+                END IF;
+                
+                SELECT MAX(CAST(SUBSTRING_INDEX(Uhid, '-', -1) AS UNSIGNED)) INTO @max_seq
+                FROM (
+                    SELECT Uhid FROM registration.PatientRegistration WHERE Uhid LIKE 'UHID-%'
+                    UNION ALL
+                    SELECT Uhid FROM registration.QuickRegistration WHERE Uhid LIKE 'UHID-%'
+                    UNION ALL
+                    SELECT Uhid FROM registration.EmergencyRegistration WHERE Uhid LIKE 'UHID-%'
+                ) AS AllUhids;
+                
+                SET @max_seq = IFNULL(@max_seq, 0) + 1;
+                SET @new_uhid = CONCAT('UHID-', YEAR(CURDATE()), '-', LPAD(@max_seq, 4, '0'));
+                SET @new_id = LAST_INSERT_ID();
+                
+                UPDATE registration.PatientRegistration SET Uhid = @new_uhid WHERE PatientId = @new_id;
+                
+                SELECT RELEASE_LOCK('generate_uhid_lock') INTO @lock_released;
+            END IF;
             
-            UPDATE registration.PatientRegistration SET Uhid = @new_uhid WHERE PatientId = @new_id;
+            COMMIT;
             
             SELECT * FROM registration.PatientRegistration WHERE PatientId = @new_id;
             

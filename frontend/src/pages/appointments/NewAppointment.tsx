@@ -67,6 +67,11 @@ export const NewAppointment = () => {
   // Provisional preview of the UHID the backend will assign on confirm.
   const [nextUhid, setNextUhid] = useState('');
 
+  const getLocalDate = () => {
+    const d = new Date();
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().split('T')[0];
+  };
+
   const [formData, setFormData] = useState({
     patientName: '',
     mobileNumber: '',
@@ -75,7 +80,7 @@ export const NewAppointment = () => {
     age: '',
     department: '',
     doctor: '',
-    date: new Date().toISOString().split('T')[0],
+    date: getLocalDate(),
     timeSlot: '',
     type: 'Walk-In' as any,
     priority: 'Normal' as any,

@@ -14,7 +14,7 @@ const initialFormState: Partial<GlobalPatientRecord> = {
   registrationTime: new Date().toTimeString().split(' ')[0],
   patientName: '',
   gender: 'Unknown',
-  approximateAge: 0,
+  approximateAge: '',
   emergencyContactName: '',
   emergencyContactPhone: '',
   status: 'Active',
@@ -22,7 +22,7 @@ const initialFormState: Partial<GlobalPatientRecord> = {
 };
 
 export const EmergencyRegistration = () => {
-  
+
   const [patients, setPatients] = useState<any[]>([]);
   const [options, setOptions] = useState<any>({ Gender: [], Status: [] });
 
@@ -70,13 +70,13 @@ export const EmergencyRegistration = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<GlobalPatientRecord | null>(null);
   const [formData, setFormData] = useState<Partial<GlobalPatientRecord>>(initialFormState);
-  
+
   const [searchTerm, setSearchTerm] = useState('');
 
-  
+
   const handleCreateNew = () => {
-    setFormData({ 
-      ...initialFormState, 
+    setFormData({
+      ...initialFormState,
       uhid: '',
       registrationDate: new Date().toISOString().split('T')[0],
       registrationTime: new Date().toTimeString().split(' ')[0],
@@ -87,13 +87,16 @@ export const EmergencyRegistration = () => {
   };
 
   const handleEdit = (record: GlobalPatientRecord) => {
-    setFormData(record);
+    const sanitizedRecord = Object.fromEntries(
+      Object.entries(record).map(([k, v]) => [k, v === null ? '' : v])
+    );
+    setFormData(sanitizedRecord);
     setSelectedRecord(record);
     setIsFormOpen(true);
   };
 
 
-  
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     const payload = {
@@ -144,7 +147,7 @@ export const EmergencyRegistration = () => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const filteredRecords = records.filter(record => 
+  const filteredRecords = records.filter(record =>
     record.uhid.toLowerCase().includes(searchTerm.toLowerCase()) ||
     record.patientName?.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -203,18 +206,17 @@ export const EmergencyRegistration = () => {
                           ) : <span className="text-slate-400 italic">None Provided</span>}
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                            record.status === 'Active' 
-                              ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' 
+                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${record.status === 'Active'
+                              ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
                               : 'bg-red-50 text-red-600 border border-red-200'
-                          }`}>
+                            }`}>
                             {record.status}
                           </span>
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-center gap-2">
 
-                            <button 
+                            <button
                               onClick={() => handleEdit(record)}
                               className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
                               title="Edit"
@@ -265,7 +267,7 @@ export const EmergencyRegistration = () => {
 
           {/* Form Content */}
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
-            
+
             <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-xl flex items-start gap-3">
               <ShieldAlert className="w-5 h-5 shrink-0 mt-0.5" />
               <div>
@@ -294,18 +296,18 @@ export const EmergencyRegistration = () => {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Gender</label>
                   <select
                     value={formData.gender}
-                      onChange={(e) => handleInputChange('gender', e.target.value)}
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-danger/20 focus:border-danger"
-                    >
-                      {options.Gender.map((o: string) => <option key={o} value={o}>{o}</option>)}
-                    </select>
+                    onChange={(e) => handleInputChange('gender', e.target.value)}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-danger/20 focus:border-danger"
+                  >
+                    {options.Gender.map((o: string) => <option key={o} value={o}>{o}</option>)}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Approximate Age</label>
                   <input
                     type="number"
                     value={formData.approximateAge}
-                    onChange={(e) => handleInputChange('approximateAge', parseInt(e.target.value) || 0)}
+                    onChange={(e) => handleInputChange('approximateAge', e.target.value === '' ? '' : parseInt(e.target.value))}
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-danger/20 focus:border-danger"
                   />
                 </div>
