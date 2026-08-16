@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useCallback, useEffect, useRef, ty
 
 // ── Status flow ────────────────────────────────────────────────────────────
 export type OPDVisitStatus =
+  | 'Scheduled'
   | 'Arrived'
   | 'Nursing Assessment'
   | 'Waiting for Doctor'

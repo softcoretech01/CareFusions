@@ -27,7 +27,33 @@ export const TodayRegistrations = () => {
           registrationTime: d.RegistrationTime,
           status: d.Status
         }));
-        setRecords(mappedData);
+
+        const uniqueRecords = new Map();
+        mappedData.forEach((p: any) => {
+          if (!uniqueRecords.has(p.uhid)) {
+            uniqueRecords.set(p.uhid, p);
+          } else {
+            const existing = uniqueRecords.get(p.uhid);
+            if (p.registrationType === 'New') {
+              uniqueRecords.set(p.uhid, p);
+            } else if (p.registrationType === 'Emergency' && existing.registrationType === 'Quick') {
+              uniqueRecords.set(p.uhid, p);
+            }
+          }
+        });
+
+        const finalRecords = Array.from(uniqueRecords.values());
+        
+        // Sort by UHID ascending (1, 2, 3...)
+        const getSeq = (uhid: string) => {
+          if (!uhid) return 0;
+          const match = uhid.match(/\d+$/);
+          return match ? parseInt(match[0], 10) : 0;
+        };
+
+        finalRecords.sort((a: any, b: any) => getSeq(a.uhid) - getSeq(b.uhid));
+
+        setRecords(finalRecords);
       }
     } catch (e) {
       console.error(e);

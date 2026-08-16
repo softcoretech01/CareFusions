@@ -34,14 +34,39 @@ export const PatientDocuments = () => {
   // Fetch all patients for search
   const fetchPatients = async () => {
     try {
-      const res = await fetch(`${API_BASE}/patients/`);
-      if (res.ok) {
-        const data = await res.json();
-        setPatients(data.map((d: any) => ({
+      const [patientsRes, quickRes, emergencyRes] = await Promise.all([
+        fetch(`${API_BASE}/patients/`),
+        fetch(`${API_BASE}/quick-registrations/`),
+        fetch(`${API_BASE}/emergency-registrations/`)
+      ]);
+
+      let allPatients: any[] = [];
+
+      if (patientsRes.ok) {
+        const data = await patientsRes.json();
+        allPatients = allPatients.concat(data.map((d: any) => ({
           uhid: d.Uhid,
           patientName: d.PatientName
         })));
       }
+
+      if (quickRes.ok) {
+        const data = await quickRes.json();
+        allPatients = allPatients.concat(data.map((d: any) => ({
+          uhid: d.Uhid,
+          patientName: d.PatientName
+        })));
+      }
+
+      if (emergencyRes.ok) {
+        const data = await emergencyRes.json();
+        allPatients = allPatients.concat(data.map((d: any) => ({
+          uhid: d.Uhid,
+          patientName: d.PatientName
+        })));
+      }
+
+      setPatients(allPatients);
     } catch (e) {
       console.error('Failed to fetch patients', e);
     }

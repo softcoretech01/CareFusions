@@ -24,6 +24,7 @@ def _call_sp(db: Session, opt: str, **kwargs) -> Any:
     """Execute SpPatientRegistration with the given p_Opt and field values."""
     params = {
         "p_Opt": opt,
+        "p_Uhid": kwargs.get("Uhid", None),
         "p_PatientId": kwargs.get("PatientId", None),
         "p_RegistrationDate": kwargs.get("RegistrationDate", None),
         "p_Title": kwargs.get("Title", None),
@@ -77,12 +78,14 @@ def _call_sp(db: Session, opt: str, **kwargs) -> Any:
         "p_EmailConsent": kwargs.get("EmailConsent", None),
         "p_WhatsappConsent": kwargs.get("WhatsappConsent", None),
         "p_Status": kwargs.get("Status", None),
-        "p_Remarks": kwargs.get("Remarks", None)
+        "p_Remarks": kwargs.get("Remarks", None),
+        "p_CreatedBy": kwargs.get("CreatedBy", "admin"),
+        "p_ModifiedBy": kwargs.get("ModifiedBy", "admin")
     }
 
     sql = text(f"""
         CALL {SP_NAME}(
-            :p_Opt, :p_PatientId, :p_RegistrationDate, :p_Title, :p_PatientName, 
+            :p_Opt, :p_Uhid, :p_PatientId, :p_RegistrationDate, :p_Title, :p_PatientName, 
             :p_Gender, :p_DateOfBirth, :p_Age, :p_MaritalStatus, :p_BloodGroup, 
             :p_Nationality, :p_Religion, :p_Occupation, :p_MobileNumber, :p_AlternateMobile, 
             :p_Email, :p_Address1, :p_Address2, :p_Country, :p_State, 
@@ -93,7 +96,7 @@ def _call_sp(db: Session, opt: str, **kwargs) -> Any:
             :p_CurrentMedication, :p_OrganDonor, :p_Disability, :p_InsuranceRequired, 
             :p_InsuranceProvider, :p_Tpa, :p_PolicyNumber, :p_ValidTill, :p_PatientType, 
             :p_ReferredBy, :p_PrimaryDoctor, :p_Department, :p_RegistrationSource, 
-            :p_PrivacyConsent, :p_SmsConsent, :p_EmailConsent, :p_WhatsappConsent, :p_Status, :p_Remarks
+            :p_PrivacyConsent, :p_SmsConsent, :p_EmailConsent, :p_WhatsappConsent, :p_Status, :p_Remarks, :p_CreatedBy, :p_ModifiedBy
         )
     """)
 

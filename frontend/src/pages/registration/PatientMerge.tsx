@@ -24,10 +24,17 @@ export const PatientMerge = () => {
   useEffect(() => {
     const fetchPatients = async () => {
       try {
-        const res = await fetch(`${API_BASE}/patients/`);
-        if (res.ok) {
-          const data = await res.json();
-          setPatients(data.map((d: any) => ({
+        const [patientsRes, quickRes, emergencyRes] = await Promise.all([
+          fetch(`${API_BASE}/patients/`),
+          fetch(`${API_BASE}/quick-registrations/`),
+          fetch(`${API_BASE}/emergency-registrations/`)
+        ]);
+
+        let allPatients: any[] = [];
+
+        if (patientsRes.ok) {
+          const data = await patientsRes.json();
+          allPatients = allPatients.concat(data.map((d: any) => ({
             id: d.PatientId,
             uhid: d.Uhid,
             patientName: d.PatientName,
@@ -38,9 +45,48 @@ export const PatientMerge = () => {
             mobileNumber: d.MobileNumber,
             registrationDate: d.RegistrationDate,
             status: d.Status || 'Active',
-            _originalData: d // Keep the full payload for the PUT request
+            source: 'patients',
+            _originalData: d
           })));
         }
+
+        if (quickRes.ok) {
+          const data = await quickRes.json();
+          allPatients = allPatients.concat(data.map((d: any) => ({
+            id: d.QuickRegistrationId,
+            uhid: d.Uhid,
+            patientName: d.PatientName,
+            firstName: d.PatientName,
+            lastName: '',
+            gender: d.Gender,
+            age: d.Age,
+            mobileNumber: d.MobileNumber,
+            registrationDate: d.RegistrationDate,
+            status: d.Status || 'Active',
+            source: 'quick-registrations',
+            _originalData: d
+          })));
+        }
+
+        if (emergencyRes.ok) {
+          const data = await emergencyRes.json();
+          allPatients = allPatients.concat(data.map((d: any) => ({
+            id: d.EmergencyRegistrationId,
+            uhid: d.Uhid,
+            patientName: d.PatientName,
+            firstName: d.PatientName,
+            lastName: '',
+            gender: d.Gender,
+            age: d.ApproximateAge,
+            mobileNumber: d.EmergencyContactPhone,
+            registrationDate: d.RegistrationDate,
+            status: d.Status || 'Active',
+            source: 'emergency-registrations',
+            _originalData: d
+          })));
+        }
+
+        setPatients(allPatients);
       } catch (e) {
         console.error('Failed to fetch patients', e);
       }
@@ -70,7 +116,7 @@ export const PatientMerge = () => {
           Remarks: `Merged into ${primaryPatient.uhid}`
         };
 
-        const res = await fetch(`${API_BASE}/patients/${secondaryPatient.id}`, {
+        const res = await fetch(`${API_BASE}/${secondaryPatient.source}/${secondaryPatient.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(updatePayload)
@@ -237,7 +283,7 @@ export const PatientMerge = () => {
           color="primary" 
           size="lg" 
           icon={Merge}
-          disabled={!primaryPatient || !secondaryPatient || primaryPatient.id === secondaryPatient.id}
+          disabled={!primaryPatient || !secondaryPatient || primaryPatient.uhid === secondaryPatient.uhid}
           onClick={() => setIsMergeModalOpen(true)}
           className="w-full md:w-auto px-12 py-4 text-lg shadow-lg hover:shadow-xl transition-all"
         >

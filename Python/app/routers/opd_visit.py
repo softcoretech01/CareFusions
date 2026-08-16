@@ -16,11 +16,13 @@ router = APIRouter(
 def get_opd_schedule(
     department: Optional[str] = Query(None),
     date: Optional[str] = Query(None),
+    source: Optional[str] = Query(None),
     db: Session = Depends(get_db)
 ):
-    sql = text("""
+    opt = 'GET_EMR_SCHEDULE' if source == 'emr' else 'GET_SCHEDULE'
+    sql = text(f"""
         CALL hospital.SpOpdVisit(
-            'GET_SCHEDULE', NULL, NULL, :dept, :date,
+            '{opt}', NULL, NULL, :dept, :date,
             NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
         )
     """)

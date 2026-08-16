@@ -9,7 +9,11 @@ export const OPDReports = () => {
   const { visits } = useOPDVisits();
   const [selectedVisit, setSelectedVisit] = useState<any>(null);
   const [printVisit, setPrintVisit] = useState<any>(null);
-  const today = new Date().toISOString().split('T')[0];
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const today = `${yyyy}-${mm}-${dd}`;
   
   const [dateFrom, setDateFrom] = useState(today);
   const [dateTo, setDateTo] = useState(today);

@@ -15,7 +15,7 @@ export const ExistingPatients = () => {
   const navigate = useNavigate();
 
   const [patients, setPatients] = useState<any[]>([]);
-  
+
   const fetchPatients = async () => {
     try {
       const [patientsRes, quickRes, emergencyRes] = await Promise.all([
@@ -51,8 +51,8 @@ export const ExistingPatients = () => {
           gender: d.Gender,
           age: d.Age,
           mobileNumber: d.MobileNumber,
-          nationalId: '', 
-          patientCategory: '', 
+          nationalId: '',
+          patientCategory: '',
           registrationDate: d.RegistrationDate,
           status: d.Status
         })));
@@ -67,15 +67,35 @@ export const ExistingPatients = () => {
           gender: d.Gender,
           age: d.ApproximateAge,
           mobileNumber: d.EmergencyContactPhone,
-          nationalId: '', 
-          patientCategory: '', 
+          nationalId: '',
+          patientCategory: '',
           registrationDate: d.RegistrationDate,
           status: d.Status
         })));
       }
 
-      // Sort by Registration Date descending
-      allPatients.sort((a, b) => new Date(b.registrationDate).getTime() - new Date(a.registrationDate).getTime());
+      // Deduplicate by UHID, prioritizing Patient > Emergency > Quick
+      const uniquePatients = new Map();
+      allPatients.forEach(p => {
+        if (!uniquePatients.has(p.uhid)) {
+          uniquePatients.set(p.uhid, p);
+        } else {
+          const existing = uniquePatients.get(p.uhid);
+          if (p.sourceType === 'Patient') {
+            uniquePatients.set(p.uhid, p);
+          } else if (p.sourceType === 'Emergency' && existing.sourceType === 'Quick') {
+            uniquePatients.set(p.uhid, p);
+          }
+        }
+      });
+      allPatients = Array.from(uniquePatients.values());
+
+      // Sort by UHID ascending for sequential order (1, 2, 3...)
+      allPatients.sort((a, b) => {
+        if (a.uhid < b.uhid) return -1;
+        if (a.uhid > b.uhid) return 1;
+        return 0;
+      });
 
       setPatients(allPatients);
     } catch (e) {
@@ -88,9 +108,9 @@ export const ExistingPatients = () => {
   }, []);
 
   const { getOrdersByPatient } = useInvestigations();
-  
+
   const [activeViewer, setActiveViewer] = useState<{ patientId: string; category: 'Lab' | 'Radiology' } | null>(null);
-  
+
   // Search and Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -104,10 +124,10 @@ export const ExistingPatients = () => {
     const dd = String(d.getDate()).padStart(2, '0');
     return `${yyyy}-${mm}-${dd}`;
   };
-  
+
   const dToday = new Date();
   const dFirstDay = new Date(dToday.getFullYear(), dToday.getMonth(), 1);
-  
+
   const todayStr = formatYYYYMMDD(dToday);
   const firstDayStr = formatYYYYMMDD(dFirstDay);
 
@@ -200,16 +220,16 @@ export const ExistingPatients = () => {
   };
 
   const filteredRecords = patients.filter(record => {
-    const matchesSearch = 
+    const matchesSearch =
       record.uhid.toLowerCase().includes(appliedSearchTerm.toLowerCase()) ||
       (record.patientName || '').toLowerCase().includes(appliedSearchTerm.toLowerCase()) ||
       (record.mobileNumber || '').includes(appliedSearchTerm) ||
       (record.nationalId || '').toLowerCase().includes(appliedSearchTerm.toLowerCase());
-    
+
     const matchesCategory = !filterCategory || record.patientCategory === filterCategory;
     const matchesStatus = !filterStatus || record.status === filterStatus;
     const matchesGender = !filterGender || record.gender === filterGender;
-    
+
     // Fallback to today if registrationDate is missing for mock data
     const regDate = record.registrationDate ? record.registrationDate.split('T')[0] : todayStr;
     const matchesDate = (!appliedDateFrom || regDate >= appliedDateFrom) && (!appliedDateTo || regDate <= appliedDateTo);
@@ -259,7 +279,7 @@ export const ExistingPatients = () => {
                 className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm"
               />
             </div>
-            
+
             <div className="h-8 w-px bg-slate-200 mx-1" />
 
             <DateFilter
@@ -339,7 +359,7 @@ export const ExistingPatients = () => {
                 <th className="px-4 py-3 font-medium">Gender/Age</th>
                 <th className="px-4 py-3 font-medium">Mobile Number</th>
                 <th className="px-4 py-3 font-medium">National ID</th>
-                <th className="px-4 py-3 font-medium">Category</th>
+                {/* <th className="px-4 py-3 font-medium">Category</th> */}
                 <th className="px-4 py-3 font-medium">Reg. Date</th>
                 <th className="px-4 py-3 font-medium text-center">Status</th>
                 <th className="px-4 py-3 font-medium text-center">Action</th>
@@ -354,38 +374,37 @@ export const ExistingPatients = () => {
                     <td className="px-4 py-3 text-slate-600">{record.gender} / {record.age} Yrs</td>
                     <td className="px-4 py-3 text-slate-600">{record.mobileNumber}</td>
                     <td className="px-4 py-3 text-slate-600">{record.nationalId}</td>
-                    <td className="px-4 py-3 text-slate-600">
+                    {/* <td className="px-4 py-3 text-slate-600">
                       <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
                         {record.patientCategory}
                       </span>
-                    </td>
+                    </td> */}
                     <td className="px-4 py-3 text-slate-600">{record.registrationDate}</td>
                     <td className="px-4 py-3 text-center">
-                      <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                        record.status === 'Active' 
-                          ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' 
-                          : 'bg-red-50 text-red-600 border border-red-200'
-                      }`}>
+                      <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${record.status === 'Active'
+                        ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                        : 'bg-red-50 text-red-600 border border-red-200'
+                        }`}>
                         {record.status}
                       </span>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-2">
-                        <button 
+                        <button
                           onClick={() => setViewModalRecord(record)}
-                          className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" 
+                          className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
                           title="View Details"
                         >
                           <Eye className="w-4 h-4" />
                         </button>
-                        <button 
+                        <button
                           onClick={() => handlePrint(record)}
-                          className="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors" 
+                          className="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                           title="Print Card"
                         >
                           <Printer className="w-4 h-4" />
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleEditProfile(record)}
                           className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
                           title="Edit Profile"
@@ -394,22 +413,22 @@ export const ExistingPatients = () => {
                         </button>
 
                         <div className="w-[1px] h-4 bg-slate-200 mx-1"></div>
-                        
+
                         {(() => {
                           const patientOrders = getOrdersByPatient(record.uhid);
                           const hasLab = patientOrders.some(o => o.category === 'Lab' && (o.status === 'Completed' || o.status === 'Partial' || o.status === 'Verified'));
                           const hasScan = patientOrders.some(o => o.category === 'Radiology' && (o.status === 'Completed' || o.status === 'Partial' || o.status === 'Verified'));
-                          
+
                           return (
                             <>
-                              <button 
+                              <button
                                 onClick={() => hasLab && setActiveViewer({ patientId: record.uhid, category: 'Lab' })}
                                 className={`p-1.5 rounded-lg transition-colors ${hasLab ? 'text-teal-600 bg-teal-50 hover:bg-teal-100' : 'text-slate-300 cursor-not-allowed'}`}
                                 title={hasLab ? "View Lab Results" : "No Lab Results"}
                               >
                                 <FlaskConical className="w-4 h-4" />
                               </button>
-                              <button 
+                              <button
                                 onClick={() => hasScan && setActiveViewer({ patientId: record.uhid, category: 'Radiology' })}
                                 className={`p-1.5 rounded-lg transition-colors ${hasScan ? 'text-purple-600 bg-purple-50 hover:bg-purple-100' : 'text-slate-300 cursor-not-allowed'}`}
                                 title={hasScan ? "View Scan Reports" : "No Scan Reports"}
@@ -439,10 +458,10 @@ export const ExistingPatients = () => {
       </div>
 
       {activeViewer && (
-        <ResultViewer 
-          patientId={activeViewer.patientId} 
-          category={activeViewer.category} 
-          onClose={() => setActiveViewer(null)} 
+        <ResultViewer
+          patientId={activeViewer.patientId}
+          category={activeViewer.category}
+          onClose={() => setActiveViewer(null)}
         />
       )}
 
@@ -450,7 +469,7 @@ export const ExistingPatients = () => {
       <AnimatePresence>
         {viewModalRecord && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -466,14 +485,14 @@ export const ExistingPatients = () => {
                     <p className="text-sm font-medium text-slate-500 mt-1">{viewModalRecord.uhid}</p>
                   </div>
                 </div>
-                <button 
+                <button
                   onClick={() => setViewModalRecord(null)}
                   className="p-2.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              
+
               <div className="p-8 overflow-y-auto bg-slate-50/50">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                   <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
@@ -503,11 +522,10 @@ export const ExistingPatients = () => {
                   <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Status</p>
                     <p className="text-base font-semibold text-slate-800">
-                      <span className={`inline-flex px-3 py-1.5 rounded-lg text-xs font-bold ${
-                        viewModalRecord.status === 'Active' 
-                          ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' 
-                          : 'bg-red-50 text-red-600 border border-red-100'
-                      }`}>
+                      <span className={`inline-flex px-3 py-1.5 rounded-lg text-xs font-bold ${viewModalRecord.status === 'Active'
+                        ? 'bg-emerald-50 text-emerald-600 border border-emerald-100'
+                        : 'bg-red-50 text-red-600 border border-red-100'
+                        }`}>
                         {viewModalRecord.status || 'Unknown'}
                       </span>
                     </p>
@@ -518,7 +536,7 @@ export const ExistingPatients = () => {
                   </div>
                 </div>
               </div>
-              
+
               <div className="px-8 py-5 border-t border-slate-100 bg-white flex justify-end">
                 <Button variant="outline" onClick={() => setViewModalRecord(null)}>Close Details</Button>
               </div>

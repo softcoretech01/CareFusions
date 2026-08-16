@@ -224,7 +224,7 @@ BEGIN
         SET @prefix = IF(p_Category = 'Radiology', 'RAD-', 'LAB-');
         SELECT COALESCE(MAX(CAST(SUBSTRING(OrderNumber, 9) AS UNSIGNED)), 0) + 1 INTO @roll
         FROM hospital.Lab_Order
-        WHERE OrderNumber LIKE CONCAT(@prefix, @yr, '%');
+        WHERE OrderNumber LIKE CONCAT(@prefix, @yr, '%') COLLATE utf8mb4_general_ci;
         SET @ordno = CONCAT(@prefix, @yr, LPAD(@roll, 4, '0'));
 
         INSERT INTO hospital.Lab_Order
