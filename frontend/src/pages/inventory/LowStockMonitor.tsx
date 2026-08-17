@@ -4,8 +4,12 @@ import { PageHeader } from '../../components/inventory/PageHeader';
 import { StatusBadge } from '../../components/inventory/StatusBadge';
 import { Search, Download, FileText, PackageX } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { useInventory } from '../../contexts/InventoryContext';
+import { useInventory, type LowStockRow } from '../../contexts/InventoryContext';
 import { exportToExcel } from '../../utils/exportToExcel';
+
+const API_BASE = import.meta.env.VITE_API_URL as string;
+const today = () => new Date().toISOString().split('T')[0];
+const plusDays = (n: number) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().split('T')[0]; };
 
 const severity = (qty: number, reorder: number): { text: string; tone: 'rose' | 'orange' | 'amber' } =>
   qty <= 0 ? { text: 'Out of Stock', tone: 'rose' }
@@ -13,9 +17,10 @@ const severity = (qty: number, reorder: number): { text: string; tone: 'rose' | 
       : { text: 'Reorder Required', tone: 'amber' };
 
 export const LowStockMonitor = () => {
-  const { lowStock, loading } = useInventory();
+  const { lowStock, stores, loading } = useInventory();
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
+  const [generating, setGenerating] = useState(false);
 
   const categories = useMemo(() => {
     const set = new Set<string>();
@@ -40,7 +45,64 @@ export const LowStockMonitor = () => {
   useEffect(() => { if (page > totalPages) setPage(1); }, [page, totalPages]);
   const paged = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const stubPR = () => toast('Purchase requisition — coming soon');
+  // Raise a real Purchase Requisition (procurement) for the given low-stock
+  // items — the requested qty is each item's deficit back up to its reorder
+  // level. Posts to the same /purchase-requisitions API the PR screen uses.
+  const generatePR = async (items: LowStockRow[], label: string) => {
+    if (!items.length) { toast('No low-stock items to requisition'); return; }
+    if (generating) return;
+    setGenerating(true);
+    try {
+      const existing = await fetch(`${API_BASE}/purchase-requisitions`)
+        .then(r => (r.ok ? r.json() : [])).catch(() => []);
+      const seq = (Array.isArray(existing) ? existing.length : 0) + 1;
+      const prNo = `PR-${new Date().getFullYear()}-${String(seq).padStart(3, '0')}`;
+      const store = stores[0]?.storeName || 'Central Medical Store';
+      const critical = items.some(r => r.quantity <= 0 || r.quantity <= r.reorderLevel / 2);
+
+      const prItems = items.map(r => ({
+        id: Math.random().toString(),
+        itemId: r.itemId, itemCode: r.itemCode, itemName: r.itemName,
+        category: r.category || '', subCategory: '',
+        availableStock: r.quantity,
+        requestedQty: Math.max(1, r.deficit || (r.reorderLevel - r.quantity)),
+        uom: r.uom || '', estimatedPrice: 0, estimatedAmount: 0,
+        store, remarks: 'Auto-raised from Low Stock Monitor',
+      }));
+
+      const payload = {
+        prNo,
+        requisitionDate: today(),
+        department: store,
+        requestedBy: 'Inventory',
+        priority: critical ? 'High' : 'Normal',
+        requiredDate: plusDays(7),
+        purpose: 'Replenishment for items below reorder level',
+        remarks: '',
+        items: prItems,
+        totalItems: prItems.length,
+        estimatedCost: 0,
+        approvalStatus: 'Draft',
+        currentStage: 'Draft',
+        createdBy: 'Inventory',
+      };
+
+      const res = await fetch(`${API_BASE}/purchase-requisitions`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        toast.success(`${label} raised (${prNo}) — see Purchase Requisitions`);
+      } else {
+        console.error('PR create failed', res.status, await res.text().catch(() => ''));
+        toast.error('Failed to create purchase requisition');
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to create purchase requisition');
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -67,9 +129,9 @@ export const LowStockMonitor = () => {
           className="h-11 px-4 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 flex items-center gap-2">
           <Download className="w-4 h-4" /> Export
         </button>
-        <button onClick={stubPR}
-          className="h-11 px-4 bg-primary hover:bg-primary-hover text-white rounded-xl text-sm font-bold flex items-center gap-2 shadow-sm">
-          <FileText className="w-4 h-4" /> Generate Bulk PR
+        <button onClick={() => generatePR(rows, 'Bulk purchase requisition')} disabled={generating || rows.length === 0}
+          className="h-11 px-4 bg-primary hover:bg-primary-hover text-white rounded-xl text-sm font-bold flex items-center gap-2 shadow-sm disabled:opacity-60">
+          <FileText className="w-4 h-4" /> {generating ? 'Generating…' : 'Generate Bulk PR'}
         </button>
       </div>
 
@@ -103,8 +165,8 @@ export const LowStockMonitor = () => {
                     <td className="px-4 py-3 font-bold text-rose-600">{r.deficit} <span className="text-xs font-normal text-slate-400">{r.uom}</span></td>
                     <td className="px-4 py-3"><StatusBadge tone={sev.tone}>{sev.text}</StatusBadge></td>
                     <td className="px-4 py-3 text-right">
-                      <button onClick={stubPR}
-                        className="px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:border-primary hover:text-primary transition-colors">
+                      <button onClick={() => generatePR([r], 'Purchase requisition')} disabled={generating}
+                        className="px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:border-primary hover:text-primary transition-colors disabled:opacity-60">
                         Generate PR
                       </button>
                     </td>

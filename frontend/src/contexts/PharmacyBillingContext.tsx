@@ -62,7 +62,7 @@ interface PharmacyBillingContextType {
   addRetailBill: (bill: Bill) => void;
   updateBillStatus: (billId: string, status: string) => void;
   updateRetailBill: (updatedBill: Bill) => void;
-  refresh?: () => Promise<void>;
+  refresh?: (force?: boolean) => Promise<void>;
   hasLoaded?: boolean;
 }
 
@@ -95,8 +95,8 @@ export const PharmacyBillingProvider = ({ children }: { children: ReactNode }) =
   const [hasLoaded, setHasLoaded] = useState(false);
 
   // Live inventory + sales are owned by the backend (hospital.Pharmacy_*).
-  const refresh = useCallback(async () => {
-    if (hasLoaded) return;
+  const refresh = useCallback(async (force: boolean = false) => {
+    if (hasLoaded && !force) return;
     setIsLoading(true);
     try {
       const [m, s] = await Promise.all([
@@ -154,7 +154,7 @@ export const PharmacyBillingProvider = ({ children }: { children: ReactNode }) =
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ delta: -quantitySold }),
         });
-        await refresh();
+        await refresh(true);
       } catch (e) { console.error('[Pharmacy] stock adjust failed', e); }
     })();
   };
@@ -190,7 +190,7 @@ export const PharmacyBillingProvider = ({ children }: { children: ReactNode }) =
         });
         if (!res.ok) throw new Error(await res.text());
         setCurrentBillItems([]);
-        await refresh();
+        await refresh(true);
       } catch (e) {
         console.error('[Pharmacy] finalize failed', e);
         alert('Failed to save bill. Check stock availability.');
@@ -213,7 +213,7 @@ export const PharmacyBillingProvider = ({ children }: { children: ReactNode }) =
     (async () => {
       try {
         await fetch(`${PHARM}/sales/${saleId}/refund`, { method: 'POST' });
-        await refresh();
+        await refresh(true);
       } catch (e) { console.error('[Pharmacy] refund failed', e); }
     })();
   };
@@ -231,7 +231,7 @@ export const PharmacyBillingProvider = ({ children }: { children: ReactNode }) =
           const err = await res.json().catch(() => ({}));
           throw new Error(err.detail || 'sale failed');
         }
-        await refresh();
+        await refresh(true);
       } catch (e: any) {
         console.error('[Pharmacy] sale failed', e);
         alert(e.message === 'Insufficient stock for one or more items'
@@ -250,7 +250,7 @@ export const PharmacyBillingProvider = ({ children }: { children: ReactNode }) =
           method: 'PATCH', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ paymentStatus: status }),
         });
-        await refresh();
+        await refresh(true);
       } catch (e) { console.error('[Pharmacy] status update failed', e); }
     })();
   };

@@ -440,7 +440,7 @@ export const router = createBrowserRouter([
         element: <PharmacySummary />
       },
       {
-        path: 'sop',
+        path: 'pos',
         element: <RetailPOS />
       },
       {

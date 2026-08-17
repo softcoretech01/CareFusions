@@ -8,7 +8,7 @@ import { logout } from '../redux/slices/authSlice';
 
 const navigation = [
   { name: 'Dashboard', to: '/pharmacy/dashboard', icon: LayoutDashboard },
-  { name: 'Pharmacy SOP', to: '/pharmacy/sop', icon: Pill },
+  { name: 'Pharmacy POS', to: '/pharmacy/pos', icon: Pill },
   { name: 'Returns', to: '/pharmacy/returns', icon: ArrowLeftRight },
   { name: 'Reports', to: '/pharmacy/reports', icon: BarChart2 },
 ];
