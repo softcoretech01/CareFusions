@@ -532,10 +532,8 @@ export const OPPatients = () => {
 
                       <td className="px-6 py-4">
 
-                        <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-
-                          {record.billingStatus || 'Pending'}
-
+                        <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${record.billingStatus === 'Completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'}`}>
+                          {record.billingStatus === 'Completed' ? 'Paid' : (record.billingStatus || 'Pending')}
                         </span>
 
                       </td>

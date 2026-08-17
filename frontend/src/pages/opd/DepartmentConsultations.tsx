@@ -65,7 +65,7 @@ export const DepartmentConsultations = () => {
     if (appliedDateFrom && v.date < appliedDateFrom) return false;
     if (appliedDateTo && v.date > appliedDateTo) return false;
     return true;
-  });
+  }).sort((a, b) => b.id - a.id);
 
   const handleSearch = () => {
     setAppliedDateFrom(dateFrom);

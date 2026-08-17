@@ -178,6 +178,14 @@ export const IPBilling = () => {
   };
 
   const filteredSuggestions = admissions.filter(p => {
+    // Filter out if patient already has a paid bill for this admission
+    const hasPaidBill = bills.some(b =>
+      b.Uhid === p.uhid &&
+      new Date(b.BillDate) >= new Date(p.admissionDate) &&
+      (b.PaymentStatus === 'Paid' || b.PaymentStatus === 'Completed')
+    );
+    if (hasPaidBill) return false;
+
     const sId = (searchId || '').toLowerCase();
     return (p.uhid?.toLowerCase() || '').includes(sId) ||
       (p.patientName?.toLowerCase() || '').includes(sId) ||
@@ -222,11 +230,19 @@ export const IPBilling = () => {
 
   const handleSearch = (idToSearch?: any) => {
     const query = (typeof idToSearch === 'string' ? idToSearch : searchId || '').toLowerCase();
-    const foundIPD = admissions.find(p =>
-      (p.uhid?.toLowerCase() || '') === query ||
-      (p.patientName?.toLowerCase() || '') === query ||
-      (p.admissionNumber?.toLowerCase() || '') === query
-    );
+    const foundIPD = admissions.find(p => {
+      // Filter out if patient already has a paid bill for this admission
+      const hasPaidBill = bills.some(b =>
+        b.Uhid === p.uhid &&
+        new Date(b.BillDate) >= new Date(p.admissionDate) &&
+        (b.PaymentStatus === 'Paid' || b.PaymentStatus === 'Completed')
+      );
+      if (hasPaidBill) return false;
+
+      return (p.uhid?.toLowerCase() || '') === query ||
+        (p.patientName?.toLowerCase() || '') === query ||
+        (p.admissionNumber?.toLowerCase() || '') === query;
+    });
     if (foundIPD) {
       setSearchId(foundIPD.uhid || '');
       setPatientName(foundIPD.patientName);

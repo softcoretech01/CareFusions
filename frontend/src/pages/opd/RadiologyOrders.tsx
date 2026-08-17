@@ -54,7 +54,7 @@ export const RadiologyOrders = () => {
     }
 
     return true;
-  });
+  }).sort((a, b) => b.id - a.id);
 
   const handleSearch = () => {
     setAppliedDateFrom(dateFrom);

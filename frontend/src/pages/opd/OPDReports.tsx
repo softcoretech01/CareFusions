@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useOPDVisits } from '../../contexts/OPDVisitContext';
+import { useIPD } from '../../contexts/IPDContext';
 import { Download, Eye, Printer } from 'lucide-react';
 import { VisitDetailsModal } from '../../components/opd/VisitDetailsModal';
 import { exportToExcel } from '../../utils/exportToExcel';
@@ -7,6 +8,7 @@ import { DateFilter } from '../../components/ui/DateFilter';
 
 export const OPDReports = () => {
   const { visits } = useOPDVisits();
+  const { patients } = useIPD();
   const [selectedVisit, setSelectedVisit] = useState<any>(null);
   const [printVisit, setPrintVisit] = useState<any>(null);
   const d = new Date();
@@ -14,7 +16,7 @@ export const OPDReports = () => {
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   const dd = String(d.getDate()).padStart(2, '0');
   const today = `${yyyy}-${mm}-${dd}`;
-  
+
   const [dateFrom, setDateFrom] = useState(today);
   const [dateTo, setDateTo] = useState(today);
   const [dept, setDept] = useState('All');
@@ -30,7 +32,7 @@ export const OPDReports = () => {
   const completedVisits = visits.filter(v => {
     // Only show completed
     if (v.status !== 'Completed') return false;
-    
+
     // Date filter
     if (appliedDateFrom && v.date < appliedDateFrom) return false;
     if (appliedDateTo && v.date > appliedDateTo) return false;
@@ -47,7 +49,7 @@ export const OPDReports = () => {
     }
 
     return true;
-  });
+  }).sort((a, b) => b.id - a.id);
 
   const handleSearch = () => {
     setAppliedDateFrom(dateFrom);
@@ -87,7 +89,7 @@ export const OPDReports = () => {
         <div className="shrink-0">
           <h1 className="text-2xl font-bold text-slate-800 whitespace-nowrap">OPD Reports</h1>
         </div>
-        
+
         <div className="flex items-center gap-3 flex-nowrap overflow-x-auto pb-1 w-full justify-end">
           {/* <div className="relative w-40 md:w-56 shrink-0">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -112,11 +114,11 @@ export const OPDReports = () => {
               onReset={handleReset}
             />
           </div>
-          
+
           <select value={dept} onChange={e => setDept(e.target.value)} className={`${inputCls} w-36 shrink-0`}>
             {departments.map(d => <option key={d} value={d}>{d === 'All' ? 'All Depts' : d}</option>)}
           </select>
-          
+
           <button onClick={() => exportToExcel(completedVisits, 'OPDReports')} className="shrink-0 flex items-center gap-2 px-3 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors shadow-sm">
             <Download className="w-4 h-4" /> Export
           </button>
@@ -165,16 +167,23 @@ export const OPDReports = () => {
                     </td>
                     <td className="px-6 py-4 text-sm font-medium text-slate-700">{v.doctorName}</td>
                     <td className="px-6 py-4">
-                      <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${v.billingStatus === 'Completed' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-700'}`}>
-                        {v.billingStatus || 'Pending'}
-                      </span>
+                      {patients?.some(p => p.uhid === v.uhid && p.status === 'Admitted') ? (
+                        <span className="text-xs font-bold bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full">
+                          Admitted IPD
+                        </span>
+                      ) : (
+                        <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${v.billingStatus === 'Completed' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-700'}`}>
+                          {v.billingStatus || 'Pending'}
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4 flex gap-2">
                       <button
                         onClick={() => setSelectedVisit(v)}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 text-primary hover:bg-primary hover:text-white rounded-lg text-xs font-bold transition-colors"
+                        className="flex items-center justify-center w-10 h-10 bg-primary/10 text-primary hover:bg-primary hover:text-white rounded-lg transition-colors"
+                        title="View Details"
                       >
-                        <Eye className="w-3.5 h-3.5" /> View
+                        <Eye className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => v.billingStatus === 'Completed' && setPrintVisit(v)}
@@ -191,13 +200,13 @@ export const OPDReports = () => {
             </tbody>
           </table>
         </div>
-        
+
         {/* Footer stats */}
         <div className="px-6 py-3 border-t border-slate-100 bg-slate-50 text-sm font-bold text-slate-600 flex justify-between">
           <span>Total Completed: {completedVisits.length}</span>
         </div>
       </div>
-      
+
       <VisitDetailsModal visit={selectedVisit} onClose={() => setSelectedVisit(null)} />
 
       {printVisit && (

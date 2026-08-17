@@ -1,8 +1,11 @@
 import { useState } from 'react';
+import axios from 'axios';
 import { useInvestigations, type InvestigationOrder } from '../../contexts/InvestigationContext';
 import { Upload, FileText, CheckCircle, X, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { DateFilter } from '../../components/ui/DateFilter';
+
+const API_BASE = import.meta.env.VITE_API_URL as string || 'http://localhost:8000/api/v1';
 
 export const RadiologyOrderList = () => {
   const { orders, updateTestResult } = useInvestigations();
@@ -215,9 +218,27 @@ export const RadiologyOrderList = () => {
                             type="file"
                             className="hidden"
                             accept=".pdf,.jpg,.jpeg,.png,.dcm"
-                            onChange={(e) => {
+                            onChange={async (e) => {
                               if (e.target.files && e.target.files.length > 0) {
-                                handleTempChange(test.id, 'resultFile', e.target.files[0].name);
+                                const file = e.target.files[0];
+                                if (activeOrder?.patientId) {
+                                  const formData = new FormData();
+                                  formData.append('uhid', activeOrder.patientId);
+                                  formData.append('documentType', 'Radiology Report');
+                                  formData.append('file', file);
+                                  try {
+                                    await axios.post(`${API_BASE}/documents/`, formData, {
+                                      headers: { 'Content-Type': 'multipart/form-data' }
+                                    });
+                                    toast.success('File uploaded successfully');
+                                    handleTempChange(test.id, 'resultFile', file.name);
+                                  } catch (err) {
+                                    toast.error('Failed to upload file');
+                                    handleTempChange(test.id, 'resultFile', file.name);
+                                  }
+                                } else {
+                                  handleTempChange(test.id, 'resultFile', file.name);
+                                }
                               }
                             }}
                           />

@@ -418,7 +418,7 @@ export const InvestigationProvider = ({ children }: { children: ReactNode }) => 
 
     if (order?.category === 'Lab') {
       try {
-        await axios.put(`${API_BASE}/lab/orders/tests/${testId}/status`, {
+        await axios.patch(`${API_BASE}/lab/orders/tests/${testId}/status`, {
           status: status
         });
         refresh();
