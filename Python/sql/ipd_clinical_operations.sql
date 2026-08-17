@@ -41,7 +41,14 @@ CREATE PROCEDURE hospital.SpIpdClinicalOperations(
 )
 BEGIN
 
-    IF p_Action = 'GET_DETAILS' THEN
+    IF p_Action = 'GET_SCHEDULE' THEN
+        SELECT AdmissionId, AdmissionNumber, Uhid, PatientName, Age, Gender, AdmissionDate,
+               AdmittingDoctor, Specialty, Status
+        FROM hospital.IPD_Admission
+        WHERE IsDeleted = 0
+        ORDER BY AdmissionDate DESC, AdmissionId DESC;
+
+    ELSEIF p_Action = 'GET_DETAILS' THEN
         SELECT * FROM hospital.IPD_Admission     WHERE AdmissionId = p_AdmissionId;
         SELECT * FROM hospital.IpdVitals         WHERE AdmissionId = p_AdmissionId ORDER BY RecordedAt DESC;
         SELECT * FROM hospital.IpdClinicalRounds WHERE AdmissionId = p_AdmissionId ORDER BY RecordedAt DESC;

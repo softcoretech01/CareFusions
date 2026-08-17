@@ -92,7 +92,7 @@ export const OPBilling = () => {
 
   const fetchVisits = async () => {
     try {
-      const response = await axios.get(`${API_BASE}/opd-visits/schedule`);
+      const response = await axios.get(`${API_BASE}/opd-visits/schedule?source=emr`);
       setPatients(response.data);
     } catch (error) {
       console.error("Failed to fetch OPD visits", error);

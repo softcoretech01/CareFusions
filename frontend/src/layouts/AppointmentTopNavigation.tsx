@@ -3,7 +3,12 @@ import { useState } from 'react';
 import { LiveClock } from '../components/ui/LiveClock';
 
 export const AppointmentTopNavigation = () => {
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const getLocalDate = () => {
+    const d = new Date();
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().split('T')[0];
+  };
+
+  const [selectedDate, setSelectedDate] = useState(getLocalDate());
 
 
   return (

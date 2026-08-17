@@ -189,7 +189,7 @@ export const DepartmentConsultations = () => {
                           }`}
                         >
                           <Edit2 className="w-3.5 h-3.5" /> 
-                          Edit EMR
+                          {visit.status === 'Scheduled' ? 'Open EMR' : 'Edit EMR'}
                         </button>
                         
                         {visit.labOrders && visit.labOrders.length > 0 && (

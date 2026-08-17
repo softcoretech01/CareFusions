@@ -51,7 +51,10 @@ def run_reports_sql():
                     COUNT(Id) AS TotalRegistrations,
                     SUM(CASE WHEN PatientType IN ('OP', 'Walk-In') THEN 1 ELSE 0 END) AS OpPatients,
                     SUM(CASE WHEN PatientType = 'Emergency' THEN 1 ELSE 0 END) AS EmergencyPatients,
-                    SUM(CASE WHEN PatientType = 'IP' THEN 1 ELSE 0 END) AS IpPatients
+                    (SELECT COUNT(*) FROM hospital.IPD_Admission 
+                     WHERE (p_StartDate IS NULL OR p_StartDate = '' OR DATE(AdmissionDate) >= p_StartDate)
+                       AND (p_EndDate IS NULL OR p_EndDate = '' OR DATE(AdmissionDate) <= p_EndDate)
+                       AND IsDeleted = 0) AS IpPatients
                 FROM TempAllRegistrations;
 
                 -- RESULT SET 2: Demographics

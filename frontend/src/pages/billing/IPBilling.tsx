@@ -273,6 +273,14 @@ export const IPBilling = () => {
     }
   }, [state?.autoLoadUhid, admissions, patientName]);
 
+  useEffect(() => {
+    if (state?.autoLoadUhid && admissions.length > 0 && !patientName) {
+      handleSearch(state.autoLoadUhid);
+      // clear state so it doesn't run again if we navigate back
+      window.history.replaceState({}, document.title)
+    }
+  }, [state?.autoLoadUhid, admissions, patientName]);
+
   const handleAddItem = () => {
     setItems([...items, { id: `ITM-${Date.now()}`, description: 'New Item', price: 0, qty: 1, total: 0 }]);
   };
