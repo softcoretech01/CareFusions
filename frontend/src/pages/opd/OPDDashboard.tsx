@@ -58,6 +58,7 @@ export const OPDDashboard = () => {
       if (activeFilter === 'Completed Today' && v.status !== 'Completed') return false;
       return true;
     })
+    .sort((a, b) => b.id - a.id);
   const ALL_DEPARTMENTS = ['Cardiology', 'General Medicine', 'Orthopedics', 'Pediatrics', 'Dermatology', 'Neurology'];
   
   const deptCounts = todaysVisits.reduce((acc, v) => {

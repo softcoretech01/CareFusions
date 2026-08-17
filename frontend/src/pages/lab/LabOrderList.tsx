@@ -5,8 +5,11 @@ import toast from 'react-hot-toast';
 import { DateFilter } from '../../components/ui/DateFilter';
 import { Pagination } from '../../components/ui/Pagination';
 import { usePagination } from '../../hooks/usePagination';
+import axios from 'axios';
 
-const TestResultEditor = ({ test, handleSaveResult, handleVerify }: any) => {
+const API_BASE = import.meta.env.VITE_API_URL as string || 'http://localhost:8000/api/v1';
+
+const TestResultEditor = ({ test, handleSaveResult, handleVerify, patientId }: any) => {
   const [localValue, setLocalValue] = useState(test.resultValue || '');
 
   useEffect(() => {
@@ -23,7 +26,7 @@ const TestResultEditor = ({ test, handleSaveResult, handleVerify }: any) => {
           onChange={e => setLocalValue(e.target.value)}
           placeholder="Enter value"
           disabled={test.status === 'Verified'}
-          className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:border-blue-500 ${test.status === 'Verified' ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-white border-slate-200'}`}
+          className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 ${test.status === 'Verified' ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-white border-slate-200'}`}
           onBlur={() => {
             if (localValue !== test.resultValue) {
               handleSaveResult(test.id, localValue, test.resultFile);
@@ -39,10 +42,27 @@ const TestResultEditor = ({ test, handleSaveResult, handleVerify }: any) => {
             accept=".pdf,.png,.jpg,.jpeg"
             disabled={test.status === 'Verified'}
             className={`w-full px-3 py-1.5 border rounded-lg text-sm focus:outline-none focus:border-blue-500 file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 ${test.status === 'Verified' ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-white border-slate-200'}`}
-            onChange={(e) => {
+            onChange={async (e) => {
               if (e.target.files && e.target.files.length > 0) {
-                // Use localValue instead of test.resultValue to preserve user's typed input
-                handleSaveResult(test.id, localValue, e.target.files[0].name);
+                const file = e.target.files[0];
+                if (patientId) {
+                  const formData = new FormData();
+                  formData.append('uhid', patientId);
+                  formData.append('documentType', 'Lab Result');
+                  formData.append('file', file);
+                  try {
+                    await axios.post(`${API_BASE}/documents/`, formData, {
+                      headers: { 'Content-Type': 'multipart/form-data' }
+                    });
+                    toast.success('File uploaded successfully');
+                    handleSaveResult(test.id, localValue, file.name);
+                  } catch (err) {
+                    toast.error('Failed to upload file');
+                    handleSaveResult(test.id, localValue, file.name); // save the name anyway if it fails
+                  }
+                } else {
+                  handleSaveResult(test.id, localValue, file.name);
+                }
               }
             }}
           />
@@ -291,6 +311,7 @@ export const LabOrderList = () => {
                         test={test} 
                         handleSaveResult={handleSaveResult} 
                         handleVerify={handleVerify} 
+                        patientId={activeOrder.patientId}
                       />
                     )}
                   </div>

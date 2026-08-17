@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Search, Plus, Filter, Edit2, Download, Trash2, Printer,
+  Search, Plus, Filter, Edit2, Download, Trash2, Printer, Eye,
   User, Phone, FileText, Heart, Shield, Activity, Calendar, FileDigit, Info,
   AlertTriangle
 } from 'lucide-react';
@@ -12,8 +12,7 @@ import { toast } from 'react-hot-toast';
 const API_BASE = import.meta.env.VITE_API_URL as string;
 
 import { exportToExcel } from '../../utils/exportToExcel';
-
-interface PatientRecord {
+import { PatientDetailsModal } from './PatientDetailsModal';interface PatientRecord {
   id: number;
   uhid: string;
   registrationDate: string;
@@ -318,6 +317,7 @@ export const PatientRegistration = () => {
 
 
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isViewMode, setIsViewMode] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<any | null>(null);
   const [formData, setFormData] = useState<Partial<any>>(initialFormState);
@@ -619,7 +619,11 @@ export const PatientRegistration = () => {
             </div>
             <div className="flex gap-3">
               <Button variant="outline" icon={Download} onClick={() => exportToExcel(patients, 'PatientRegistration')}>Export</Button>
-              <Button variant="filled" color="primary" icon={Plus} onClick={handleCreateNew}>
+              <Button variant="filled" color="primary" icon={Plus} onClick={() => {
+                setSelectedRecord(null);
+                setFormData(initialFormState);
+                setIsFormOpen(true);
+              }}>
                 Register Patient
               </Button>
             </div>
@@ -713,11 +717,16 @@ export const PatientRegistration = () => {
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-center gap-2">
-                            <button onClick={() => handlePrint(record)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Print Card">
-                              <Printer className="w-4 h-4" />
+                            <button onClick={() => {
+                              setSelectedRecord(record);
+                              setIsViewMode(true);
+                            }} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="View Patient">
+                              <Eye className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => handleEdit(record)}
+                              onClick={() => {
+                                handleEdit(record);
+                              }}
                               className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
                               title="Edit"
                             >
@@ -1353,7 +1362,15 @@ export const PatientRegistration = () => {
         </div>
       )}
 
-      {/* Deactivate Confirmation Modal */}
+      {/* Patient Details Modal */}
+      {isViewMode && (
+        <PatientDetailsModal
+          patient={selectedRecord}
+          onClose={() => setIsViewMode(false)}
+        />
+      )}
+
+      {/* Delete Confirmation Modal */}
       {isDeleteOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
           <motion.div

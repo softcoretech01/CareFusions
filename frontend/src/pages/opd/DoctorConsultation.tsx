@@ -58,12 +58,13 @@ export const DoctorConsultation = () => {
   } = useOPDVisits();
 
   const { appointments, updateAppointmentStatus } = useAppointments();
-  const { requestAdmission } = useIPD();
+  const { requestAdmission, patients } = useIPD();
   const { addOrder: addGlobalInvestigationOrder } = useInvestigations();
 
   const navigate = useNavigate();
 
   const visit = getVisitById(Number(visitId));
+  const isAdmitted = patients?.some(p => p.uhid === visit?.uhid && p.status === 'Admitted');
   const [activeTab, setActiveTab] = useState('history');
 
   const patientHistory = visits
@@ -763,11 +764,18 @@ export const DoctorConsultation = () => {
                       <RefreshCw className="w-4 h-4" />
                       Update EMR
                     </button>
-                    <button onClick={() => setShowAdmitModal(true)}
-                      className="px-8 py-3 bg-red-600 text-white rounded-xl text-sm font-bold hover:bg-red-700 transition-colors shadow-sm flex items-center gap-2">
-                      <Plus className="w-4 h-4" />
-                      Admit to IPD
-                    </button>
+                    {isAdmitted ? (
+                      <div className="px-8 py-3 bg-red-50 text-red-600 rounded-xl text-sm font-bold flex items-center gap-2 border border-red-200">
+                        <CheckCircle className="w-4 h-4" />
+                        Admitted
+                      </div>
+                    ) : (
+                      <button onClick={() => setShowAdmitModal(true)}
+                        className="px-8 py-3 bg-red-600 text-white rounded-xl text-sm font-bold hover:bg-red-700 transition-colors shadow-sm flex items-center gap-2">
+                        <Plus className="w-4 h-4" />
+                        Admit to IPD
+                      </button>
+                    )}
                   </>
                 ) : (
                   <>
@@ -776,11 +784,18 @@ export const DoctorConsultation = () => {
                       <CheckCircle className="w-4 h-4" />
                       Finalize Visit
                     </button>
-                    <button onClick={() => setShowAdmitModal(true)}
-                      className="px-8 py-3 bg-red-600 text-white rounded-xl text-sm font-bold hover:bg-red-700 transition-colors shadow-sm flex items-center gap-2">
-                      <Plus className="w-4 h-4" />
-                      Admit to IPD
-                    </button>
+                    {isAdmitted ? (
+                      <div className="px-8 py-3 bg-red-50 text-red-600 rounded-xl text-sm font-bold flex items-center gap-2 border border-red-200">
+                        <CheckCircle className="w-4 h-4" />
+                        Admitted
+                      </div>
+                    ) : (
+                      <button onClick={() => setShowAdmitModal(true)}
+                        className="px-8 py-3 bg-red-600 text-white rounded-xl text-sm font-bold hover:bg-red-700 transition-colors shadow-sm flex items-center gap-2">
+                        <Plus className="w-4 h-4" />
+                        Admit to IPD
+                      </button>
+                    )}
                   </>
                 )}
               </div>

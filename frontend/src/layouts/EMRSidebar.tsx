@@ -8,7 +8,6 @@ const navigation = [
   { name: 'Dashboard', to: '/emr', icon: LayoutDashboard, end: true },
   { name: 'OP Patients', to: '/emr/op', icon: Users },
   { name: 'IP Patients', to: '/emr/ip', icon: BedDouble },
-  { name: 'Emergency', to: '/emr/emergency', icon: Siren },
 ];
 
 export const EMRSidebar = () => {

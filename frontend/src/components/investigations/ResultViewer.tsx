@@ -130,7 +130,12 @@ export const ResultViewer: React.FC<ResultViewerProps> = ({ patientId, category,
                               </td>
                               <td className="px-5 py-3 text-center print:hidden">
                                 {test.resultFile ? (
-                                  <a href="#" onClick={(e) => { e.preventDefault(); window.open('/TechHMS-IPD.pdf', '_blank'); }} className="inline-flex items-center justify-center gap-1.5 p-1.5 px-3 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors font-medium text-xs" title={test.resultFile}>
+                                  <a href="#" onClick={(e) => { 
+                                    e.preventDefault(); 
+                                    const baseUrl = (import.meta.env.VITE_API_URL as string || 'http://localhost:8000').replace('/api/v1', '');
+                                    const filename = test.resultFile.startsWith(patientId) ? test.resultFile : `${patientId}_${test.resultFile}`;
+                                    window.open(`${baseUrl}/uploads/${filename}`, '_blank'); 
+                                  }} className="inline-flex items-center justify-center gap-1.5 p-1.5 px-3 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors font-medium text-xs" title={test.resultFile}>
                                     <FileText className="w-3.5 h-3.5 shrink-0" /> <span className="truncate max-w-[120px]">{test.resultFile}</span>
                                   </a>
                                 ) : (
@@ -162,7 +167,12 @@ export const ResultViewer: React.FC<ResultViewerProps> = ({ patientId, category,
                           {test.resultFile && (
                             <div className="print:hidden">
                               <p className="text-xs font-bold text-slate-400 uppercase mb-1">Attached Scan / Report</p>
-                              <a href="#" onClick={(e) => { e.preventDefault(); window.open('/TechHMS-IPD.pdf', '_blank'); }} className="inline-flex items-center gap-2 px-3 py-2 bg-purple-50 text-purple-600 rounded-lg text-sm font-bold hover:bg-purple-100 transition-colors">
+                              <a href="#" onClick={(e) => { 
+                                e.preventDefault(); 
+                                const baseUrl = (import.meta.env.VITE_API_URL as string || 'http://localhost:8000').replace('/api/v1', '');
+                                const filename = test.resultFile.startsWith(patientId) ? test.resultFile : `${patientId}_${test.resultFile}`;
+                                window.open(`${baseUrl}/uploads/${filename}`, '_blank'); 
+                              }} className="inline-flex items-center gap-2 px-3 py-2 bg-purple-50 text-purple-600 rounded-lg text-sm font-bold hover:bg-purple-100 transition-colors">
                                 <FileText className="w-4 h-4" /> {test.resultFile}
                               </a>
                             </div>
