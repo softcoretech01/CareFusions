@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Users, BedDouble, Siren, LayoutDashboard } from 'lucide-react';
+import { Users, BedDouble, LayoutDashboard } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAppDispatch } from '../hooks/redux';
 import { logout } from '../redux/slices/authSlice';

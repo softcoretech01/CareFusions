@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
-import { Users, BedDouble, Siren, Activity, Loader2 } from 'lucide-react';
+import { Users, BedDouble, Activity, Loader2 } from 'lucide-react';
 import { DateFilter } from '../../components/ui/DateFilter';
 import { WeeklyEMRTrendCard } from '../../components/emr/WeeklyEMRTrendCard';
 import type { EMRRecord } from '../../components/emr/EMRPrintTemplate';
@@ -118,14 +118,13 @@ export const EMRDashboard = () => {
   // OP consists of anything not IP and not Emergency
   const opCount = filteredRecords.filter(r => r.visitType !== 'IP' && r.visitType !== 'Emergency').length;
   const ipCount = filteredRecords.filter(r => r.visitType === 'IP').length;
-  const emCount = filteredRecords.filter(r => r.visitType === 'Emergency').length;
-  const totalRecords = filteredRecords.length;
-  const donutSeries = [opCount, ipCount, emCount];
+  const totalRecords = opCount + ipCount;
+  const donutSeries = [opCount, ipCount];
 
   const donutOptions: ApexOptions = {
     chart: { type: 'donut', toolbar: { show: false }, fontFamily: 'Inter' },
-    labels: ['OP', 'IP', 'Emergency'],
-    colors: ['#38bdf8', '#818cf8', '#f87171'],
+    labels: ['OP', 'IP'],
+    colors: ['#38bdf8', '#818cf8'],
     legend: { position: 'bottom', horizontalAlign: 'center', markers: { width: 10, height: 10 } } as any,
     dataLabels: { enabled: false },
     plotOptions: { pie: { donut: { size: '65%' } } },
@@ -169,7 +168,7 @@ export const EMRDashboard = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-6">
         <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between mb-4">
             <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
@@ -203,18 +202,6 @@ export const EMRDashboard = () => {
           <div>
             <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-1">IP Records</p>
             <h3 className="text-3xl font-bold text-slate-800">{ipCount}</h3>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 rounded-2xl bg-red-50 flex items-center justify-center">
-              <Siren className="w-6 h-6 text-red-600" />
-            </div>
-          </div>
-          <div>
-            <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-1">Emergency Records</p>
-            <h3 className="text-3xl font-bold text-slate-800">{emCount}</h3>
           </div>
         </div>
       </div>
