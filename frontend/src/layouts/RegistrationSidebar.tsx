@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, UserPlus, Zap, Users, CalendarDays, CopyX, Merge, FolderOpen, History, ChevronRight, ChevronDown, Activity, LogOut } from 'lucide-react';
+import { LayoutDashboard, UserPlus, Zap, Users, CalendarDays, CopyX, Merge, FolderOpen, History, ChevronRight, ChevronDown, BellRing, Activity, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface NavItem {

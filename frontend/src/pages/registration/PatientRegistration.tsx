@@ -622,7 +622,11 @@ export const PatientRegistration = () => {
             </div>
             <div className="flex gap-3">
               <Button variant="outline" icon={Download} onClick={() => exportToExcel(patients, 'PatientRegistration')}>Export</Button>
-              <Button variant="filled" color="primary" icon={Plus} onClick={handleCreateNew}>
+              <Button variant="filled" color="primary" icon={Plus} onClick={() => {
+                setSelectedRecord(null);
+                setFormData(initialFormState);
+                setIsFormOpen(true);
+              }}>
                 Register Patient
               </Button>
             </div>
@@ -774,7 +778,7 @@ export const PatientRegistration = () => {
             </div>
             <div className="flex items-center gap-3">
               <Button variant="outline" onClick={() => setIsFormOpen(false)}>Cancel</Button>
-              <Button variant="outline" icon={Printer} className="hidden sm:flex" onClick={() => handlePrint(formData)}>Print Slip</Button>
+              <Button variant="outline" icon={Printer} className="hidden sm:flex">Print Slip</Button>
               {!selectedRecord && (
                 <Button variant="outline" color="primary" onClick={(e) => handleSave(e, true)}>
                   Save & New
