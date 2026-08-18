@@ -323,10 +323,13 @@ export const PatientRegistration = () => {
   const [formData, setFormData] = useState<Partial<any>>(initialFormState);
 
   useEffect(() => {
-    if (location.state && location.state.uhid) {
+    if (location.state && location.state.uhid && patients.length > 0) {
       const patient = patients.find(p => p.uhid === location.state.uhid);
       if (patient) {
-        setFormData({ ...initialFormState, ...patient });
+        const sanitizedRecord = Object.fromEntries(
+          Object.entries(patient).map(([k, v]) => [k, v === null ? '' : v])
+        );
+        setFormData({ ...initialFormState, ...sanitizedRecord });
         setSelectedRecord(patient);
         setIsFormOpen(true);
         // Clear the state to prevent reopening on subsequent renders
@@ -334,7 +337,7 @@ export const PatientRegistration = () => {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.state?.uhid]);
+  }, [location.state?.uhid, patients]);
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');

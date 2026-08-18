@@ -206,6 +206,7 @@ export const RadiologyOrders = () => {
         <VisitDetailsModal
           visit={selectedVisit}
           onClose={() => setSelectedVisit(null)}
+          type="Radiology"
         />
       )}
 

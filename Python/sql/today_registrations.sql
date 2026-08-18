@@ -26,7 +26,10 @@ BEGIN
         Department,
         PrimaryDoctor AS Doctor,
         TIME(CreatedDate) AS RegistrationTime,
-        Status
+        Status,
+        Gender,
+        Age,
+        MobileNumber
     FROM registration.PatientRegistration
     WHERE RegistrationDate = CURDATE()
 
@@ -39,7 +42,10 @@ BEGIN
         Department,
         Doctor,
         RegistrationTime,
-        Status
+        Status,
+        Gender,
+        Age,
+        MobileNumber
     FROM registration.QuickRegistration
     WHERE RegistrationDate = CURDATE()
 
@@ -52,7 +58,10 @@ BEGIN
         'Emergency' AS Department,
         'Emergency' AS Doctor,
         RegistrationTime,
-        Status
+        Status,
+        Gender,
+        ApproximateAge AS Age,
+        EmergencyContactPhone AS MobileNumber
     FROM registration.EmergencyRegistration
     WHERE RegistrationDate = CURDATE()
 
