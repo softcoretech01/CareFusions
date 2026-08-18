@@ -29,7 +29,7 @@ export const BillingReports = () => {
         setIsLoadingDetails(true);
         setInsuranceDetails(null);
         setPrescriptions([]);
-
+        
         try {
           if (selectedBill.PatientId) {
             // 1. Fetch Insurance
@@ -38,8 +38,8 @@ export const BillingReports = () => {
               const policy = insRes.data;
               if (policy) {
                 const validUntilDate = policy.validUntil ? new Date(policy.validUntil) : null;
-                if (policy.status === 'Active' && (!validUntilDate || validUntilDate >= new Date(new Date().setHours(0, 0, 0, 0)))) {
-                  setInsuranceDetails(policy);
+                if (policy.status === 'Active' && (!validUntilDate || validUntilDate >= new Date(new Date().setHours(0,0,0,0)))) {
+                   setInsuranceDetails(policy);
                 }
               }
             } catch (e) {
@@ -50,31 +50,31 @@ export const BillingReports = () => {
             let foundPrescriptions: any[] = [];
             try {
               if (selectedBill.Type === 'OP') {
-                const opRes = await axios.get(`${API_BASE}/opd-visits/schedule`);
-                const ops = opRes.data;
-                const visit = ops.find((o: any) => o.uhid === selectedBill.PatientId);
-                if (visit) {
-                  const detRes = await axios.get(`${API_BASE}/opd-visits/${visit.id}/details`);
-                  if (detRes.data.prescriptions) foundPrescriptions = detRes.data.prescriptions;
-                }
+                 const opRes = await axios.get(`${API_BASE}/opd-visits/schedule`);
+                 const ops = opRes.data;
+                 const visit = ops.find((o: any) => o.uhid === selectedBill.PatientId);
+                 if (visit) {
+                    const detRes = await axios.get(`${API_BASE}/opd-visits/${visit.id}/details`);
+                    if (detRes.data.prescriptions) foundPrescriptions = detRes.data.prescriptions;
+                 }
               } else if (selectedBill.Type === 'IP') {
-                const ipRes = await axios.get(`${API_BASE}/ipd-visits/schedule`);
-                const ips = ipRes.data;
-                const admission = ips.find((i: any) => i.uhid === selectedBill.PatientId);
-                if (admission) {
-                  const visitId = admission.admissionId || admission.id;
-                  const detRes = await axios.get(`${API_BASE}/ipd-visits/${visitId}/details`);
-                  if (detRes.data.prescriptions) foundPrescriptions = detRes.data.prescriptions;
-                  if (!foundPrescriptions.length && detRes.data.medications) {
-                    foundPrescriptions = detRes.data.medications.map((m: any) => ({
-                      MedicineName: m.MedicineName || m.medicine,
-                      Dosage: m.Dosage || m.dosage,
-                      Frequency: m.Frequency || m.frequency,
-                      Duration: m.Duration || m.duration,
-                      Alerts: m.Route || m.instructions
-                    }));
-                  }
-                }
+                 const ipRes = await axios.get(`${API_BASE}/ipd-visits/schedule`);
+                 const ips = ipRes.data;
+                 const admission = ips.find((i: any) => i.uhid === selectedBill.PatientId);
+                 if (admission) {
+                    const visitId = admission.admissionId || admission.id;
+                    const detRes = await axios.get(`${API_BASE}/ipd-visits/${visitId}/details`);
+                    if (detRes.data.prescriptions) foundPrescriptions = detRes.data.prescriptions;
+                    if (!foundPrescriptions.length && detRes.data.medications) {
+                       foundPrescriptions = detRes.data.medications.map((m: any) => ({
+                          MedicineName: m.MedicineName || m.medicine,
+                          Dosage: m.Dosage || m.dosage,
+                          Frequency: m.Frequency || m.frequency,
+                          Duration: m.Duration || m.duration,
+                          Alerts: m.Route || m.instructions
+                       }));
+                    }
+                 }
               }
               setPrescriptions(foundPrescriptions);
             } catch (e) {
@@ -85,15 +85,14 @@ export const BillingReports = () => {
           setIsLoadingDetails(false);
         }
       };
-
+      
       fetchDetails();
     }
   }, [selectedBill]);
 
   const fetchBills = async () => {
     try {
-      // Add a timestamp to bypass Nginx/Browser caching on Live
-      const response = await axios.get(`${API_BASE}/billing-reports/?t=${new Date().getTime()}`);
+      const response = await axios.get(`${API_BASE}/billing-reports/`);
       setBills(response.data);
     } catch (error) {
       console.error("Failed to fetch billing reports", error);
@@ -104,13 +103,13 @@ export const BillingReports = () => {
     const billDate = new Date(bill.Date);
     const startDate = fromDate ? new Date(fromDate) : null;
     const endDate = toDate ? new Date(toDate) : null;
-    if (startDate) startDate.setHours(0, 0, 0, 0);
-    if (endDate) endDate.setHours(23, 59, 59, 999);
-
+    if (startDate) startDate.setHours(0,0,0,0);
+    if (endDate) endDate.setHours(23,59,59,999);
+    
     const matchesFrom = !startDate || billDate >= startDate;
     const matchesTo = !endDate || billDate <= endDate;
-    const matchesSearch =
-      bill.BillNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    const matchesSearch = 
+      bill.BillNumber.toLowerCase().includes(searchQuery.toLowerCase()) || 
       bill.PatientName.toLowerCase().includes(searchQuery.toLowerCase());
 
     return matchesFrom && matchesTo && matchesSearch;
@@ -132,7 +131,7 @@ export const BillingReports = () => {
 
   const exportToCSV = () => {
     if (filteredBills.length === 0) return;
-
+    
     const headers = ['Bill ID', 'Type', 'Patient Name', 'Date', 'Amount', 'Status'];
     const rows = filteredBills.map(bill => {
       return [
@@ -177,15 +176,15 @@ export const BillingReports = () => {
                 onDateToChange={setToDate}
                 searchQuery={searchQuery}
                 onSearchChange={setSearchQuery}
-                onSearch={() => { }}
+                onSearch={() => {}}
                 onReset={() => { setFromDate(''); setToDate(''); setSearchQuery(''); }}
               />
             </div>
-            <button
+            <button 
               onClick={exportToCSV}
               className="px-4 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg font-bold text-slate-700 flex items-center justify-center gap-2 transition-colors w-full md:w-auto shrink-0"
             >
-              <Download className="w-4 h-4" /> Export CSV
+               <Download className="w-4 h-4" /> Export CSV
             </button>
           </div>
         </div>
@@ -231,8 +230,9 @@ export const BillingReports = () => {
                       </td>
                       <td className="px-6 py-4 font-bold text-slate-800">₹{bill.NetAmount.toLocaleString()}</td>
                       <td className="px-6 py-4">
-                        <span className={`px-2.5 py-1 text-xs font-bold rounded-md ${isPaid ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
-                          }`}>
+                        <span className={`px-2.5 py-1 text-xs font-bold rounded-md ${
+                          isPaid ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                        }`}>
                           {bill.PaymentStatus}
                         </span>
                       </td>
@@ -261,10 +261,11 @@ export const BillingReports = () => {
                           <button
                             onClick={() => isPaid && handlePrint(bill.BillNumber)}
                             disabled={!isPaid}
-                            className={`p-2 rounded-lg transition-all ${isPaid
-                              ? 'text-primary hover:bg-primary/10 hover:shadow-sm cursor-pointer'
-                              : 'text-slate-300 cursor-not-allowed'
-                              }`}
+                            className={`p-2 rounded-lg transition-all ${
+                              isPaid
+                                ? 'text-primary hover:bg-primary/10 hover:shadow-sm cursor-pointer'
+                                : 'text-slate-300 cursor-not-allowed'
+                            }`}
                             title={isPaid ? 'Print Bill' : 'Mark as Paid to enable printing'}
                           >
                             <Printer className="w-5 h-5" />
@@ -285,14 +286,14 @@ export const BillingReports = () => {
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
               <h3 className="text-lg font-bold text-slate-800">Bill Details - {selectedBill.BillNumber}</h3>
-              <button
+              <button 
                 onClick={() => setSelectedBill(null)}
                 className="p-2 hover:bg-slate-100 rounded-xl transition-colors"
               >
                 <X className="w-5 h-5 text-slate-500" />
               </button>
             </div>
-
+            
             <div className="p-6 overflow-y-auto space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -309,8 +310,9 @@ export const BillingReports = () => {
                 </div>
                 <div>
                   <p className="text-sm text-slate-500">Payment Status</p>
-                  <span className={`px-2 py-1 text-xs font-bold rounded-md inline-block mt-1 ${selectedBill.PaymentStatus === 'Paid' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
-                    }`}>
+                  <span className={`px-2 py-1 text-xs font-bold rounded-md inline-block mt-1 ${
+                    selectedBill.PaymentStatus === 'Paid' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                  }`}>
                     {selectedBill.PaymentStatus}
                   </span>
                 </div>
@@ -363,7 +365,7 @@ export const BillingReports = () => {
                               <p className="font-semibold text-slate-800">{p.MedicineName || p.medicineName || p.medicine}</p>
                               <p className="text-xs text-slate-500 mt-1">
                                 {p.Type || p.type ? `[${p.Type || p.type}] ` : ''}
-                                {p.Dosage || p.dosage || p.Quantity || p.quantity || ''}
+                                {p.Dosage || p.dosage || p.Quantity || p.quantity || ''} 
                                 {p.Frequency || p.frequency ? ` • ${p.Frequency || p.frequency}` : ''}
                                 {p.Duration || p.duration ? ` • ${p.Duration || p.duration}` : ''}
                               </p>
