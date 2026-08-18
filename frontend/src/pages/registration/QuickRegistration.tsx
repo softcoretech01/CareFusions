@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Plus, Filter, Edit2, Download, User, Phone, Activity, CreditCard, Info } from 'lucide-react';
+import { Search, Plus, Filter, Edit2, Download, User, Phone } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
