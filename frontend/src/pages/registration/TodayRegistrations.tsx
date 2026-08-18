@@ -25,7 +25,10 @@ export const TodayRegistrations = () => {
           department: d.Department,
           doctor: d.Doctor,
           registrationTime: d.RegistrationTime,
-          status: d.Status
+          status: d.Status,
+          gender: d.Gender || 'Unknown',
+          age: d.Age || d.ApproximateAge || 0,
+          mobileNumber: d.MobileNumber || d.EmergencyContactPhone || ''
         }));
 
         const uniqueRecords = new Map();
@@ -164,8 +167,8 @@ export const TodayRegistrations = () => {
                 <th className="px-4 py-3 font-medium">UHID</th>
                 <th className="px-4 py-3 font-medium">Patient Name</th>
                 <th className="px-4 py-3 font-medium">Type</th>
-                <th className="px-4 py-3 font-medium">Department</th>
-                <th className="px-4 py-3 font-medium">Doctor</th>
+                <th className="px-4 py-3 font-medium">Gender/Age</th>
+                <th className="px-4 py-3 font-medium">Mobile Number</th>
                 <th className="px-4 py-3 font-medium">Time</th>
                 <th className="px-4 py-3 font-medium text-center">Status</th>
                 <th className="px-4 py-3 font-medium text-center">Action</th>
@@ -186,8 +189,10 @@ export const TodayRegistrations = () => {
                         {record.registrationType}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-slate-600">{record.department}</td>
-                    <td className="px-4 py-3 text-slate-600">{record.doctor}</td>
+                    <td className="px-4 py-3 text-slate-600">
+                      {record.gender} / {record.age} Yrs
+                    </td>
+                    <td className="px-4 py-3 text-slate-600">{record.mobileNumber}</td>
                     <td className="px-4 py-3 text-slate-600">{record.registrationTime}</td>
                     <td className="px-4 py-3 text-center">
                       <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${

@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { Search, Plus, X, Bed, CheckCircle, Printer, FileText, Shield } from 'lucide-react';
 import { DateFilter } from '../../components/ui/DateFilter';
 import axios from 'axios';
-
+import toast from 'react-hot-toast';
 const API_BASE = import.meta.env.VITE_API_URL as string;
 
 interface BillItem {
@@ -278,7 +278,7 @@ export const IPBilling = () => {
       return;
     }
 
-    alert('Patient not found in active admissions.');
+    toast.error('Patient not found in active admissions.');
   };
 
   useEffect(() => {
@@ -342,7 +342,7 @@ export const IPBilling = () => {
 
   const handleGenerateBill = async () => {
     if (!patientName || items.length === 0) {
-      alert('Please select a patient and add items first.');
+      toast.error('Please select a patient and add items first.');
       return;
     }
 
@@ -376,7 +376,9 @@ export const IPBilling = () => {
 
     try {
       const response = await axios.post(`${API_BASE}/ip-billing/`, payload);
-      setSuccessMsg(`Bill ${response.data.BillNumber} generated successfully for ${patientName}!`);
+      const successMessage = `Bill ${response.data.BillNumber} generated successfully for ${patientName}!`;
+      setSuccessMsg(successMessage);
+      toast.success(successMessage);
 
       setPatientName('');
       setSearchId('');
@@ -392,24 +394,24 @@ export const IPBilling = () => {
       setTimeout(() => setSuccessMsg(''), 4000);
     } catch (error: any) {
       console.error("Error generating IP bill:", error);
-      alert("Failed to generate IP bill. " + (error.response?.data?.detail || error.message));
+      toast.error("Failed to generate IP bill. " + (error.response?.data?.detail || error.message));
     }
   };
 
   return (
     <div className="flex flex-col space-y-6 w-full">
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="px-8 py-5 border-b border-slate-100 bg-slate-50">
+        <div className="px-8 py-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between min-h-[76px]">
           <h2 className="text-xl font-bold text-slate-800">Generate IP Bill (Discharge)</h2>
-        </div>
-
-        <div className="p-8 space-y-6">
           {successMsg && (
-            <div className="flex items-center gap-3 bg-green-50 border border-green-200 text-green-800 px-5 py-4 rounded-xl animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="flex items-center gap-3 bg-green-50 border border-green-200 text-green-800 px-4 py-2 rounded-lg animate-in fade-in zoom-in duration-300">
               <CheckCircle className="w-5 h-5 text-green-500 shrink-0" />
               <span className="text-sm font-semibold">{successMsg}</span>
             </div>
           )}
+        </div>
+
+        <div className="p-8 space-y-6">
           <div className="flex flex-col md:flex-row gap-4 items-end justify-between w-full">
             <div className="max-w-xl w-full" ref={wrapperRef}>
               <label className="block text-sm font-medium text-slate-700 mb-2">Search by IP ID / UHID / Name</label>

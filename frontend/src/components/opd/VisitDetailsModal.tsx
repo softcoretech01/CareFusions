@@ -5,9 +5,10 @@ import type { OPDVisit } from '../../contexts/OPDVisitContext';
 interface VisitDetailsModalProps {
   visit: OPDVisit | null;
   onClose: () => void;
+  type?: 'Lab' | 'Radiology';
 }
 
-export const VisitDetailsModal = ({ visit, onClose }: VisitDetailsModalProps) => {
+export const VisitDetailsModal = ({ visit, onClose, type }: VisitDetailsModalProps) => {
   if (!visit) return null;
 
   return (
@@ -54,25 +55,25 @@ export const VisitDetailsModal = ({ visit, onClose }: VisitDetailsModalProps) =>
             <div className="mb-6">
               <h4 className="text-sm font-bold text-slate-700 mb-2">Diagnoses</h4>
               <ul className="list-disc pl-5 text-sm text-slate-600">
-                {visit.diagnoses.map(d => <li key={d.id}>{d.description}</li>)}
+                {visit.diagnoses.map((d, idx) => <li key={d.id || idx}>{d.description}</li>)}
               </ul>
             </div>
           )}
 
-          {visit.labOrders.length > 0 && (
+          {(!type || type === 'Lab') && visit.labOrders.length > 0 && (
             <div className="mb-6">
               <h4 className="text-sm font-bold text-slate-700 mb-2">Lab Orders</h4>
               <ul className="list-disc pl-5 text-sm text-slate-600">
-                {visit.labOrders.map(l => <li key={l.id}>{l.testName} <span className="text-xs text-slate-400">({l.status})</span></li>)}
+                {visit.labOrders.map((l, idx) => <li key={l.id || idx}>{l.testName} <span className="text-xs text-slate-400">({l.status})</span></li>)}
               </ul>
             </div>
           )}
 
-          {visit.radiologyOrders.length > 0 && (
+          {(!type || type === 'Radiology') && visit.radiologyOrders.length > 0 && (
             <div className="mb-6">
               <h4 className="text-sm font-bold text-slate-700 mb-2">Radiology Orders</h4>
               <ul className="list-disc pl-5 text-sm text-slate-600">
-                {visit.radiologyOrders.map(r => <li key={r.id}>{r.bodyPart} - {r.modality} <span className="text-xs text-slate-400">({r.status})</span></li>)}
+                {visit.radiologyOrders.map((r, idx) => <li key={r.id || idx}>{r.bodyPart} - {r.modality} <span className="text-xs text-slate-400">({r.status})</span></li>)}
               </ul>
             </div>
           )}
