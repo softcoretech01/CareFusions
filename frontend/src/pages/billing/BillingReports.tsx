@@ -110,8 +110,8 @@ export const BillingReports = () => {
     const matchesFrom = !startDate || billDate >= startDate;
     const matchesTo = !endDate || billDate <= endDate;
     const matchesSearch =
-      bill.BillNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      bill.PatientName.toLowerCase().includes(searchQuery.toLowerCase());
+      (bill.BillNumber?.toLowerCase().includes(searchQuery.toLowerCase()) || false) ||
+      (bill.PatientName?.toLowerCase().includes(searchQuery.toLowerCase()) || false);
 
     return matchesFrom && matchesTo && matchesSearch;
   });
