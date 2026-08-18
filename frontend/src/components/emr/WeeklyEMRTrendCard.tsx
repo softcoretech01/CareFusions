@@ -13,7 +13,7 @@ interface WeeklyEMRTrendCardProps {
 
 export const WeeklyEMRTrendCard = ({ records }: WeeklyEMRTrendCardProps) => {
   // Calculate current week's dates (Monday to Sunday)
-  const { opData, ipData, emData, totals } = useMemo(() => {
+  const { opData, ipData, totals } = useMemo(() => {
     const today = new Date();
     const currentDay = today.getDay();
     const distanceToMonday = currentDay === 0 ? -6 : 1 - currentDay;
@@ -24,24 +24,26 @@ export const WeeklyEMRTrendCard = ({ records }: WeeklyEMRTrendCardProps) => {
       return d;
     });
 
+    const getFormattedDate = (date: Date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
     const op = dates.map(date => {
-      const dateStr = date.toISOString().split('T')[0];
-      return records.filter(r => r.visitType === 'OP' && (r.visitDateValue === dateStr || (r.visitDate && r.visitDate.includes(dateStr)))).length;
+      const dateStr = getFormattedDate(date);
+      return records.filter(r => r.visitType !== 'IP' && r.visitType !== 'Emergency' && (r.visitDateValue?.startsWith(dateStr) || r.visitDateValue === dateStr || (r.visitDate && r.visitDate.includes(dateStr)))).length;
     });
 
     const ip = dates.map(date => {
-      const dateStr = date.toISOString().split('T')[0];
-      return records.filter(r => r.visitType === 'IP' && (r.visitDateValue === dateStr || (r.visitDate && r.visitDate.includes(dateStr)))).length;
+      const dateStr = getFormattedDate(date);
+      return records.filter(r => r.visitType === 'IP' && (r.visitDateValue?.startsWith(dateStr) || r.visitDateValue === dateStr || (r.visitDate && r.visitDate.includes(dateStr)))).length;
     });
 
-    const em = dates.map(date => {
-      const dateStr = date.toISOString().split('T')[0];
-      return records.filter(r => r.visitType === 'Emergency' && (r.visitDateValue === dateStr || (r.visitDate && r.visitDate.includes(dateStr)))).length;
-    });
+    const dayTotals = dates.map((_, i) => op[i] + ip[i]);
 
-    const dayTotals = dates.map((_, i) => op[i] + ip[i] + em[i]);
-
-    return { opData: op, ipData: ip, emData: em, totals: dayTotals };
+    return { opData: op, ipData: ip, totals: dayTotals };
   }, [records]);
 
   // Analytics Calculations
@@ -68,7 +70,6 @@ export const WeeklyEMRTrendCard = ({ records }: WeeklyEMRTrendCardProps) => {
 
   const highestOP = getHighestDay(opData);
   const highestIP = getHighestDay(ipData);
-  const highestEM = getHighestDay(emData);
   const lowestVol = getLowestVolumeDay();
   
   const totalWeekPatients = totals.reduce((a, b) => a + b, 0);
@@ -115,7 +116,7 @@ export const WeeklyEMRTrendCard = ({ records }: WeeklyEMRTrendCardProps) => {
       labels: { style: { colors: '#64748b' } }
     },
     fill: { opacity: 1 },
-    colors: ['#3b82f6', '#8b5cf6', '#ef4444'], // OP (Blue), IP (Purple), EM (Red)
+    colors: ['#3b82f6', '#8b5cf6'], // OP (Blue), IP (Purple)
     grid: {
       borderColor: '#f1f5f9',
       strokeDashArray: 4,
@@ -128,8 +129,7 @@ export const WeeklyEMRTrendCard = ({ records }: WeeklyEMRTrendCardProps) => {
         const day = w.globals.labels[dataPointIndex];
         const op = series[0][dataPointIndex];
         const ip = series[1][dataPointIndex];
-        const em = series[2][dataPointIndex];
-        const total = op + ip + em;
+        const total = op + ip;
 
         return `
           <div class="px-4 py-3 bg-white shadow-xl rounded-xl border border-slate-100 min-w-[200px]">
@@ -147,12 +147,6 @@ export const WeeklyEMRTrendCard = ({ records }: WeeklyEMRTrendCardProps) => {
                 </div>
                 <span class="font-bold text-slate-800">${ip}</span>
               </div>
-              <div class="flex items-center justify-between text-sm">
-                <div class="flex items-center gap-2 text-slate-600">
-                  <div class="w-3 h-3 rounded-full bg-red-500"></div> Emergency
-                </div>
-                <span class="font-bold text-slate-800">${em}</span>
-              </div>
             </div>
             <div class="flex items-center justify-between pt-2 border-t border-slate-100">
               <span class="text-sm font-bold text-slate-700">Total Patients</span>
@@ -166,8 +160,7 @@ export const WeeklyEMRTrendCard = ({ records }: WeeklyEMRTrendCardProps) => {
 
   const series = [
     { name: 'OP Visits', data: opData },
-    { name: 'IP Admissions', data: ipData },
-    { name: 'Emergency', data: emData }
+    { name: 'IP Admissions', data: ipData }
   ];
 
   return (
@@ -187,9 +180,6 @@ export const WeeklyEMRTrendCard = ({ records }: WeeklyEMRTrendCardProps) => {
             <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
               <div className="w-2.5 h-2.5 rounded-full bg-purple-500"></div> IP Admissions
             </div>
-            <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
-              <div className="w-2.5 h-2.5 rounded-full bg-red-500"></div> Emergency
-            </div>
           </div>
         </div>
       </div>
@@ -205,7 +195,7 @@ export const WeeklyEMRTrendCard = ({ records }: WeeklyEMRTrendCardProps) => {
           <Activity className="w-4 h-4 text-primary" />
           Weekly Insights
         </h3>
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
           <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
             <p className="text-[11px] uppercase tracking-wider text-slate-500 font-bold mb-1">Highest OP Day</p>
             <p className="font-extrabold text-lg text-slate-800">{highestOP}</p>
@@ -213,10 +203,6 @@ export const WeeklyEMRTrendCard = ({ records }: WeeklyEMRTrendCardProps) => {
           <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
             <p className="text-[11px] uppercase tracking-wider text-slate-500 font-bold mb-1">Highest IP Day</p>
             <p className="font-extrabold text-lg text-slate-800">{highestIP}</p>
-          </div>
-          <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
-            <p className="text-[11px] uppercase tracking-wider text-slate-500 font-bold mb-1">Highest ER Day</p>
-            <p className="font-extrabold text-lg text-slate-800">{highestEM}</p>
           </div>
           <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
             <p className="text-[11px] uppercase tracking-wider text-slate-500 font-bold mb-1">Lowest Volume</p>
