@@ -3,7 +3,6 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import text
-from datetime import datetime
 
 from app.database import get_db
 from app.schemas.op_billing import OpBillCreate, OpBillResponse, OpBillItemResponse
@@ -50,8 +49,6 @@ def _call_sp(db: Session, opt: str, **kwargs):
 def create_op_bill(bill_in: OpBillCreate, db: Session = Depends(get_db)):
     """Create a new OP Bill with its items."""
     try:
-        current_time = datetime.now()
-        
         # 1. Insert the main bill
         result = _call_sp(
             db, "INSERT_BILL",
@@ -59,7 +56,9 @@ def create_op_bill(bill_in: OpBillCreate, db: Session = Depends(get_db)):
             uhid=bill_in.Uhid,
             patient_name=bill_in.PatientName,
             mobile_number=bill_in.MobileNumber,
-            bill_date=current_time,
+            # BillDate is left to the database (NOW() inside the SP) so every API
+            # host stamps bills on the same clock. See SpOpBilling.INSERT_BILL.
+            bill_date=None,
             total_amount=bill_in.TotalAmount,
             discount=bill_in.Discount,
             tax=bill_in.Tax,

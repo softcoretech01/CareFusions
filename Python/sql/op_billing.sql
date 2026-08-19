@@ -57,7 +57,7 @@ BEGIN
             TotalAmount, Discount, Tax, NetAmount, PaymentMode, PaymentStatus, CreatedBy, CreatedDate
         )
         VALUES (
-            p_BillNumber, p_Uhid, p_PatientName, p_MobileNumber, p_BillDate,
+            p_BillNumber, p_Uhid, p_PatientName, p_MobileNumber, COALESCE(p_BillDate, NOW()),
             p_TotalAmount, p_Discount, p_Tax, p_NetAmount, p_PaymentMode, p_PaymentStatus, p_CreatedBy, NOW()
         );
         SELECT LAST_INSERT_ID() AS OpBillId;
