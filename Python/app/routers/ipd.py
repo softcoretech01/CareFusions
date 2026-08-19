@@ -214,7 +214,7 @@ def list_admissions(db: Session = Depends(get_db)):
             m_by_adm.setdefault(m.AdmissionId, []).append({
                 "medicineId": m.DischargeMedId, "medicineName": m.MedicineName, "dosage": m.Dosage or "",
                 "frequency": m.Frequency or "", "duration": m.Duration or "",
-                "quantity": m.Quantity or 0, "notes": m.Notes or "",
+                "quantity": m.Quantity or 0, "notes": m.Notes or "", "price": getattr(m, "Price", 0),
             })
 
         out = []

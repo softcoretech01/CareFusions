@@ -190,7 +190,31 @@ BEGIN
                 )
                 FROM hospital.Trn_OpdVisitRadiologyOrder R
                 WHERE R.VisitId = V.VisitId
-            ) AS radiologyOrders
+            ) AS radiologyOrders,
+            (
+                SELECT JSON_ARRAYAGG(
+                    JSON_OBJECT(
+                        'id', CAST(D.DiagnosisId AS CHAR),
+                        'description', D.Description,
+                        'code', D.CodeId
+                    )
+                )
+                FROM hospital.Trn_OpdVisitDiagnosis D
+                WHERE D.VisitId = V.VisitId
+            ) AS diagnoses,
+            (
+                SELECT JSON_ARRAYAGG(
+                    JSON_OBJECT(
+                        'type', PR.Type,
+                        'medicineName', PR.MedicineName,
+                        'quantity', PR.Quantity,
+                        'alerts', PR.Alerts,
+                        'price', COALESCE((SELECT SellingPrice FROM admin.Master_Medicine WHERE BrandName = PR.MedicineName AND IsDeleted = 0 LIMIT 1), 0)
+                    )
+                )
+                FROM hospital.Trn_OpdVisitPrescription PR
+                WHERE PR.VisitId = V.VisitId
+            ) AS prescriptions
         FROM registration.Trn_Appointment A
         LEFT JOIN registration.PatientRegistration P ON A.Uhid = P.Uhid
         LEFT JOIN hospital.Trn_OpdVisit V ON A.AppointmentId = V.AppointmentId AND V.IsDeleted = 0

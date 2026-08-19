@@ -26,6 +26,7 @@ interface OpdVisit {
   doctorName: string;
   labOrders: any[];
   radiologyOrders: any[];
+  prescriptions?: any[];
   status?: string;
   isFinalized?: boolean;
   date?: string;
@@ -174,6 +175,20 @@ export const OPBilling = () => {
           price: 1500,
           qty: 1,
           total: 1500
+        });
+      });
+    }
+
+    if (visit.prescriptions && visit.prescriptions.length > 0) {
+      visit.prescriptions.forEach((pres, idx) => {
+        const itemQty = pres.quantity ? parseFloat(pres.quantity) : 1;
+        const itemPrice = pres.price || 0;
+        newItems.push({
+          id: `PRES-${idx}`,
+          description: `Medicine: ${pres.medicineName || 'Prescription'}`,
+          price: itemPrice,
+          qty: isNaN(itemQty) ? 1 : itemQty,
+          total: itemPrice * (isNaN(itemQty) ? 1 : itemQty)
         });
       });
     }

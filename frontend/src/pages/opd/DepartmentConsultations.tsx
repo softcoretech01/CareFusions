@@ -142,7 +142,7 @@ export const DepartmentConsultations = () => {
                 <th className="px-6 py-3 text-left">Token</th>
                 <th className="px-6 py-3 text-left">Patient</th>
                 <th className="px-6 py-3 text-left">Doctor</th>
-                <th className="px-6 py-3 text-left">Time</th>
+                <th className="px-6 py-3 text-left whitespace-nowrap">Date & Time</th>
                 <th className="px-6 py-3 text-left">Status</th>
                 <th className="px-6 py-3 text-left">Action</th>
               </tr>
@@ -167,7 +167,10 @@ export const DepartmentConsultations = () => {
                       <div className="text-xs text-slate-400">{visit.uhid} · {visit.age}y {visit.gender}</div>
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-600 font-medium">{visit.doctorName}</td>
-                    <td className="px-6 py-4 text-sm font-medium text-slate-700">{visit.timeSlot}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-semibold text-slate-700">{visit.date}</div>
+                      <div className="text-xs text-slate-400">{visit.timeSlot}</div>
+                    </td>
                     <td className="px-6 py-4">
                       <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
                         visit.status === 'Completed' ? 'bg-green-100 text-green-700' :

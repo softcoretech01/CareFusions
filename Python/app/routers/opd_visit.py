@@ -62,6 +62,33 @@ def get_opd_schedule(
                 d["radiologyOrders"] = []
         elif not d.get("radiologyOrders"):
             d["radiologyOrders"] = []
+
+        # Parse JSON string from MySQL JSON_ARRAYAGG for prescriptions
+        if d.get("prescriptions") and isinstance(d["prescriptions"], str):
+            try:
+                parsed_pres = json.loads(d["prescriptions"])
+                if isinstance(parsed_pres, list):
+                    d["prescriptions"] = [x for x in parsed_pres if x is not None]
+                else:
+                    d["prescriptions"] = []
+            except Exception:
+                d["prescriptions"] = []
+        elif not d.get("prescriptions"):
+            d["prescriptions"] = []
+            
+        # Parse JSON string from MySQL JSON_ARRAYAGG for diagnoses
+        if d.get("diagnoses") and isinstance(d["diagnoses"], str):
+            try:
+                parsed_diag = json.loads(d["diagnoses"])
+                if isinstance(parsed_diag, list):
+                    d["diagnoses"] = [x for x in parsed_diag if x is not None]
+                else:
+                    d["diagnoses"] = []
+            except Exception as e:
+                print(f"Error parsing diagnoses: {e} - string was: {d['diagnoses']}")
+                d["diagnoses"] = []
+        elif not d.get("diagnoses"):
+            d["diagnoses"] = []
             
         visits.append(d)
     return visits

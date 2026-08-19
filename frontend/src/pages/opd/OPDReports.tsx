@@ -5,6 +5,9 @@ import { Download, Eye, Printer } from 'lucide-react';
 import { VisitDetailsModal } from '../../components/opd/VisitDetailsModal';
 import { exportToExcel } from '../../utils/exportToExcel';
 import { DateFilter } from '../../components/ui/DateFilter';
+import axios from 'axios';
+
+const API_BASE = import.meta.env.VITE_API_URL as string;
 
 export const OPDReports = () => {
   const { visits } = useOPDVisits();
@@ -27,7 +30,22 @@ export const OPDReports = () => {
   const [appliedDept, setAppliedDept] = useState('All');
   const [appliedSearchQuery, setAppliedSearchQuery] = useState('');
 
-  const departments = ['All', ...Array.from(new Set(visits.map(v => v.department))).sort()];
+  const [masterDepts, setMasterDepts] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchDepts = async () => {
+      try {
+        const res = await axios.get(`${API_BASE}/departments/`);
+        const activeDepts = res.data.filter((d: any) => d.status === 'Active');
+        setMasterDepts(activeDepts);
+      } catch (err) {
+        console.error("Failed to fetch departments", err);
+      }
+    };
+    fetchDepts();
+  }, []);
+
+  const departments = ['All', ...Array.from(new Set(masterDepts.map(d => d.departmentName))).sort()];
 
   const completedVisits = visits.filter(v => {
     // Only show completed
@@ -115,7 +133,14 @@ export const OPDReports = () => {
             />
           </div>
 
-          <select value={dept} onChange={e => setDept(e.target.value)} className={`${inputCls} w-36 shrink-0`}>
+          <select 
+            value={dept} 
+            onChange={e => {
+              setDept(e.target.value);
+              setAppliedDept(e.target.value);
+            }} 
+            className={`${inputCls} w-36 shrink-0`}
+          >
             {departments.map(d => <option key={d} value={d}>{d === 'All' ? 'All Depts' : d}</option>)}
           </select>
 
@@ -133,7 +158,7 @@ export const OPDReports = () => {
             <thead className="bg-white sticky top-0 z-10 shadow-sm outline outline-1 outline-slate-100 text-xs font-semibold text-slate-500 uppercase tracking-wider">
               <tr>
                 <th className="px-6 py-4 text-left">Visit No.</th>
-                <th className="px-6 py-4 text-left">Date & Time</th>
+                <th className="px-6 py-4 text-left whitespace-nowrap">Date & Time</th>
                 <th className="px-6 py-4 text-left">Patient Details</th>
                 <th className="px-6 py-4 text-left">Department</th>
                 <th className="px-6 py-4 text-left">Doctor</th>
@@ -152,7 +177,7 @@ export const OPDReports = () => {
                 completedVisits.map(v => (
                   <tr key={v.id} className="hover:bg-slate-50/70 transition-colors">
                     <td className="px-6 py-4 text-sm font-mono font-bold text-primary">{v.visitNumber}</td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-semibold text-slate-700">{v.date}</div>
                       <div className="text-xs text-slate-400">{v.timeSlot}</div>
                     </td>

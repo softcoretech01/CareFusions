@@ -1,7 +1,7 @@
 
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { Printer, ArrowLeft } from 'lucide-react';
+import { Printer, ArrowLeft, Stethoscope } from 'lucide-react';
 import axios from 'axios';
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
@@ -10,21 +10,55 @@ export const BillingPrintTemplate = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [bill, setBill] = useState<any>(null);
+  const [diagnoses, setDiagnoses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchBill = async () => {
+    const fetchBillAndDetails = async () => {
       try {
         const response = await axios.get(`${API_BASE}/billing-reports/`);
         const found = response.data.find((b: any) => b.BillNumber === id);
         setBill(found);
+
+        if (found && found.PatientId) {
+          let foundDiagnoses: any[] = [];
+          
+          // Try fetching OP diagnoses
+          try {
+            const opRes = await axios.get(`${API_BASE}/opd-visits/schedule`);
+            const ops = opRes.data;
+            const visit = ops.find((o: any) => o.uhid === found.PatientId);
+            if (visit) {
+              const detRes = await axios.get(`${API_BASE}/opd-visits/${visit.id}/details`);
+              if (detRes.data.diagnoses) foundDiagnoses = [...foundDiagnoses, ...detRes.data.diagnoses];
+            }
+          } catch(e) {}
+
+          // For IP bills, also check IPD admission diagnoses
+          if (found.Type === 'IP') {
+            try {
+              const ipRes = await axios.get(`${API_BASE}/ipd-visits/schedule`);
+              const ips = ipRes.data;
+              const admission = ips.find((i: any) => i.uhid === found.PatientId);
+              if (admission) {
+                const visitId = admission.admissionId || admission.id;
+                const detRes = await axios.get(`${API_BASE}/ipd-visits/${visitId}/details`);
+                if (detRes.data.diagnoses) foundDiagnoses = [...foundDiagnoses, ...detRes.data.diagnoses];
+              }
+            } catch (e) {}
+          }
+          
+          // Remove duplicates
+          const uniqueDiagnoses = Array.from(new Map(foundDiagnoses.map(item => [item.description || item.Description, item])).values());
+          setDiagnoses(uniqueDiagnoses);
+        }
       } catch (err) {
-        console.error("Failed to fetch bill", err);
+        console.error("Failed to fetch bill or details", err);
       } finally {
         setLoading(false);
       }
     };
-    fetchBill();
+    fetchBillAndDetails();
   }, [id]);
 
   if (loading) {
@@ -102,6 +136,26 @@ export const BillingPrintTemplate = () => {
             </span>
           </div>
         </div>
+
+        {/* Diagnoses */}
+        {diagnoses && diagnoses.length > 0 && (
+          <div className="px-10 py-6 border-b border-slate-200 print:px-6 print:py-3">
+            <h4 className="font-bold text-slate-800 mb-3 flex items-center gap-2 text-sm print:text-xs">
+              <Stethoscope className="w-4 h-4 text-purple-500" />
+              Diagnosis Details
+            </h4>
+            <div className="space-y-2 print:space-y-1">
+              {diagnoses.map((d: any, idx: number) => (
+                <div key={idx} className="bg-purple-50/30 p-3 rounded-lg border border-purple-100/50 flex justify-between items-center print:bg-transparent print:border-slate-100 print:border print:p-2">
+                  <div>
+                    <p className="font-semibold text-slate-800 text-sm print:text-xs">{d.Description || d.description}</p>
+                    {/* {d.CodeId && <p className="text-xs text-slate-500 mt-1 print:text-[10px] print:mt-0">Code: {d.CodeId}</p>} */}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Items Table */}
         <div className="px-10 py-6 print:px-6 print:py-3 print:text-xs">

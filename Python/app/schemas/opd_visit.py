@@ -33,10 +33,8 @@ class PrescriptionSchema(BaseModel):
     type: Optional[str] = None
     medicineName: Optional[str] = None
     quantity: Optional[str] = None
-    # The UI sends drug allergy / interaction flags as a list of strings. Stored
-    # as JSON text in Trn_OpdVisitPrescription.Alerts. Accept a bare string too
-    # so older callers that sent a single note don't break.
     alerts: Optional[Union[List[str], str]] = None
+    price: Optional[float] = 0.0
 
 class LabOrderSchema(BaseModel):
     testName: Optional[str] = None
@@ -98,3 +96,5 @@ class OpdVisitScheduleResponse(BaseModel):
     isFinalized: bool = False
     labOrders: Optional[List[LabOrderSchema]] = []
     radiologyOrders: Optional[List[RadiologyOrderSchema]] = []
+    prescriptions: Optional[List[PrescriptionSchema]] = []
+    diagnoses: Optional[List[DiagnosisSchema]] = []
