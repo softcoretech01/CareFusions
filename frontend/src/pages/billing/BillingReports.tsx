@@ -352,32 +352,7 @@ export const BillingReports = () => {
                     </div>
                   )}
 
-                  {prescriptions && prescriptions.length > 0 && (
-                    <div>
-                      <h4 className="font-bold text-slate-800 mb-3 border-b border-slate-100 pb-2 flex items-center gap-2">
-                        <Pill className="w-4 h-4 text-emerald-500" />
-                        Prescription Details
-                      </h4>
-                      <div className="space-y-2">
-                        {prescriptions.map((p: any, idx: number) => (
-                          <div key={idx} className="bg-emerald-50/30 p-3 rounded-lg border border-emerald-100/50 text-sm flex justify-between items-center">
-                            <div>
-                              <p className="font-semibold text-slate-800">{p.MedicineName || p.medicineName || p.medicine}</p>
-                              <p className="text-xs text-slate-500 mt-1">
-                                {p.Type || p.type ? `[${p.Type || p.type}] ` : ''}
-                                {p.Dosage || p.dosage || p.Quantity || p.quantity || ''} 
-                                {p.Frequency || p.frequency ? ` • ${p.Frequency || p.frequency}` : ''}
-                                {p.Duration || p.duration ? ` • ${p.Duration || p.duration}` : ''}
-                              </p>
-                            </div>
-                            <span className="text-xs font-medium text-emerald-600 bg-emerald-100 px-2 py-1 rounded">
-                              {p.Alerts || p.instructions || 'Standard'}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+
                 </>
               )}
 

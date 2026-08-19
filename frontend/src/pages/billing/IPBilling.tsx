@@ -128,12 +128,13 @@ export const IPBilling = () => {
         // Add medicines from discharge summary if available
         if (foundIPD.dischargeInfo?.medicines?.length > 0) {
           foundIPD.dischargeInfo.medicines.forEach((med: any, index: number) => {
+             const price = med.price || 0;
              newItems.push({
                 id: `MED-${index+1}`,
                 description: med.medicineName,
-                price: 150, // mock price
+                price: price,
                 qty: med.quantity || 1,
-                total: 150 * (med.quantity || 1)
+                total: price * (med.quantity || 1)
              });
           });
         }
@@ -256,6 +257,21 @@ export const IPBilling = () => {
         { id: 'ITM-002', description: 'Nursing Charges (Per Day)', price: 500, qty: stayDays, total: 500 * stayDays },
         { id: 'ITM-003', description: 'Doctor Visit Fees', price: 900, qty: stayDays, total: 900 * stayDays },
       ];
+      
+      // Add medicines from discharge summary if available
+      if (foundIPD.dischargeInfo?.medicines?.length > 0) {
+        foundIPD.dischargeInfo.medicines.forEach((med: any, index: number) => {
+           const price = med.price || 0;
+           newItems.push({
+              id: `MED-${index+1}`,
+              description: med.medicineName,
+              price: price,
+              qty: med.quantity || 1,
+              total: price * (med.quantity || 1)
+           });
+        });
+      }
+      
       setItems(newItems);
 
       setIsInsurancePaid(false);

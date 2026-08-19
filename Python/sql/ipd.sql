@@ -300,9 +300,10 @@ BEGIN
         ORDER BY AdmissionId, TransferDate;
 
     ELSEIF p_Opt = 'DISCHARGEMEDS' THEN
-        SELECT DischargeMedId, AdmissionId, MedicineName, Dosage, Frequency, Duration, Quantity, Notes
-        FROM IPD_DischargeMedicine
-        ORDER BY AdmissionId, DischargeMedId;
+        SELECT DM.DischargeMedId, DM.AdmissionId, DM.MedicineName, DM.Dosage, DM.Frequency, DM.Duration, DM.Quantity, DM.Notes,
+               COALESCE((SELECT SellingPrice FROM admin.Master_Medicine WHERE BrandName = SUBSTRING_INDEX(DM.MedicineName, ' (', 1) AND IsDeleted = 0 LIMIT 1), 0) AS Price
+        FROM IPD_DischargeMedicine DM
+        ORDER BY DM.AdmissionId, DM.DischargeMedId;
 
     ELSEIF p_Opt = 'ADMIT' THEN
         -- Only well-formed numbers (IPD-YYYY followed by digits only) count.
