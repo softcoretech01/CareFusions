@@ -13,7 +13,7 @@ const initialFormState: Partial<GlobalPatientRecord> = {
   registrationDate: new Date().toISOString().split('T')[0],
   registrationTime: new Date().toTimeString().split(' ')[0],
   patientName: '',
-  gender: 'Unknown',
+  gender: '',
   approximateAge: '',
   emergencyContactName: '',
   emergencyContactPhone: '',
@@ -80,7 +80,7 @@ export const EmergencyRegistration = () => {
       uhid: '',
       registrationDate: new Date().toISOString().split('T')[0],
       registrationTime: new Date().toTimeString().split(' ')[0],
-      patientName: 'Unknown Patient' // default
+      patientName: ''
     });
     setSelectedRecord(null);
     setIsFormOpen(true);
@@ -102,8 +102,8 @@ export const EmergencyRegistration = () => {
     const payload = {
       RegistrationDate: formData.registrationDate,
       RegistrationTime: formData.registrationTime,
-      PatientName: formData.patientName || 'Unknown Patient',
-      Gender: formData.gender || 'Unknown',
+      PatientName: formData.patientName || '',
+      Gender: formData.gender || '',
       ApproximateAge: formData.approximateAge || 0,
       EmergencyContactName: formData.emergencyContactName || null,
       EmergencyContactPhone: formData.emergencyContactPhone || null,
@@ -283,13 +283,13 @@ export const EmergencyRegistration = () => {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Patient Name (or Unknown)</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Patient Name</label>
                   <input
                     type="text"
                     value={formData.patientName}
                     onChange={(e) => handleInputChange('patientName', e.target.value)}
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-danger/20 focus:border-danger text-lg font-medium"
-                    placeholder="E.g., Unknown Patient, John Doe"
+                    placeholder="E.g., John Doe"
                   />
                 </div>
                 <div>
@@ -299,7 +299,8 @@ export const EmergencyRegistration = () => {
                     onChange={(e) => handleInputChange('gender', e.target.value)}
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-danger/20 focus:border-danger"
                   >
-                    {options.Gender.map((o: string) => <option key={o} value={o}>{o}</option>)}
+                    <option value="">Select Gender</option>
+                    {options.Gender.filter((o: string) => o !== 'Unknown').map((o: string) => <option key={o} value={o}>{o}</option>)}
                   </select>
                 </div>
                 <div>
