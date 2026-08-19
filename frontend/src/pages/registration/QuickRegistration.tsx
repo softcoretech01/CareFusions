@@ -10,6 +10,7 @@ const API_BASE = import.meta.env.VITE_API_URL as string;
 type GlobalPatientRecord = any;
 
 import { exportToExcel } from '../../utils/exportToExcel';
+import { DateFilter } from '../../components/ui/DateFilter';
 
 const initialFormState: Partial<GlobalPatientRecord> = {
   uhid: '',
@@ -112,6 +113,8 @@ export const QuickRegistration = () => {
   const [filterVisitType, setFilterVisitType] = useState('');
   const [filterDepartment, setFilterDepartment] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
   const calculateAge = (dob: string) => {
     if (!dob) return 0;
@@ -286,7 +289,10 @@ export const QuickRegistration = () => {
     const matchesDepartment = !filterDepartment || record.department === filterDepartment;
     const matchesStatus = !filterStatus || record.status === filterStatus;
 
-    return matchesSearch && matchesVisitType && matchesDepartment && matchesStatus;
+    const recordDate = record.registrationDate ? record.registrationDate.substring(0, 10) : '';
+    const matchesDate = (!dateFrom || recordDate >= dateFrom) && (!dateTo || recordDate <= dateTo);
+
+    return matchesSearch && matchesVisitType && matchesDepartment && matchesStatus && matchesDate;
   });
 
   return (
@@ -317,6 +323,17 @@ export const QuickRegistration = () => {
                   className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm"
                 />
               </div>
+
+              <div className="h-8 w-px bg-slate-200 mx-1 hidden md:block" />
+
+              <DateFilter
+                dateFrom={dateFrom}
+                dateTo={dateTo}
+                onDateFromChange={setDateFrom}
+                onDateToChange={setDateTo}
+                onReset={() => { setDateFrom(''); setDateTo(''); }}
+              />
+
               <Button
                 variant={showFilters ? "filled" : "outline"}
                 color="secondary"

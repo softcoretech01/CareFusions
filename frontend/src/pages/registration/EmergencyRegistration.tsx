@@ -3,7 +3,7 @@ import { Search, Edit2, Activity, User, Phone, ShieldAlert } from 'lucide-react'
 import { Button } from '../../components/ui/Button';
 import { toast } from 'react-hot-toast';
 import { useEffect } from 'react';
-
+import { DateFilter } from '../../components/ui/DateFilter';
 const API_BASE = import.meta.env.VITE_API_URL as string;
 type GlobalPatientRecord = any;
 
@@ -72,7 +72,8 @@ export const EmergencyRegistration = () => {
   const [formData, setFormData] = useState<Partial<GlobalPatientRecord>>(initialFormState);
 
   const [searchTerm, setSearchTerm] = useState('');
-
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
   const handleCreateNew = () => {
     setFormData({
@@ -147,10 +148,15 @@ export const EmergencyRegistration = () => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const filteredRecords = records.filter(record =>
-    record.uhid.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    record.patientName?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredRecords = records.filter(record => {
+    const matchesSearch = record.uhid.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          record.patientName?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const recordDate = record.registrationDate ? record.registrationDate.substring(0, 10) : '';
+    const matchesDate = (!dateFrom || recordDate >= dateFrom) && (!dateTo || recordDate <= dateTo);
+    
+    return matchesSearch && matchesDate;
+  });
 
   return (
     <div className="h-[calc(100vh-2rem)] flex flex-col relative">
@@ -177,6 +183,16 @@ export const EmergencyRegistration = () => {
                   className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-danger/20 focus:border-danger text-sm"
                 />
               </div>
+
+              <div className="h-8 w-px bg-slate-200 mx-1 hidden md:block" />
+
+              <DateFilter
+                dateFrom={dateFrom}
+                dateTo={dateTo}
+                onDateFromChange={setDateFrom}
+                onDateToChange={setDateTo}
+                onReset={() => { setDateFrom(''); setDateTo(''); }}
+              />
             </div>
 
             <div className="flex-1 overflow-x-auto">

@@ -12,6 +12,7 @@ import { toast } from 'react-hot-toast';
 const API_BASE = import.meta.env.VITE_API_URL as string;
 
 import { exportToExcel } from '../../utils/exportToExcel';
+import { DateFilter } from '../../components/ui/DateFilter';
 import { PatientDetailsModal } from './PatientDetailsModal';interface PatientRecord {
   id: number;
   uhid: string;
@@ -345,6 +346,8 @@ export const PatientRegistration = () => {
   const [filterPatientType, setFilterPatientType] = useState('');
   const [filterGender, setFilterGender] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
   const calculateAge = (dob: string) => {
     if (!dob) return 0;
@@ -609,7 +612,10 @@ export const PatientRegistration = () => {
     const matchesGender = !filterGender || record.gender === filterGender;
     const matchesStatus = !filterStatus || record.status === filterStatus;
 
-    return matchesSearch && matchesPatientType && matchesGender && matchesStatus;
+    const recordDate = record.registrationDate ? record.registrationDate.substring(0, 10) : '';
+    const matchesDate = (!dateFrom || recordDate >= dateFrom) && (!dateTo || recordDate <= dateTo);
+
+    return matchesSearch && matchesPatientType && matchesGender && matchesStatus && matchesDate;
   });
 
   return (
@@ -644,6 +650,17 @@ export const PatientRegistration = () => {
                   className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm"
                 />
               </div>
+              
+              <div className="h-8 w-px bg-slate-200 mx-1 hidden md:block" />
+
+              <DateFilter
+                dateFrom={dateFrom}
+                dateTo={dateTo}
+                onDateFromChange={setDateFrom}
+                onDateToChange={setDateTo}
+                onReset={() => { setDateFrom(''); setDateTo(''); }}
+              />
+
               <Button
                 variant={showFilters ? "filled" : "outline"}
                 color="secondary"
