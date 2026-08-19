@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from typing import List
-from datetime import datetime
 
 from app.database import get_db
 from app.schemas.ip_billing import IpBillCreate, IpBillResponse, IpBillItemResponse
@@ -55,7 +54,8 @@ def create_ip_bill(bill: IpBillCreate, db: Session = Depends(get_db)):
             uhid=bill.Uhid,
             patient_name=bill.PatientName,
             mobile_number=bill.MobileNumber,
-            bill_date=datetime.now(),
+            # Stamped by the database (NOW() inside the SP), not the API host clock.
+            bill_date=None,
             total_amount=bill.TotalAmount,
             discount=bill.Discount,
             tax=bill.Tax,

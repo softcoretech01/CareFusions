@@ -1,3 +1,4 @@
+import os
 import urllib.parse
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
@@ -14,10 +15,17 @@ Base = declarative_base()
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
 
+# Every connection pins the session to IST. MySQL runs on a UTC host
+# (@@global.time_zone = SYSTEM), so without this NOW() returns UTC and the
+# timestamp a bill gets depends on which machine served the request.
+DB_TIME_ZONE = os.getenv("DB_TIME_ZONE", "+05:30")
+
+
 @event.listens_for(Engine, "connect")
-def set_collation(dbapi_connection, connection_record):
+def set_session_defaults(dbapi_connection, connection_record):
     cursor = dbapi_connection.cursor()
     cursor.execute("SET NAMES 'utf8mb4' COLLATE 'utf8mb4_general_ci'")
+    cursor.execute("SET time_zone = %s", (DB_TIME_ZONE,))
     cursor.close()
 
 
