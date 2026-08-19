@@ -47,14 +47,14 @@ export const TodayRegistrations = () => {
 
         const finalRecords = Array.from(uniqueRecords.values());
         
-        // Sort by UHID ascending (1, 2, 3...)
+        // Sort by UHID descending to show latest records first
         const getSeq = (uhid: string) => {
           if (!uhid) return 0;
           const match = uhid.match(/\d+$/);
           return match ? parseInt(match[0], 10) : 0;
         };
 
-        finalRecords.sort((a: any, b: any) => getSeq(a.uhid) - getSeq(b.uhid));
+        finalRecords.sort((a: any, b: any) => getSeq(b.uhid) - getSeq(a.uhid));
 
         setRecords(finalRecords);
       }
