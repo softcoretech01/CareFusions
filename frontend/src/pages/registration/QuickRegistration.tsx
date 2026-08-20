@@ -349,7 +349,6 @@ export const QuickRegistration = () => {
                     <th className="px-4 py-3 font-medium">Mobile Number</th>
                     <th className="px-4 py-3 font-medium">Visit Type</th>
                     <th className="px-4 py-3 font-medium">Reg. Date & Time</th>
-                    <th className="px-4 py-3 font-medium text-center">Status</th>
                     <th className="px-4 py-3 font-medium text-center">Action</th>
                   </tr>
                 </thead>
@@ -372,14 +371,6 @@ export const QuickRegistration = () => {
                           </span>
                         </td>
                         <td className="px-4 py-3 text-slate-600">{record.registrationDate} {record.registrationTime}</td>
-                        <td className="px-4 py-3 text-center">
-                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${record.status === 'Active'
-                            ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
-                            : 'bg-red-50 text-red-600 border border-red-200'
-                            }`}>
-                            {record.status}
-                          </span>
-                        </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-center gap-2">
 
@@ -396,7 +387,7 @@ export const QuickRegistration = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
+                      <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
                         <div className="flex flex-col items-center justify-center gap-2">
                           <User className="w-8 h-8 text-slate-400" />
                           <p>No patients found</p>

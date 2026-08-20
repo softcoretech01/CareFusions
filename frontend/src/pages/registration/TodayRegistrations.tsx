@@ -170,7 +170,6 @@ export const TodayRegistrations = () => {
                 <th className="px-4 py-3 font-medium">Gender/Age</th>
                 <th className="px-4 py-3 font-medium">Mobile Number</th>
                 <th className="px-4 py-3 font-medium">Time</th>
-                <th className="px-4 py-3 font-medium text-center">Status</th>
                 <th className="px-4 py-3 font-medium text-center">Action</th>
               </tr>
             </thead>
@@ -194,15 +193,6 @@ export const TodayRegistrations = () => {
                     </td>
                     <td className="px-4 py-3 text-slate-600">{record.mobileNumber}</td>
                     <td className="px-4 py-3 text-slate-600">{record.registrationTime}</td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                        record.status === 'Completed' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 
-                        record.status === 'Checked-In' ? 'bg-blue-50 text-blue-600 border border-blue-200' :
-                        'bg-slate-100 text-slate-600 border border-slate-200'
-                      }`}>
-                        {record.status}
-                      </span>
-                    </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-2">
                         <button 
@@ -225,7 +215,7 @@ export const TodayRegistrations = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
+                  <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <CalendarDays className="w-8 h-8 text-slate-400" />
                       <p>No registrations found for today</p>
@@ -280,14 +270,7 @@ export const TodayRegistrations = () => {
                       </span>
                     </p>
                   </div>
-                  <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Department</p>
-                    <p className="text-base font-semibold text-slate-800">{viewModalRecord.department || '-'}</p>
-                  </div>
-                  <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Doctor</p>
-                    <p className="text-base font-semibold text-slate-800">{viewModalRecord.doctor || '-'}</p>
-                  </div>
+
                   <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Status</p>
                     <p className="text-base font-semibold text-slate-800">

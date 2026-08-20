@@ -25,7 +25,7 @@ export const PatientDocuments = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [documentToDelete, setDocumentToDelete] = useState<number | null>(null);
   const [selectedUhid, setSelectedUhid] = useState<string>('');
-  
+
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [newDocType, setNewDocType] = useState('');
@@ -107,8 +107,8 @@ export const PatientDocuments = () => {
   }, [selectedUhid]);
 
 
-  const filteredPatients = patients.filter(p => 
-    p.uhid.toLowerCase().includes(searchTerm.toLowerCase()) || 
+  const filteredPatients = patients.filter(p =>
+    p.uhid.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (p.patientName || '').toLowerCase().includes(searchTerm.toLowerCase())
   ).slice(0, 5);
 
@@ -176,7 +176,7 @@ export const PatientDocuments = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
-        
+
         {/* Left Column - Patient Search */}
         <div className="lg:col-span-1 flex flex-col gap-6">
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 flex flex-col h-full">
@@ -191,18 +191,17 @@ export const PatientDocuments = () => {
                 className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm"
               />
             </div>
-            
+
             <div className="flex-1 overflow-y-auto custom-scrollbar">
               <div className="space-y-2">
                 {filteredPatients.map(patient => (
-                  <div 
+                  <div
                     key={patient.uhid}
                     onClick={() => setSelectedUhid(patient.uhid)}
-                    className={`p-4 rounded-xl cursor-pointer transition-all border ${
-                      selectedUhid === patient.uhid 
-                        ? 'bg-primary/5 border-primary text-primary' 
-                        : 'bg-white border-slate-200 hover:border-primary/50 text-slate-700'
-                    }`}
+                    className={`p-4 rounded-xl cursor-pointer transition-all border ${selectedUhid === patient.uhid
+                      ? 'bg-primary/5 border-primary text-primary'
+                      : 'bg-white border-slate-200 hover:border-primary/50 text-slate-700'
+                      }`}
                   >
                     <div className="font-bold">{patient.uhid}</div>
                     <div className="text-sm opacity-80">{patient.patientName || 'Unknown'}</div>
@@ -221,7 +220,7 @@ export const PatientDocuments = () => {
         {/* Right Column - Document List & Upload */}
         <div className="lg:col-span-2 flex flex-col h-full">
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden">
-            
+
             {selectedUhid ? (
               <>
                 <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
@@ -263,10 +262,7 @@ export const PatientDocuments = () => {
                             }}>
                               <Eye className="w-4 h-4" />
                             </button>
-                            <button className="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg" onClick={() => exportToExcel(patients, 'PatientDocuments')}>
-                  <Download className="w-5 h-5" />
-                  Export
-                </button>
+
                             <button className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg" onClick={() => handleDelete(doc.id)}>
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -323,12 +319,12 @@ export const PatientDocuments = () => {
                   <option value="Other">Other</option>
                 </select>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Select File *</label>
                 <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer relative">
-                  <input 
-                    type="file" 
+                  <input
+                    type="file"
                     required
                     onChange={(e) => setNewDocFile(e.target.files?.[0] || null)}
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
@@ -393,13 +389,13 @@ export const PatientDocuments = () => {
               Are you sure you want to delete this document?
             </p>
             <div className="flex items-center gap-3">
-              <button 
+              <button
                 onClick={() => setDocumentToDelete(null)}
                 className="flex-1 px-4 py-2.5 border border-amber-500 text-amber-600 rounded-xl hover:bg-amber-50 font-medium transition-colors"
               >
                 Cancel
               </button>
-              <button 
+              <button
                 onClick={confirmDelete}
                 className="flex-1 px-4 py-2.5 bg-red-700 text-white rounded-xl hover:bg-red-800 font-medium transition-colors"
               >
