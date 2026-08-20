@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Pagination } from '@/components/ui/Pagination';
 import { usePagination } from '@/hooks/usePagination';
 import { DateFilter } from '../../components/ui/DateFilter';
@@ -6,58 +6,197 @@ import { Calendar, Clock, Plus, Check, FileText, Filter, Search, MoreVertical, S
 
 type ViewState = 'dashboard' | 'create' | 'history';
 
+const API_BASE = import.meta.env.VITE_API_URL as string;
+
+interface Schedule {
+  id: string; scheduleId: number; name: string; description: string;
+  category: string; reportTemplate: string; frequency: string; runTime: string;
+  deliveryMethod: string; recipients: string; status: string;
+  lastRunAt: string | null; nextRunAt: string | null; lastExecStatus: string;
+  author: string; createdDate: string | null;
+}
+
+interface RunLog {
+  runId: number; startedAt: string | null; durationMs: number | null;
+  status: string; deliveredTo: string; message: string;
+  scheduleName: string; scheduleCode: string;
+}
+
+const BLANK = {
+  name: '', description: '', category: 'Financial', reportTemplate: 'Revenue Report',
+  frequency: 'Daily', runTime: '', deliveryMethod: 'Email Attachment', recipients: '',
+  status: 'Active',
+};
+
+const when = (iso: string | null) => {
+  if (!iso) return '\u2014';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '\u2014';
+  return d.toLocaleString('en-GB', {
+    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+  });
+};
+
 export const ScheduledReportsPage = () => {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [view, setView] = useState<ViewState>('dashboard');
   const [toast, setToast] = useState('');
   
-  // Execution history is still sample data — there is no report_run table yet.
-  // Declared here (not inside the history branch) so the pagination hook runs
-  // unconditionally; it previously sat after two early returns, which broke the
-  // Rules of Hooks and left `paged` referenced before its declaration.
-  const historyLogs = [
-    { date: 'Today', time: '08:00:05 AM', report: 'Daily Executive Financial Summary', duration: '2.4s', status: 'Success', deliveredTo: '3 Email(s)' },
-    { date: 'Today', time: '06:00:12 AM', report: 'Night Shift ER Incident Report', duration: '1.2s', status: 'Success', deliveredTo: 'Internal Portal' },
-    { date: 'Yesterday', time: '08:00:04 AM', report: 'Daily Executive Financial Summary', duration: '2.3s', status: 'Success', deliveredTo: '3 Email(s)' },
-    { date: 'Jul 15, 2026', time: '09:00:45 AM', report: 'Weekly Clinical Bottlenecks', duration: '4.8s', status: 'Success', deliveredTo: '5 Email(s)' },
-    { date: 'Jul 01, 2026', time: '10:00:02 AM', report: 'Monthly Board Presentation', duration: '45.1s', status: 'Failed', deliveredTo: 'None (Timeout)' },
-  ];
+  // Schedules and their run history now live in admin.Sch_Report /
+  // admin.Sch_ReportRun. Both used to be arrays hardcoded in this file, so
+  // nothing survived a refresh.
+  const [reports, setReports] = useState<Schedule[]>([]);
+  const [historyLogs, setHistoryLogs] = useState<RunLog[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ ...BLANK });
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [sRes, rRes] = await Promise.all([
+        fetch(`${API_BASE}/scheduled-reports/`),
+        fetch(`${API_BASE}/scheduled-reports/runs`),
+      ]);
+      const sData = await sRes.json();
+      const rData = await rRes.json();
+      setReports(Array.isArray(sData) ? sData : []);
+      setHistoryLogs(Array.isArray(rData) ? rData : []);
+    } catch (e) {
+      console.error('[ScheduledReports] load failed', e);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
   const { page, setPage, pageSize, total, paged } = usePagination(historyLogs);
 
-  // Dashboard State
-  const [reports, setReports] = useState([
-    { id: 'SR-1021', name: 'Daily Executive Financial Summary', category: 'Financial', author: 'Dr. Sarah Connor (CFO)', frequency: 'Daily (08:00 AM)', lastRun: 'Today, 08:00 AM', nextRun: 'Tomorrow, 08:00 AM', delivery: 'Email, Portal', recipients: 3, status: 'Active', lastExec: 'Success' },
-    { id: 'SR-1022', name: 'Weekly Clinical Bottlenecks', category: 'Clinical', author: 'Dr. James Smith (CMO)', frequency: 'Weekly (Mon 09:00 AM)', lastRun: 'Jul 15, 09:00 AM', nextRun: 'Jul 22, 09:00 AM', delivery: 'Email', recipients: 5, status: 'Active', lastExec: 'Success' },
-    { id: 'SR-1023', name: 'Monthly Board Presentation', category: 'Operational', author: 'Alan Turing (CEO)', frequency: 'Monthly (1st 10:00 AM)', lastRun: 'Jul 01, 10:00 AM', nextRun: 'Aug 01, 10:00 AM', delivery: 'Cloud Storage', recipients: 12, status: 'Active', lastExec: 'Failed' },
-    { id: 'SR-1024', name: 'Night Shift ER Incident Report', category: 'Quality', author: 'System Admin', frequency: 'Daily (06:00 AM)', lastRun: 'Today, 06:00 AM', nextRun: 'Paused', delivery: 'Internal Portal', recipients: 2, status: 'Paused', lastExec: 'Success' },
-    { id: 'SR-1025', name: 'Inventory Expiry Warning List', category: 'Inventory', author: 'Procurement Dept', frequency: 'Weekly (Fri 04:00 PM)', lastRun: 'Jul 19, 04:00 PM', nextRun: 'Jul 26, 04:00 PM', delivery: 'Email, API', recipients: 4, status: 'Active', lastExec: 'Success' },
-  ]);
 
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  // The row whose details are open. "View Details" used to open the blank
+  // create form, which showed nothing about the schedule you clicked.
+  const [detailId, setDetailId] = useState<string | null>(null);
+  // The row being edited, so the form header names it instead of always
+  // reading "Create New Schedule".
+  const [editId, setEditId] = useState<string | null>(null);
 
   const showToast = (message: string) => {
     setToast(message);
     setTimeout(() => setToast(''), 3000);
   };
 
-  const toggleStatus = (id: string) => {
-    setReports(reports.map(r => 
-      r.id === id ? { ...r, status: r.status === 'Active' ? 'Paused' : 'Active' } : r
-    ));
-    showToast(`Report schedule status updated.`);
+  const toggleStatus = async (id: string) => {
     setActiveMenuId(null);
+    const target = reports.find(r => r.id === id);
+    if (!target) return;
+    const next = target.status === 'Active' ? 'Paused' : 'Active';
+    try {
+      const res = await fetch(`${API_BASE}/scheduled-reports/${id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: next }),
+      });
+      if (!res.ok) throw new Error(String(res.status));
+      showToast(`${id} is now ${next}.`);
+      load();
+    } catch (e) {
+      console.error('[ScheduledReports] status change failed', e);
+      showToast('Could not update the schedule status.');
+    }
   };
 
-  const runNow = (id: string) => {
-    showToast(`Executing report ${id}... You will be notified when complete.`);
+
+  const deleteReport = async (id: string) => {
     setActiveMenuId(null);
+    const target = reports.find(r => r.id === id);
+    const label = target ? ` (${target.name})` : '';
+    if (!window.confirm(`Delete schedule ${id}${label}? This cannot be undone.`)) return;
+    try {
+      const res = await fetch(`${API_BASE}/scheduled-reports/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error(String(res.status));
+      showToast(`${id} deleted.`);
+      load();
+    } catch (e) {
+      console.error('[ScheduledReports] delete failed', e);
+      showToast('Could not delete the schedule.');
+    }
   };
 
-  const deleteReport = (id: string) => {
-    setReports(reports.filter(r => r.id !== id));
-    showToast(`Schedule ${id} deleted successfully.`);
+  // Create or update, depending on whether a schedule is being edited.
+  const saveSchedule = async () => {
+    if (!form.name.trim()) { showToast('Schedule name is required.'); return; }
+    setSaving(true);
+    try {
+      const res = await fetch(
+        editId ? `${API_BASE}/scheduled-reports/${editId}` : `${API_BASE}/scheduled-reports/`,
+        {
+          method: editId ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...form, createdBy: 'Admin' }),
+        },
+      );
+      if (!res.ok) throw new Error(String(res.status));
+      showToast(editId ? `${editId} updated.` : 'Schedule created.');
+      setEditId(null);
+      setForm({ ...BLANK });
+      setView('dashboard');
+      load();
+    } catch (e) {
+      console.error('[ScheduledReports] save failed', e);
+      showToast('Could not save the schedule.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Executes the schedule's template query straight away and records the run.
+  // Delivery is not implemented, so this generates figures rather than emailing.
+  const [running, setRunning] = useState<string | null>(null);
+
+  const runNow = async (id: string) => {
     setActiveMenuId(null);
+    setRunning(id);
+    try {
+      const res = await fetch(`${API_BASE}/scheduled-reports/${id}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ triggeredBy: 'Admin' }),
+      });
+      const out = await res.json();
+      if (!res.ok) throw new Error(out?.detail || String(res.status));
+      showToast(
+        out.status === 'Success'
+          ? `${id} ran in ${out.durationMs}ms \u2014 ${out.message}`
+          : `${id} failed: ${out.message}`,
+      );
+      load();
+    } catch (e) {
+      console.error('[ScheduledReports] run failed', e);
+      showToast('Could not run the report.');
+    } finally {
+      setRunning(null);
+    }
+  };
+
+  // Open the form with the chosen schedule loaded, or blank for a new one.
+  const openForm = (id?: string) => {
+    const r = id ? reports.find(x => x.id === id) : null;
+    setEditId(r ? r.id : null);
+    setForm(r
+      ? {
+          name: r.name, description: r.description, category: r.category,
+          reportTemplate: r.reportTemplate || BLANK.reportTemplate,
+          frequency: r.frequency, runTime: r.runTime,
+          deliveryMethod: r.deliveryMethod || BLANK.deliveryMethod,
+          recipients: r.recipients, status: r.status,
+        }
+      : { ...BLANK });
+    setActiveMenuId(null);
+    setDetailId(null);
+    setView('create');
   };
 
   // --- Views ---
@@ -66,12 +205,18 @@ export const ScheduledReportsPage = () => {
     return (
       <div className="max-w-4xl mx-auto space-y-6 pb-20">
         <div className="flex items-center gap-4 mb-8">
-          <button onClick={() => setView('dashboard')} className="p-2 hover:bg-slate-200 rounded-lg text-slate-500 transition-colors bg-slate-100">
+          <button onClick={() => { setView('dashboard'); setEditId(null); }} className="p-2 hover:bg-slate-200 rounded-lg text-slate-500 transition-colors bg-slate-100">
             <X className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Create New Schedule</h1>
-            <p className="text-sm text-slate-500 mt-1">Configure a new automated report delivery workflow.</p>
+            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
+              {editId ? `Edit Schedule · ${editId}` : 'Create New Schedule'}
+            </h1>
+            <p className="text-sm text-slate-500 mt-1">
+              {editId
+                ? 'The fields below are not yet bound to this schedule \u2014 saving is not wired to a backend.'
+                : 'Configure a new automated report delivery workflow.'}
+            </p>
           </div>
         </div>
 
@@ -82,15 +227,30 @@ export const ScheduledReportsPage = () => {
             <div className="grid grid-cols-2 gap-6">
               <div className="col-span-2">
                 <label className="block text-sm font-semibold text-slate-700 mb-1">Schedule Name</label>
-                <input type="text" className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:border-primary text-sm" placeholder="e.g. Daily Executive Revenue Report" />
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={e => setForm({ ...form, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:border-primary text-sm"
+                  placeholder="e.g. Daily Executive Revenue Report"
+                />
               </div>
               <div className="col-span-2">
                 <label className="block text-sm font-semibold text-slate-700 mb-1">Description</label>
-                <textarea className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:border-primary text-sm h-20" placeholder="Optional notes..."></textarea>
+                <textarea
+                  value={form.description}
+                  onChange={e => setForm({ ...form, description: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:border-primary text-sm h-20"
+                  placeholder="Optional notes..."
+                ></textarea>
               </div>
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1">Report Category</label>
-                <select className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:border-primary text-sm">
+                <select
+                  value={form.category}
+                  onChange={e => setForm({ ...form, category: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:border-primary text-sm"
+                >
                   <option>Financial</option>
                   <option>Clinical</option>
                   <option>Operational</option>
@@ -100,7 +260,11 @@ export const ScheduledReportsPage = () => {
               </div>
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1">Select Report Template</label>
-                <select className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:border-primary text-sm">
+                <select
+                  value={form.reportTemplate}
+                  onChange={e => setForm({ ...form, reportTemplate: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:border-primary text-sm"
+                >
                   <option>Revenue Report</option>
                   <option>Bed Occupancy</option>
                   <option>Doctor Performance</option>
@@ -116,7 +280,11 @@ export const ScheduledReportsPage = () => {
             <div className="grid grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1">Frequency</label>
-                <select className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:border-primary text-sm">
+                <select
+                  value={form.frequency}
+                  onChange={e => setForm({ ...form, frequency: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:border-primary text-sm"
+                >
                   <option>Daily</option>
                   <option>Weekly</option>
                   <option>Monthly</option>
@@ -125,7 +293,12 @@ export const ScheduledReportsPage = () => {
               </div>
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1">Run Time</label>
-                <input type="time" className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:border-primary text-sm" />
+                <input
+                  type="time"
+                  value={form.runTime}
+                  onChange={e => setForm({ ...form, runTime: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:border-primary text-sm"
+                />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1">Time Zone</label>
@@ -152,7 +325,11 @@ export const ScheduledReportsPage = () => {
               </div>
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1">Delivery Method</label>
-                <select className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:border-primary text-sm">
+                <select
+                  value={form.deliveryMethod}
+                  onChange={e => setForm({ ...form, deliveryMethod: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:border-primary text-sm"
+                >
                   <option>Email Attachment</option>
                   <option>Internal Portal Notification</option>
                   <option>AWS S3 / Cloud Storage</option>
@@ -160,7 +337,13 @@ export const ScheduledReportsPage = () => {
               </div>
               <div className="col-span-2">
                 <label className="block text-sm font-semibold text-slate-700 mb-1">Recipients (Email or Roles)</label>
-                <input type="text" className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:border-primary text-sm" placeholder="e.g. ceo@hospital.com, Department Heads" />
+                <input
+                  type="text"
+                  value={form.recipients}
+                  onChange={e => setForm({ ...form, recipients: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg outline-none focus:border-primary text-sm"
+                  placeholder="e.g. ceo@hospital.com, Department Heads"
+                />
               </div>
             </div>
           </div>
@@ -187,14 +370,18 @@ export const ScheduledReportsPage = () => {
 
         {/* Action Bar */}
         <div className="flex gap-4 justify-end">
-          <button onClick={() => setView('dashboard')} className="px-6 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-bold hover:bg-slate-50 transition-colors">
+          <button
+            onClick={() => { setView('dashboard'); setEditId(null); setForm({ ...BLANK }); }}
+            className="px-6 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-bold hover:bg-slate-50 transition-colors"
+          >
             Cancel
           </button>
-          <button onClick={() => { showToast('Draft saved successfully.'); setView('dashboard'); }} className="px-6 py-2.5 bg-slate-100 text-slate-700 rounded-lg text-sm font-bold hover:bg-slate-200 transition-colors">
-            Save Draft
-          </button>
-          <button onClick={() => { showToast('New report scheduled successfully.'); setView('dashboard'); }} className="px-6 py-2.5 bg-primary text-white rounded-lg text-sm font-bold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20">
-            Schedule Report
+          <button
+            onClick={saveSchedule}
+            disabled={saving || !form.name.trim()}
+            className="px-6 py-2.5 bg-primary text-white rounded-lg text-sm font-bold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {saving ? 'Saving\u2026' : editId ? 'Save Changes' : 'Create Schedule'}
           </button>
         </div>
       </div>
@@ -231,10 +418,10 @@ export const ScheduledReportsPage = () => {
               <tbody className="divide-y divide-slate-100">
                 {paged.map((log, i) => (
                   <tr key={i} className="hover:bg-slate-50 transition-colors">
-                    <td className="py-4 px-6 text-slate-700 font-medium">{log.date}</td>
-                    <td className="py-4 px-6 text-slate-600">{log.time}</td>
-                    <td className="py-4 px-6 text-slate-800 font-medium">{log.report}</td>
-                    <td className="py-4 px-6 text-slate-500">{log.duration}</td>
+                    <td className="py-4 px-6 text-slate-700 font-medium">{when(log.startedAt)}</td>
+                    <td className="py-4 px-6 text-slate-600">{log.scheduleCode}</td>
+                    <td className="py-4 px-6 text-slate-800 font-medium">{log.scheduleName}</td>
+                    <td className="py-4 px-6 text-slate-500">{log.durationMs != null ? `${(log.durationMs / 1000).toFixed(1)}s` : '\u2014'}</td>
                     <td className="py-4 px-6">
                       <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${
                         log.status === 'Success' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
@@ -291,7 +478,7 @@ export const ScheduledReportsPage = () => {
           <button onClick={() => setView('history')} className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg text-sm font-bold hover:bg-slate-50 transition-colors shadow-sm flex items-center gap-2">
             <History className="w-4 h-4" /> Global History
           </button>
-          <button onClick={() => setView('create')} className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold hover:bg-primary/90 transition-colors shadow-sm shadow-primary/20 flex items-center gap-2">
+          <button onClick={() => openForm()} className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold hover:bg-primary/90 transition-colors shadow-sm shadow-primary/20 flex items-center gap-2">
             <Plus className="w-4 h-4" /> Create New Schedule
           </button>
         </div>
@@ -300,12 +487,14 @@ export const ScheduledReportsPage = () => {
       {/* KPI Row */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {[
-          { label: 'Total Scheduled', val: '124', icon: Calendar, c: 'text-blue-600', bg: 'bg-blue-50' },
-          { label: 'Active Schedules', val: '98', icon: Activity, c: 'text-emerald-600', bg: 'bg-emerald-50' },
-          { label: 'Executed Today', val: '45', icon: Check, c: 'text-indigo-600', bg: 'bg-indigo-50' },
-          { label: 'Failed Executions', val: '2', icon: ShieldAlert, c: 'text-rose-600', bg: 'bg-rose-50' },
-          { label: 'Upcoming', val: '18', icon: Clock, c: 'text-amber-600', bg: 'bg-amber-50' },
-          { label: 'Last Generated', val: '12m ago', icon: History, c: 'text-slate-600', bg: 'bg-slate-100' },
+          // Counted from the rows below. These were fixed literals (124 / 98 /
+          // 45 / 2 / 18) that contradicted the five schedules in the table.
+          { label: 'Total Scheduled', val: String(reports.length), icon: Calendar, c: 'text-blue-600', bg: 'bg-blue-50' },
+          { label: 'Active Schedules', val: String(reports.filter(r => r.status === 'Active').length), icon: Activity, c: 'text-emerald-600', bg: 'bg-emerald-50' },
+          { label: 'Executed Today', val: String(historyLogs.filter(h => (h.startedAt || '').slice(0, 10) === new Date().toISOString().slice(0, 10)).length), icon: Check, c: 'text-indigo-600', bg: 'bg-indigo-50' },
+          { label: 'Failed Executions', val: String(historyLogs.filter(h => h.status === 'Failed').length), icon: ShieldAlert, c: 'text-rose-600', bg: 'bg-rose-50' },
+          { label: 'Paused', val: String(reports.filter(r => r.status === 'Paused').length), icon: Clock, c: 'text-amber-600', bg: 'bg-amber-50' },
+          { label: 'Last Generated', val: historyLogs[0] ? when(historyLogs[0].startedAt) : '\u2014', icon: History, c: 'text-slate-600', bg: 'bg-slate-100' },
         ].map((k, i) => (
           <div key={i} className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
             <div className={`w-8 h-8 rounded-lg ${k.bg} ${k.c} flex items-center justify-center mb-3`}>
@@ -329,8 +518,8 @@ export const ScheduledReportsPage = () => {
       </div>
 
       {/* Data Table */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-visible pb-24">
-        <div className="overflow-x-auto overflow-y-visible">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-visible">
+        <div className="overflow-x-auto overflow-y-visible pb-24">
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
               <tr>
@@ -356,8 +545,8 @@ export const ScheduledReportsPage = () => {
                   <td className="py-4 px-6 text-slate-600">{report.author}</td>
                   <td className="py-4 px-6 text-slate-600">{report.frequency}</td>
                   <td className="py-4 px-6">
-                    <div className="text-slate-800 font-medium">{report.nextRun}</div>
-                    <div className="text-xs text-slate-400 mt-0.5">Last: {report.lastRun}</div>
+                    <div className="text-slate-800 font-medium">{when(report.nextRunAt)}</div>
+                    <div className="text-xs text-slate-400 mt-0.5">Last: {when(report.lastRunAt)}</div>
                   </td>
                   <td className="py-4 px-6">
                     <span className={`px-2.5 py-1 text-xs font-bold rounded-full flex items-center gap-1 w-max ${
@@ -379,12 +568,19 @@ export const ScheduledReportsPage = () => {
                     {activeMenuId === report.id && (
                       <div className="absolute right-8 top-10 w-48 bg-white rounded-lg shadow-xl border border-slate-200 z-50 overflow-hidden">
                         <div className="py-1">
-                          <button onClick={() => { setView('create'); setActiveMenuId(null); showToast('Opened in View mode'); }} className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">View Details</button>
-                          <button onClick={() => { setView('create'); setActiveMenuId(null); showToast('Opened in Edit mode'); }} className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Edit Schedule</button>
+                          <button onClick={() => { setDetailId(report.id); setActiveMenuId(null); }} className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">View Details</button>
+                          <button onClick={() => openForm(report.id)} className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Edit Schedule</button>
                           <button onClick={() => toggleStatus(report.id)} className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
                             {report.status === 'Active' ? 'Pause Schedule' : 'Resume Schedule'}
                           </button>
-                          <button onClick={() => runNow(report.id)} className="w-full text-left px-4 py-2 text-sm text-primary font-medium hover:bg-primary/5">Run Now</button>
+                          <button
+                            onClick={() => runNow(report.id)}
+                            disabled={running === report.id}
+                            title="Run this report now and record the execution"
+                            className="w-full text-left px-4 py-2 text-sm text-primary font-medium hover:bg-primary/5 disabled:opacity-50 disabled:cursor-wait"
+                          >
+                            {running === report.id ? 'Running\u2026' : 'Run Now'}
+                          </button>
                           <div className="border-t border-slate-100 my-1"></div>
                           <button onClick={() => { setView('history'); setActiveMenuId(null); }} className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Execution History</button>
                           <div className="border-t border-slate-100 my-1"></div>
@@ -397,6 +593,14 @@ export const ScheduledReportsPage = () => {
               ))}
             </tbody>
           </table>
+          {loading && (
+            <div className="py-14 text-center text-sm text-slate-400">Loading schedules…</div>
+          )}
+          {!loading && reports.length === 0 && (
+            <div className="py-14 text-center text-sm text-slate-400">
+              No schedules yet — use “New Schedule” to create one.
+            </div>
+          )}
         </div>
       </div>
       
@@ -404,6 +608,71 @@ export const ScheduledReportsPage = () => {
       {activeMenuId && (
         <div className="fixed inset-0 z-40" onClick={() => setActiveMenuId(null)}></div>
       )}
+
+      {/* Schedule details. "View Details" used to open an empty create form,
+          which told you nothing about the row you clicked. */}
+      {detailId && (() => {
+        const r = reports.find(x => x.id === detailId);
+        if (!r) return null;
+        const Field = ({ label, value }: { label: string; value: React.ReactNode }) => (
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{label}</p>
+            <p className="text-sm font-semibold text-slate-800 mt-0.5">{value || '\u2014'}</p>
+          </div>
+        );
+        return (
+          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+               onClick={() => setDetailId(null)}>
+            <div onClick={e => e.stopPropagation()}
+                 className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[88vh]">
+              <div className="flex items-start justify-between px-6 py-4 border-b border-slate-100">
+                <div className="min-w-0">
+                  <h3 className="font-bold text-lg text-slate-800 truncate">{r.name}</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">{r.id} \u00b7 {r.category}</p>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                    r.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                  }`}>{r.status}</span>
+                  <button onClick={() => setDetailId(null)} title="Close"
+                          className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
+                    <X className="w-5 h-5 text-slate-400" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="px-6 py-5 overflow-y-auto">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-5">
+                  <Field label="Generated By" value={r.author} />
+                  <Field label="Category" value={r.category} />
+                  <Field label="Frequency" value={r.frequency} />
+                  <Field label="Last Run" value={when(r.lastRunAt)} />
+                  <Field label="Next Run" value={when(r.nextRunAt)} />
+                  <Field label="Last Execution" value={
+                    <span className={r.lastExecStatus === 'Failed' ? 'text-rose-600' : 'text-emerald-600'}>
+                      {r.lastExecStatus || 'Never run'}
+                    </span>
+                  } />
+                  <Field label="Delivery" value={r.deliveryMethod} />
+                  <Field label="Recipients" value={r.recipients} />
+                  <Field label="Status" value={r.status} />
+                </div>
+              </div>
+
+              <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/60 flex justify-end gap-3">
+                <button onClick={() => setDetailId(null)}
+                        className="px-5 py-2 border border-slate-200 bg-white text-slate-700 font-bold text-sm rounded-xl hover:bg-slate-100 transition-colors">
+                  Close
+                </button>
+                <button onClick={() => openForm(r.id)}
+                        className="px-5 py-2 bg-primary text-white font-bold text-sm rounded-xl hover:bg-primary/90 transition-colors">
+                  Edit
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
     </div>
   );

@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { CalendarCheck, Clock, FlaskConical, Pill, XCircle, Hourglass } from 'lucide-react';
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
-import { NoDataNotice } from '../../components/ui/NoDataNotice';
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
 
@@ -89,11 +88,6 @@ export const OperationalAnalyticsPage = () => {
         </div>
       </div>
 
-      <NoDataNotice
-        title="OT utilisation and average billing time"
-        needs="Operation Theatre / Billing"
-        detail="The prototype showed OT utilisation per theatre and an ER wait time computed as averageBillingTime + 7 — an unrelated field plus a constant."
-      />
     </div>
   );
 };

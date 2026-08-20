@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Building2, Users, Stethoscope, Pill, Microscope, ShieldCheck, UserCog, Settings, FileText, RefreshCw, Search, X } from 'lucide-react';
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
+import { Pagination } from '../components/ui/Pagination';
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
 
@@ -193,6 +194,7 @@ const DetailsPanel = ({
   onClose: () => void;
 }) => {
   const [q, setQ] = useState('');
+  const [page, setPage] = useState(1);
   const Icon = def.icon;
 
   const shown = useMemo(() => {
@@ -201,6 +203,13 @@ const DetailsPanel = ({
     // Match against the rendered columns, so what you search is what you see.
     return rows.filter(r => def.cols.some(c => cell(r, c.key).toLowerCase().includes(needle)));
   }, [rows, q, def.cols]);
+
+  const PAGE_SIZE = 10;
+  const totalRows = shown.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
+  useEffect(() => { if (page > totalPages) setPage(1); }, [page, totalPages]);
+  
+  const paged = shown.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <motion.div
@@ -257,9 +266,9 @@ const DetailsPanel = ({
                 </td>
               </tr>
             ) : (
-              shown.map((r, i) => (
+              paged.map((r, i) => (
                 <tr key={(r.id ?? r.auditId ?? i) as string | number} className="hover:bg-slate-50/70 transition-colors">
-                  <td className="px-5 py-3 text-xs text-slate-400 tabular-nums">{i + 1}</td>
+                  <td className="px-5 py-3 text-xs text-slate-400 tabular-nums">{i + 1 + (page - 1) * PAGE_SIZE}</td>
                   {def.cols.map(c => {
                     const v = cell(r, c.key);
                     return (
@@ -280,6 +289,12 @@ const DetailsPanel = ({
           </tbody>
         </table>
       </div>
+      <Pagination
+        page={page}
+        pageSize={PAGE_SIZE}
+        totalItems={totalRows}
+        onPageChange={setPage}
+      />
     </motion.div>
   );
 };
@@ -451,16 +466,16 @@ export const Dashboard = () => {
               </button>
             )}
           </div>
-          <div className="space-y-4">
+          <div className="flex flex-col divide-y divide-slate-100">
             {audits.length === 0 ? (
               <p className="text-sm text-slate-400 py-6 text-center">No recorded activity yet.</p>
             ) : (
               audits.slice(0, 6).map((item) => (
-                <div key={item.auditId} className="flex items-center gap-4 p-3 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-100 transition-colors">
-                  <div className="p-3 bg-blue-50 text-primary rounded-xl"><FileText className="w-5 h-5" /></div>
+                <div key={item.auditId} className="flex items-center gap-4 py-3 hover:bg-slate-50 transition-colors px-2 -mx-2 rounded-lg">
+                  <div className="p-2.5 bg-primary/10 text-primary rounded-xl"><FileText className="w-5 h-5" /></div>
                   <div className="flex-1 min-w-0">
                     <h4 className="font-bold text-sm text-slate-800 truncate">{item.action} · {item.screenName || item.module}</h4>
-                    <p className="text-xs text-slate-500 font-medium truncate">{item.module} • by {item.userName}</p>
+                    <p className="text-xs text-slate-500 font-medium truncate mt-0.5">{item.module} • by {item.userName}</p>
                   </div>
                   <div className="text-xs font-semibold text-slate-400 whitespace-nowrap">{relTime(item.timestamp)}</div>
                 </div>

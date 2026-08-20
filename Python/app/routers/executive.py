@@ -173,9 +173,9 @@ def audit_summary(db: Session = Depends(get_db)):
 def overview(db: Session = Depends(get_db)):
     """Hospital-wide snapshot.
 
-    Revenue covers only what the system actually bills today — pharmacy retail
-    sales and settled insurance claims. There is no Billing module, so total
-    hospital revenue, P&L and expenses are deliberately not reported.
+    Revenue covers what the system actually bills: OP/IP bills, pharmacy retail
+    sales and settled insurance claims. Expenses and P&L are still not reported
+    because nothing in the system records them.
     """
     try:
         r = db.execute(text("""
@@ -197,7 +197,27 @@ def overview(db: Session = Depends(get_db)):
               (SELECT COALESCE(SUM(Quantity * ValuationRate), 0)
                  FROM inventory.Inventory_Stock)                                       AS stockValue,
               (SELECT COUNT(*) FROM hospital.Lab_Order
-                 WHERE DATE(OrderedAt) = CURDATE())                                    AS labOrdersToday
+                 WHERE DATE(OrderedAt) = CURDATE())                                    AS labOrdersToday,
+              -- OP/IP billing. The Billing module exists now, so leaving it out
+              -- understated every "captured revenue" figure on the executive pages.
+              (SELECT COALESCE(SUM(NetAmount), 0) FROM hospital.OpBill
+                 WHERE YEAR(BillDate) = YEAR(CURDATE())
+                   AND MONTH(BillDate) = MONTH(CURDATE()))                             AS opBilledMonth,
+              (SELECT COALESCE(SUM(NetAmount), 0) FROM hospital.IpBill
+                 WHERE YEAR(BillDate) = YEAR(CURDATE())
+                   AND MONTH(BillDate) = MONTH(CURDATE()))                             AS ipBilledMonth,
+              (SELECT COALESCE(SUM(NetAmount), 0) FROM hospital.OpBill
+                 WHERE PaymentStatus = 'Paid' AND YEAR(BillDate) = YEAR(CURDATE())
+                   AND MONTH(BillDate) = MONTH(CURDATE()))                             AS opPaidMonth,
+              (SELECT COALESCE(SUM(NetAmount), 0) FROM hospital.IpBill
+                 WHERE PaymentStatus = 'Paid' AND YEAR(BillDate) = YEAR(CURDATE())
+                   AND MONTH(BillDate) = MONTH(CURDATE()))                             AS ipPaidMonth,
+              (SELECT COUNT(*) FROM hospital.OpBill
+                 WHERE YEAR(BillDate) = YEAR(CURDATE())
+                   AND MONTH(BillDate) = MONTH(CURDATE()))                             AS opBillsMonth,
+              (SELECT COUNT(*) FROM hospital.IpBill
+                 WHERE YEAR(BillDate) = YEAR(CURDATE())
+                   AND MONTH(BillDate) = MONTH(CURDATE()))                             AS ipBillsMonth
         """)).fetchone()
 
         # Alerts derived from live thresholds — the prototype hardcoded five.
@@ -258,6 +278,11 @@ def overview(db: Session = Depends(get_db)):
             "claimsInProcess": r.claimsInProcess,
             "stockValue": _f(r.stockValue),
             "labOrdersToday": r.labOrdersToday,
+            "opBilledMonth": _f(r.opBilledMonth),
+            "ipBilledMonth": _f(r.ipBilledMonth),
+            "hospitalBilledMonth": _f(r.opBilledMonth) + _f(r.ipBilledMonth),
+            "hospitalCollectedMonth": _f(r.opPaidMonth) + _f(r.ipPaidMonth),
+            "hospitalBillsMonth": (r.opBillsMonth or 0) + (r.ipBillsMonth or 0),
             "alerts": alerts[:8],
         }
     except Exception as e:
@@ -388,7 +413,9 @@ def predictive(db: Session = Depends(get_db)):
     an explicit "insufficient history" method rather than a fabricated number.
     """
     try:
-        # ── Pharmacy revenue by month (the only billed revenue we hold) ──
+        # ── Pharmacy revenue by month. OP/IP billing is reported separately
+        # on the overview; this series stays pharmacy-only so the chart that
+        # renders it keeps matching its label. ──
         rev = db.execute(text("""
             SELECT DATE_FORMAT(SaleDate, '%Y-%m') AS period,
                    COALESCE(SUM(NetAmount), 0)     AS value
