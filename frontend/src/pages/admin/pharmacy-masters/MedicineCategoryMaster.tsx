@@ -268,7 +268,6 @@ export const MedicineCategoryMaster = () => {
                     <th className="px-4 py-3 font-medium">Category Code</th>
                     <th className="px-4 py-3 font-medium">Category Name</th>
                     <th className="px-4 py-3 font-medium">Description</th>
-                    <th className="px-4 py-3 font-medium text-center">Status</th>
                     <th className="px-4 py-3 font-medium text-center">Action</th>
                   </tr>
                 </thead>
@@ -279,15 +278,6 @@ export const MedicineCategoryMaster = () => {
                         <td className="px-4 py-3 font-medium text-slate-800">{record.categoryCode}</td>
                         <td className="px-4 py-3">{record.categoryName}</td>
                         <td className="px-4 py-3 text-slate-600">{record.description}</td>
-                        <td className="px-4 py-3 text-center">
-                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                            record.status === 'Active' 
-                              ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' 
-                              : 'bg-red-50 text-red-600 border border-red-200'
-                          }`}>
-                            {record.status}
-                          </span>
-                        </td>
                         <td className="px-4 py-3 text-center">
                           <div className="flex items-center justify-center gap-2">
                             <button 
@@ -310,7 +300,7 @@ export const MedicineCategoryMaster = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+                      <td colSpan={4} className="px-4 py-8 text-center text-slate-500">
                         {isLoading ? 'Loading records...' : 'No category records found matching your criteria.'}
                       </td>
                     </tr>
@@ -373,23 +363,7 @@ export const MedicineCategoryMaster = () => {
                 </div>
               </section>
 
-              {/* System */}
-              <section>
-                <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">System Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Status <span className="text-red-500">*</span></label>
-                    <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
-                      <option value="Active">Active</option>
-                      <option value="Inactive">Inactive</option>
-                    </select>
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Remarks</label>
-                    <input type="text" value={formData.remarks} onChange={e => setFormData({...formData, remarks: e.target.value})} maxLength={250} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
-                  </div>
-                </div>
-              </section>
+
             </div>
 
             <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex justify-between items-center shrink-0">
