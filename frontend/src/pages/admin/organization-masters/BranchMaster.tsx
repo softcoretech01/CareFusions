@@ -476,7 +476,7 @@ export const BranchMaster = () => {
                       }}
                       className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.hospital ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
                     >
-                      <option value={0}>Select Hospital</option>
+                      <option value={0} disabled hidden>Select Hospital</option>
                       {hospitals.map(h => (
                         <option key={h.id} value={h.id}>{h.name}</option>
                       ))}
