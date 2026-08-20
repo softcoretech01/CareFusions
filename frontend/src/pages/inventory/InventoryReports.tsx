@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { DateFilter } from '../../components/ui/DateFilter';
 import { Pagination } from '../../components/ui/Pagination';
 import {
   IndianRupee, TrendingUp, CalendarClock, Activity, Download, X, FileBarChart, Lock,
@@ -20,6 +21,11 @@ export const InventoryReports = () => {
   const [storeId, setStoreId] = useState('');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
+  const [draftFrom, setDraftFrom] = useState('');
+  const [draftTo, setDraftTo] = useState('');
+
+  const applyDates = () => { setFromDate(draftFrom); setToDate(draftTo); };
+  const clearDates = () => { setDraftFrom(''); setDraftTo(''); setFromDate(''); setToDate(''); };
 
   const inRange = (iso?: string | null) => {
     if (!iso) return true;
@@ -183,13 +189,14 @@ export const InventoryReports = () => {
             <option value="">All Stores</option>
             {stores.map(s => <option key={s.storeId} value={s.storeId}>{s.storeName}</option>)}
           </select>
-          <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)}
-            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-600" />
-          <span className="text-slate-400 text-sm">to</span>
-          <input type="date" value={toDate} onChange={e => setToDate(e.target.value)}
-            className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-600" />
-          <button onClick={() => { setStoreId(''); setFromDate(''); setToDate(''); }}
-            className="px-4 py-1.5 bg-slate-100 text-slate-700 rounded-lg text-sm font-bold hover:bg-slate-200">Clear</button>
+          <DateFilter
+            dateFrom={draftFrom}
+            dateTo={draftTo}
+            onDateFromChange={setDraftFrom}
+            onDateToChange={setDraftTo}
+            onSearch={applyDates}
+            onReset={clearDates}
+          />
         </div>
       </div>
 
@@ -248,7 +255,7 @@ export const InventoryReports = () => {
               <div className="flex items-center gap-2">
                 <button onClick={() => exportToExcel(active.rows, `${open}_report`)}
                   disabled={active.rows.length === 0}
-                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm font-bold text-slate-700 flex items-center gap-1 disabled:opacity-40">
+                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm font-bold text-slate-700 flex items-center gap-1 disabled:opacity-40 ml-auto">
                   <Download className="w-4 h-4" /> Export
                 </button>
                 <button onClick={() => setOpen(null)} className="p-2 hover:bg-slate-200 rounded-full">

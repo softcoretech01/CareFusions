@@ -36,7 +36,7 @@ export const AdmissionDesk = () => {
     if (r.status !== 'Pending') return false;
     
     if (appliedDateFrom && appliedDateTo) {
-      const rDate = new Date(r.requestDate).toISOString().split('T')[0];
+      const rDate = r.requestDate.substring(0, 10);
       return rDate >= appliedDateFrom && rDate <= appliedDateTo;
     }
     return true;

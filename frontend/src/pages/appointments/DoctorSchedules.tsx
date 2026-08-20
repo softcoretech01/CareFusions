@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Search, Save, Calendar, Plus, Trash2, AlertTriangle } from 'lucide-react';
+import { useDepartments } from '../../hooks/useMasterOptions';
 import { Button } from '../../components/ui/Button';
 import { useDoctorSchedules } from '../../contexts/DoctorScheduleContext';
 import type { DoctorScheduleRecord } from '../../contexts/DoctorScheduleContext';
@@ -27,6 +28,7 @@ export const DoctorSchedules = () => {
     doctorSchedules, isLoading, apiError, clearError,
     updateDoctorSchedule, saveDoctorSchedule, getDoctorsForDept,
   } = useDoctorSchedules();
+  const { options: departments } = useDepartments();
 
   const [selectedDept, setSelectedDept] = useState('All Departments');
   const [searchTerm, setSearchTerm] = useState('');
@@ -93,9 +95,8 @@ export const DoctorSchedules = () => {
     }
   };
 
-  // Department options come from the real doctors (loaded from the backend),
-  // so actual departments like "test" appear and empty ones don't.
-  const deptOptions = ['All Departments', ...Array.from(new Set(doctorSchedules.map(d => d.dept).filter(Boolean))).sort()];
+  // Department options come from the backend master.
+  const deptOptions = ['All Departments', ...departments.map(d => d.departmentName).sort()];
 
   const filteredDoctors = getDoctorsForDept(selectedDept).filter(doc =>
     doc.name.toLowerCase().includes(searchTerm.toLowerCase())

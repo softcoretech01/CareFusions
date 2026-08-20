@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import { Pagination } from '../../components/ui/Pagination';
 import { PageHeader } from '../../components/inventory/PageHeader';
+import { DateFilter } from '@/components/ui/DateFilter';
 import { AutoStatusBadge } from '../../components/inventory/StatusBadge';
 import { Plus, Search, X, Trash2, FileText, AlertCircle, PackageCheck, Eye, Pencil, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -409,12 +410,14 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
         title={pres.title}
         right={
           <div className="flex flex-wrap items-center gap-2 text-sm">
-            <span className="text-slate-500">From :</span>
-            <input type="date" value={draftFrom} onChange={e => setDraftFrom(e.target.value)} className={dateInput} />
-            <span className="text-slate-500">to :</span>
-            <input type="date" value={draftTo} onChange={e => setDraftTo(e.target.value)} className={dateInput} />
-            <button onClick={applyDates} className="h-10 px-4 bg-primary hover:bg-primary-hover text-white rounded-lg text-sm font-bold">Search</button>
-            <button onClick={clearDates} className="h-10 px-4 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-sm font-bold">Cancel</button>
+            <DateFilter
+              dateFrom={draftFrom}
+              dateTo={draftTo}
+              onDateFromChange={setDraftFrom}
+              onDateToChange={setDraftTo}
+              onSearch={applyDates}
+              onReset={clearDates}
+            />
             <button onClick={openForm}
               className="h-10 px-4 bg-primary hover:bg-primary-hover text-white rounded-lg text-sm font-bold flex items-center gap-2 shadow-sm">
               <Plus className="w-4 h-4" /> {pres.newLabel}
@@ -432,7 +435,7 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
       )}
 
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-3 flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[240px]">
+        <div className="relative flex-1 min-w-[240px] max-w-sm">
           <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text" value={search} onChange={e => setSearch(e.target.value)}
@@ -446,7 +449,7 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
           {stores.map(s => <option key={s.storeId} value={s.storeId}>{s.storeName}</option>)}
         </select>
         <button onClick={exportDocs}
-          className="h-11 px-4 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 flex items-center gap-2">
+          className="h-11 px-4 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 flex items-center gap-2 ml-auto">
           <Download className="w-4 h-4" /> Export
         </button>
       </div>

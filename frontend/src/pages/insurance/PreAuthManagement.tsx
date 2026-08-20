@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { DateFilter } from '@/components/ui/DateFilter';
 import { Pagination } from '@/components/ui/Pagination';
 import { usePagination } from '@/hooks/usePagination';
 import { Plus, Search, FileText, CheckCircle, Clock, Ban, X, Edit, Trash2, Shield, AlertCircle, UploadCloud } from 'lucide-react';
@@ -163,7 +164,6 @@ export const PreAuthManagement = () => {
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3">
         <div>
           <h1 className="text-xl font-bold text-slate-800">Pre-Authorizations</h1>
-          <p className="text-xs text-slate-500">Request insurer sanction before planned treatment</p>
         </div>
         <button
           onClick={() => { resetForm(); setShowNewModal(true); }}
@@ -173,7 +173,7 @@ export const PreAuthManagement = () => {
         </button>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-3 flex flex-wrap items-center gap-2">
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-3 flex flex-wrap items-center justify-between gap-4">
         <div className="relative flex-1 min-w-[220px] max-w-md">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
@@ -182,17 +182,18 @@ export const PreAuthManagement = () => {
             className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
           />
         </div>
-        <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)}
-          className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600" />
-        <span className="text-slate-400 text-sm">to</span>
-        <input type="date" value={toDate} onChange={e => setToDate(e.target.value)}
-          className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600" />
-        <button
-          onClick={() => { setSearch(''); setFromDate(''); setToDate(''); setActiveTab('All'); }}
-          className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-200 transition-colors"
-        >
-          Clear
-        </button>
+        <DateFilter
+          dateFrom={fromDate}
+          dateTo={toDate}
+          onDateFromChange={setFromDate}
+          onDateToChange={setToDate}
+          onReset={() => {
+            setSearch('');
+            setFromDate('');
+            setToDate('');
+            setActiveTab('All');
+          }}
+        />
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -311,14 +312,14 @@ export const PreAuthManagement = () => {
             <form onSubmit={handleSubmit} className="p-5 space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">UHID *</label>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">UHID <span className="text-red-500">*</span></label>
                   <input type="text" value={form.uhid}
                     onChange={e => setForm({ ...form, uhid: e.target.value })}
                     className={inputCls('uhid')} placeholder="e.g. UHID-2023-..." />
                   {errors.uhid && <p className="text-[11px] text-red-500 mt-1">{errors.uhid}</p>}
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Patient Name *</label>
+                  <label className="block text-sm font-semibold text-slate-700 mb-1.5">Patient Name <span className="text-red-500">*</span></label>
                   <input type="text" value={form.patient}
                     onChange={e => setForm({ ...form, patient: e.target.value.replace(/[^A-Za-z\s.'-]/g, '') })}
                     className={inputCls('patient')} placeholder="Enter or auto-fetch name" />
@@ -352,7 +353,7 @@ export const PreAuthManagement = () => {
               )}
 
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Insurance Provider *</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Insurance Provider <span className="text-red-500">*</span></label>
                 <select value={form.providerId}
                   onChange={e => setForm({ ...form, providerId: e.target.value })}
                   className={inputCls('providerId')}>
@@ -370,7 +371,7 @@ export const PreAuthManagement = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Estimated Cost (₹) *</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Estimated Cost (₹) <span className="text-red-500">*</span></label>
                 <input type="text" inputMode="numeric" value={form.amount}
                   onChange={e => setForm({ ...form, amount: e.target.value.replace(/\D/g, '') })}
                   className={inputCls('amount')} placeholder="Enter amount" />
@@ -378,7 +379,7 @@ export const PreAuthManagement = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Provisional Diagnosis *</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Provisional Diagnosis <span className="text-red-500">*</span></label>
                 <textarea value={form.diagnosis} rows={2}
                   onChange={e => setForm({ ...form, diagnosis: e.target.value })}
                   className={inputCls('diagnosis')} placeholder="Clinical indication for the planned treatment" />

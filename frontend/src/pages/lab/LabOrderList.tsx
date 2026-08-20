@@ -91,6 +91,16 @@ export const LabOrderList = () => {
   useEffect(() => { refresh(); }, [refresh]);
 
   const [activeOrder, setActiveOrder] = useState<InvestigationOrder | null>(null);
+
+  // The modal renders from this snapshot, so re-sync it whenever the shared
+  // orders refresh. Without this the dialog keeps showing pre-save values and
+  // the critical highlight never appears, even though the server flagged it.
+  useEffect(() => {
+    if (!activeOrder) return;
+    const fresh = orders.find(o => o.id === activeOrder.id);
+    if (fresh && fresh !== activeOrder) setActiveOrder(fresh);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orders]);
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [searchQuery, setSearchQuery] = useState('');

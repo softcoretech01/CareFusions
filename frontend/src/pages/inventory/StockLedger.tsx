@@ -1,9 +1,9 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Pagination } from '../../components/ui/Pagination';
 import { PageHeader } from '../../components/inventory/PageHeader';
+import { DateFilter } from '@/components/ui/DateFilter';
 import { StatusBadge } from '../../components/inventory/StatusBadge';
-import { Search, Download, ScrollText, Eye } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { Search, Download, ScrollText, Eye, X } from 'lucide-react';
 import { useInventory } from '../../contexts/InventoryContext';
 import { exportToExcel } from '../../utils/exportToExcel';
 import { inr } from '../../utils/inr';
@@ -31,6 +31,7 @@ interface LedgerGroup {
 
 export const StockLedger = () => {
   const { ledger, stock, stores, loading } = useInventory();
+  const [entry, setEntry] = useState<LedgerGroup | null>(null);
   const [search, setSearch] = useState('');
   const [storeId, setStoreId] = useState('');
   const [inout, setInout] = useState<'in' | 'out'>('in');
@@ -108,14 +109,14 @@ export const StockLedger = () => {
         crumb="Stock Ledger"
         title="Stock Ledger"
         right={
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-slate-500">From :</span>
-            <input type="date" value={draftFrom} onChange={e => setDraftFrom(e.target.value)} className={dateInput} />
-            <span className="text-slate-500">to :</span>
-            <input type="date" value={draftTo} onChange={e => setDraftTo(e.target.value)} className={dateInput} />
-            <button onClick={applyDates} className="h-10 px-4 bg-primary hover:bg-primary-hover text-white rounded-lg text-sm font-bold">Search</button>
-            <button onClick={clearDates} className="h-10 px-4 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-sm font-bold">Cancel</button>
-          </div>
+          <DateFilter
+            dateFrom={draftFrom}
+            dateTo={draftTo}
+            onDateFromChange={setDraftFrom}
+            onDateToChange={setDraftTo}
+            onSearch={applyDates}
+            onReset={clearDates}
+          />
         }
       />
 
@@ -133,7 +134,7 @@ export const StockLedger = () => {
 
       {/* Filter bar */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-3 flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[220px]">
+        <div className="relative flex-1 min-w-[220px] max-w-sm">
           <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input type="text" value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Search by ID, Item, or Reference..."
@@ -156,7 +157,7 @@ export const StockLedger = () => {
             Items: g.items, Store: g.storeName, Qty: g.qty, 'Stock Value': g.value,
             'Balance Qty': g.balanceQty, 'Cumulative Value': g.cumulativeValue,
           })), 'stock_ledger')}
-          className="h-11 px-4 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 flex items-center gap-2">
+          className="h-11 px-4 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 flex items-center gap-2 ml-auto">
           <Download className="w-4 h-4" /> Export Ledger
         </button>
       </div>
@@ -202,7 +203,8 @@ export const StockLedger = () => {
                   <td className="px-4 py-3 text-right font-semibold text-slate-800">{g.balanceQty}</td>
                   <td className="px-4 py-3 text-right font-bold text-slate-800">{inr(g.cumulativeValue)}</td>
                   <td className="px-4 py-3 text-right">
-                    <button onClick={() => toast('Ledger entry details coming soon')}
+                    <button onClick={() => setEntry(g)}
+                      title="View ledger entry"
                       className="p-1.5 rounded-lg text-slate-400 hover:text-primary hover:bg-slate-100" aria-label="View entry">
                       <Eye className="w-4 h-4" />
                     </button>
@@ -224,6 +226,124 @@ export const StockLedger = () => {
         </div>
         <Pagination page={page} pageSize={PAGE_SIZE} totalItems={totalRows} onPageChange={setPage} />
       </div>
+
+      {entry && (() => {
+        // A row is one document; these are the individual ledger lines behind
+        // it, keyed exactly the way the grouping above keys them.
+        const lines = ledger.filter(
+          r => String(r.docId ?? r.docNumber ?? r.ledgerId) === entry.key,
+        );
+        const isIn = entry.direction === 'in';
+
+        const Field = ({ label, value, tone }: { label: string; value: React.ReactNode; tone?: string }) => (
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{label}</p>
+            <p className={`text-sm font-semibold mt-0.5 ${tone ?? 'text-slate-800'}`}>{value}</p>
+          </div>
+        );
+
+        return (
+          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+               onClick={() => setEntry(null)}>
+            <div onClick={e => e.stopPropagation()}
+                 className="bg-white rounded-2xl shadow-xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[88vh]">
+
+              <div className="flex items-start justify-between px-6 py-4 border-b border-slate-100">
+                <div className="min-w-0">
+                  <h3 className="font-bold text-lg text-slate-800 truncate">{entry.docNumber}</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {entry.subRef} · {localDay(new Date(entry.date))} · {entry.storeName}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${isIn ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-600'}`}>
+                    {isIn ? 'STOCK IN' : 'STOCK OUT'}
+                  </span>
+                  <button onClick={() => setEntry(null)} title="Close"
+                          className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
+                    <X className="w-5 h-5 text-slate-400" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="px-6 py-5 overflow-y-auto space-y-6">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-5">
+                  <Field label="Items" value={entry.items} />
+                  <Field label="Total Qty" value={`${entry.qty > 0 ? '+' : ''}${entry.qty}`}
+                         tone={isIn ? 'text-emerald-600' : 'text-rose-600'} />
+                  <Field label="Value" value={`${entry.value >= 0 ? '+' : ''}${inr(entry.value)}`}
+                         tone={isIn ? 'text-emerald-600' : 'text-rose-600'} />
+                  <Field label="Balance Qty" value={entry.balanceQty} />
+                  <Field label="Cumulative Value" value={inr(entry.cumulativeValue)} />
+                </div>
+
+                <div>
+                  <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+                    Lines in this document
+                  </h4>
+                  {lines.length === 0 ? (
+                    <p className="text-sm text-slate-400 py-6 text-center border border-slate-100 rounded-xl">
+                      No ledger lines found for this document.
+                    </p>
+                  ) : (
+                    <div className="border border-slate-100 rounded-xl overflow-hidden">
+                      <table className="w-full text-left">
+                        <thead className="bg-slate-50 text-slate-500 text-[11px] uppercase tracking-wider font-semibold">
+                          <tr>
+                            <th className="px-4 py-2.5">Item</th>
+                            <th className="px-4 py-2.5">Batch</th>
+                            <th className="px-4 py-2.5">Store</th>
+                            <th className="px-4 py-2.5">Type</th>
+                            <th className="px-4 py-2.5 text-right">Qty</th>
+                            <th className="px-4 py-2.5 text-right">Rate</th>
+                            <th className="px-4 py-2.5 text-right">Value</th>
+                            <th className="px-4 py-2.5 text-right">Balance</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {lines.map(l => (
+                            <tr key={l.ledgerId} className="hover:bg-slate-50/70">
+                              <td className="px-4 py-2.5 text-sm font-medium text-slate-800">{l.itemName}</td>
+                              <td className="px-4 py-2.5 text-xs font-mono text-slate-500">{l.batchNo || '—'}</td>
+                              <td className="px-4 py-2.5 text-sm text-slate-600">{l.storeName}</td>
+                              <td className="px-4 py-2.5 text-sm text-slate-600">{l.movementType}</td>
+                              <td className={`px-4 py-2.5 text-sm text-right font-semibold tabular-nums ${l.quantity < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                                {l.quantity > 0 ? '+' : ''}{l.quantity}
+                              </td>
+                              <td className="px-4 py-2.5 text-sm text-right text-slate-600 tabular-nums">{inr(l.rate)}</td>
+                              <td className="px-4 py-2.5 text-sm text-right text-slate-700 tabular-nums">{inr(l.value)}</td>
+                              <td className="px-4 py-2.5 text-sm text-right text-slate-600 tabular-nums">{l.balanceQty}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                {lines.some(l => l.remarks) && (
+                  <div>
+                    <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">Remarks</h4>
+                    <p className="text-sm text-slate-600 border-l-2 border-slate-200 pl-4">
+                      {lines.map(l => l.remarks).filter(Boolean).join(' / ')}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/60 flex items-center justify-between">
+                <span className="text-xs text-slate-400">
+                  Posted by {lines[0]?.user || 'unknown'}
+                </span>
+                <button onClick={() => setEntry(null)}
+                        className="px-5 py-2 border border-slate-200 bg-white text-slate-700 font-bold text-sm rounded-xl hover:bg-slate-100 transition-colors">
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

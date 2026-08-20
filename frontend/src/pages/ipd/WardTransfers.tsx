@@ -42,7 +42,6 @@ export const WardTransfers = () => {
   const [dateTo, setDateTo] = useState(today);
   const [appliedDateFrom, setAppliedDateFrom] = useState(today);
   const [appliedDateTo, setAppliedDateTo] = useState(today);
-  const [appliedSearch, setAppliedSearch] = useState('');
 
   // New Transfer Modal
   const [showModal, setShowModal] = useState(false);
@@ -90,27 +89,25 @@ export const WardTransfers = () => {
 
   // Filter global history based on search
   const filteredTransfers = allTransfers.filter(t => {
-    const matchesSearch = t.patientName.toLowerCase().includes(appliedSearch.toLowerCase()) ||
-      t.uhid.toLowerCase().includes(appliedSearch.toLowerCase());
+    const matchesSearch = t.patientName.toLowerCase().includes(search.toLowerCase()) ||
+      t.uhid.toLowerCase().includes(search.toLowerCase());
     let matchesDate = true;
     if (appliedDateFrom && appliedDateTo) {
-      const tDate = new Date(t.transferDate).toISOString().split('T')[0];
+      const tDate = t.transferDate.substring(0, 10);
       matchesDate = tDate >= appliedDateFrom && tDate <= appliedDateTo;
     }
     return matchesSearch && matchesDate;
   });
 
   const handleSearch = () => {
-    setAppliedSearch(search);
     setAppliedDateFrom(dateFrom);
     setAppliedDateTo(dateTo);
   };
 
   const handleReset = () => {
-    setSearch('');
     setDateFrom('');
     setDateTo('');
-    setAppliedSearch('');
+    setSearch('');
     setAppliedDateFrom('');
     setAppliedDateTo('');
   };

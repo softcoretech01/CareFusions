@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAppointments } from '../../contexts/AppointmentContext';
 import type { AppointmentRecord } from '../../contexts/AppointmentContext';
 import { useOPDVisits } from '../../contexts/OPDVisitContext';
+import { useDepartments } from '../../hooks/useMasterOptions';
 import {
   Clock, UserCheck, Stethoscope, CheckCircle, AlertTriangle,
   Hash, Building2, User, CalendarDays,
@@ -33,6 +34,7 @@ const PRIORITY_META: Record<string, { label: string; badge: string }> = {
 export const QueueManagement = () => {
   const { updateAppointmentStatus, queryAppointments, apiError, clearError } = useAppointments();
   const { visits, addVisit, updateVisitStatus: updateOPDVisitStatus } = useOPDVisits();
+  const { options: departmentOptions } = useDepartments();
   const [selectedDept, setSelectedDept] = useState(DEPT_ALL);
   const [confirmAction, setConfirmAction] = useState<{ id: number; action: string } | null>(null);
 
@@ -59,8 +61,8 @@ export const QueueManagement = () => {
     setTimeout(reload, 500);
   };
 
-  // Unique departments from ranged appointments
-  const departments = [DEPT_ALL, ...Array.from(new Set(rangeAll.map(a => a.department))).sort()];
+  // Unique departments from the master list
+  const departments = [DEPT_ALL, ...departmentOptions.map(d => d.departmentName).sort()];
 
   // Filtered by department
   const todaysFiltered = selectedDept === DEPT_ALL
@@ -318,8 +320,8 @@ export const QueueManagement = () => {
             onReset={handleReset}
           />
           {/* Department filter */}
-          <div className="flex items-center gap-2 bg-white p-1 rounded-xl border border-slate-200 shadow-sm flex-wrap">
-          {departments.map(dept => (
+          <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200 shadow-sm flex-nowrap">
+          {departments.slice(0, 6).map(dept => (
             <button
               key={dept}
               onClick={() => setSelectedDept(dept)}
@@ -332,6 +334,24 @@ export const QueueManagement = () => {
               {dept}
             </button>
           ))}
+          {departments.length > 6 && (
+            <select
+              value={departments.slice(6).includes(selectedDept) ? selectedDept : ""}
+              onChange={(e) => {
+                if (e.target.value) setSelectedDept(e.target.value);
+              }}
+              className={`px-3 py-2 rounded-lg text-xs font-bold transition-all outline-none border-none cursor-pointer appearance-none text-center ${
+                departments.slice(6).includes(selectedDept)
+                  ? 'bg-primary text-white shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50 bg-transparent'
+              }`}
+            >
+              <option value="" disabled hidden>+{departments.length - 6} More</option>
+              {departments.slice(6).map(dept => (
+                <option key={dept} value={dept} className="text-slate-700 bg-white">{dept}</option>
+              ))}
+            </select>
+          )}
           </div>
         </div>
       </div>

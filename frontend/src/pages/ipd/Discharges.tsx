@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { useIPD } from '../../contexts/IPDContext';
-import { Search, CheckCircle, Eye, Printer, AlertCircle, FileText, Edit, X } from 'lucide-react';
+import { Search, CheckCircle, Eye, Printer, AlertCircle, Edit, X } from 'lucide-react';
 import { IpdErrorBanner } from './IpdErrorBanner';
 import { DischargePrintTemplate } from '../../components/discharge/DischargePrintTemplate';
 import { DischargePrescription, type DischargeItem } from '../../components/discharge/DischargePrescription';
@@ -36,7 +36,6 @@ export const Discharges = () => {
   const today = new Date().toISOString().split('T')[0];
   const [dateFrom, setDateFrom] = useState(today);
   const [dateTo, setDateTo] = useState(today);
-  const [appliedSearch, setAppliedSearch] = useState('');
   const [appliedDateFrom, setAppliedDateFrom] = useState(today);
   const [appliedDateTo, setAppliedDateTo] = useState(today);
 
@@ -56,16 +55,14 @@ export const Discharges = () => {
   };
 
   const handleSearch = () => {
-    setAppliedSearch(search);
     setAppliedDateFrom(dateFrom);
     setAppliedDateTo(dateTo);
   };
 
   const handleReset = () => {
-    setSearch('');
     setDateFrom('');
     setDateTo('');
-    setAppliedSearch('');
+    setSearch('');
     setAppliedDateFrom('');
     setAppliedDateTo('');
   };
@@ -73,20 +70,15 @@ export const Discharges = () => {
   const dischargePatients = patients.filter(p => p.status === 'Discharge Requested' || p.status === 'Discharged');
 
   const filteredPatients = dischargePatients.filter(p => {
-    const matchesSearch = p.patientName.toLowerCase().includes(appliedSearch.toLowerCase()) ||
-      p.uhid.toLowerCase().includes(appliedSearch.toLowerCase());
+    const matchesSearch = p.patientName.toLowerCase().includes(search.toLowerCase()) ||
+      p.uhid.toLowerCase().includes(search.toLowerCase());
 
     let matchesDate = true;
     if (appliedDateFrom && appliedDateTo) {
-      if (p.status === 'Discharge Requested') {
-        // Pending requests should always be visible so they aren't missed
-        matchesDate = true;
-      } else {
-        const pDate = p.dischargeInfo?.dischargeDate
-          ? new Date(p.dischargeInfo.dischargeDate).toISOString().split('T')[0]
-          : new Date(p.admissionDate).toISOString().split('T')[0];
-        matchesDate = pDate >= appliedDateFrom && pDate <= appliedDateTo;
-      }
+      const pDate = p.dischargeInfo?.dischargeDate
+        ? p.dischargeInfo.dischargeDate.substring(0, 10)
+        : p.admissionDate.substring(0, 10);
+      matchesDate = pDate >= appliedDateFrom && pDate <= appliedDateTo;
     }
 
     return matchesSearch && matchesDate;
@@ -206,7 +198,7 @@ export const Discharges = () => {
               <tr>
                 <th className="px-4 py-3 text-left">Patient Details</th>
                 <th className="px-4 py-3 text-left">Ward & Bed</th>
-                <th className="px-4 py-3 text-left">Admission Date</th>
+                <th className="px-4 py-3 text-left">Dates</th>
                 <th className="px-4 py-3 text-left">Billing Status</th>
                 <th className="px-4 py-3 text-left">Status</th>
                 <th className="px-4 py-3 text-center">Action</th>
@@ -237,7 +229,10 @@ export const Discharges = () => {
                         <div className="text-xs text-slate-500">{ward?.name || 'N/A'} • Room no {bed?.roomNumber || 'N/A'}</div>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="text-sm font-medium text-slate-700">{admitDate.toLocaleDateString()}</div>
+                        <div className="text-sm font-medium text-slate-700" title="Admission Date">Admit: {admitDate.toLocaleDateString()}</div>
+                        {patient.dischargeInfo?.dischargeDate && (
+                          <div className="text-xs text-slate-500 mt-0.5" title="Discharge Date">Disc: {new Date(patient.dischargeInfo.dischargeDate).toLocaleDateString()}</div>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         {(() => {
@@ -296,15 +291,6 @@ export const Discharges = () => {
                             <Edit className="w-4 h-4" />
                           </button>
                           
-                          {getBillingStatus(patient.uhid) !== 'Cleared' && (
-                            <button
-                              onClick={() => navigate('/billing/ip', { state: { autoLoadUhid: patient.uhid } })}
-                              className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                              title="Generate Bill"
-                            >
-                              <FileText className="w-4 h-4" />
-                            </button>
-                          )}
 
                           <button
                             onClick={() => {
