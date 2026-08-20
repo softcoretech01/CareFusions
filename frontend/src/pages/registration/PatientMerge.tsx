@@ -109,17 +109,8 @@ export const PatientMerge = () => {
   const handleMerge = async () => {
     if (primaryPatient && secondaryPatient) {
       try {
-        // Construct the full update payload using the secondary patient's original data
-        const updatePayload = {
-          ...secondaryPatient._originalData,
-          Status: 'Inactive',
-          Remarks: `Merged into ${primaryPatient.uhid}`
-        };
-
         const res = await fetch(`${API_BASE}/${secondaryPatient.source}/${secondaryPatient.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updatePayload)
+          method: 'DELETE'
         });
 
         if (res.ok) {
@@ -154,7 +145,7 @@ export const PatientMerge = () => {
       {mergeSuccess && (
         <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center gap-3 text-emerald-800">
           <CheckCircle2 className="w-6 h-6 text-emerald-600" />
-          <div className="font-medium">Patients successfully merged! The secondary UHID has been deactivated.</div>
+          <div className="font-medium">Patients successfully merged! The secondary UHID has been deleted.</div>
         </div>
       )}
 
@@ -226,7 +217,7 @@ export const PatientMerge = () => {
             </div>
             <div>
               <h3 className="text-xl font-bold text-slate-800">Secondary Record</h3>
-              <p className="text-sm text-slate-500">This UHID will be merged and deactivated.</p>
+              <p className="text-sm text-slate-500">This UHID will be merged and deleted.</p>
             </div>
           </div>
           
@@ -320,7 +311,7 @@ export const PatientMerge = () => {
               </div>
               
               <p className="text-sm text-slate-500 bg-slate-50 p-4 rounded-xl border border-slate-100">
-                All clinical history, documents, and bills belonging to the secondary record will be reassigned to the primary record. The secondary UHID will be marked as <strong>Inactive</strong>.
+                All clinical history, documents, and bills belonging to the secondary record will be reassigned to the primary record. The secondary UHID will be <strong>Deleted</strong>.
               </p>
             </div>
 

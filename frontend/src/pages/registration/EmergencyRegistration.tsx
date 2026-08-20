@@ -204,7 +204,6 @@ export const EmergencyRegistration = () => {
                     <th className="px-4 py-3 font-medium">Gender/Age</th>
                     <th className="px-4 py-3 font-medium">Arrival Time</th>
                     <th className="px-4 py-3 font-medium">Emergency Contact</th>
-                    <th className="px-4 py-3 font-medium text-center">Status</th>
                     <th className="px-4 py-3 font-medium text-center">Action</th>
                   </tr>
                 </thead>
@@ -220,14 +219,6 @@ export const EmergencyRegistration = () => {
                           {record.emergencyContactName ? (
                             <span>{record.emergencyContactName} ({record.emergencyContactPhone})</span>
                           ) : <span className="text-slate-400 italic">None Provided</span>}
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${record.status === 'Active'
-                              ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
-                              : 'bg-red-50 text-red-600 border border-red-200'
-                            }`}>
-                            {record.status}
-                          </span>
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-center gap-2">
@@ -245,7 +236,7 @@ export const EmergencyRegistration = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
+                      <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
                         <div className="flex flex-col items-center justify-center gap-2">
                           <ShieldAlert className="w-8 h-8 text-slate-400" />
                           <p>No emergency records found</p>
