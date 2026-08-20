@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { IndianRupee, TrendingUp, FileText, CreditCard, CheckCircle, Clock } from 'lucide-react';
+import { IndianRupee, TrendingUp, FileText, CreditCard, CheckCircle, Clock, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import Chart from 'react-apexcharts';
 import { DateFilter } from '../../components/ui/DateFilter';
 import axios from 'axios';
@@ -10,6 +10,12 @@ export const BillingDashboard = () => {
   const [bills, setBills] = useState<any[]>([]);
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
+  const [activeView, setActiveView] = useState<'NONE' | 'TOTAL' | 'OP' | 'IP' | 'PAID' | 'PENDING'>('NONE');
+  const [currentPage, setCurrentPage] = useState(1);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeView, fromDate, toDate]);
 
   useEffect(() => {
     fetchBills();
@@ -156,14 +162,24 @@ export const BillingDashboard = () => {
   const donutSeries = [paidBills || 0, unpaidBills || 0, 0];
 
   const stats = [
-    { label: 'Total Bills', value: totalBills, icon: FileText, color: 'bg-blue-100 text-blue-600', sub: isFiltered ? 'Filtered' : 'All time' },
-    { label: 'OP Bills', value: opBills, icon: CreditCard, color: 'bg-purple-100 text-purple-600', sub: 'Outpatient' },
-    { label: 'IP Bills', value: ipBills, icon: TrendingUp, color: 'bg-amber-100 text-amber-600', sub: 'Inpatient' },
-    { label: 'Paid', value: paidBills, icon: CheckCircle, color: 'bg-green-100 text-green-600', sub: 'Cleared bills' },
-    { label: 'Pending', value: unpaidBills, icon: Clock, color: 'bg-red-100 text-red-600', sub: 'Awaiting' },
-    { label: 'Today Revenue', value: `₹${todaysRevenue.toLocaleString()}`, icon: IndianRupee, color: 'bg-emerald-100 text-emerald-600', sub: 'Collections today' },
-    { label: 'Monthly Revenue', value: `₹${thisMonthRevenue.toLocaleString()}`, icon: IndianRupee, color: 'bg-emerald-100 text-emerald-600', sub: 'This month' },
+    { id: 'TOTAL', label: 'Total Bills', value: totalBills, icon: FileText, color: 'bg-blue-100 text-blue-600', sub: isFiltered ? 'Filtered' : 'All time' },
+    { id: 'OP', label: 'OP Bills', value: opBills, icon: CreditCard, color: 'bg-purple-100 text-purple-600', sub: 'Outpatient' },
+    { id: 'IP', label: 'IP Bills', value: ipBills, icon: TrendingUp, color: 'bg-amber-100 text-amber-600', sub: 'Inpatient' },
+    { id: 'PAID', label: 'Paid', value: paidBills, icon: CheckCircle, color: 'bg-green-100 text-green-600', sub: 'Cleared bills' },
+    { id: 'PENDING', label: 'Pending', value: unpaidBills, icon: Clock, color: 'bg-red-100 text-red-600', sub: 'Awaiting' },
+    { id: 'NONE', label: 'Today Revenue', value: `₹${todaysRevenue.toLocaleString()}`, icon: IndianRupee, color: 'bg-emerald-100 text-emerald-600', sub: 'Collections today' },
+    { id: 'NONE', label: 'Monthly Revenue', value: `₹${thisMonthRevenue.toLocaleString()}`, icon: IndianRupee, color: 'bg-emerald-100 text-emerald-600', sub: 'This month' },
   ];
+
+  let currentItems = filteredBills;
+  if (activeView === 'OP') currentItems = filteredBills.filter(b => b.Type === 'OP');
+  else if (activeView === 'IP') currentItems = filteredBills.filter(b => b.Type === 'IP');
+  else if (activeView === 'PAID') currentItems = filteredBills.filter(b => b.PaymentStatus === 'Paid');
+  else if (activeView === 'PENDING') currentItems = filteredBills.filter(b => b.PaymentStatus !== 'Paid');
+
+  const itemsPerPage = 5;
+  const totalPages = Math.ceil(currentItems.length / itemsPerPage);
+  const paginatedItems = currentItems.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
     <div className="space-y-6">
@@ -193,7 +209,13 @@ export const BillingDashboard = () => {
       {/* Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-4">
         {stats.map((stat) => (
-          <div key={stat.label} className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+          <div 
+            key={stat.label} 
+            onClick={() => stat.id !== 'NONE' ? setActiveView(stat.id as any) : undefined}
+            className={`bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm transition-all duration-200
+              ${stat.id !== 'NONE' ? 'cursor-pointer hover:shadow-md hover:border-blue-300' : ''}
+              ${activeView === stat.id && stat.id !== 'NONE' ? 'ring-2 ring-blue-500 border-blue-500 bg-blue-50/30' : ''}`}
+          >
             <div className={`w-8 h-8 ${stat.color} rounded-lg flex items-center justify-center mb-2`}>
               <stat.icon className="w-4 h-4" />
             </div>
@@ -223,7 +245,100 @@ export const BillingDashboard = () => {
         </div>
       </div>
 
+      {/* Detailed Drill-Down Table */}
+      {activeView !== 'NONE' && (
+        <div className="bg-white rounded-3xl shadow-sm border border-slate-100 flex flex-col overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div>
+              <h3 className="text-lg font-bold text-slate-800">
+                {activeView === 'TOTAL' ? 'Total Bills Details' :
+                 activeView === 'OP' ? 'OP Bills Details' :
+                 activeView === 'IP' ? 'IP Bills Details' :
+                 activeView === 'PAID' ? 'Paid Bills Details' : 'Pending Bills Details'}
+              </h3>
+            </div>
+            <button onClick={() => setActiveView('NONE')} className="p-2 hover:bg-slate-200 rounded-xl transition-colors">
+              <X className="w-5 h-5 text-slate-500" />
+            </button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200 text-xs uppercase tracking-wider">
+                <tr>
+                  <th className="px-6 py-3">Date</th>
+                  <th className="px-6 py-3">Bill ID</th>
+                  <th className="px-6 py-3">Type</th>
+                  <th className="px-6 py-3">Patient</th>
+                  <th className="px-6 py-3">Amount</th>
+                  <th className="px-6 py-3">Status</th>
+                  <th className="px-6 py-3">Mode</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {paginatedItems.map(bill => {
+                  const isIP = bill.Type === 'IP';
+                  const isPaid = bill.PaymentStatus === 'Paid';
+                  return (
+                    <tr key={bill.BillNumber} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-6 py-3 text-slate-500">{new Date(bill.Date).toISOString().split('T')[0]}</td>
+                      <td className="px-6 py-3 font-mono font-medium text-slate-900">{bill.BillNumber}</td>
+                      <td className="px-6 py-3">
+                        <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${isIP ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                          {bill.Type}
+                        </span>
+                      </td>
+                      <td className="px-6 py-3 text-slate-700">{bill.PatientName}</td>
+                      <td className="px-6 py-3 font-bold text-slate-800">₹{bill.NetAmount.toLocaleString()}</td>
+                      <td className="px-6 py-3">
+                        <span className={`px-2 py-0.5 text-xs font-bold rounded-md ${isPaid ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                          {bill.PaymentStatus}
+                        </span>
+                      </td>
+                      <td className="px-6 py-3 text-slate-500">{bill.PaymentMode}</td>
+                    </tr>
+                  );
+                })}
+                {currentItems.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-12 text-center text-slate-400">
+                      No {activeView === 'IP' ? 'IP' : activeView === 'OP' ? 'OP' : activeView === 'PAID' ? 'Paid' : activeView === 'PENDING' ? 'Pending' : ''} bills found for the selected date range.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          {totalPages > 1 && (
+            <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <span className="text-sm text-slate-500">
+                Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, currentItems.length)} of {currentItems.length} records
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="text-sm font-medium text-slate-700">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Recent Bills Table */}
+      {activeView === 'NONE' && (
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="px-6 py-5 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
           <h3 className="text-base font-bold text-slate-800">
@@ -233,6 +348,7 @@ export const BillingDashboard = () => {
         <table className="w-full text-sm text-left">
           <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200 text-xs uppercase tracking-wider">
             <tr>
+              <th className="px-6 py-3">Date</th>
               <th className="px-6 py-3">Bill ID</th>
               <th className="px-6 py-3">Type</th>
               <th className="px-6 py-3">Patient</th>
@@ -242,11 +358,12 @@ export const BillingDashboard = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {filteredBills.slice(0, 10).map(bill => {
+            {paginatedItems.map(bill => {
               const isIP = bill.Type === 'IP';
               const isPaid = bill.PaymentStatus === 'Paid';
               return (
                 <tr key={bill.BillNumber} className="hover:bg-slate-50 transition-colors">
+                  <td className="px-6 py-3 text-slate-500">{new Date(bill.Date).toISOString().split('T')[0]}</td>
                   <td className="px-6 py-3 font-mono font-medium text-slate-900">{bill.BillNumber}</td>
                   <td className="px-6 py-3">
                     <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${isIP ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
@@ -264,14 +381,41 @@ export const BillingDashboard = () => {
                 </tr>
               );
             })}
-            {filteredBills.length === 0 && (
+            {currentItems.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-6 py-12 text-center text-slate-400">No bills found for the selected date range.</td>
+                <td colSpan={7} className="px-6 py-12 text-center text-slate-400">No bills found for the selected date range.</td>
               </tr>
             )}
           </tbody>
         </table>
+        {totalPages > 1 && (
+          <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <span className="text-sm text-slate-500">
+              Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, currentItems.length)} of {currentItems.length} records
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="text-sm font-medium text-slate-700">
+                Page {currentPage} of {totalPages}
+              </span>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
+      )}
     </div>
   );
 };
