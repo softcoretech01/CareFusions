@@ -358,15 +358,14 @@ export const TaxMaster = () => {
                 <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm">SGST</th>
                 <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm">IGST</th>
                 <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm cursor-pointer" onClick={() => handleSort('effectiveDate')}>Effective Date</th>
-                <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm">Status</th>
                 <th className="text-right py-3 px-4 font-medium text-slate-500 text-sm w-32">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {isLoading ? (
-                <tr><td colSpan={8} className="py-8 text-center text-slate-500">Loading taxes...</td></tr>
+                <tr><td colSpan={7} className="py-8 text-center text-slate-500">Loading taxes...</td></tr>
               ) : paginatedData.length === 0 ? (
-                <tr><td colSpan={8} className="py-8 text-center text-slate-500">No records found</td></tr>
+                <tr><td colSpan={7} className="py-8 text-center text-slate-500">No records found</td></tr>
               ) : paginatedData.map((record) => (
                 <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="py-3 px-4 text-slate-800 font-medium">{record.taxCode}</td>
@@ -375,23 +374,10 @@ export const TaxMaster = () => {
                   <td className="py-3 px-4 text-slate-600">{record.sgst}%</td>
                   <td className="py-3 px-4 text-slate-600">{record.igst}%</td>
                   <td className="py-3 px-4 text-slate-800">{record.effectiveDate}</td>
-                  <td className="py-3 px-4">
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                      record.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'
-                    }`}>
-                      {record.status}
-                    </span>
-                  </td>
                   <td className="py-3 px-4 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => handleView(record)} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="View Details">
-                        <Eye className="w-4 h-4" />
-                      </button>
                       <button onClick={() => handleEdit(record)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Edit">
                         <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => handleToggleStatus(record)} className={`p-1.5 rounded-lg transition-colors ${record.status === 'Active' ? 'text-slate-400 hover:text-orange-500 hover:bg-orange-50' : 'text-slate-400 hover:text-emerald-500 hover:bg-emerald-50'}`} title={record.status === 'Active' ? 'Deactivate' : 'Activate'}>
-                        <Power className="w-4 h-4" />
                       </button>
                       <button onClick={() => handleDelete(record)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
                         <Trash2 className="w-4 h-4" />
@@ -436,52 +422,33 @@ export const TaxMaster = () => {
         title={`${selectedRecord ? 'Edit' : 'Add'} Tax (GST) Master`}
         size="3xl"
       >
-        <div className="space-y-4 max-h-[70vh] overflow-y-auto px-1">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Tax Code</label>
-              <input type="text" value={previewCode} disabled readOnly className="w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed outline-none" />
-              <p className="text-slate-400 text-xs mt-1">Auto-generated from GST %</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">GST Percentage (%) <span className="text-red-500">*</span></label>
-              <input type="number" min={GST_MIN} max={GST_MAX} step="1" onKeyDown={blockIntKeys} value={formData.gstPercentage} onChange={(e) => setFormData({...formData, gstPercentage: Number(e.target.value)})} className={`w-full px-4 py-2 border rounded-xl text-sm outline-none focus:ring-2 transition-all ${errors.gstPercentage ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'}`} />
-              {errors.gstPercentage && <p className="text-red-500 text-xs mt-1">{errors.gstPercentage}</p>}
-            </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-h-[70vh] overflow-y-auto px-1">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Tax Code</label>
+            <input type="text" value={previewCode} disabled readOnly className="w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed outline-none" />
+            <p className="text-slate-400 text-xs mt-1">Auto-generated from GST %</p>
           </div>
-
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">CGST</label>
-              <input type="text" value={`${previewCgst}%`} disabled readOnly className="w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed outline-none" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">SGST</label>
-              <input type="text" value={`${previewSgst}%`} disabled readOnly className="w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed outline-none" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">IGST</label>
-              <input type="text" value={`${previewIgst}%`} disabled readOnly className="w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed outline-none" />
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">GST Percentage (%) <span className="text-red-500">*</span></label>
+            <input type="number" min={GST_MIN} max={GST_MAX} step="1" onKeyDown={blockIntKeys} value={formData.gstPercentage} onChange={(e) => setFormData({...formData, gstPercentage: Number(e.target.value)})} className={`w-full px-4 py-2 border rounded-xl text-sm outline-none focus:ring-2 transition-all ${errors.gstPercentage ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'}`} />
+            {errors.gstPercentage && <p className="text-red-500 text-xs mt-1">{errors.gstPercentage}</p>}
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Effective Date <span className="text-red-500">*</span></label>
-              <input type="date" value={formData.effectiveDate} onChange={(e) => setFormData({...formData, effectiveDate: e.target.value})} className={`w-full px-4 py-2 border rounded-xl text-sm outline-none focus:ring-2 transition-all ${errors.effectiveDate ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'}`} />
-              {errors.effectiveDate && <p className="text-red-500 text-xs mt-1">{errors.effectiveDate}</p>}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
-              <select
-                value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
-              >
-                <option value="Active">Active</option>
-                <option value="Inactive">Inactive</option>
-              </select>
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Effective Date <span className="text-red-500">*</span></label>
+            <input type="date" value={formData.effectiveDate} onChange={(e) => setFormData({...formData, effectiveDate: e.target.value})} className={`w-full px-4 py-2 border rounded-xl text-sm outline-none focus:ring-2 transition-all ${errors.effectiveDate ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'}`} />
+            {errors.effectiveDate && <p className="text-red-500 text-xs mt-1">{errors.effectiveDate}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">CGST</label>
+            <input type="text" value={`${previewCgst}%`} disabled readOnly className="w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed outline-none" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">SGST</label>
+            <input type="text" value={`${previewSgst}%`} disabled readOnly className="w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed outline-none" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">IGST</label>
+            <input type="text" value={`${previewIgst}%`} disabled readOnly className="w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed outline-none" />
           </div>
         </div>
 

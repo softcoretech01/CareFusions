@@ -30,21 +30,8 @@ const navigation = [
       { name: 'Facility Management', to: '/admin/masters/facility-management' },
     ]
   },
-  {
-    name: 'Patient', icon: Users, children: [
-      { name: 'Patient Category', to: '/admin/masters/patient-category' },
-      { name: 'Blood Group', to: '/admin/masters/blood-group' },
-      { name: 'Allergy', to: '/admin/masters/allergy' },
-      { name: 'Diagnosis', to: '/admin/masters/diagnosis' },
-      { name: 'Procedure', to: '/admin/masters/procedure' },
-    ]
-  },
-  {
-    name: 'Appointment', icon: CalendarClock, children: [
-      { name: 'Consultation Type', to: '/admin/masters/consultation-type' },
-      { name: 'Appointment Status', to: '/admin/masters/appointment-status' },
-    ]
-  },
+
+
   {
     name: 'Pharmacy', icon: Pill, children: [
       { name: 'Medicine', to: '/admin/masters/medicine' },
@@ -61,13 +48,6 @@ const navigation = [
     name: 'Radiology', icon: ActivitySquare, children: [
       { name: 'Radiology Services', to: '/admin/masters/radiology-service' },
       { name: 'Equipment', to: '/admin/masters/equipment' },
-    ]
-  },
-  {
-    name: 'Billing', icon: Receipt, children: [
-      { name: 'Service', to: '/admin/masters/service' },
-      { name: 'Tax', to: '/admin/masters/tax' },
-      { name: 'Payment Mode', to: '/admin/masters/payment-mode' },
     ]
   },
   {
@@ -98,6 +78,8 @@ const navigation = [
       { name: 'Financial Year', to: '/admin/masters/financial-year' },
       { name: 'Bank', to: '/admin/masters/bank' },
       { name: 'Cash Counter', to: '/admin/masters/cash-counter' },
+      { name: 'Tax', to: '/admin/masters/tax' },
+      { name: 'Payment Mode', to: '/admin/masters/payment-mode' },
     ]
   },
   {
