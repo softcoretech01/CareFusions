@@ -147,10 +147,10 @@ BEGIN
             A.QueueToken AS queueToken,
             A.AppointmentNumber AS appointmentNumber,
             A.Uhid AS uhid,
-            COALESCE(A.PatientName, P.PatientName) AS patientName,
-            P.Age AS age,
-            P.Gender AS gender,
-            COALESCE(A.MobileNumber, P.MobileNumber) AS mobileNumber,
+            COALESCE(A.PatientName, P.PatientName, Q.PatientName) AS patientName,
+            COALESCE(P.Age, Q.Age) AS age,
+            COALESCE(P.Gender, Q.Gender) AS gender,
+            COALESCE(A.MobileNumber, P.MobileNumber, Q.MobileNumber) AS mobileNumber,
             A.Doctor AS doctorName,
             A.Department AS department,
             A.AppointmentDate AS date,
@@ -217,6 +217,7 @@ BEGIN
             ) AS prescriptions
         FROM registration.Trn_Appointment A
         LEFT JOIN registration.PatientRegistration P ON A.Uhid = P.Uhid
+        LEFT JOIN registration.QuickRegistration Q ON A.Uhid = Q.Uhid
         LEFT JOIN hospital.Trn_OpdVisit V ON A.AppointmentId = V.AppointmentId AND V.IsDeleted = 0
         WHERE A.IsDeleted = 0
           AND (p_Department IS NULL OR p_Department = '' OR A.Department = p_Department)

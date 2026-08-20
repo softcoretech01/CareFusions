@@ -118,6 +118,7 @@ export const RadiologyDashboard = () => {
               <tr>
                 <th className="px-6 py-3">Order ID</th>
                 <th className="px-6 py-3">Patient</th>
+                <th className="px-6 py-3">Date</th>
                 <th className="px-6 py-3">Type</th>
                 <th className="px-6 py-3">Scans</th>
                 <th className="px-6 py-3">Status</th>
@@ -130,6 +131,13 @@ export const RadiologyDashboard = () => {
                   <td className="px-6 py-3">
                     <div className="text-slate-800 font-medium">{order.patientName}</div>
                     <div className="text-slate-500 text-xs">{order.patientId}</div>
+                  </td>
+                  <td className="px-6 py-3 text-slate-500 whitespace-nowrap">
+                    {new Date(order.orderedAt).toLocaleDateString('en-GB', {
+                      day: '2-digit',
+                      month: 'short',
+                      year: 'numeric'
+                    }).replace(/ /g, '-')}
                   </td>
                   <td className="px-6 py-3">
                     <span className={`px-2 py-1 text-[10px] font-bold rounded-md uppercase ${order.type === 'IP' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
@@ -150,7 +158,7 @@ export const RadiologyDashboard = () => {
               ))}
               {filteredOrders.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-slate-400">No recent orders</td>
+                  <td colSpan={6} className="px-6 py-8 text-center text-slate-400">No recent orders</td>
                 </tr>
               )}
             </tbody>

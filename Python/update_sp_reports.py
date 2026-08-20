@@ -46,22 +46,30 @@ def run_reports_sql():
                 WHERE (p_StartDate IS NULL OR RegistrationDate >= p_StartDate)
                   AND (p_EndDate IS NULL OR RegistrationDate <= p_EndDate);
 
+                INSERT INTO TempAllRegistrations
+                SELECT AdmissionId, Uhid, PatientName, DATE(AdmissionDate), CreatedDate, 'IPD', Status
+                FROM hospital.IPD_Admission
+                WHERE IsDeleted = 0
+                  AND (p_StartDate IS NULL OR DATE(AdmissionDate) >= p_StartDate)
+                  AND (p_EndDate IS NULL OR DATE(AdmissionDate) <= p_EndDate);
+
                 -- RESULT SET 1: KPIs
                 SELECT 
                     COUNT(Id) AS TotalRegistrations,
                     SUM(CASE WHEN PatientType IN ('OP', 'Walk-In') THEN 1 ELSE 0 END) AS OpPatients,
                     SUM(CASE WHEN PatientType = 'Emergency' THEN 1 ELSE 0 END) AS EmergencyPatients,
                     (SELECT COUNT(*) FROM hospital.IPD_Admission 
-                     WHERE (p_StartDate IS NULL OR p_StartDate = '' OR DATE(AdmissionDate) >= p_StartDate)
-                       AND (p_EndDate IS NULL OR p_EndDate = '' OR DATE(AdmissionDate) <= p_EndDate)
+                     WHERE (p_StartDate IS NULL OR DATE(AdmissionDate) >= p_StartDate)
+                       AND (p_EndDate IS NULL OR DATE(AdmissionDate) <= p_EndDate)
                        AND IsDeleted = 0) AS IpPatients
-                FROM TempAllRegistrations;
+                FROM TempAllRegistrations WHERE PatientType != 'IPD';
 
                 -- RESULT SET 2: Demographics
                 SELECT 
                     PatientType,
                     COUNT(Id) AS PatientCount
                 FROM TempAllRegistrations
+                WHERE PatientType != 'IPD'
                 GROUP BY PatientType;
 
                 -- RESULT SET 3: Trends
@@ -69,6 +77,7 @@ def run_reports_sql():
                     RegistrationDate,
                     COUNT(Id) AS RegistrationCount
                 FROM TempAllRegistrations
+                WHERE PatientType != 'IPD'
                 GROUP BY RegistrationDate
                 ORDER BY RegistrationDate ASC;
 
@@ -80,8 +89,7 @@ def run_reports_sql():
                     PatientType,
                     Status
                 FROM TempAllRegistrations
-                ORDER BY CreatedDate DESC
-                LIMIT 10;
+                ORDER BY CreatedDate DESC;
                 
                 DROP TEMPORARY TABLE IF EXISTS TempAllRegistrations;
             END
