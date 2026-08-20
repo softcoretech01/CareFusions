@@ -293,10 +293,7 @@ export const ExistingPatients = () => {
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Mobile Number</p>
                     <p className="text-base font-semibold text-slate-800">{viewModalRecord.mobileNumber || '-'}</p>
                   </div>
-                  <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">National ID</p>
-                    <p className="text-base font-semibold text-slate-800">{viewModalRecord.nationalId || '-'}</p>
-                  </div>
+
                   <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Patient Category</p>
                     <p className="text-base font-semibold text-slate-800">
@@ -305,18 +302,8 @@ export const ExistingPatients = () => {
                       </span>
                     </p>
                   </div>
+
                   <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Status</p>
-                    <p className="text-base font-semibold text-slate-800">
-                      <span className={`inline-flex px-3 py-1.5 rounded-lg text-xs font-bold ${viewModalRecord.status === 'Active'
-                        ? 'bg-emerald-50 text-emerald-600 border border-emerald-100'
-                        : 'bg-red-50 text-red-600 border border-red-100'
-                        }`}>
-                        {viewModalRecord.status || 'Unknown'}
-                      </span>
-                    </p>
-                  </div>
-                  <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm md:col-span-2">
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Registration Date</p>
                     <p className="text-base font-semibold text-slate-800">{viewModalRecord.registrationDate || '-'}</p>
                   </div>
