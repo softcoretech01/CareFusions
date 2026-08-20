@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { Users, Stethoscope, Pill, FlaskConical } from 'lucide-react';
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
-import { NoDataNotice } from '../../components/ui/NoDataNotice';
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
 
@@ -99,11 +98,6 @@ export const HRAnalyticsPage = () => {
         </div>
       </div>
 
-      <NoDataNotice
-        title="Payroll, attendance, leave and attrition"
-        needs="HR / Payroll"
-        detail="Headcount above is real. The prototype also showed ₹8.5 Cr monthly payroll, 94.5% attendance and 4.2% attrition, none of which any service records."
-      />
     </div>
   );
 };

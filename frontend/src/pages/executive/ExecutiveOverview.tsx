@@ -3,7 +3,6 @@ import {
   IndianRupee, Users, BedDouble, CalendarCheck, Package, FlaskConical,
   AlertTriangle, ShieldCheck, Receipt,
 } from 'lucide-react';
-import { NoDataNotice } from '../../components/ui/NoDataNotice';
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
 const inr = (n: number) => `₹${(n ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
@@ -12,6 +11,7 @@ interface Overview {
   pharmacyRevenueToday: number; pharmacyRevenueMonth: number; salesToday: number;
   insuranceReconciledMonth: number; insuranceOutstanding: number; claimsInProcess: number;
   stockValue: number; labOrdersToday: number;
+  hospitalBilledMonth: number; hospitalCollectedMonth: number; hospitalBillsMonth: number;
   alerts: { type: string; message: string }[];
 }
 interface Clinical {
@@ -84,18 +84,30 @@ export const ExecutiveOverview = () => {
               <span className="font-bold text-slate-800">{inr(ov?.pharmacyRevenueMonth ?? 0)}</span>
             </div>
             <div className="flex justify-between">
+              <span className="text-slate-500">
+                OP / IP bills
+                {!!ov?.hospitalBillsMonth && (
+                  <span className="text-slate-400"> ({ov.hospitalBillsMonth})</span>
+                )}
+              </span>
+              <span className="font-bold text-slate-800">{inr(ov?.hospitalBilledMonth ?? 0)}</span>
+            </div>
+            <div className="flex justify-between">
               <span className="text-slate-500">Insurance reconciled</span>
               <span className="font-bold text-slate-800">{inr(ov?.insuranceReconciledMonth ?? 0)}</span>
             </div>
             <div className="flex justify-between border-t border-slate-100 pt-2">
               <span className="text-slate-600 font-semibold">Total captured</span>
               <span className="font-bold text-emerald-600">
-                {inr((ov?.pharmacyRevenueMonth ?? 0) + (ov?.insuranceReconciledMonth ?? 0))}
+                {inr((ov?.pharmacyRevenueMonth ?? 0)
+                  + (ov?.hospitalBilledMonth ?? 0)
+                  + (ov?.insuranceReconciledMonth ?? 0))}
               </span>
             </div>
           </div>
           <p className="text-[11px] text-slate-400 mt-3">
-            Only pharmacy sales and settled claims are billed through the system today.
+            Billed through the system: OP/IP bills, pharmacy sales and settled claims.
+            {!!ov?.hospitalCollectedMonth && ` ${inr(ov.hospitalCollectedMonth)} of the bills is collected.`}
           </p>
         </div>
 
@@ -137,11 +149,6 @@ export const ExecutiveOverview = () => {
         </div>
       </div>
 
-      <NoDataNotice
-        title="Total hospital revenue, profit, margins and the performance score"
-        needs="Billing / General Ledger"
-        detail="The prototype showed ₹1.24 Cr daily revenue, a 94% performance score and ₹86 L net profit. Only pharmacy and insurance amounts are actually billed today, and they are shown above."
-      />
     </div>
   );
 };

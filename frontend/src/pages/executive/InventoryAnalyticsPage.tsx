@@ -3,7 +3,6 @@ import { Package, IndianRupee, PackageX, CalendarClock, TrendingDown } from 'luc
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
 import { Pagination } from '../../components/ui/Pagination';
-import { NoDataNotice } from '../../components/ui/NoDataNotice';
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
 const inr = (n: number) => `₹${(n ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
@@ -164,11 +163,6 @@ export const InventoryAnalyticsPage = () => {
         <Pagination page={page} pageSize={PAGE_SIZE} totalItems={low.length} onPageChange={setPage} />
       </div>
 
-      <NoDataNotice
-        title="Stock accuracy and pending GRN / transfers"
-        needs="Procurement"
-        detail="Stock accuracy needs a physical-count cycle, and GRN counts need purchase orders; the prototype showed 98.5% and 24 pending GRNs with no source."
-      />
     </div>
   );
 };

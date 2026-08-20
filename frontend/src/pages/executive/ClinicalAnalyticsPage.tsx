@@ -3,7 +3,6 @@ import { Users, BedDouble, Activity, CalendarCheck, LogOut, Clock } from 'lucide
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
 import { Pagination } from '../../components/ui/Pagination';
-import { NoDataNotice } from '../../components/ui/NoDataNotice';
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
 
@@ -159,11 +158,6 @@ export const ClinicalAnalyticsPage = () => {
         <Pagination page={page} pageSize={PAGE_SIZE} totalItems={specialties.length} onPageChange={setPage} />
       </div>
 
-      <NoDataNotice
-        title="Mortality rate, OT success rate and emergency response time"
-        needs="EMR / Operation Theatre"
-        detail="The prototype showed 1.2%, 99.1% and 4.5 minutes here; no service records clinical outcomes or theatre timings."
-      />
     </div>
   );
 };

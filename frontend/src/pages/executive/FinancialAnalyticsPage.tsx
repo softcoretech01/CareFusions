@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { IndianRupee, Receipt, ShieldCheck, Package, Clock, TrendingUp } from 'lucide-react';
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
-import { NoDataNotice } from '../../components/ui/NoDataNotice';
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
 const inr = (n: number) => `₹${(n ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
@@ -11,6 +10,7 @@ interface Overview {
   pharmacyRevenueToday: number; pharmacyRevenueMonth: number; salesToday: number;
   insuranceReconciledMonth: number; insuranceOutstanding: number; claimsInProcess: number;
   stockValue: number;
+  hospitalBilledMonth: number;
 }
 interface Series {
   history: { period: string; value: number }[];
@@ -54,20 +54,82 @@ export const FinancialAnalyticsPage = () => {
     const [y, m] = p.split('-');
     return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
   };
-  const trendOptions: ApexOptions = {
-    chart: { type: 'area', toolbar: { show: false }, fontFamily: 'Inter' },
-    stroke: { curve: 'smooth', width: 2 },
-    fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.35, opacityTo: 0.05 } },
-    dataLabels: { enabled: false },
-    xaxis: {
-      categories: hist.map(h => h.period === rev?.partialPeriod ? `${label(h.period)} (partial)` : label(h.period)),
-      axisBorder: { show: false }, axisTicks: { show: false },
-    },
-    yaxis: { labels: { formatter: v => inr(v) } },
-    colors: ['#10b981'],
+  // Monthly revenue is a handful of discrete values, often just the current
+  // partial month. An area chart needs at least two points to draw anything,
+  // so one month rendered as a lone dot on an empty canvas. Columns read
+  // correctly at any count, including one.
+  const isPartial = (period: string) => period === rev?.partialPeriod;
+
+  // Short money labels keep the axis narrow: 662 -> Rs662, 81050 -> Rs81.1k.
+  const compactInr = (v: number) => {
+    const n = Math.round(v ?? 0);
+    if (Math.abs(n) >= 10000000) return `\u20b9${(n / 10000000).toFixed(1)}Cr`;
+    if (Math.abs(n) >= 100000) return `\u20b9${(n / 100000).toFixed(1)}L`;
+    if (Math.abs(n) >= 1000) return `\u20b9${(n / 1000).toFixed(1)}k`;
+    return `\u20b9${n.toLocaleString('en-IN')}`;
   };
 
-  const captured = (ov?.pharmacyRevenueMonth ?? 0) + (ov?.insuranceReconciledMonth ?? 0);
+  const trendOptions: ApexOptions = {
+    chart: {
+      type: 'bar',
+      toolbar: { show: false },
+      fontFamily: 'Inter',
+      parentHeightOffset: 0,
+      animations: { enabled: true, speed: 400 },
+    },
+    plotOptions: {
+      bar: {
+        // Narrow columns so a single month is a bar, not a wall.
+        columnWidth: hist.length <= 2 ? '22%' : hist.length <= 5 ? '40%' : '55%',
+        borderRadius: 6,
+        borderRadiusApplication: 'end',
+        distributed: true,
+      },
+    },
+    // The month still accumulating is muted, so it is not read as a finished
+    // month sitting lower than the rest.
+    colors: hist.map(h => (isPartial(h.period) ? '#a7f3d0' : '#10b981')),
+    states: { hover: { filter: { type: 'darken' } } },
+    dataLabels: {
+      enabled: true,
+      formatter: (v: number) => compactInr(v),
+      offsetY: -20,
+      style: { fontSize: '11px', fontWeight: 600, colors: ['#475569'] },
+    },
+    legend: { show: false },
+    xaxis: {
+      categories: hist.map(h => (isPartial(h.period) ? `${label(h.period)} (partial)` : label(h.period))),
+      axisBorder: { show: false },
+      axisTicks: { show: false },
+      labels: { style: { colors: '#94a3b8', fontSize: '11px', fontWeight: 500 } },
+      tooltip: { enabled: false },
+    },
+    yaxis: {
+      min: 0,
+      forceNiceScale: true,
+      labels: {
+        formatter: (v: number) => compactInr(v),
+        style: { colors: '#94a3b8', fontSize: '11px', fontWeight: 500 },
+      },
+    },
+    grid: {
+      borderColor: '#f1f5f9',
+      strokeDashArray: 4,
+      xaxis: { lines: { show: false } },
+      padding: { top: 8, left: 4, right: 4 },
+    },
+    tooltip: {
+      theme: 'light',
+      y: { formatter: (v: number) => inr(v), title: { formatter: () => 'Revenue' } },
+    },
+  };
+
+  // OP/IP billing was missing here, so the headline understated what the
+  // system actually captured.
+  const captured =
+    (ov?.hospitalBilledMonth ?? 0) +
+    (ov?.pharmacyRevenueMonth ?? 0) +
+    (ov?.insuranceReconciledMonth ?? 0);
 
   return (
     <div className="space-y-3">
@@ -84,7 +146,7 @@ export const FinancialAnalyticsPage = () => {
         <KPI title="Insurance Reconciled (Month)" value={inr(ov?.insuranceReconciledMonth ?? 0)}
              icon={ShieldCheck} cls="text-indigo-600 bg-indigo-50" />
         <KPI title="Total Captured (Month)" value={inr(captured)}
-             sub="pharmacy + insurance" icon={TrendingUp} cls="text-blue-600 bg-blue-50" />
+             sub="billing + pharmacy + insurance" icon={TrendingUp} cls="text-blue-600 bg-blue-50" />
         <KPI title="Awaiting Remittance" value={inr(ov?.insuranceOutstanding ?? 0)}
              sub={`${ov?.claimsInProcess ?? 0} claims in process`} icon={Clock} cls="text-amber-600 bg-amber-50" />
         <KPI title="Inventory Value" value={inr(ov?.stockValue ?? 0)}
@@ -102,17 +164,12 @@ export const FinancialAnalyticsPage = () => {
           </div>
         </div>
         {hist.length > 0
-          ? <Chart options={trendOptions} series={[{ name: 'Revenue', data: hist.map(h => h.value) }]} type="area" height={260} />
+          ? <Chart options={trendOptions} series={[{ name: 'Revenue', data: hist.map(h => h.value) }]} type="bar" height={260} />
           : <div className="h-[260px] flex items-center justify-center text-sm text-slate-400">
               {loading ? 'Loading…' : 'No paid pharmacy sales recorded yet.'}
             </div>}
       </div>
 
-      <NoDataNotice
-        title="P&L, expenses, cash flow, AR/AP ageing and margins"
-        needs="Billing / General Ledger"
-        detail="Consultation, procedure, room and investigation charges are not billed through the system, so total hospital revenue and profit cannot be derived. The figures above are the money that genuinely passes through Pharmacy and Insurance."
-      />
     </div>
   );
 };

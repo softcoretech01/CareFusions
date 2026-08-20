@@ -1,9 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, DollarSign, Stethoscope, Settings, ShoppingCart, Package, Users, TrendingUp, Calendar, FileText, Building2, User, Menu } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppDispatch } from '../hooks/redux';
 import { logout } from '../redux/slices/authSlice';
+
+const API_BASE = import.meta.env.VITE_API_URL as string;
+
+interface BranchOption { id: number; code: string; name: string; }
 
 const executiveNav = [
   { name: 'Executive Overview', to: '/executive/overview', icon: LayoutDashboard },
@@ -22,6 +26,23 @@ export const ExecutiveLayout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+
+  // Branches come from admin.Master_Branch. The three options here used to be
+  // hardcoded ("Main Hospital / North Branch / South Clinic") and matched
+  // nothing in the database.
+  const [branches, setBranches] = useState<BranchOption[]>([]);
+  const [branchId, setBranchId] = useState<string>('all');
+
+  useEffect(() => {
+    fetch(`${API_BASE}/branches/`)
+      .then(r => r.json())
+      .then(d => setBranches(
+        (Array.isArray(d) ? d : [])
+          .filter((b: any) => !b.status || b.status === 'Active')
+          .map((b: any) => ({ id: b.id, code: b.code, name: b.name })),
+      ))
+      .catch(e => console.error('[Executive] branch list failed', e));
+  }, []);
 
   const handleLogout = () => {
     dispatch(logout());
@@ -119,10 +140,16 @@ export const ExecutiveLayout = () => {
           <div className="flex items-center gap-4 lg:gap-6">
             <div className="hidden md:flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
               <Building2 className="w-4 h-4 text-slate-400" />
-              <select className="bg-transparent text-sm font-medium text-slate-700 focus:outline-none cursor-pointer">
-                <option value="main">Main Hospital</option>
-                <option value="branch1">North Branch</option>
-                <option value="branch2">South Clinic</option>
+              <select
+                value={branchId}
+                onChange={e => setBranchId(e.target.value)}
+                title="Branch data is not recorded against transactions yet, so this does not filter the figures"
+                className="bg-transparent text-sm font-medium text-slate-700 focus:outline-none cursor-pointer"
+              >
+                <option value="all">All Branches</option>
+                {branches.map(b => (
+                  <option key={b.id} value={String(b.id)}>{b.name || b.code}</option>
+                ))}
               </select>
             </div>
             
