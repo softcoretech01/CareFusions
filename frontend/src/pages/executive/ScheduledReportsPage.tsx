@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import { Pagination } from '@/components/ui/Pagination';
 import { usePagination } from '@/hooks/usePagination';
 import { DateFilter } from '../../components/ui/DateFilter';
@@ -16,6 +16,12 @@ interface Schedule {
   author: string; createdDate: string | null;
 }
 
+interface RunResult {
+  runId: number; scheduleCode: string; template: string; status: string;
+  durationMs: number; message: string; rows: Record<string, unknown>[];
+  delivered: boolean;
+}
+
 interface RunLog {
   runId: number; startedAt: string | null; durationMs: number | null;
   status: string; deliveredTo: string; message: string;
@@ -28,6 +34,20 @@ const BLANK = {
   status: 'Active',
 };
 
+const dayOf = (iso: string | null) => {
+  if (!iso) return '\u2014';
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? '\u2014'
+    : d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+
+const timeOf = (iso: string | null) => {
+  if (!iso) return '\u2014';
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? '\u2014'
+    : d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+};
+
 const when = (iso: string | null) => {
   if (!iso) return '\u2014';
   const d = new Date(iso);
@@ -38,8 +58,12 @@ const when = (iso: string | null) => {
 };
 
 export const ScheduledReportsPage = () => {
+  const [draftFrom, setDraftFrom] = useState('');
+  const [draftTo, setDraftTo] = useState('');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
+  const [q, setQ] = useState('');
+  
   const [view, setView] = useState<ViewState>('dashboard');
   const [toast, setToast] = useState('');
   
@@ -71,6 +95,28 @@ export const ScheduledReportsPage = () => {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const filteredReports = useMemo(() => {
+    let res = reports;
+    if (fromDate) {
+      const from = new Date(fromDate).getTime();
+      res = res.filter(r => r.createdDate && new Date(r.createdDate).getTime() >= from);
+    }
+    if (toDate) {
+      const to = new Date(toDate).getTime() + 86400000 - 1;
+      res = res.filter(r => r.createdDate && new Date(r.createdDate).getTime() <= to);
+    }
+    if (q.trim()) {
+      const needle = q.toLowerCase();
+      res = res.filter(r => 
+        (r.name || '').toLowerCase().includes(needle) ||
+        (r.author || '').toLowerCase().includes(needle) ||
+        (r.category || '').toLowerCase().includes(needle) ||
+        (r.id || '').toLowerCase().includes(needle)
+      );
+    }
+    return res;
+  }, [reports, fromDate, toDate, q]);
 
   const { page, setPage, pageSize, total, paged } = usePagination(historyLogs);
 
@@ -152,9 +198,34 @@ export const ScheduledReportsPage = () => {
     }
   };
 
+  // Pulls the stored output of a run and saves it as a CSV.
+  const downloadRun = async (log: RunLog) => {
+    try {
+      const res = await fetch(`${API_BASE}/scheduled-reports/runs/${log.runId}/download`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        showToast(err?.detail || 'Nothing to download for this run.');
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${log.scheduleCode}-${(log.startedAt || '').slice(0, 19).replace(/[:T]/g, '')}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error('[ScheduledReports] download failed', e);
+      showToast('Could not download the report.');
+    }
+  };
+
   // Executes the schedule's template query straight away and records the run.
   // Delivery is not implemented, so this generates figures rather than emailing.
   const [running, setRunning] = useState<string | null>(null);
+  const [runResult, setRunResult] = useState<RunResult | null>(null);
 
   const runNow = async (id: string) => {
     setActiveMenuId(null);
@@ -167,11 +238,9 @@ export const ScheduledReportsPage = () => {
       });
       const out = await res.json();
       if (!res.ok) throw new Error(out?.detail || String(res.status));
-      showToast(
-        out.status === 'Success'
-          ? `${id} ran in ${out.durationMs}ms \u2014 ${out.message}`
-          : `${id} failed: ${out.message}`,
-      );
+      // Show what the report produced. A toast alone told you it ran but not
+      // what came back.
+      setRunResult(out as RunResult);
       load();
     } catch (e) {
       console.error('[ScheduledReports] run failed', e);
@@ -406,7 +475,7 @@ export const ScheduledReportsPage = () => {
             <table className="w-full text-left text-sm">
               <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
                 <tr>
-                  <th className="py-4 px-6">Execution Date</th>
+                  <th className="py-4 px-6">Executed</th>
                   <th className="py-4 px-6">Time</th>
                   <th className="py-4 px-6">Report Name</th>
                   <th className="py-4 px-6">Duration</th>
@@ -418,10 +487,13 @@ export const ScheduledReportsPage = () => {
               <tbody className="divide-y divide-slate-100">
                 {paged.map((log, i) => (
                   <tr key={i} className="hover:bg-slate-50 transition-colors">
-                    <td className="py-4 px-6 text-slate-700 font-medium">{when(log.startedAt)}</td>
-                    <td className="py-4 px-6 text-slate-600">{log.scheduleCode}</td>
-                    <td className="py-4 px-6 text-slate-800 font-medium">{log.scheduleName}</td>
-                    <td className="py-4 px-6 text-slate-500">{log.durationMs != null ? `${(log.durationMs / 1000).toFixed(1)}s` : '\u2014'}</td>
+                    <td className="py-4 px-6 text-slate-700 font-medium">{dayOf(log.startedAt)}</td>
+                    <td className="py-4 px-6 text-slate-600">{timeOf(log.startedAt)}</td>
+                    <td className="py-4 px-6">
+                      <div className="text-slate-800 font-medium">{log.scheduleName}</div>
+                      <div className="text-xs text-slate-400 font-mono">{log.scheduleCode}</div>
+                    </td>
+                    <td className="py-4 px-6 text-slate-500">{log.durationMs == null ? '\u2014' : log.durationMs < 1000 ? `${log.durationMs}ms` : `${(log.durationMs / 1000).toFixed(1)}s`}</td>
                     <td className="py-4 px-6">
                       <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${
                         log.status === 'Success' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
@@ -432,9 +504,9 @@ export const ScheduledReportsPage = () => {
                     <td className="py-4 px-6 text-slate-600">{log.deliveredTo}</td>
                     <td className="py-4 px-6 text-right">
                       {log.status === 'Success' ? (
-                        <button onClick={() => showToast('Downloading artifact...')} className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded text-xs font-medium hover:bg-slate-200 transition-colors">Download</button>
+                        <button onClick={() => downloadRun(log)} className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded text-xs font-medium hover:bg-slate-200 transition-colors">Download</button>
                       ) : (
-                        <button onClick={() => showToast('Viewing error trace...')} className="px-3 py-1.5 bg-rose-50 text-rose-600 rounded text-xs font-medium hover:bg-rose-100 transition-colors">View Error</button>
+                        <button onClick={() => window.alert(log.message || 'No error detail was recorded.')} className="px-3 py-1.5 bg-rose-50 text-rose-600 rounded text-xs font-medium hover:bg-rose-100 transition-colors">View Error</button>
                       )}
                     </td>
                   </tr>
@@ -454,10 +526,20 @@ export const ScheduledReportsPage = () => {
     <div className="space-y-6">
       <div className="flex justify-end">
         <DateFilter
-          dateFrom={fromDate}
-          dateTo={toDate}
-          onDateFromChange={setFromDate}
-          onDateToChange={setToDate}
+          dateFrom={draftFrom}
+          dateTo={draftTo}
+          onDateFromChange={setDraftFrom}
+          onDateToChange={setDraftTo}
+          onSearch={() => {
+            setFromDate(draftFrom);
+            setToDate(draftTo);
+          }}
+          onReset={() => {
+            setFromDate('');
+            setToDate('');
+            setDraftFrom('');
+            setDraftTo('');
+          }}
         />
       </div>
       {toast && (
@@ -510,7 +592,13 @@ export const ScheduledReportsPage = () => {
       <div className="flex gap-4">
         <div className="flex-1 relative">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input type="text" placeholder="Search schedules, authors, or categories..." className="w-full pl-9 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-primary shadow-sm" />
+          <input
+            type="text"
+            value={q}
+            onChange={e => setQ(e.target.value)}
+            placeholder="Search schedules, authors, or categories..."
+            className="w-full pl-9 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-primary shadow-sm"
+          />
         </div>
         <button className="px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors shadow-sm flex items-center gap-2">
           <Filter className="w-4 h-4" /> Filter
@@ -533,7 +621,7 @@ export const ScheduledReportsPage = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {reports.map((report) => (
+              {filteredReports.map((report) => (
                 <tr key={report.id} className="hover:bg-slate-50 transition-colors group">
                   <td className="py-4 px-6">
                     <div className="font-bold text-slate-800">{report.id}</div>
@@ -608,6 +696,103 @@ export const ScheduledReportsPage = () => {
       {activeMenuId && (
         <div className="fixed inset-0 z-40" onClick={() => setActiveMenuId(null)}></div>
       )}
+
+      {/* Output of the run that just finished. */}
+      {runResult && (() => {
+        const cols = runResult.rows.length ? Object.keys(runResult.rows[0]) : [];
+        const pretty = (k: string) =>
+          k.replace(/([A-Z])/g, ' $1').replace(/^./, c => c.toUpperCase());
+        const ok = runResult.status === 'Success';
+        return (
+          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+               onClick={() => setRunResult(null)}>
+            <div onClick={e => e.stopPropagation()}
+                 className="bg-white rounded-2xl shadow-xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[88vh]">
+              <div className="flex items-start justify-between px-6 py-4 border-b border-slate-100">
+                <div className="min-w-0">
+                  <h3 className="font-bold text-lg text-slate-800 truncate">
+                    {runResult.template || 'Report'} result
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {runResult.scheduleCode} \u00b7 run #{runResult.runId} \u00b7 {runResult.durationMs}ms
+                  </p>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                    ok ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-600'
+                  }`}>{runResult.status}</span>
+                  <button onClick={() => setRunResult(null)} title="Close"
+                          className="p-2 hover:bg-slate-100 rounded-xl transition-colors">
+                    <X className="w-5 h-5 text-slate-400" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="px-6 py-5 overflow-auto">
+                <p className={`text-sm mb-4 ${ok ? 'text-slate-600' : 'text-rose-600'}`}>
+                  {runResult.message}
+                </p>
+
+                {cols.length === 0 ? (
+                  <p className="text-sm text-slate-400 py-8 text-center border border-slate-100 rounded-xl">
+                    This run returned no rows.
+                  </p>
+                ) : (
+                  <div className="border border-slate-100 rounded-xl overflow-x-auto">
+                    <table className="w-full text-left">
+                      <thead className="bg-slate-50 text-slate-500 text-[11px] uppercase tracking-wider font-semibold">
+                        <tr>{cols.map(c => (
+                          <th key={c} className="px-4 py-2.5 whitespace-nowrap">{pretty(c)}</th>
+                        ))}</tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {runResult.rows.map((r, i) => (
+                          <tr key={i} className="hover:bg-slate-50/70">
+                            {cols.map(c => {
+                              const v = r[c];
+                              const num = typeof v === 'number';
+                              return (
+                                <td key={c} className={`px-4 py-2.5 text-sm text-slate-700 ${num ? 'text-right tabular-nums font-medium' : ''}`}>
+                                  {num ? (v as number).toLocaleString('en-IN') : String(v ?? '\u2014')}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {!runResult.delivered && (
+                  <p className="text-[11px] text-slate-400 mt-3">
+                    Generated in-app. No delivery is configured, so nothing was emailed \u2014 use Download to keep a copy.
+                  </p>
+                )}
+              </div>
+
+              <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/60 flex justify-end gap-3">
+                <button onClick={() => setRunResult(null)}
+                        className="px-5 py-2 border border-slate-200 bg-white text-slate-700 font-bold text-sm rounded-xl hover:bg-slate-100 transition-colors">
+                  Close
+                </button>
+                {runResult.rows.length > 0 && (
+                  <button
+                    onClick={() => downloadRun({
+                      runId: runResult.runId,
+                      scheduleCode: runResult.scheduleCode,
+                      startedAt: new Date().toISOString(),
+                    } as RunLog)}
+                    className="px-5 py-2 bg-primary text-white font-bold text-sm rounded-xl hover:bg-primary/90 transition-colors"
+                  >
+                    Download CSV
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Schedule details. "View Details" used to open an empty create form,
           which told you nothing about the row you clicked. */}
