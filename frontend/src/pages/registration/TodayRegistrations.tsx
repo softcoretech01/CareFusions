@@ -11,7 +11,7 @@ export const TodayRegistrations = () => {
 
   const [records, setRecords] = useState<any[]>([]);
   const [viewModalRecord, setViewModalRecord] = useState<any | null>(null);
-  
+
   const fetchTodayRegistrations = async () => {
     try {
       const res = await fetch(`${API_BASE}/patients/today`);
@@ -46,7 +46,7 @@ export const TodayRegistrations = () => {
         });
 
         const finalRecords = Array.from(uniqueRecords.values());
-        
+
         // Sort by UHID descending to show latest records first
         const getSeq = (uhid: string) => {
           if (!uhid) return 0;
@@ -79,10 +79,10 @@ export const TodayRegistrations = () => {
   };
 
   const filteredRecords = records.filter(record => {
-    const matchesSearch = 
+    const matchesSearch =
       record.uhid.toLowerCase().includes(searchTerm.toLowerCase()) ||
       record.patientName?.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     const matchesType = !filterType || record.registrationType === filterType;
 
     return matchesSearch && matchesType;
@@ -180,11 +180,10 @@ export const TodayRegistrations = () => {
                     <td className="px-4 py-3 font-semibold text-primary">{record.uhid}</td>
                     <td className="px-4 py-3 font-medium text-slate-800">{record.patientName}</td>
                     <td className="px-4 py-3 text-slate-600">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                        record.registrationType === 'Emergency' ? 'bg-red-100 text-red-700' :
-                        record.registrationType === 'Quick' ? 'bg-amber-100 text-amber-700' :
-                        'bg-blue-100 text-blue-700'
-                      }`}>
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${record.registrationType === 'Emergency' ? 'bg-red-100 text-red-700' :
+                          record.registrationType === 'Quick' ? 'bg-amber-100 text-amber-700' :
+                            'bg-blue-100 text-blue-700'
+                        }`}>
                         {record.registrationType}
                       </span>
                     </td>
@@ -195,14 +194,14 @@ export const TodayRegistrations = () => {
                     <td className="px-4 py-3 text-slate-600">{record.registrationTime}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-2">
-                        <button 
+                        <button
                           onClick={() => setViewModalRecord(record)}
-                          className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" 
+                          className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
                           title="View Profile"
                         >
                           <Eye className="w-4 h-4" />
                         </button>
-                        <button 
+                        <button
                           onClick={() => navigate('/registration/new', { state: { uhid: record.uhid } })}
                           className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
                           title="Edit"
@@ -232,7 +231,7 @@ export const TodayRegistrations = () => {
       <AnimatePresence>
         {viewModalRecord && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -248,14 +247,14 @@ export const TodayRegistrations = () => {
                     <p className="text-sm font-medium text-slate-500 mt-1">{viewModalRecord.uhid}</p>
                   </div>
                 </div>
-                <button 
+                <button
                   onClick={() => setViewModalRecord(null)}
                   className="p-2.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              
+
               <div className="p-8 overflow-y-auto bg-slate-50/50">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                   <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
@@ -272,17 +271,12 @@ export const TodayRegistrations = () => {
                   </div>
 
                   <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Status</p>
-                    <p className="text-base font-semibold text-slate-800">
-                      <span className={`inline-flex px-3 py-1.5 rounded-lg text-xs font-bold ${
-                        viewModalRecord.status === 'Completed' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 
-                        viewModalRecord.status === 'Checked-In' ? 'bg-blue-50 text-blue-600 border border-blue-100' :
-                        viewModalRecord.status === 'Active' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
-                        'bg-slate-50 text-slate-600 border border-slate-100'
-                      }`}>
-                        {viewModalRecord.status || 'Unknown'}
-                      </span>
-                    </p>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Gender / Age</p>
+                    <p className="text-base font-semibold text-slate-800">{viewModalRecord.gender} / {viewModalRecord.age || 0} Yrs</p>
+                  </div>
+                  <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Mobile Number</p>
+                    <p className="text-base font-semibold text-slate-800">{viewModalRecord.mobileNumber || '-'}</p>
                   </div>
                   <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Registration Time</p>
@@ -290,7 +284,7 @@ export const TodayRegistrations = () => {
                   </div>
                 </div>
               </div>
-              
+
               <div className="px-8 py-5 border-t border-slate-100 bg-white flex justify-end">
                 <Button variant="outline" onClick={() => setViewModalRecord(null)}>Close Details</Button>
               </div>
