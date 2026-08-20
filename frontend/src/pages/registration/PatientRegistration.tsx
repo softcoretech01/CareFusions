@@ -679,7 +679,7 @@ export const PatientRegistration = () => {
                   exit={{ height: 0, opacity: 0 }}
                   className="border-b border-slate-200 bg-slate-50/50 p-4"
                 >
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <select
                       value={filterPatientType}
                       onChange={(e) => setFilterPatientType(e.target.value)}
@@ -692,12 +692,6 @@ export const PatientRegistration = () => {
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     >
                       <option value="">All Genders</option>{options.Gender.map((o: string) => <option key={o} value={o}>{o}</option>)}</select>
-                    <select
-                      value={filterStatus}
-                      onChange={(e) => setFilterStatus(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    >
-                      <option value="">All Statuses</option>{options.Status.map((o: string) => <option key={o} value={o}>{o}</option>)}</select>
                   </div>
                 </motion.div>
               )}
