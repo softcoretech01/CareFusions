@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
-import { Users, BedDouble, Activity, Loader2 } from 'lucide-react';
+import { Users, BedDouble, Activity, Loader2, X } from 'lucide-react';
 import { DateFilter } from '../../components/ui/DateFilter';
 import { WeeklyEMRTrendCard } from '../../components/emr/WeeklyEMRTrendCard';
 import type { EMRRecord } from '../../components/emr/EMRPrintTemplate';
@@ -15,6 +15,7 @@ export const EMRDashboard = () => {
   const [toDate, setToDate] = useState('');
   const [records, setRecords] = useState<EMRRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeView, setActiveView] = useState<'NONE' | 'TOTAL' | 'OP' | 'IP'>('NONE');
 
   useEffect(() => {
     const fetchAllRecords = async () => {
@@ -148,12 +149,12 @@ export const EMRDashboard = () => {
           </div>
         </div>
       )}
-      
+
       <div className="flex items-center justify-between gap-4">
         <div className="shrink-0">
           <h1 className="text-2xl font-bold text-slate-800 whitespace-nowrap">EMR Dashboard</h1>
         </div>
-        
+
         <div className="flex items-center gap-3 flex-nowrap overflow-x-auto pb-1 w-full justify-end">
           <div className="shrink-0 scale-95 origin-right">
             <DateFilter
@@ -169,7 +170,10 @@ export const EMRDashboard = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-6">
-        <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm hover:shadow-md transition-shadow">
+        <div
+          onClick={() => setActiveView(activeView === 'TOTAL' ? 'NONE' : 'TOTAL')}
+          className={`bg-white rounded-3xl border ${activeView === 'TOTAL' ? 'border-primary ring-4 ring-primary/10' : 'border-slate-100'} p-6 shadow-sm hover:shadow-md transition-all cursor-pointer`}
+        >
           <div className="flex items-center justify-between mb-4">
             <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
               <Activity className="w-6 h-6 text-primary" />
@@ -181,7 +185,10 @@ export const EMRDashboard = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm hover:shadow-md transition-shadow">
+        <div
+          onClick={() => setActiveView(activeView === 'OP' ? 'NONE' : 'OP')}
+          className={`bg-white rounded-3xl border ${activeView === 'OP' ? 'border-blue-500 ring-4 ring-blue-50' : 'border-slate-100'} p-6 shadow-sm hover:shadow-md transition-all cursor-pointer`}
+        >
           <div className="flex items-center justify-between mb-4">
             <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center">
               <Users className="w-6 h-6 text-blue-600" />
@@ -193,7 +200,10 @@ export const EMRDashboard = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm hover:shadow-md transition-shadow">
+        <div
+          onClick={() => setActiveView(activeView === 'IP' ? 'NONE' : 'IP')}
+          className={`bg-white rounded-3xl border ${activeView === 'IP' ? 'border-indigo-500 ring-4 ring-indigo-50' : 'border-slate-100'} p-6 shadow-sm hover:shadow-md transition-all cursor-pointer`}
+        >
           <div className="flex items-center justify-between mb-4">
             <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center">
               <BedDouble className="w-6 h-6 text-indigo-600" />
@@ -221,6 +231,73 @@ export const EMRDashboard = () => {
           <Chart options={donutOptions} series={donutSeries} type="donut" height={330} />
         </div>
       </div>
+
+      {activeView !== 'NONE' && (
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden mt-6 animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+            <div>
+              <h3 className="text-lg font-bold text-slate-800">
+                {activeView === 'TOTAL' ? 'Total Records Details' :
+                  activeView === 'OP' ? 'OP Records Details' : 'IP Records Details'}
+              </h3>
+              {/* <p className="text-sm text-slate-500 mt-0.5">
+                {fromDate && toDate ? `${fromDate} to ${toDate}` : fromDate ? `Since ${fromDate}` : toDate ? `Until ${toDate}` : 'All time records'}
+              </p> */}
+            </div>
+            <button onClick={() => setActiveView('NONE')} className="p-2 hover:bg-slate-200 rounded-xl transition-colors">
+              <X className="w-5 h-5 text-slate-500" />
+            </button>
+          </div>
+
+          <div className="overflow-x-auto max-h-[400px] overflow-y-auto custom-scrollbar">
+            <table className="w-full text-sm text-left whitespace-nowrap">
+              <thead className="bg-white sticky top-0 z-10 border-b border-slate-100 shadow-sm">
+                <tr>
+                  <th className="px-6 py-3 font-semibold text-slate-600">UHID</th>
+                  <th className="px-6 py-3 font-semibold text-slate-600">Patient Name</th>
+                  <th className="px-6 py-3 font-semibold text-slate-600">Age/Gender</th>
+                  <th className="px-6 py-3 font-semibold text-slate-600">Visit Date</th>
+                  <th className="px-6 py-3 font-semibold text-slate-600">Visit Type</th>
+                  <th className="px-6 py-3 font-semibold text-slate-600">Doctor & Dept</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {filteredRecords
+                  .filter(r =>
+                    activeView === 'TOTAL' ? true :
+                      activeView === 'OP' ? (r.visitType !== 'IP' && r.visitType !== 'Emergency') :
+                        (r.visitType === 'IP')
+                  )
+                  .map((item: EMRRecord, i: number) => (
+                    <tr key={`${item.visitType}-${item.uhid}-${item.visitId || i}`} className="hover:bg-slate-50/70 transition-colors">
+                      <td className="px-6 py-3 font-medium text-slate-800">{item.uhid}</td>
+                      <td className="px-6 py-3 text-slate-700 font-medium">{item.patientName}</td>
+                      <td className="px-6 py-3 text-slate-600">{item.age} Yrs / {item.gender}</td>
+                      <td className="px-6 py-3 text-slate-600">{item.visitDate}</td>
+                      <td className="px-6 py-3">
+                        <span className={`inline-flex px-2.5 py-1 rounded-md text-xs font-bold ${item.visitType === 'IP' ? 'bg-indigo-100 text-indigo-700' :
+                            item.visitType === 'Emergency' ? 'bg-orange-100 text-orange-700' :
+                              'bg-blue-100 text-blue-700'
+                          }`}>
+                          {item.visitType}
+                        </span>
+                      </td>
+                      <td className="px-6 py-3 text-slate-600">
+                        <div className="font-medium text-slate-800">{item.doctor}</div>
+                        <div className="text-xs text-slate-500">{item.department}</div>
+                      </td>
+                    </tr>
+                  ))}
+                {filteredRecords.filter(r => activeView === 'TOTAL' ? true : activeView === 'OP' ? (r.visitType !== 'IP' && r.visitType !== 'Emergency') : (r.visitType === 'IP')).length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center text-slate-500">No records found for the selected criteria.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
