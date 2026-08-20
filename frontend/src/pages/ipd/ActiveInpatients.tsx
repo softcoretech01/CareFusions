@@ -27,11 +27,9 @@ export const ActiveInpatients = () => {
   const [dateTo, setDateTo] = useState('');
   const [appliedDateFrom, setAppliedDateFrom] = useState('');
   const [appliedDateTo, setAppliedDateTo] = useState('');
-  const [appliedSearch, setAppliedSearch] = useState('');
   const [selectedRoom, setSelectedRoom] = useState<string>('All');
 
   const handleSearch = () => {
-    setAppliedSearch(search);
     setAppliedDateFrom(dateFrom);
     setAppliedDateTo(dateTo);
   };
@@ -40,7 +38,6 @@ export const ActiveInpatients = () => {
     setSearch('');
     setDateFrom('');
     setDateTo('');
-    setAppliedSearch('');
     setAppliedDateFrom('');
     setAppliedDateTo('');
     setSelectedRoom('All');
@@ -49,12 +46,12 @@ export const ActiveInpatients = () => {
   const activePatients = patients.filter(p => p.status === 'Admitted' || p.status === 'Discharge Requested');
 
   const filteredPatients = activePatients.filter(p => {
-    const matchesSearch = p.patientName.toLowerCase().includes(appliedSearch.toLowerCase()) ||
-      p.uhid.toLowerCase().includes(appliedSearch.toLowerCase());
+    const matchesSearch = p.patientName.toLowerCase().includes(search.toLowerCase()) ||
+      p.uhid.toLowerCase().includes(search.toLowerCase());
 
     let matchesDate = true;
     if (appliedDateFrom && appliedDateTo) {
-      const pDate = new Date(p.admissionDate).toISOString().split('T')[0];
+      const pDate = p.admissionDate.substring(0, 10);
       matchesDate = pDate >= appliedDateFrom && pDate <= appliedDateTo;
     }
 

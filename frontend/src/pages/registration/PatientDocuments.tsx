@@ -306,7 +306,7 @@ export const PatientDocuments = () => {
             </div>
             <form onSubmit={handleUpload} className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Document Type *</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Document Type <span className="text-red-500">*</span></label>
                 <select
                   required
                   value={newDocType}
@@ -325,7 +325,7 @@ export const PatientDocuments = () => {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Select File *</label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Select File <span className="text-red-500">*</span></label>
                 <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer relative">
                   <input 
                     type="file" 

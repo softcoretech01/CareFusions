@@ -1,18 +1,57 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Calendar, Users, Clock, CheckCircle, XCircle } from 'lucide-react';
 import { useAppointments } from '../../contexts/AppointmentContext';
+import type { AppointmentRecord } from '../../contexts/AppointmentContext';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { DateFilter } from '../../components/ui/DateFilter';
 
+/** Local calendar date as YYYY-MM-DD. toISOString() would return the UTC day,
+ *  which is the previous date between 00:00 and 05:30 IST. */
+const fmt = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+const localToday = () => fmt(new Date());
+
+/** Opening range: 1st of the current month → today, same as Billing Reports.
+ *  A today-only default hid every Completed and Cancelled appointment, since
+ *  those statuses are set on days the patient actually came in. */
+const monthStart = () => {
+  const d = new Date();
+  return fmt(new Date(d.getFullYear(), d.getMonth(), 1));
+};
+
 export const AppointmentDashboard = () => {
-  const { appointments, addAppointment } = useAppointments();
+  const { appointments, addAppointment, queryAppointments } = useAppointments();
   const location = useLocation();
   const navigate = useNavigate();
+
+  const today = localToday();
+  const rangeStart = monthStart();
+  const [dateFrom, setDateFrom] = useState(rangeStart);
+  const [dateTo, setDateTo] = useState(today);
+  const [appliedDateFrom, setAppliedDateFrom] = useState(rangeStart);
+  const [appliedDateTo, setAppliedDateTo] = useState(today);
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  // Read straight from the server on every visit and whenever the range moves.
+  // The shared `appointments` array is only loaded once per app session, so a
+  // status changed elsewhere (OPD flow, another user, the internal server) never
+  // reached this page until a full browser reload.
+  const [dateFilteredAppointments, setDateFilteredAppointments] = useState<AppointmentRecord[]>([]);
+
+  const reload = useCallback(() => {
+    queryAppointments({ dateFrom: appliedDateFrom, dateTo: appliedDateTo })
+      .then(setDateFilteredAppointments);
+  }, [queryAppointments, appliedDateFrom, appliedDateTo]);
+
+  useEffect(() => { reload(); }, [reload]);
 
   useEffect(() => {
     if (location.state?.pendingQuickBooking) {
       const patient = location.state.pendingQuickBooking;
-      
+
       const newAppt = {
         id: Math.max(...appointments.map(a => a.id), 0) + 1,
         appointmentNumber: `APT${new Date().getFullYear()}${(new Date().getMonth() + 1).toString().padStart(2, '0')}${new Date().getDate().toString().padStart(2, '0')}${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
@@ -21,37 +60,29 @@ export const AppointmentDashboard = () => {
         mobileNumber: patient.mobileNumber || '',
         department: patient.department || 'General',
         doctor: patient.doctor || 'Unassigned',
-        date: new Date().toISOString().split('T')[0],
+        date: localToday(),
         timeSlot: 'Pending Allocation',
         durationMinutes: 15,
         type: 'Walk-In',
         priority: patient.priority || 'Normal',
         status: 'Scheduled'
       };
-      
+
       // @ts-ignore
       addAppointment(newAppt);
-      
+
       // Clear state so it doesn't run again on refresh
       navigate('/appointments/dashboard', { replace: true, state: {} });
+
+      // The row is written server-side; pull it back so the tiles include it.
+      setTimeout(reload, 600);
     }
-  }, [location.state, appointments, addAppointment, navigate]);
+  }, [location.state, appointments, addAppointment, navigate, reload]);
 
-  const today = new Date().toISOString().split('T')[0];
-  const [dateFrom, setDateFrom] = useState(today);
-  const [dateTo, setDateTo] = useState(today);
-  const [appliedDateFrom, setAppliedDateFrom] = useState(today);
-  const [appliedDateTo, setAppliedDateTo] = useState(today);
-  const [statusFilter, setStatusFilter] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
-
-  const dateFilteredAppointments = appointments.filter(a => 
-    (!appliedDateFrom || a.date >= appliedDateFrom) && (!appliedDateTo || a.date <= appliedDateTo)
-  );
-  
   const scheduled = dateFilteredAppointments.filter(a => a.status === 'Scheduled').length;
-  const checkedIn = dateFilteredAppointments.filter(a => a.status === 'Checked-In' || a.status === 'Waiting').length;
+  // 'Consulting' belonged to no card at all, so the five tiles never added up to
+  // Total Appointments and those rows were unreachable by clicking any tile.
+  const checkedIn = dateFilteredAppointments.filter(a => a.status === 'Checked-In' || a.status === 'Waiting' || a.status === 'Consulting').length;
 
   const completed = dateFilteredAppointments.filter(a => a.status === 'Completed').length;
   const cancelled = dateFilteredAppointments.filter(a => a.status === 'Cancelled' || a.status === 'No-Show').length;
@@ -59,7 +90,7 @@ export const AppointmentDashboard = () => {
   const tableAppointments = dateFilteredAppointments.filter(a => {
     let matchStatus = true;
     if (statusFilter === 'Scheduled') matchStatus = a.status === 'Scheduled';
-    if (statusFilter === 'Waiting') matchStatus = a.status === 'Checked-In' || a.status === 'Waiting';
+    if (statusFilter === 'Waiting') matchStatus = a.status === 'Checked-In' || a.status === 'Waiting' || a.status === 'Consulting';
     if (statusFilter === 'Completed') matchStatus = a.status === 'Completed';
     if (statusFilter === 'Cancelled') matchStatus = a.status === 'Cancelled' || a.status === 'No-Show';
 
@@ -74,14 +105,16 @@ export const AppointmentDashboard = () => {
   const handleSearch = () => {
     setAppliedDateFrom(dateFrom);
     setAppliedDateTo(dateTo);
+    setCurrentPage(1);
   };
 
   const handleReset = () => {
-    setDateFrom(today);
+    setDateFrom(rangeStart);
     setDateTo(today);
-    setAppliedDateFrom(today);
+    setAppliedDateFrom(rangeStart);
     setAppliedDateTo(today);
     setStatusFilter(null);
+    setCurrentPage(1);
   };
 
   return (
@@ -137,7 +170,7 @@ export const AppointmentDashboard = () => {
             <div className="w-8 h-8 rounded-full bg-purple-50 flex items-center justify-center">
               <Users className="w-4 h-4 text-purple-500" />
             </div>
-            <span className="font-semibold text-slate-600">Waiting</span>
+            <span className="font-semibold text-slate-600">Waiting / Consulting</span>
           </div>
           <span className="text-3xl font-bold text-slate-800">{checkedIn}</span>
         </div>

@@ -7,6 +7,7 @@ import type { GlobalPatientRecord } from '../../contexts/PatientContext';
 import { useNavigate } from 'react-router-dom';
 import { useDoctorSchedules } from '../../contexts/DoctorScheduleContext';
 import { getBookedSlots } from '../../data/doctorSchedules';
+import { useDepartments } from '../../hooks/useMasterOptions';
 import toast from 'react-hot-toast';
 
 // Departments are derived from the doctors configured in Doctor Master,
@@ -50,6 +51,7 @@ function isSlotInPast(dateStr: string, timeStr: string): boolean {
 export const NewOnlineBooking = () => {
   const { addAppointment, appointments, generateAppointmentNumber } = useAppointments();
   const { getDoctorsWithAvailability, doctorSchedules } = useDoctorSchedules();
+  const { options: departmentList } = useDepartments();
   const { patients, addPatient } = usePatients();
   const navigate = useNavigate();
 
@@ -234,8 +236,8 @@ export const NewOnlineBooking = () => {
 
 
 
-  // Departments that actually have doctors (from the real doctor schedules).
-  const departments = Array.from(new Set(doctorSchedules.map(d => d.dept).filter(Boolean))).sort();
+  // Departments from the master list.
+  const departments = departmentList.map(d => d.departmentName).sort();
 
   // Doctors with availability for Step 2
   const doctorsWithAvailability = formData.department

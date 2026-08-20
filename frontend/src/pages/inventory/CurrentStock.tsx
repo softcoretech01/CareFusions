@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Pagination } from '../../components/ui/Pagination';
 import { PageHeader } from '../../components/inventory/PageHeader';
+import { DateFilter } from '@/components/ui/DateFilter';
 import { AutoStatusBadge } from '../../components/inventory/StatusBadge';
 import { Search, Download, Package } from 'lucide-react';
 import { useInventory } from '../../contexts/InventoryContext';
@@ -23,14 +24,30 @@ export const CurrentStock = () => {
   const [storeId, setStoreId] = useState('');
   const [status, setStatus] = useState('');
 
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const [draftFrom, setDraftFrom] = useState('');
+  const [draftTo, setDraftTo] = useState('');
+
+  const applyDates = () => { setFromDate(draftFrom); setToDate(draftTo); };
+  const clearDates = () => { setDraftFrom(''); setDraftTo(''); setFromDate(''); setToDate(''); };
+
   const rows = useMemo(() => stock.filter(r => {
     const s = search.trim().toLowerCase();
     if (s && !(r.itemName.toLowerCase().includes(s) || r.itemCode.toLowerCase().includes(s)
       || r.batchNo.toLowerCase().includes(s) || (r.category || '').toLowerCase().includes(s))) return false;
     if (storeId && String(r.storeId) !== storeId) return false;
     if (status && statusOf(r.quantity, r.reorderLevel) !== status) return false;
+    
+    if (fromDate || toDate) {
+      if (!r.expiryDate) return false;
+      const exp = new Date(r.expiryDate);
+      if (fromDate && exp < new Date(fromDate)) return false;
+      if (toDate && exp > new Date(toDate)) return false;
+    }
+    
     return true;
-  }), [stock, search, storeId, status]);
+  }), [stock, search, storeId, status, fromDate, toDate]);
 
   const PAGE_SIZE = 10;
   const [page, setPage] = useState(1);
@@ -44,10 +61,23 @@ export const CurrentStock = () => {
 
   return (
     <div className="space-y-4">
-      <PageHeader crumb="Current Stock" title="Current Stock" />
+      <PageHeader 
+        crumb="Current Stock" 
+        title="Current Stock" 
+        right={
+          <DateFilter
+            dateFrom={draftFrom}
+            dateTo={draftTo}
+            onDateFromChange={setDraftFrom}
+            onDateToChange={setDraftTo}
+            onSearch={applyDates}
+            onReset={clearDates}
+          />
+        }
+      />
 
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-3 flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[240px]">
+        <div className="relative flex-1 min-w-[240px] max-w-sm">
           <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input type="text" value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Search items, codes, batches..."
@@ -68,7 +98,7 @@ export const CurrentStock = () => {
             Quantity: r.quantity, UOM: r.uom, Min: r.minStock, Max: r.maxStock, Value: r.stockValue,
             Status: statusOf(r.quantity, r.reorderLevel),
           })), 'current_stock')}
-          className="h-11 px-4 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 flex items-center gap-2">
+          className="h-11 px-4 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 flex items-center gap-2 ml-auto">
           <Download className="w-4 h-4" /> Export CSV
         </button>
       </div>

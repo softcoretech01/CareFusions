@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { DateFilter } from '@/components/ui/DateFilter';
 import { Pagination } from '../../components/ui/Pagination';
 import { Search, Download, PackageCheck, Eye, RefreshCw, CheckCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -58,6 +59,11 @@ export const StockIn = () => {
   const [search, setSearch] = useState('');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
+  const [draftFrom, setDraftFrom] = useState('');
+  const [draftTo, setDraftTo] = useState('');
+
+  const applyDates = () => { setFromDate(draftFrom); setToDate(draftTo); };
+  const clearDates = () => { setDraftFrom(''); setDraftTo(''); setFromDate(''); setToDate(''); };
   const [selectedRecord, setSelectedRecord] = useState<GRNRecord | null>(null);
   const [isViewOpen, setIsViewOpen] = useState(false);
 
@@ -173,27 +179,24 @@ export const StockIn = () => {
         crumb="Stock In"
         title="Stock In (Goods Receipt)"
         right={
-          <button onClick={load}
-            className="h-11 px-4 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 flex items-center gap-2">
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
-          </button>
+          <DateFilter
+            dateFrom={draftFrom}
+            dateTo={draftTo}
+            onDateFromChange={setDraftFrom}
+            onDateToChange={setDraftTo}
+            onSearch={applyDates}
+            onReset={clearDates}
+          />
         }
       />
 
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-2.5 flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 min-w-[220px] max-w-md">
+        <div className="relative flex-1 min-w-[220px] max-w-sm">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input type="text" value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Search by GRN, PO or Vendor..."
             className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-primary" />
         </div>
-        <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)}
-          className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600" />
-        <span className="text-slate-400 text-sm">to</span>
-        <input type="date" value={toDate} onChange={e => setToDate(e.target.value)}
-          className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600" />
-        <button onClick={() => { setSearch(''); setFromDate(''); setToDate(''); }}
-          className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-200">Clear</button>
         <button
           onClick={() => exportToExcel(rows.map(r => ({
             'GRN No': r.grnNo, 'PO Number': r.poNumber, Vendor: r.vendorName, Store: r.store,

@@ -1,13 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, CalendarPlus, Calendar, Clock, Edit2, Download, X, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Search, CalendarPlus, Calendar, Clock, Edit2, Eye, Download, X, CheckCircle, AlertTriangle } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { DateFilter } from '../../components/ui/DateFilter';
 import { Pagination } from '../../components/ui/Pagination';
+import { AppointmentDetailsModal } from '../../components/appointments/AppointmentDetailsModal';
 
 const PAGE_SIZE = 10;
 import { useAppointments } from '../../contexts/AppointmentContext';
 import type { AppointmentRecord } from '../../contexts/AppointmentContext';
+import { useDepartments } from '../../hooks/useMasterOptions';
 import { exportToExcel } from '../../utils/exportToExcel';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -23,10 +25,10 @@ const STATUS_COLORS: Record<string, string> = {
 export const AppointmentList = () => {
   const navigate = useNavigate();
   const { appointments, updateAppointment, queryAppointments, apiError, clearError } = useAppointments();
+  const { options: departments } = useDepartments();
 
-  // Department options come from the actual appointment data so real
-  // departments (e.g. custom ones like "test") appear in the filter.
-  const departmentOptions = Array.from(new Set(appointments.map(a => a.department).filter(Boolean))).sort();
+  // Department options come from the backend master.
+  const departmentOptions = departments.map(d => d.departmentName).sort();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDept, setFilterDept] = useState('');
@@ -42,6 +44,9 @@ export const AppointmentList = () => {
   // Edit modal state
   const [editItem, setEditItem] = useState<AppointmentRecord | null>(null);
   const [editForm, setEditForm] = useState<Partial<AppointmentRecord>>({});
+
+  // Read-only details modal state
+  const [viewItem, setViewItem] = useState<AppointmentRecord | null>(null);
 
   // Fetch from the backend with the current filters (type is fixed to Walk-In).
   const reload = useCallback(() => {
@@ -226,14 +231,23 @@ export const AppointmentList = () => {
                         {item.status}
                       </span>
                     </td>
-                    <td className="px-4 py-2 text-center">
-                      <button
-                        onClick={() => openEdit(item)}
-                        className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
-                        title="Edit Appointment"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
+                    <td className="px-4 py-2">
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          onClick={() => setViewItem(item)}
+                          className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="View Appointment"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => openEdit(item)}
+                          className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                          title="Edit Appointment"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -243,6 +257,16 @@ export const AppointmentList = () => {
         </div>
         <Pagination page={page} pageSize={PAGE_SIZE} totalItems={filtered.length} onPageChange={setPage} />
       </div>
+
+      {/* ── VIEW MODAL ── */}
+      {viewItem && (
+        <AppointmentDetailsModal
+          item={viewItem}
+          title="Walk-in Booking Details"
+          onClose={() => setViewItem(null)}
+          onEdit={(item) => { setViewItem(null); openEdit(item); }}
+        />
+      )}
 
       {/* ── EDIT MODAL ── */}
       {editItem && (

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { DateFilter } from '@/components/ui/DateFilter';
 import { Pagination } from '@/components/ui/Pagination';
 import { usePagination } from '@/hooks/usePagination';
 import { Search, Plus, FileText, CheckCircle, Clock, Ban, X, AlertCircle, Edit, Trash2, IndianRupee, UploadCloud } from 'lucide-react';
@@ -229,7 +230,6 @@ export const ClaimsManagement = () => {
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3">
         <div>
           <h1 className="text-xl font-bold text-slate-800">Claims Management</h1>
-          <p className="text-xs text-slate-500">Submit and track insurance claims for discharged inpatients</p>
         </div>
         <button
           onClick={() => { resetForm(); setShowNewModal(true); }}
@@ -239,7 +239,7 @@ export const ClaimsManagement = () => {
         </button>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-3 flex flex-wrap items-center gap-2">
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-3 flex flex-wrap items-center justify-between gap-4">
         <div className="relative flex-1 min-w-[240px] max-w-md">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
@@ -248,17 +248,18 @@ export const ClaimsManagement = () => {
             className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
           />
         </div>
-        <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)}
-          className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600" />
-        <span className="text-slate-400 text-sm">to</span>
-        <input type="date" value={toDate} onChange={e => setToDate(e.target.value)}
-          className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600" />
-        <button
-          onClick={() => { setSearch(''); setFromDate(''); setToDate(''); setActiveTab('All'); }}
-          className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-sm font-bold hover:bg-slate-200 transition-colors"
-        >
-          Clear
-        </button>
+        <DateFilter
+          dateFrom={fromDate}
+          dateTo={toDate}
+          onDateFromChange={setFromDate}
+          onDateToChange={setToDate}
+          onReset={() => {
+            setSearch('');
+            setFromDate('');
+            setToDate('');
+            setActiveTab('All');
+          }}
+        />
       </div>
 
       {/* Status tabs — the prototype declared these but never rendered a control. */}

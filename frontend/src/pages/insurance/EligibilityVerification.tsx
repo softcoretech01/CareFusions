@@ -165,7 +165,6 @@ export const EligibilityVerification = () => {
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3">
         <div>
           <h1 className="text-xl font-bold text-slate-800">Eligibility &amp; Verification</h1>
-          <p className="text-xs text-slate-500">Check a patient's policy coverage before admission or billing</p>
         </div>
         <button
           onClick={() => {
@@ -412,7 +411,7 @@ export const EligibilityVerification = () => {
             <form onSubmit={handleAddSubmit} className="p-5 space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div className="relative">
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Patient UHID *</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Patient UHID <span className="text-red-500">*</span></label>
                   {/* Searchable picker — only patients without a policy appear. */}
                   <input
                     type="text" value={form.uhid}
@@ -448,7 +447,7 @@ export const EligibilityVerification = () => {
                   {errors.uhid && <p className="text-[11px] text-red-500 mt-1">{errors.uhid}</p>}
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Patient Name *</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Patient Name <span className="text-red-500">*</span></label>
                   {/* Read-only: it always reflects the patient chosen above. */}
                   <input
                     type="text" value={form.name} readOnly
@@ -460,7 +459,7 @@ export const EligibilityVerification = () => {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Insurance Provider *</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Insurance Provider <span className="text-red-500">*</span></label>
                   <select
                     value={form.providerId}
                     onChange={(e) => setForm({ ...form, providerId: e.target.value })}
@@ -474,7 +473,7 @@ export const EligibilityVerification = () => {
                   {errors.providerId && <p className="text-[11px] text-red-500 mt-1">{errors.providerId}</p>}
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Policy Number *</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Policy Number <span className="text-red-500">*</span></label>
                   <input
                     type="text" value={form.policyNumber}
                     onChange={(e) => setForm({ ...form, policyNumber: upperCode(e.target.value, LIMITS.policy) })}
@@ -486,7 +485,7 @@ export const EligibilityVerification = () => {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Expiry Date *</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Expiry Date <span className="text-red-500">*</span></label>
                   <input
                     type="date" value={form.validUntil}
                     onChange={(e) => setForm({ ...form, validUntil: e.target.value })}
@@ -495,7 +494,7 @@ export const EligibilityVerification = () => {
                   {errors.validUntil && <p className="text-[11px] text-red-500 mt-1">{errors.validUntil}</p>}
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Sum Insured (₹) *</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Sum Insured (₹) <span className="text-red-500">*</span></label>
                   <input
                     type="text" inputMode="numeric" value={form.sumInsured}
                     onChange={(e) => setForm({ ...form, sumInsured: digitsOnly(e.target.value, LIMITS.amount) })}

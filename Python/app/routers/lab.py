@@ -244,10 +244,19 @@ def set_test_result(order_test_id: int, payload: TestResultUpdate, db: Session =
     reference range and the master's critical-value flag."""
     try:
         row = db.execute(text(
-            "SELECT t.NormalRange, COALESCE(m.CriticalValueAlert, 0) AS CriticalValueAlert "
+            # Ordered tests carry neither TestId nor NormalRange today - orders
+            # are written with TestName only - so match the master by id when it
+            # is there and by name otherwise, and take the range from the master
+            # unless the order row overrides it (age/sex-specific ranges).
+            # Without this the join misses, CriticalValueAlert reads 0, and no
+            # result is ever flagged.
+            "SELECT COALESCE(NULLIF(t.NormalRange, ''), m.NormalRange) AS NormalRange, "
+            "       COALESCE(m.CriticalValueAlert, 0) AS CriticalValueAlert "
             "FROM hospital.Lab_OrderTest t "
-            "LEFT JOIN admin.Master_LabTest m ON m.TestId = t.TestId "
-            "WHERE t.OrderTestId = :i"
+            "LEFT JOIN admin.Master_LabTest m "
+            "       ON (m.TestId = t.TestId OR (t.TestId IS NULL AND m.TestName = t.TestName)) "
+            "      AND COALESCE(m.IsDeleted, 0) = 0 "
+            "WHERE t.OrderTestId = :i LIMIT 1"
         ), {"i": order_test_id}).fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Ordered test not found")

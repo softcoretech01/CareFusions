@@ -109,7 +109,7 @@ export const LowStockMonitor = () => {
       <PageHeader crumb="Low Stock Monitor" title="Low Stock Monitor" />
 
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-3 flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[240px]">
+        <div className="relative flex-1 min-w-[240px] max-w-sm">
           <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input type="text" value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Search low stock items..."
@@ -126,7 +126,7 @@ export const LowStockMonitor = () => {
             'Available Qty': r.quantity, UOM: r.uom, 'Reorder Level': r.reorderLevel, Deficit: r.deficit,
             Status: severity(r.quantity, r.reorderLevel).text,
           })), 'low_stock')}
-          className="h-11 px-4 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 flex items-center gap-2">
+          className="h-11 px-4 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 flex items-center gap-2 ml-auto">
           <Download className="w-4 h-4" /> Export
         </button>
         <button onClick={() => generatePR(rows, 'Bulk purchase requisition')} disabled={generating || rows.length === 0}
