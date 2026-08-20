@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS admin.Sch_ReportRun (
     Status      VARCHAR(20)  NOT NULL DEFAULT 'Success',
     DeliveredTo VARCHAR(200),
     Message     TEXT,
+    ResultJson  LONGTEXT     NULL,
     CreatedBy   VARCHAR(100) DEFAULT 'Admin',
     INDEX idx_schedule (ScheduleId),
     FOREIGN KEY (ScheduleId) REFERENCES admin.Sch_Report(ScheduleId) ON DELETE CASCADE

@@ -1,8 +1,12 @@
+import csv
+import io as _io
+import json
 import logging
 import time
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -331,14 +335,19 @@ def run_now(code: str, payload: RunIn = RunIn(), db: Session = Depends(get_db)):
     try:
         db.execute(text("""
             INSERT INTO admin.Sch_ReportRun
-                (ScheduleId, StartedAt, DurationMs, Status, DeliveredTo, Message, CreatedBy)
-            VALUES (:sid, NOW(), :ms, :st, :to, :msg, :by)
+                (ScheduleId, StartedAt, DurationMs, Status, DeliveredTo, Message,
+                 ResultJson, CreatedBy)
+            VALUES (:sid, NOW(), :ms, :st, :to, :msg, :rows, :by)
         """), {
             "sid": sched.ScheduleId, "ms": duration_ms, "st": status_text,
             # Delivery is not implemented; say so rather than claim an email went out.
             "to": "Generated in-app (no delivery configured)",
-            "msg": message, "by": payload.triggeredBy or "Admin",
+            "msg": message,
+            # Keep the output so the run can be downloaded afterwards.
+            "rows": json.dumps(rows, default=str) if rows else None,
+            "by": payload.triggeredBy or "Admin",
         })
+        run_id = db.execute(text("SELECT LAST_INSERT_ID()")).scalar()
         db.execute(text("""
             UPDATE admin.Sch_Report
             SET LastRunAt = NOW(), LastExecStatus = :st
@@ -351,6 +360,7 @@ def run_now(code: str, payload: RunIn = RunIn(), db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail="Report ran but the run could not be recorded")
 
     return {
+        "runId": run_id,
         "scheduleCode": code,
         "template": sched.ReportTemplate,
         "status": status_text,
@@ -359,3 +369,54 @@ def run_now(code: str, payload: RunIn = RunIn(), db: Session = Depends(get_db)):
         "rows": rows,
         "delivered": False,
     }
+
+
+@router.get("/runs/{run_id}/download")
+def download_run(run_id: int, fmt: str = "csv", db: Session = Depends(get_db)):
+    """Download what a run produced, as CSV or JSON.
+
+    The output is whatever the template query returned, stored on the run. Runs
+    recorded before this column existed have nothing to download.
+    """
+    row = db.execute(text("""
+        SELECT r.RunId, r.StartedAt, r.Status, r.ResultJson, s.ScheduleCode, s.Name
+        FROM admin.Sch_ReportRun r
+        JOIN admin.Sch_Report s ON s.ScheduleId = r.ScheduleId
+        WHERE r.RunId = :id
+    """), {"id": run_id}).fetchone()
+
+    if not row:
+        raise HTTPException(status_code=404, detail=f"Run {run_id} not found")
+    if not row.ResultJson:
+        raise HTTPException(
+            status_code=404,
+            detail="This run produced no downloadable output (it failed, or predates result capture)")
+
+    try:
+        rows = json.loads(row.ResultJson)
+    except Exception:
+        raise HTTPException(status_code=500, detail="Stored result is not readable")
+
+    stamp = row.StartedAt.strftime("%Y%m%d-%H%M%S") if row.StartedAt else "run"
+    base = f"{row.ScheduleCode}-{stamp}"
+
+    if fmt.lower() == "json":
+        return StreamingResponse(
+            _io.BytesIO(json.dumps(rows, indent=2).encode("utf-8")),
+            media_type="application/json",
+            headers={"Content-Disposition": f'attachment; filename="{base}.json"'},
+        )
+
+    buf = _io.StringIO()
+    if rows:
+        writer = csv.DictWriter(buf, fieldnames=list(rows[0].keys()))
+        writer.writeheader()
+        writer.writerows(rows)
+    else:
+        buf.write("no rows\n")
+
+    return StreamingResponse(
+        _io.BytesIO(buf.getvalue().encode("utf-8-sig")),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{base}.csv"'},
+    )
