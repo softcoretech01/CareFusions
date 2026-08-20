@@ -334,52 +334,10 @@ export const QuickRegistration = () => {
                 onReset={() => { setDateFrom(''); setDateTo(''); }}
               />
 
-              <Button
-                variant={showFilters ? "filled" : "outline"}
-                color="secondary"
-                icon={Filter}
-                onClick={() => setShowFilters(!showFilters)}
-              >
-                Filters
-              </Button>
+
             </div>
 
-            <AnimatePresence>
-              {showFilters && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  className="border-b border-slate-200 bg-slate-50/50 p-4"
-                >
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <select
-                      value={filterVisitType}
-                      onChange={(e) => setFilterVisitType(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    >
-                      <option value="">All Visit Types</option>
-                      {options.VisitType.map((o: string) => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                    <input
-                      type="text"
-                      placeholder="Department..."
-                      value={filterDepartment}
-                      onChange={(e) => setFilterDepartment(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    />
-                    <select
-                      value={filterStatus}
-                      onChange={(e) => setFilterStatus(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    >
-                      <option value="">All Statuses</option>
-                      {options.Status.map((o: string) => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+
 
             <div className="flex-1 overflow-x-auto">
               <table className="w-full text-left text-sm whitespace-nowrap">
