@@ -190,7 +190,7 @@ export const DoctorMaster = () => {
 
   // Dropdowns
   const [hospitals, setHospitals] = useState<{ name: string }[]>([]);
-  const [branches, setBranches] = useState<{ name: string }[]>([]);
+  const [branches, setBranches] = useState<{ name: string, hospital: string }[]>([]);
   const [departments, setDepartments] = useState<{ departmentName: string }[]>([]);
   // Specialization was a free-text box, so "Cardiologist" and "cardiologist"
   // became separate values and the filter below listed three hardcoded ones.
@@ -285,13 +285,14 @@ export const DoctorMaster = () => {
     let isValid = true;
 
     if (!tabId || tabId === 'general') {
-      ['registrationNumber', 'name', 'gender', 'mobile', 'email'].forEach(k => delete newErrors[k]);
+      ['registrationNumber', 'name', 'gender', 'dob', 'mobile', 'email'].forEach(k => delete newErrors[k]);
       if (!formData.registrationNumber.trim()) { newErrors.registrationNumber = 'Registration Number is required'; isValid = false; }
       else if (records.some(r => r.registrationNumber === formData.registrationNumber && r.id !== selectedRecord?.id)) {
         newErrors.registrationNumber = 'Registration Number must be unique'; isValid = false;
       }
       if (!formData.name.trim()) { newErrors.name = 'Name is required'; isValid = false; }
       if (!formData.gender) { newErrors.gender = 'Gender is required'; isValid = false; }
+      if (!formData.dob) { newErrors.dob = 'Date of Birth is required'; isValid = false; }
       if (!formData.mobile.trim()) {
         newErrors.mobile = 'Mobile is required'; isValid = false;
       } else if (!/^\d{10}$/.test(formData.mobile.replace(/\D/g, ''))) {
@@ -305,21 +306,49 @@ export const DoctorMaster = () => {
     }
 
     if (!tabId || tabId === 'professional') {
-      ['qualification', 'specialization', 'department', 'designation', 'hospital', 'branch'].forEach(k => delete newErrors[k]);
+      ['qualification', 'specialization', 'department', 'designation', 'hospital', 'branch', 'licenseExpiryDate'].forEach(k => delete newErrors[k]);
       if (!formData.qualification.trim()) { newErrors.qualification = 'Qualification is required'; isValid = false; }
       if (!formData.specialization.trim()) { newErrors.specialization = 'Specialization is required'; isValid = false; }
       if (!formData.department) { newErrors.department = 'Department is required'; isValid = false; }
       if (!formData.designation.trim()) { newErrors.designation = 'Designation is required'; isValid = false; }
       if (!formData.hospital) { newErrors.hospital = 'Hospital is required'; isValid = false; }
       if (!formData.branch) { newErrors.branch = 'Branch is required'; isValid = false; }
+      if (!formData.licenseExpiryDate) { newErrors.licenseExpiryDate = 'License Expiry Date is required'; isValid = false; }
     }
 
     if (!tabId || tabId === 'consultation') {
-      delete newErrors.consultationFee;
+      ['consultationFee', 'followUpFee', 'emergencyFee', 'teleConsultationFee'].forEach(k => delete newErrors[k]);
+
       if (!formData.consultationFee) {
         newErrors.consultationFee = 'Fee is required'; isValid = false;
       } else if (Number(formData.consultationFee) < 0) {
         newErrors.consultationFee = 'Fee must be >= 0'; isValid = false;
+      } else if (String(formData.consultationFee).length > 10) {
+        newErrors.consultationFee = 'Cannot exceed 10 digits'; isValid = false;
+      }
+
+      if (formData.followUpFee) {
+        if (Number(formData.followUpFee) < 0) {
+          newErrors.followUpFee = 'Fee must be >= 0'; isValid = false;
+        } else if (String(formData.followUpFee).length > 10) {
+          newErrors.followUpFee = 'Cannot exceed 10 digits'; isValid = false;
+        }
+      }
+
+      if (formData.emergencyFee) {
+        if (Number(formData.emergencyFee) < 0) {
+          newErrors.emergencyFee = 'Fee must be >= 0'; isValid = false;
+        } else if (String(formData.emergencyFee).length > 10) {
+          newErrors.emergencyFee = 'Cannot exceed 10 digits'; isValid = false;
+        }
+      }
+
+      if (formData.teleConsultationFee) {
+        if (Number(formData.teleConsultationFee) < 0) {
+          newErrors.teleConsultationFee = 'Fee must be >= 0'; isValid = false;
+        } else if (String(formData.teleConsultationFee).length > 10) {
+          newErrors.teleConsultationFee = 'Cannot exceed 10 digits'; isValid = false;
+        }
       }
     }
 
@@ -793,7 +822,7 @@ export const DoctorMaster = () => {
                       className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.gender ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
                         }`}
                     >
-                      <option value="">Select Gender</option>
+                      <option value="" disabled hidden>Select Gender</option>
                       <option value="Male">Male</option>
                       <option value="Female">Female</option>
                       <option value="Other">Other</option>
@@ -801,13 +830,18 @@ export const DoctorMaster = () => {
                     {errors.gender && <p className="text-red-500 text-xs mt-1">{errors.gender}</p>}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Date of Birth</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Date of Birth <span className="text-red-500">*</span>
+                    </label>
                     <input
                       type="date"
                       value={formData.dob}
+                      max={new Date().toISOString().split('T')[0]}
                       onChange={e => setFormData({ ...formData, dob: e.target.value })}
-                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.dob ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
+                        }`}
                     />
+                    {errors.dob && <p className="text-red-500 text-xs mt-1">{errors.dob}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -948,7 +982,7 @@ export const DoctorMaster = () => {
                     </label>
                     <select
                       value={formData.hospital}
-                      onChange={e => setFormData({ ...formData, hospital: e.target.value })}
+                      onChange={e => setFormData({ ...formData, hospital: e.target.value, branch: '' })}
                       className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.hospital ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
                         }`}
                     >
@@ -970,9 +1004,11 @@ export const DoctorMaster = () => {
                         }`}
                     >
                       <option value="">Select Branch</option>
-                      {branches.map((b, i) => (
-                        <option key={i} value={b.name}>{b.name}</option>
-                      ))}
+                      {branches
+                        .filter(b => formData.hospital ? b.hospital === formData.hospital : true)
+                        .map((b, i) => (
+                          <option key={i} value={b.name}>{b.name}</option>
+                        ))}
                     </select>
                     {errors.branch && <p className="text-red-500 text-xs mt-1">{errors.branch}</p>}
                   </div>
@@ -1058,13 +1094,17 @@ export const DoctorMaster = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">License Expiry Date</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      License Expiry Date <span className="text-red-500">*</span>
+                    </label>
                     <input
                       type="date"
                       value={formData.licenseExpiryDate}
                       onChange={e => setFormData({ ...formData, licenseExpiryDate: e.target.value })}
-                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.licenseExpiryDate ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
+                        }`}
                     />
+                    {errors.licenseExpiryDate && <p className="text-red-500 text-xs mt-1">{errors.licenseExpiryDate}</p>}
                   </div>
                 </div>
               )}
@@ -1078,8 +1118,8 @@ export const DoctorMaster = () => {
                     <input
                       type="number"
                       min="0"
-                      value={formData.consultationFee} maxLength={50}
-                      onChange={e => setFormData({ ...formData, consultationFee: e.target.value })}
+                      value={formData.consultationFee}
+                      onChange={e => setFormData({ ...formData, consultationFee: e.target.value.slice(0, 10) })}
                       className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.consultationFee ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
                         }`}
                     />
@@ -1090,30 +1130,36 @@ export const DoctorMaster = () => {
                     <input
                       type="number"
                       min="0"
-                      value={formData.followUpFee} maxLength={50}
-                      onChange={e => setFormData({ ...formData, followUpFee: e.target.value })}
-                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      value={formData.followUpFee}
+                      onChange={e => setFormData({ ...formData, followUpFee: e.target.value.slice(0, 10) })}
+                      className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.followUpFee ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
+                        }`}
                     />
+                    {errors.followUpFee && <p className="text-red-500 text-xs mt-1">{errors.followUpFee}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Emergency Fee</label>
                     <input
                       type="number"
                       min="0"
-                      value={formData.emergencyFee} maxLength={50}
-                      onChange={e => setFormData({ ...formData, emergencyFee: e.target.value })}
-                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      value={formData.emergencyFee}
+                      onChange={e => setFormData({ ...formData, emergencyFee: e.target.value.slice(0, 10) })}
+                      className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.emergencyFee ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
+                        }`}
                     />
+                    {errors.emergencyFee && <p className="text-red-500 text-xs mt-1">{errors.emergencyFee}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Tele Consultation Fee</label>
                     <input
                       type="number"
                       min="0"
-                      value={formData.teleConsultationFee} maxLength={50}
-                      onChange={e => setFormData({ ...formData, teleConsultationFee: e.target.value })}
-                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      value={formData.teleConsultationFee}
+                      onChange={e => setFormData({ ...formData, teleConsultationFee: e.target.value.slice(0, 10) })}
+                      className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.teleConsultationFee ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
+                        }`}
                     />
+                    {errors.teleConsultationFee && <p className="text-red-500 text-xs mt-1">{errors.teleConsultationFee}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">
