@@ -157,12 +157,24 @@ export const IPBilling = () => {
         fetchPatientMobile(foundIPD.uhid);
 
         const stayDays = daysAdmitted(foundIPD.admissionDate);
-        const visitFee = consultationFeeFor(foundIPD.department);
+        const visitFee = consultationFeeFor(foundIPD.specialty || foundIPD.department);
+        const isFromOP = foundIPD.admissionType === 'OPD';
+        const feeQty = isFromOP ? Math.max(0, stayDays - 1) : stayDays;
+        
         const newItems = [
           { id: 'ITM-001', description: `Room Charges (${stayDays} Days)`, price: 1500, qty: stayDays, total: 1500 * stayDays },
           { id: 'ITM-002', description: 'Nursing Charges (Per Day)', price: 500, qty: stayDays, total: 500 * stayDays },
-          { id: 'ITM-003', description: `Consultation Fee${foundIPD.department ? ` (${foundIPD.department})` : ''}`, price: visitFee, qty: stayDays, total: visitFee * stayDays },
         ];
+
+        if (feeQty > 0) {
+          newItems.push({ 
+            id: 'ITM-003', 
+            description: `Doctor Visit Fee (Per Day)${foundIPD.specialty ? ` - ${foundIPD.specialty}` : ''}`, 
+            price: visitFee, 
+            qty: feeQty, 
+            total: visitFee * feeQty 
+          });
+        }
         
         // Add medicines from discharge summary if available
         if (foundIPD.dischargeInfo?.medicines?.length > 0) {
@@ -291,12 +303,24 @@ export const IPBilling = () => {
       fetchPatientMobile(foundIPD.uhid);
 
       const stayDays = daysAdmitted(foundIPD.admissionDate);
-      const visitFee = consultationFeeFor(foundIPD.department);
+      const visitFee = consultationFeeFor(foundIPD.specialty || foundIPD.department);
+      const isFromOP = foundIPD.admissionType === 'OPD';
+      const feeQty = isFromOP ? Math.max(0, stayDays - 1) : stayDays;
+
       const newItems = [
         { id: 'ITM-001', description: `Room Charges (${stayDays} Days)`, price: 1500, qty: stayDays, total: 1500 * stayDays },
         { id: 'ITM-002', description: 'Nursing Charges (Per Day)', price: 500, qty: stayDays, total: 500 * stayDays },
-        { id: 'ITM-003', description: `Consultation Fee${foundIPD.department ? ` (${foundIPD.department})` : ''}`, price: visitFee, qty: stayDays, total: visitFee * stayDays },
       ];
+
+      if (feeQty > 0) {
+        newItems.push({ 
+          id: 'ITM-003', 
+          description: `Doctor Visit Fee (Per Day)${foundIPD.specialty ? ` - ${foundIPD.specialty}` : ''}`, 
+          price: visitFee, 
+          qty: feeQty, 
+          total: visitFee * feeQty 
+        });
+      }
       
       // Add medicines from discharge summary if available
       if (foundIPD.dischargeInfo?.medicines?.length > 0) {
@@ -629,7 +653,6 @@ export const IPBilling = () => {
                       <th className="px-5 py-4 w-36 text-right">Price (₹)</th>
                       <th className="px-5 py-4 w-24 text-center">Qty</th>
                       <th className="px-5 py-4 w-36 text-right">Total (₹)</th>
-                      <th className="px-5 py-4 w-16 text-center">Del</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -648,14 +671,13 @@ export const IPBilling = () => {
                           <input type="number" className="w-full text-right bg-transparent border-0 p-1 focus:ring-1 focus:ring-primary/30 rounded text-sm" value={item.price} onChange={e => handleItemChange(item.id, 'price', Number(e.target.value))} />
                         </td>
                         <td className="px-5 py-3">
-                          <input type="number" className="w-full text-center bg-transparent border-0 p-1 focus:ring-1 focus:ring-primary/30 rounded text-sm" value={item.qty} onChange={e => handleItemChange(item.id, 'qty', Number(e.target.value))} />
+                          {item.description.toLowerCase().includes('consultation fee') || item.description.toLowerCase().includes('doctor visit fee') ? (
+                            <div className="w-full text-center text-slate-400">-</div>
+                          ) : (
+                            <input type="number" className="w-full text-center bg-transparent border-0 p-1 focus:ring-1 focus:ring-primary/30 rounded text-sm" value={item.qty} onChange={e => handleItemChange(item.id, 'qty', Number(e.target.value))} />
+                          )}
                         </td>
                         <td className="px-5 py-3 text-right font-semibold text-slate-800">₹{item.total.toFixed(2)}</td>
-                        <td className="px-5 py-3 text-center">
-                          <button onClick={() => handleRemoveItem(item.id)} className="text-red-400 hover:text-red-600 p-1 rounded hover:bg-red-50 transition-colors">
-                            <X className="w-4 h-4" />
-                          </button>
-                        </td>
                       </tr>
                     ))}
                     <tr className="bg-primary/5 border-t-2 border-primary/20 font-bold">
@@ -665,7 +687,6 @@ export const IPBilling = () => {
                       <td className="px-5 py-4 text-right text-primary text-lg">
                         ₹{(insuranceDetails ? insuranceDetails.balance : totalAmount).toFixed(2)}
                       </td>
-                      <td></td>
                     </tr>
                   </tbody>
                 </table>

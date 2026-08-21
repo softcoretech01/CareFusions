@@ -2,6 +2,7 @@
 import { useInvestigations } from '../../contexts/InvestigationContext';
 import { X, Printer, FlaskConical, ScanLine, FileText, CheckCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { OrderSourceTag, orderSource } from './OrderSourceTag';
 
 interface ResultViewerProps {
   patientId: string;
@@ -89,9 +90,16 @@ export const ResultViewer: React.FC<ResultViewerProps> = ({ patientId, category,
                 {/* Order Header */}
                 <div className="px-5 py-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between print:bg-transparent print:px-0 print:border-b-2 print:border-slate-800 print:pb-3 print:mb-4">
                   <div>
-                    <h3 className="font-bold text-slate-800 print:text-lg">Order ID: {order.id}</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-bold text-slate-800 print:text-lg">Order ID: {order.id}</h3>
+                      {/* Badge on screen; the printed report carries the same
+                          fact in the line below, so it is hidden for print. */}
+                      <OrderSourceTag source={orderSource(order.type)} className="print:hidden" />
+                    </div>
                     <p className="text-xs text-slate-500 print:text-sm print:mt-1">
-                      Ordered by <span className="font-bold text-slate-800">{order.orderedBy}</span> on {new Date(order.orderedAt).toLocaleString()}
+                      Ordered by <span className="font-bold text-slate-800">{order.orderedBy}</span>
+                      {' '}from <span className="font-bold text-slate-800">{orderSource(order.type)}</span>
+                      {' '}on {new Date(order.orderedAt).toLocaleString()}
                     </p>
                   </div>
                   <span className="px-2 py-1 bg-green-100 text-green-700 text-[10px] font-bold rounded-md uppercase flex items-center gap-1 print:hidden">
