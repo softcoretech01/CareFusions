@@ -135,6 +135,7 @@ export const InvestigationProvider = ({ children }: { children: ReactNode }) => 
           id: test.order_test_id ? `TEST-${test.order_test_id}` : (test.id || ''),
           name: test.test_name || test.name,
           status: test.status,
+          bodyPart: test.body_part || test.bodyPart || '',
           resultValue: test.result_value || test.resultValue || '',
           resultFile: test.result_file || test.resultFile || '',
           isCritical: test.is_critical || test.isCritical,
@@ -262,7 +263,8 @@ export const InvestigationProvider = ({ children }: { children: ReactNode }) => 
           priority: 'Routine',
           tests: order.tests.map(t => ({
             testName: t.name,
-            testCode: t.name
+            testCode: t.name,
+            bodyPart: t.bodyPart || null,
           }))
         });
         refresh();

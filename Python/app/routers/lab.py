@@ -113,6 +113,7 @@ def _map_test(r) -> dict:
         "testId": r.TestId,
         "testCode": r.TestCode or "",
         "name": r.TestName,
+        "bodyPart": getattr(r, 'BodyPart', ""),
         "status": r.Status,
         "resultValue": r.ResultValue or "",
         "resultFile": r.ResultFile or "",
@@ -208,7 +209,7 @@ def get_order(order_id: int, db: Session = Depends(get_db)):
 def create_order(payload: OrderCreate, db: Session = Depends(get_db)):
     tests_json = json.dumps([{
         "testId": t.testId, "testCode": t.testCode, "testName": t.testName,
-        "normalRange": t.normalRange, "unit": t.unit,
+        "bodyPart": t.bodyPart, "normalRange": t.normalRange, "unit": t.unit,
     } for t in payload.tests])
     try:
         row = _order_sp(db, "CREATE",

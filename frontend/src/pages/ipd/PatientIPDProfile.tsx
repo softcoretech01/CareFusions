@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useIPD } from '../../contexts/IPDContext';
 import { ArrowLeft, User, Activity, CheckCircle, Save, AlertTriangle, FileText, Pill, Stethoscope, FlaskConical, ScrollText } from 'lucide-react';
@@ -33,6 +33,21 @@ export const PatientIPDProfile = () => {
   const patient = patients.find(p => p.id === Number(patientId));
   const bed = beds.find(b => b.id === patient?.currentBedId);
   const ward = wards.find(w => w.id === patient?.currentWardId);
+
+  // Pre-fill the discharge form from the patient's saved discharge info so
+  // existing data shows instead of an empty form. Runs when the patient loads.
+  useEffect(() => {
+    const di = patient?.dischargeInfo;
+    if (!di) return;
+    setDischargeSummary(di.dischargeSummary || '');
+    if (di.dischargeDate) setDischargeDate(di.dischargeDate);
+    setDischargeMedicines((di.medicines || []).map((m, i) => ({
+      id: `${i}-${m.medicineId}`,
+      medicineId: m.medicineId, medicineName: m.medicineName,
+      dosage: m.dosage, frequency: m.frequency, duration: m.duration,
+      quantity: m.quantity, notes: m.notes,
+    })));
+  }, [patient?.id]);
 
   if (!patient) return <div className="p-8 text-center text-slate-500">Patient not found</div>;
 

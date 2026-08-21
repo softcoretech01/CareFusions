@@ -28,6 +28,7 @@ class TestCreate(BaseModel):
     testId: Optional[int] = None
     testCode: Optional[str] = None
     testName: str
+    bodyPart: Optional[str] = None
     normalRange: Optional[str] = None
     unit: Optional[str] = None
 
