@@ -156,7 +156,7 @@ export const AuditLogMaster = () => {
 
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800">Audit Log Master</h1>
+          <h1 className="text-3xl font-bold text-slate-800">Audit Log</h1>
           <p className="text-slate-500 text-sm mt-1"></p>
         </div>
         <div className="flex gap-3">

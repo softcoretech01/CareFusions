@@ -256,11 +256,11 @@ export const DepartmentMaster = () => {
         {/* <div className="flex items-center text-sm text-slate-500 mb-2">
           <span>Masters</span>
           <span className="mx-2">/</span>
-          <span className="text-primary font-medium">Department Master</span>
+          <span className="text-primary font-medium">Department</span>
         </div> */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-800">Department Master</h1>
+            <h1 className="text-3xl font-bold text-slate-800">Department</h1>
             <p className="text-slate-500 mt-1"></p>
           </div>
 
@@ -336,15 +336,15 @@ export const DepartmentMaster = () => {
         </AnimatePresence>
 
         <div className="flex-1 overflow-auto">
-          <table className="w-full table-fixed">
+          <table className="w-full text-left text-sm">
             <thead className="bg-slate-50 sticky top-0 z-10 border-b border-slate-200">
               <tr>
-                <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm cursor-pointer hover:bg-slate-100 w-28" onClick={() => handleSort('departmentCode')}>Code</th>
-                <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm cursor-pointer hover:bg-slate-100" onClick={() => handleSort('departmentName')}>Name</th>
-                <th className="text-right py-3 px-4 font-medium text-slate-500 text-sm w-24">Doctors</th>
-                <th className="text-right py-3 px-4 font-medium text-slate-500 text-sm w-28">Fee</th>
-                <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm w-64">Department Head</th>
-                <th className="text-right py-3 px-4 font-medium text-slate-500 text-sm w-32">Actions</th>
+                <th className="py-3 px-4 font-medium text-slate-500 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('departmentCode')}>Code</th>
+                <th className="py-3 px-4 font-medium text-slate-500 cursor-pointer hover:bg-slate-100" onClick={() => handleSort('departmentName')}>Name</th>
+                <th className="py-3 px-4 font-medium text-slate-500">Doctors</th>
+                <th className="py-3 px-4 font-medium text-slate-500 whitespace-nowrap">Consultation Fee</th>
+                <th className="py-3 px-4 font-medium text-slate-500">Department Head</th>
+                <th className="py-3 px-4 font-medium text-slate-500 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -358,8 +358,8 @@ export const DepartmentMaster = () => {
                 <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="py-3 px-4 text-slate-800 font-medium">{record.departmentCode}</td>
                   <td className="py-3 px-4 text-slate-800 truncate" title={record.departmentName}>{record.departmentName}</td>
-                  <td className="py-3 px-4 text-right tabular-nums text-slate-800">{record.doctorsCount}</td>
-                  <td className="py-3 px-4 text-right tabular-nums text-slate-800">
+                  <td className="py-3 px-4 tabular-nums text-slate-800">{record.doctorsCount}</td>
+                  <td className="py-3 px-4 tabular-nums text-slate-800">
                     {record.consultationFee == null ? '-' : `\u20b9${record.consultationFee.toLocaleString('en-IN')}`}
                   </td>
                   <td className="py-3 px-4 text-slate-800 truncate" title={record.departmentHead || ''}>{record.departmentHead || '-'}</td>
@@ -412,7 +412,7 @@ export const DepartmentMaster = () => {
       <Modal
         isOpen={isFormOpen}
         onClose={() => setIsFormOpen(false)}
-        title={`Department Master`}
+        title={`Department`}
         size="3xl"
       >
         <div className="grid grid-cols-2 gap-4 max-h-[70vh] overflow-y-auto px-1">

@@ -12,7 +12,6 @@ interface MedicineRecord {
   id: number;
   medicineCode: string;
   genericName: string;
-  brandName: string;
   category: string;
   manufacturer: string;
   strength: string;
@@ -33,7 +32,6 @@ interface MedicineRecord {
 const emptyData: Omit<MedicineRecord, 'id'> = {
   medicineCode: '',
   genericName: '',
-  brandName: '',
   category: '',
   manufacturer: '',
   strength: '',
@@ -57,7 +55,6 @@ const mapApiToRecord = (item: any): MedicineRecord => ({
   id:             item.id,
   medicineCode:   item.medicineCode,
   genericName:    item.genericName,
-  brandName:      item.brandName,
   category:       item.category,
   manufacturer:   item.manufacturer,
   strength:       item.strength,
@@ -137,7 +134,6 @@ export const MedicineMaster = () => {
     const newErrors: Record<string, string> = {};
     if (!formData.medicineCode.trim()) newErrors.medicineCode = 'Medicine Code is required';
     if (!formData.genericName.trim()) newErrors.genericName = 'Generic Name is required';
-    if (!formData.brandName.trim()) newErrors.brandName = 'Brand Name is required';
     if (!formData.category) newErrors.category = 'Category is required';
     if (!formData.manufacturer.trim()) newErrors.manufacturer = 'Manufacturer is required';
     if (!formData.strength.trim()) newErrors.strength = 'Strength is required';
@@ -202,7 +198,6 @@ export const MedicineMaster = () => {
       const payload = {
         medicineCode:   formData.medicineCode,
         genericName:    formData.genericName,
-        brandName:      formData.brandName,
         category:       formData.category,
         manufacturer:   formData.manufacturer,
         strength:       formData.strength,
@@ -267,7 +262,6 @@ export const MedicineMaster = () => {
   const filteredRecords = records.filter(record => {
     const matchesSearch = 
       record.genericName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.brandName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       record.medicineCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
       record.manufacturer.toLowerCase().includes(searchTerm.toLowerCase());
     
@@ -291,7 +285,7 @@ export const MedicineMaster = () => {
         <>
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-3xl font-bold text-slate-800">Medicine Master</h1>
+              <h1 className="text-3xl font-bold text-slate-800">Medicine</h1>
               <p className="text-slate-500 mt-1"></p>
             </div>
             <div className="flex gap-3">
@@ -363,7 +357,6 @@ export const MedicineMaster = () => {
                   <tr>
                     <th className="px-4 py-3 font-medium">Medicine Code</th>
                     <th className="px-4 py-3 font-medium">Generic Name</th>
-                    <th className="px-4 py-3 font-medium">Brand Name</th>
                     <th className="px-4 py-3 font-medium">Category</th>
                     <th className="px-4 py-3 font-medium text-right">Selling Price (₹)</th>
                     <th className="px-4 py-3 font-medium text-center">Action</th>
@@ -378,7 +371,6 @@ export const MedicineMaster = () => {
                           {record.genericName}
                           {record.controlledDrug && <span className="ml-2 px-1.5 py-0.5 bg-red-100 text-red-700 rounded text-[10px] font-bold" title="Controlled Drug">CD</span>}
                         </td>
-                        <td className="px-4 py-3 text-slate-600">{record.brandName}</td>
                         <td className="px-4 py-3 text-slate-600">{record.category}</td>
                         <td className="px-4 py-3 text-right font-medium text-slate-700">{record.sellingPrice}</td>
                         <td className="px-4 py-3 text-center">
@@ -438,7 +430,7 @@ export const MedicineMaster = () => {
           <div className="flex justify-between items-center mb-2">
             <div>
               <h1 className="text-2xl font-bold text-slate-800">
-                {selectedRecord ? `Edit Medicine: ${selectedRecord.brandName}` : 'Add New Medicine'}
+                {selectedRecord ? `Edit Medicine: ${selectedRecord.genericName}` : 'Add New Medicine'}
               </h1>
             </div>
           </div>
@@ -459,11 +451,7 @@ export const MedicineMaster = () => {
                     <input type="text" value={formData.genericName} onChange={e => setFormData({...formData, genericName: e.target.value})} maxLength={50} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.genericName ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
                     {errors.genericName && <p className="text-red-500 text-xs mt-1">{errors.genericName}</p>}
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Brand Name <span className="text-red-500">*</span></label>
-                    <input type="text" value={formData.brandName} onChange={e => setFormData({...formData, brandName: e.target.value})} maxLength={50} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.brandName ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
-                    {errors.brandName && <p className="text-red-500 text-xs mt-1">{errors.brandName}</p>}
-                  </div>
+
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Medicine Category <span className="text-red-500">*</span></label>
                     <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.category ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
@@ -579,7 +567,7 @@ export const MedicineMaster = () => {
           </div>
           <h3 className="text-lg font-bold text-slate-800 mb-2">Delete Record</h3>
           <p className="text-slate-500 text-sm mb-6">
-            Are you sure you want to delete Medicine <span className="font-semibold text-slate-700">{selectedRecord?.brandName}</span>?
+            Are you sure you want to delete Medicine <span className="font-semibold text-slate-700">{selectedRecord?.genericName}</span>?
           </p>
           <div className="flex items-center gap-3 w-full">
             <Button variant="outline" color="secondary" className="flex-1" onClick={() => setIsDeleteOpen(false)}>

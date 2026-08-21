@@ -326,7 +326,7 @@ export const RadiologyServiceMaster = () => {
         <>
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-3xl font-bold text-slate-800">Radiology Service Master</h1>
+              <h1 className="text-3xl font-bold text-slate-800">Radiology Service</h1>
               <p className="text-slate-500 mt-1"></p>
             </div>
             <div className="flex gap-3">

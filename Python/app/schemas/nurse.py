@@ -3,7 +3,6 @@ from typing import Optional
 from datetime import date, datetime
 
 class NurseCreate(BaseModel):
-    employeeCode:       str
     name:               str
     gender:             str
     dob:                Optional[date]      = None
@@ -31,8 +30,6 @@ class NurseCreate(BaseModel):
     nursingLicense:     Optional[str]       = None
     qualificationCertificate: Optional[str] = None
     idProof:            Optional[str]       = None
-
-    status:             str
     remarks:            Optional[str]       = None
     createdBy:          Optional[str]       = "System"
 
@@ -42,7 +39,6 @@ class NurseUpdate(NurseCreate):
 class NurseResponse(BaseModel):
     id:                 int
     nurseId:            str
-    employeeCode:       str
     name:               str
     gender:             str
     dob:                Optional[date]      = None
@@ -70,8 +66,6 @@ class NurseResponse(BaseModel):
     nursingLicense:     Optional[str]       = None
     qualificationCertificate: Optional[str] = None
     idProof:            Optional[str]       = None
-    
-    status:             str
     remarks:            Optional[str]       = None
     
     createdBy:          Optional[str]       = None

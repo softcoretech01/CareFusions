@@ -276,7 +276,7 @@ export const BankMaster = () => {
         <>
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-3xl font-bold text-slate-800">Bank Master</h1>
+              <h1 className="text-3xl font-bold text-slate-800">Bank</h1>
               <p className="text-slate-500 mt-1"></p>
             </div>
             <div className="flex gap-3">
@@ -342,61 +342,6 @@ export const BankMaster = () => {
               )}
             </AnimatePresence>
 
-            <div className="flex-1 overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-slate-50 border-b border-slate-200 text-slate-600">
-                  <tr>
-                    <th className="px-4 py-3 font-medium">Bank Code</th>
-                    <th className="px-4 py-3 font-medium">Bank Name</th>
-                    <th className="px-4 py-3 font-medium">Account Number</th>
-                    <th className="px-4 py-3 font-medium">Branch</th>
-                    <th className="px-4 py-3 font-medium">IFSC Code</th>
-                    <th className="px-4 py-3 font-medium text-center">Status</th>
-                    <th className="px-4 py-3 font-medium text-center">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {isLoading ? (
-                    <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500">Loading bank accounts...</td></tr>
-                  ) : filteredRecords.length > 0 ? (
-                    pagedRecords.map((record) => (
-                      <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-4 py-3 font-medium text-slate-800">{record.bankCode}</td>
-                        <td className="px-4 py-3 font-medium text-primary">{record.bankName}</td>
-                        <td className="px-4 py-3 text-slate-600 font-mono text-xs">{record.accountNumber}</td>
-                        <td className="px-4 py-3 text-slate-600">{record.branch}</td>
-                        <td className="px-4 py-3 text-slate-600 font-mono text-xs">{record.ifscCode}</td>
-                        <td className="px-4 py-3 text-center">
-                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                            record.status === 'Active'
-                              ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
-                              : 'bg-red-50 text-red-600 border border-red-200'
-                          }`}>
-                            {record.status}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <div className="flex items-center justify-center gap-2">
-                            <button onClick={() => handleEdit(record)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors" title="Edit">
-                              <Edit2 className="w-4 h-4" />
-                            </button>
-                            <button onClick={() => handleDeleteRequest(record)} className="p-1.5 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
-                        No bank accounts found matching your criteria.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
         <Pagination page={page} pageSize={pageSize} totalItems={total} onPageChange={setPage} />
             <div className="flex flex-wrap items-center justify-between gap-3 p-4 border-t border-slate-100 text-sm text-slate-500">
               <div className="flex items-center gap-2">

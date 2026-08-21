@@ -4,7 +4,6 @@ from datetime import date, datetime
 
 
 class ReceptionistCreate(BaseModel):
-    employeeCode:       str
     name:               str
     hospital:           Optional[str] = None
     branch:             Optional[str] = None
@@ -19,8 +18,6 @@ class ReceptionistCreate(BaseModel):
 
     photo:              Optional[str] = None
     idProof:            Optional[str] = None
-
-    status:             str = 'Active'
     remarks:            Optional[str] = None
     createdBy:          Optional[str] = "System"
 
@@ -32,7 +29,6 @@ class ReceptionistUpdate(ReceptionistCreate):
 class ReceptionistResponse(BaseModel):
     id:                 int
     receptionistId:     str
-    employeeCode:       str
     name:               str
     hospital:           Optional[str] = None
     branch:             Optional[str] = None
@@ -47,8 +43,6 @@ class ReceptionistResponse(BaseModel):
 
     photo:              Optional[str] = None
     idProof:            Optional[str] = None
-
-    status:             str
     remarks:            Optional[str] = None
 
     createdBy:          Optional[str] = None

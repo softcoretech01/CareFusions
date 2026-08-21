@@ -44,6 +44,10 @@ const navigation = [
   {
     name: 'Radiology', icon: ActivitySquare, children: [
       { name: 'Radiology Services', to: '/admin/masters/radiology-service' },
+    ]
+  },
+  {
+    name: 'Equipment Management', module: 'Organization', icon: Stethoscope, children: [
       { name: 'Equipment', to: '/admin/masters/equipment' },
     ]
   },

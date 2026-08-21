@@ -3,7 +3,6 @@ from typing import Optional
 from datetime import date, datetime
 
 class PharmacistCreate(BaseModel):
-    employeeCode:       str
     name:               str
     licenseNumber:      str
     qualification:      Optional[str]       = None
@@ -21,8 +20,6 @@ class PharmacistCreate(BaseModel):
     photo:              Optional[str]       = None
     licenseCertificate: Optional[str]       = None
     idProof:            Optional[str]       = None
-
-    status:             str
     remarks:            Optional[str]       = None
     createdBy:          Optional[str]       = "System"
 
@@ -32,7 +29,6 @@ class PharmacistUpdate(PharmacistCreate):
 class PharmacistResponse(BaseModel):
     id:                 int
     pharmacistId:       str
-    employeeCode:       str
     name:               str
     licenseNumber:      str
     qualification:      Optional[str]       = None
@@ -50,8 +46,6 @@ class PharmacistResponse(BaseModel):
     photo:              Optional[str]       = None
     licenseCertificate: Optional[str]       = None
     idProof:            Optional[str]       = None
-    
-    status:             str
     remarks:            Optional[str]       = None
     
     createdBy:          Optional[str]       = None

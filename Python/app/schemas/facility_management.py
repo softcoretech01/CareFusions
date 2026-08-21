@@ -4,7 +4,6 @@ from datetime import date, datetime
 
 
 class FacilityManagementCreate(BaseModel):
-    employeeCode:       str
     name:               str
     staffCategory:      str
     hospital:           Optional[str] = None
@@ -21,8 +20,6 @@ class FacilityManagementCreate(BaseModel):
     profilePhoto:       Optional[str] = None
     idProof:            Optional[str] = None
     policeVerification: Optional[str] = None
-
-    status:             str = 'Active'
     remarks:            Optional[str] = None
     createdBy:          Optional[str] = "System"
 
@@ -34,7 +31,6 @@ class FacilityManagementUpdate(FacilityManagementCreate):
 class FacilityManagementResponse(BaseModel):
     id:                 int
     employeeId:         str
-    employeeCode:       str
     name:               str
     staffCategory:      str
     hospital:           Optional[str] = None
@@ -51,8 +47,6 @@ class FacilityManagementResponse(BaseModel):
     profilePhoto:       Optional[str] = None
     idProof:            Optional[str] = None
     policeVerification: Optional[str] = None
-
-    status:             str
     remarks:            Optional[str] = None
 
     createdBy:          Optional[str] = None

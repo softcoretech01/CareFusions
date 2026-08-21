@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useInvestigations, type InvestigationOrder, type InvestigationTest } from '../../contexts/InvestigationContext';
-import { Upload, FileText, X, Beaker, CheckSquare, AlertTriangle, ShieldCheck, Search } from 'lucide-react';
+import { Upload, FileText, X, Beaker, CheckSquare, AlertTriangle, ShieldCheck, Search, Eye, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { DateFilter } from '../../components/ui/DateFilter';
 import { Pagination } from '../../components/ui/Pagination';
@@ -9,7 +9,7 @@ import axios from 'axios';
 
 const API_BASE = import.meta.env.VITE_API_URL as string || 'http://localhost:8000/api/v1';
 
-const TestResultEditor = ({ test, handleSaveResult, handleVerify, patientId }: any) => {
+const TestResultEditor = ({ test, handleSaveResult, patientId }: any) => {
   const [localValue, setLocalValue] = useState(test.resultValue || '');
 
   useEffect(() => {
@@ -68,14 +68,6 @@ const TestResultEditor = ({ test, handleSaveResult, handleVerify, patientId }: a
           />
           {test.resultFile && <p className="text-xs text-blue-600 mt-1 font-medium">Uploaded: {test.resultFile}</p>}
         </div>
-        {test.status === 'Completed' && (
-          <button
-            onClick={() => handleVerify(test.id)}
-            className="px-4 py-2 h-[38px] bg-green-600 text-white hover:bg-green-700 font-bold text-xs rounded-lg flex items-center gap-2 transition-colors shrink-0"
-          >
-            <ShieldCheck className="w-4 h-4" /> Verify
-          </button>
-        )}
       </div>
     </div>
   );
@@ -156,18 +148,34 @@ export const LabOrderList = () => {
     });
   };
 
-  const handleVerify = (testId: string) => {
-    if (!activeOrder) return;
-    verifyTest(activeOrder.id, testId, 'Dr. Smith');
-    toast.success('Test verified');
+  /** An order is locked once every test on it is Verified: results are final
+   *  and the row switches from "Manage Tests" to a read-only "View". */
+  const isLocked = (order: InvestigationOrder) =>
+    order.tests.length > 0 && order.tests.every(t => t.status === 'Verified');
 
-    setActiveOrder(prev => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        tests: prev.tests.map(t => t.id === testId ? { ...t, status: 'Verified' as const } : t)
-      };
-    });
+  /** Every test has a result and is waiting to be signed off. */
+  const canFinalise = (order: InvestigationOrder) =>
+    order.tests.length > 0 &&
+    order.tests.every(t => t.status === 'Completed' || t.status === 'Verified') &&
+    !isLocked(order);
+
+  /** Done signs off the whole order in one go — this replaced the per-test
+   *  Verify button, so finishing is a single decision rather than one per row. */
+  const handleDone = async () => {
+    if (!activeOrder) return;
+
+    if (!canFinalise(activeOrder)) {
+      handleCloseModal();
+      return;
+    }
+
+    const pending = activeOrder.tests.filter(t => t.status !== 'Verified');
+    await Promise.all(
+      pending.map(t => Promise.resolve(verifyTest(activeOrder.id, t.id, 'Dr. Smith')))
+    );
+
+    toast.success('Order completed and locked');
+    handleCloseModal();
   };
 
   return (
@@ -239,7 +247,8 @@ export const LabOrderList = () => {
                 <td className="px-4 py-3 text-slate-500 text-xs">{order.orderedBy}</td>
                 <td className="px-4 py-3 text-slate-700 text-sm font-medium">{order.tests.map(t => t.name).join(', ')}</td>
                 <td className="px-4 py-3">
-                  <span className={`px-2.5 py-1 text-xs font-bold rounded-md ${order.status === 'Completed' ? 'bg-green-100 text-green-700' :
+                  <span className={`px-2.5 py-1 text-xs font-bold rounded-md ${order.status === 'Verified' ? 'bg-emerald-100 text-emerald-700' :
+                      order.status === 'Completed' ? 'bg-green-100 text-green-700' :
                       order.status === 'Partial' ? 'bg-amber-100 text-amber-700' :
                         'bg-slate-100 text-slate-600'
                     }`}>
@@ -247,12 +256,21 @@ export const LabOrderList = () => {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-center">
-                  <button
-                    onClick={() => handleActionClick(order)}
-                    className="px-3 py-1.5 text-xs font-bold bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg transition-colors flex items-center gap-1.5 mx-auto"
-                  >
-                    <Upload className="w-3.5 h-3.5" /> Manage Tests
-                  </button>
+                  {isLocked(order) ? (
+                    <button
+                      onClick={() => handleActionClick(order)}
+                      className="px-3 py-1.5 text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors flex items-center gap-1.5 mx-auto"
+                    >
+                      <Eye className="w-3.5 h-3.5" /> View
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleActionClick(order)}
+                      className="px-3 py-1.5 text-xs font-bold bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg transition-colors flex items-center gap-1.5 mx-auto"
+                    >
+                      <Upload className="w-3.5 h-3.5" /> Manage Tests
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}
@@ -266,7 +284,14 @@ export const LabOrderList = () => {
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
             <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50">
               <div>
-                <h3 className="font-bold text-slate-800 text-lg">Upload Results</h3>
+                <h3 className="font-bold text-slate-800 text-lg flex items-center gap-2">
+                  {isLocked(activeOrder) ? 'View Results' : 'Upload Results'}
+                  {isLocked(activeOrder) && (
+                    <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-100 text-emerald-700 flex items-center gap-1">
+                      <Lock className="w-3 h-3" /> Completed
+                    </span>
+                  )}
+                </h3>
                 <p className="text-xs text-slate-500 mt-0.5">Order {activeOrder.id} • {activeOrder.patientName} ({activeOrder.patientId})</p>
               </div>
               <button onClick={handleCloseModal} className="p-2 hover:bg-slate-200 rounded-xl transition-colors">
@@ -317,10 +342,9 @@ export const LabOrderList = () => {
                     )}
 
                     {(test.status === 'Sample Collected' || test.status === 'Sample Accepted' || test.status === 'Completed' || test.status === 'Verified') && (
-                      <TestResultEditor 
-                        test={test} 
-                        handleSaveResult={handleSaveResult} 
-                        handleVerify={handleVerify} 
+                      <TestResultEditor
+                        test={test}
+                        handleSaveResult={handleSaveResult}
                         patientId={activeOrder.patientId}
                       />
                     )}
@@ -330,9 +354,15 @@ export const LabOrderList = () => {
             </div>
 
             <div className="px-4 py-3 border-t border-slate-100 bg-slate-50 flex justify-end">
-              <button onClick={handleCloseModal} className="px-6 py-2 bg-blue-600 text-white font-bold rounded-xl text-sm hover:bg-blue-700 transition-colors">
-                Done
-              </button>
+              {canFinalise(activeOrder) ? (
+                <button onClick={handleDone} className="px-6 py-2 bg-blue-600 text-white font-bold rounded-xl text-sm hover:bg-blue-700 transition-colors flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4" /> Done
+                </button>
+              ) : (
+                <button onClick={handleCloseModal} className="px-6 py-2 bg-slate-200 text-slate-700 font-bold rounded-xl text-sm hover:bg-slate-300 transition-colors">
+                  Close
+                </button>
+              )}
             </div>
           </div>
         </div>

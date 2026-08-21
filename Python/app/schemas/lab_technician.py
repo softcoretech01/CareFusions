@@ -10,7 +10,6 @@ class LaboratoryEnum(str, Enum):
     BIOCHEMISTRY_LAB = 'Biochemistry Lab'
 
 class LabTechnicianCreate(BaseModel):
-    employeeCode:       str
     name:               str
     qualification:      str
     department:         str
@@ -28,8 +27,6 @@ class LabTechnicianCreate(BaseModel):
     profilePhoto:       Optional[str]       = None
     qualificationCertificate: Optional[str]       = None
     idProof:            Optional[str]       = None
-
-    status:             str
     remarks:            Optional[str]       = None
     createdBy:          Optional[str]       = "System"
 
@@ -39,7 +36,6 @@ class LabTechnicianUpdate(LabTechnicianCreate):
 class LabTechnicianResponse(BaseModel):
     id:                 int
     technicianId:       str
-    employeeCode:       str
     name:               str
     qualification:      str
     department:         str
@@ -57,8 +53,6 @@ class LabTechnicianResponse(BaseModel):
     profilePhoto:       Optional[str]       = None
     qualificationCertificate: Optional[str]       = None
     idProof:            Optional[str]       = None
-    
-    status:             str
     remarks:            Optional[str]       = None
     
     createdBy:          Optional[str]       = None

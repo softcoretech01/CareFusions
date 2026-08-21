@@ -172,6 +172,12 @@ export const RadiologyReports = () => {
                   <span className="block text-slate-500 font-medium mb-1">Date</span>
                   <span className="font-bold text-slate-800">{new Date(selectedOrder.orderedAt).toLocaleDateString()}</span>
                 </div>
+                <div>
+                  <span className="block text-slate-500 font-medium mb-1">Status</span>
+                  <span className={`px-2 py-1 rounded text-xs font-bold w-max inline-flex ${selectedOrder.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                    {selectedOrder.status}
+                  </span>
+                </div>
 
                 <div className="pt-4 border-t border-slate-100 col-span-2 grid grid-cols-2 gap-4">
                   <div>

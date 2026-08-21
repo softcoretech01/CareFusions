@@ -6,11 +6,39 @@ import type { ApexOptions } from 'apexcharts';
 import toast from 'react-hot-toast';
 import { DateFilter } from '../../components/ui/DateFilter';
 
+const API_BASE = import.meta.env.VITE_API_URL as string;
+
 export const LabQualityControl = () => {
   const { qcLogs, addQCLog, refresh } = useInvestigations();
 
   // Load QC logs on open; no-op once the shared context already has them.
   useEffect(() => { refresh(); }, [refresh]);
+
+  const [equipmentList, setEquipmentList] = useState<any[]>([]);
+  const [testList, setTestList] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchDropdowns = async () => {
+      try {
+        const [eqRes, testRes] = await Promise.all([
+          fetch(`${API_BASE}/equipment/`),
+          fetch(`${API_BASE}/tests/`)
+        ]);
+        if (eqRes.ok) {
+          const eqData = await eqRes.json();
+          const labEq = eqData.filter((eq: any) => eq.department === 'Laboratory');
+          setEquipmentList(labEq);
+        }
+        if (testRes.ok) {
+          const testData = await testRes.json();
+          setTestList(testData);
+        }
+      } catch (err) {
+        console.error("Failed to fetch dropdowns", err);
+      }
+    };
+    fetchDropdowns();
+  }, []);
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [fromDate, setFromDate] = useState('');
@@ -24,8 +52,8 @@ export const LabQualityControl = () => {
 
   const [formData, setFormData] = useState<Partial<QCLog>>({
     date: new Date().toISOString().split('T')[0],
-    machineName: 'Sysmex XN-1000',
-    testName: 'Hemoglobin',
+    machineName: '',
+    testName: '',
     status: 'Pass'
   });
 
@@ -54,8 +82,8 @@ export const LabQualityControl = () => {
     setShowAddForm(false);
     setFormData({
       date: new Date().toISOString().split('T')[0],
-      machineName: 'Sysmex XN-1000',
-      testName: 'Hemoglobin',
+      machineName: '',
+      testName: '',
       status: 'Pass'
     });
   };
@@ -117,11 +145,21 @@ export const LabQualityControl = () => {
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Machine</label>
-              <input type="text" value={formData.machineName} onChange={e => setFormData({...formData, machineName: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm" />
+              <select value={formData.machineName} onChange={e => setFormData({...formData, machineName: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm bg-white">
+                <option value="">Select Machine</option>
+                {equipmentList.map(eq => (
+                  <option key={eq.id} value={eq.equipmentName}>{eq.equipmentName}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Test Name</label>
-              <input type="text" value={formData.testName} onChange={e => setFormData({...formData, testName: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm" />
+              <select value={formData.testName} onChange={e => setFormData({...formData, testName: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm bg-white">
+                <option value="">Select Test</option>
+                {testList.map(test => (
+                  <option key={test.id} value={test.testName}>{test.testName}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Remarks</label>

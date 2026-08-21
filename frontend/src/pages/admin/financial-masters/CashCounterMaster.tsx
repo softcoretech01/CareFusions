@@ -65,7 +65,6 @@ const mapApiToRecord = (item: Record<string, unknown>): CashCounterRecord => ({
 export const CashCounterMaster = () => {
   const [records, setRecords] = useState<CashCounterRecord[]>([]);
   const [hospitalOptions, setHospitalOptions] = useState<string[]>([]);
-  const [branchOptions, setBranchOptions] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -76,7 +75,6 @@ export const CashCounterMaster = () => {
 
   // Filter States
   const [showFilters, setShowFilters] = useState(false);
-  const [filterBranch, setFilterBranch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
 
   // Form States
@@ -105,12 +103,10 @@ export const CashCounterMaster = () => {
   // Hospitals & branches come from the live masters
   const fetchLookups = async () => {
     try {
-      const [hRes, bRes] = await Promise.all([
+      const [hRes] = await Promise.all([
         fetch(`${API_BASE}/hospitals/`),
-        fetch(`${API_BASE}/branches/`),
       ]);
       if (hRes.ok) setHospitalOptions((await hRes.json()).map((h: Record<string, unknown>) => h.name as string));
-      if (bRes.ok) setBranchOptions((await bRes.json()).map((b: Record<string, unknown>) => b.name as string));
     } catch { /* leave options as-is */ }
   };
 
@@ -228,18 +224,15 @@ export const CashCounterMaster = () => {
   };
 
   const allHospitals = Array.from(new Set([...hospitalOptions, ...records.map(r => r.hospital)].filter(Boolean))).sort();
-  const allBranches = Array.from(new Set([...branchOptions, ...records.map(r => r.branch)].filter(Boolean))).sort();
 
   const filteredRecords = records.filter(record => {
     const matchesSearch =
       record.counterName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       record.counterCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
       record.assignedUser.toLowerCase().includes(searchTerm.toLowerCase());
-
-    const matchesBranch = !filterBranch || record.branch === filterBranch;
     const matchesStatus = !filterStatus || record.status === filterStatus;
 
-    return matchesSearch && matchesBranch && matchesStatus;
+    return matchesSearch && matchesStatus;
   });
 
   const _totalPages = Math.max(1, Math.ceil(filteredRecords.length / itemsPerPage));
@@ -266,7 +259,7 @@ export const CashCounterMaster = () => {
         <>
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-3xl font-bold text-slate-800">Cash Counter Master</h1>
+              <h1 className="text-3xl font-bold text-slate-800">Cash Counter</h1>
               <p className="text-slate-500 mt-1"></p>
             </div>
             <div className="flex gap-3">
@@ -292,7 +285,7 @@ export const CashCounterMaster = () => {
               <button onClick={() => setShowFilters(!showFilters)} title="Filters" className={showFilters ? "p-2 border rounded-lg transition-colors border-primary bg-primary/5 text-primary" : "p-2 border rounded-lg transition-colors border-slate-200 text-slate-500 hover:bg-slate-50"}>
                 <Filter className="w-4 h-4" />
               </button>
-              <button onClick={() => { setSearchTerm(''); setFilterBranch(''); setFilterStatus(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
+              <button onClick={() => { setSearchTerm(''); setFilterStatus(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
                 <X className="w-4 h-4" />
               </button>
               <button onClick={() => exportToExcel(records, 'CashCounterMaster')} title="Export to Excel" className="p-2 border border-emerald-200 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 transition-colors">
@@ -311,14 +304,6 @@ export const CashCounterMaster = () => {
                 >
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <select
-                      value={filterBranch}
-                      onChange={(e) => setFilterBranch(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    >
-                      <option value="">All Branches</option>
-                      {allBranches.map(b => <option key={b} value={b}>{b}</option>)}
-                    </select>
-                    <select
                       value={filterStatus}
                       onChange={(e) => setFilterStatus(e.target.value)}
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
@@ -332,59 +317,6 @@ export const CashCounterMaster = () => {
               )}
             </AnimatePresence>
 
-            <div className="flex-1 overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-slate-50 border-b border-slate-200 text-slate-600">
-                  <tr>
-                    <th className="px-4 py-3 font-medium">Counter Code</th>
-                    <th className="px-4 py-3 font-medium">Counter Name</th>
-                    <th className="px-4 py-3 font-medium">Branch</th>
-                    <th className="px-4 py-3 font-medium">Assigned Cashier</th>
-                    <th className="px-4 py-3 font-medium text-center">Status</th>
-                    <th className="px-4 py-3 font-medium text-center">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {isLoading ? (
-                    <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500">Loading cash counters...</td></tr>
-                  ) : filteredRecords.length > 0 ? (
-                    pagedRecords.map((record) => (
-                      <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-4 py-3 font-medium text-slate-800">{record.counterCode}</td>
-                        <td className="px-4 py-3 font-medium text-primary">{record.counterName}</td>
-                        <td className="px-4 py-3 text-slate-600">{record.branch}</td>
-                        <td className="px-4 py-3 text-slate-600 font-medium">{record.assignedUser}</td>
-                        <td className="px-4 py-3 text-center">
-                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                            record.status === 'Active'
-                              ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
-                              : 'bg-red-50 text-red-600 border border-red-200'
-                          }`}>
-                            {record.status}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <div className="flex items-center justify-center gap-2">
-                            <button onClick={() => handleEdit(record)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors" title="Edit">
-                              <Edit2 className="w-4 h-4" />
-                            </button>
-                            <button onClick={() => handleDeleteRequest(record)} className="p-1.5 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
-                        No cash counters found matching your criteria.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
         <Pagination page={page} pageSize={pageSize} totalItems={total} onPageChange={setPage} />
             <div className="flex flex-wrap items-center justify-between gap-3 p-4 border-t border-slate-100 text-sm text-slate-500">
               <div className="flex items-center gap-2">
@@ -436,22 +368,6 @@ export const CashCounterMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Counter Name <span className="text-red-500">*</span></label>
                     <input type="text" maxLength={LIMITS.counterName} value={formData.counterName} onChange={e => setFormData({...formData, counterName: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.counterName ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
                     {errors.counterName && <p className="text-red-500 text-xs mt-1">{errors.counterName}</p>}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Hospital <span className="text-red-500">*</span></label>
-                    <select value={formData.hospital} onChange={e => setFormData({...formData, hospital: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.hospital ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
-                      <option value="">Select Hospital</option>
-                      {paged.map(h => <option key={h} value={h}>{h}</option>)}
-                    </select>
-                    {errors.hospital && <p className="text-red-500 text-xs mt-1">{errors.hospital}</p>}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Branch <span className="text-red-500">*</span></label>
-                    <select value={formData.branch} onChange={e => setFormData({...formData, branch: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.branch ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
-                      <option value="">Select Branch</option>
-                      {allBranches.map(b => <option key={b} value={b}>{b}</option>)}
-                    </select>
-                    {errors.branch && <p className="text-red-500 text-xs mt-1">{errors.branch}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Assigned Cashier <span className="text-red-500">*</span></label>
