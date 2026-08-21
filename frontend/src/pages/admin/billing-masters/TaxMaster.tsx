@@ -261,11 +261,6 @@ export const TaxMaster = () => {
 
       {/* Header & Breadcrumbs */}
       <div className="mb-6">
-        <div className="flex items-center text-sm text-slate-500 mb-2">
-          <span>Masters</span>
-          <span className="mx-2">/</span>
-          <span className="text-primary font-medium">Tax (GST)</span>
-        </div>
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-slate-800">Tax (GST)</h1>

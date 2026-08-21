@@ -35,7 +35,6 @@ class StatusEnum(str, Enum):
 # ── Shared field rules ───────────────────────────────────────
 class _RadiologyServiceFields(BaseModel):
     serviceName:          str               = Field(max_length=NAME_MAX)
-    department:           str               = Field(max_length=DEPT_MAX)
     description:          Optional[str]     = Field(default=None, max_length=DESC_MAX)
     serviceCategory:      ServiceCategoryEnum
     estimatedDuration:    int                       # Minutes, 1 - 1440
@@ -51,7 +50,7 @@ class _RadiologyServiceFields(BaseModel):
     status:               StatusEnum    = StatusEnum.Active
     remarks:              Optional[str]     = Field(default=None, max_length=REMARKS_MAX)
 
-    @field_validator("serviceName", "department")
+    @field_validator("serviceName")
     @classmethod
     def not_empty(cls, v: str) -> str:
         if not v or not v.strip():
@@ -120,7 +119,6 @@ class RadiologyServiceResponse(BaseModel):
     id:                   int
     serviceCode:          str
     serviceName:          str
-    department:           str
     description:          Optional[str]
     serviceCategory:      str
     estimatedDuration:    str
