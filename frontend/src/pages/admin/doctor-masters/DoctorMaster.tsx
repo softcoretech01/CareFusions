@@ -506,7 +506,7 @@ export const DoctorMaster = () => {
         <>
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-3xl font-bold text-slate-800">Doctor Master</h1>
+              <h1 className="text-3xl font-bold text-slate-800">Doctor</h1>
               <p className="text-slate-500 mt-1"></p>
             </div>
             <div className="flex gap-3">
@@ -600,7 +600,6 @@ export const DoctorMaster = () => {
                     <th className="px-4 py-2 font-medium">Specialization</th>
                     <th className="px-4 py-2 font-medium">Department</th>
                     <th className="px-4 py-2 font-medium">Qualification</th>
-                    <th className="px-4 py-2 font-medium text-right">Fee</th>
                     <th className="px-4 py-2 font-medium">Mobile</th>
                     <th className="px-4 py-2 font-medium text-center">Action</th>
                   </tr>
@@ -614,7 +613,6 @@ export const DoctorMaster = () => {
                         <td className="px-4 py-2 text-slate-600">{record.specialization}</td>
                         <td className="px-4 py-2 text-slate-600">{record.department}</td>
                         <td className="px-4 py-2 text-slate-600">{record.qualification}</td>
-                        <td className="px-4 py-2 text-right">{record.consultationFee}</td>
                         <td className="px-4 py-2 text-slate-600">{record.mobile}</td>
                         <td className="px-4 py-2 text-center">
                           <div className="flex items-center justify-center gap-2">
@@ -638,7 +636,7 @@ export const DoctorMaster = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
+                      <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
                         {isLoading ? 'Loading records...' : 'No doctors found matching your criteria.'}
                       </td>
                     </tr>

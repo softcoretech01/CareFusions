@@ -21,7 +21,7 @@ export const ClinicalRulesMaster = () => (
     className="h-full flex flex-col"
   >
     <div className="mb-4">
-      <h1 className="text-2xl font-bold text-slate-800">Clinical Rules Master</h1>
+      <h1 className="text-2xl font-bold text-slate-800">Clinical Rules</h1>
       <p className="text-slate-500 text-xs">Clinical decision-support rules</p>
     </div>
 

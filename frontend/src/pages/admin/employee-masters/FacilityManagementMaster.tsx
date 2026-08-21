@@ -26,7 +26,6 @@ interface FacilityManagementRecord {
   shift: string;
   employmentType: string;
   supervisor: string;
-  status: string;
   remarks: string;
   profilePhoto?: string;
   idProof?: string;
@@ -50,7 +49,6 @@ const emptyData: Omit<FacilityManagementRecord, 'id'> = {
   shift: '',
   employmentType: '',
   supervisor: '',
-  status: 'Active',
   remarks: ''
 };
 
@@ -72,7 +70,6 @@ const mapApiToRecord = (item: any): FacilityManagementRecord => ({
   shift:            item.shift as string,
   employmentType:   item.employmentType as string || '',
   supervisor:       item.supervisor as string || '',
-  status:           item.status as string,
   remarks:          item.remarks as string || '',
   profilePhoto:         item.profilePhoto as string || '',
   idProof:              item.idProof as string || '',
@@ -100,8 +97,7 @@ export const FacilityManagementMaster = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [filterCategory, setFilterCategory] = useState('');
   const [filterShift, setFilterShift] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
-
+  
   // Form States
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -115,8 +111,6 @@ export const FacilityManagementMaster = () => {
   const [successMessage, setSuccessMessage] = useState('');
 
   // Dynamic dropdowns
-  const [hospitals, setHospitals] = useState<{ name: string }[]>([]);
-  const [branches, setBranches] = useState<{ name: string }[]>([]);
 
   const fetchStaff = async () => {
     try {
@@ -134,13 +128,7 @@ export const FacilityManagementMaster = () => {
 
   const fetchDropdowns = async () => {
     try {
-      const [hRes, bRes] = await Promise.all([
-        fetch(`${API_BASE}/hospitals/`),
-        fetch(`${API_BASE}/branches/`),
-      ]);
-      if (hRes.ok) setHospitals(await hRes.json());
-      if (bRes.ok) setBranches(await bRes.json());
-    } catch (err) {
+      } catch (err) {
       console.error('Failed to fetch dropdowns:', err);
     }
   };
@@ -152,11 +140,8 @@ export const FacilityManagementMaster = () => {
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
-    if (!formData.employeeId.trim()) newErrors.employeeId = 'Employee ID is required';
-    if (!formData.employeeCode.trim()) newErrors.employeeCode = 'Employee Code is required';
-    if (!formData.name.trim()) newErrors.name = 'Name is required';
+    if (!formData.employeeId.trim()) newErrors.employeeId = 'Employee ID is required';    if (!formData.name.trim()) newErrors.name = 'Name is required';
     if (!formData.staffCategory) newErrors.staffCategory = 'Staff Category is required';
-    if (!formData.hospital) newErrors.hospital = 'Hospital is required';
     if (!formData.branch) newErrors.branch = 'Branch is required';
     if (!formData.assignedArea.trim()) newErrors.assignedArea = 'Assigned Area is required';
     if (!formData.mobile.trim()) newErrors.mobile = 'Mobile is required';
@@ -225,7 +210,6 @@ export const FacilityManagementMaster = () => {
         profilePhoto:       formData.profilePhoto || null,
         idProof:            formData.idProof || null,
         policeVerification: formData.policeVerification || null,
-        status:             formData.status,
         remarks:            formData.remarks || null,
         ...(selectedRecord ? { modifiedBy: 'Dr. John Doe' } : { createdBy: 'Dr. John Doe' }),
       };
@@ -293,9 +277,8 @@ export const FacilityManagementMaster = () => {
     
     const matchesCategory = !filterCategory || record.staffCategory === filterCategory;
     const matchesShift = !filterShift || record.shift === filterShift;
-    const matchesStatus = !filterStatus || record.status === filterStatus;
 
-    return matchesSearch && matchesCategory && matchesShift && matchesStatus;
+    return matchesSearch && matchesCategory && matchesShift;
   });
 
   const _totalPages = Math.max(1, Math.ceil(filteredRecords.length / itemsPerPage));
@@ -340,7 +323,7 @@ export const FacilityManagementMaster = () => {
               <button onClick={() => setShowFilters(!showFilters)} title="Filters" className={showFilters ? "p-2 border rounded-lg transition-colors border-primary bg-primary/5 text-primary" : "p-2 border rounded-lg transition-colors border-slate-200 text-slate-500 hover:bg-slate-50"}>
                 <Filter className="w-4 h-4" />
               </button>
-              <button onClick={() => { setSearchTerm(''); setFilterCategory(''); setFilterShift(''); setFilterStatus(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
+              <button onClick={() => { setSearchTerm(''); setFilterCategory(''); setFilterShift(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
                 <X className="w-4 h-4" />
               </button>
               <button onClick={() => exportToExcel(records, 'FacilityManagementMaster')} title="Export to Excel" className="p-2 border border-emerald-200 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 transition-colors">
@@ -376,15 +359,6 @@ export const FacilityManagementMaster = () => {
                       <option value="Evening">Evening</option>
                       <option value="Night">Night</option>
                     </select>
-                    <select
-                      value={filterStatus}
-                      onChange={(e) => setFilterStatus(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    >
-                      <option value="">All Statuses</option>
-                      <option value="Active">Active</option>
-                      <option value="Inactive">Inactive</option>
-                    </select>
                   </div>
                 </motion.div>
               )}
@@ -399,7 +373,6 @@ export const FacilityManagementMaster = () => {
                     <th className="px-4 py-3 font-medium">Staff Category</th>
                     <th className="px-4 py-3 font-medium">Assigned Area</th>
                     <th className="px-4 py-3 font-medium">Shift</th>
-                    <th className="px-4 py-3 font-medium text-center">Status</th>
                     <th className="px-4 py-3 font-medium text-center">Action</th>
                   </tr>
                 </thead>
@@ -412,15 +385,6 @@ export const FacilityManagementMaster = () => {
                         <td className="px-4 py-3 text-slate-600">{record.staffCategory}</td>
                         <td className="px-4 py-3 text-slate-600">{record.assignedArea}</td>
                         <td className="px-4 py-3 text-slate-600">{record.shift}</td>
-                        <td className="px-4 py-3 text-center">
-                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                            record.status === 'Active' 
-                              ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' 
-                              : 'bg-red-50 text-red-600 border border-red-200'
-                          }`}>
-                            {record.status}
-                          </span>
-                        </td>
                         <td className="px-4 py-3 text-center">
                           <div className="flex items-center justify-center gap-2">
                             <button 
@@ -500,11 +464,6 @@ export const FacilityManagementMaster = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Employee Code <span className="text-red-500">*</span></label>
-                    <input type="text" value={formData.employeeCode} onChange={e => setFormData({...formData, employeeCode: e.target.value})} maxLength={10} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.employeeCode ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
-                    {errors.employeeCode && <p className="text-red-500 text-xs mt-1">{errors.employeeCode}</p>}
-                  </div>
-                  <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Name <span className="text-red-500">*</span></label>
                     <input type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} maxLength={50} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.name ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
                     {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
@@ -516,26 +475,6 @@ export const FacilityManagementMaster = () => {
                       {staffCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                     </select>
                     {errors.staffCategory && <p className="text-red-500 text-xs mt-1">{errors.staffCategory}</p>}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Hospital <span className="text-red-500">*</span></label>
-                    <select value={formData.hospital} onChange={e => setFormData({...formData, hospital: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.hospital ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
-                      <option value="">Select Hospital</option>
-                      {hospitals.map((h, i) => (
-                        <option key={i} value={h.name}>{h.name}</option>
-                      ))}
-                    </select>
-                    {errors.hospital && <p className="text-red-500 text-xs mt-1">{errors.hospital}</p>}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Branch <span className="text-red-500">*</span></label>
-                    <select value={formData.branch} onChange={e => setFormData({...formData, branch: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.branch ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
-                      <option value="">Select Branch</option>
-                      {branches.map((b, i) => (
-                        <option key={i} value={b.name}>{b.name}</option>
-                      ))}
-                    </select>
-                    {errors.branch && <p className="text-red-500 text-xs mt-1">{errors.branch}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Assigned Area <span className="text-red-500">*</span></label>
@@ -643,13 +582,6 @@ export const FacilityManagementMaster = () => {
               <section>
                 <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">System</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Status <span className="text-red-500">*</span></label>
-                    <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
-                      <option value="Active">Active</option>
-                      <option value="Inactive">Inactive</option>
-                    </select>
-                  </div>
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-slate-700 mb-1">Remarks</label>
                     <input type="text" value={formData.remarks} onChange={e => setFormData({...formData, remarks: e.target.value})} maxLength={250} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />

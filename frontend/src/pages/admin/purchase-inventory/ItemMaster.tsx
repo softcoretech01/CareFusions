@@ -331,11 +331,11 @@ export const ItemMaster = () => {
         <div className="flex items-center text-sm text-slate-500 mb-2">
           <span>Masters</span>
           <span className="mx-2">/</span>
-          <span className="text-primary font-medium">Item Master</span>
+          <span className="text-primary font-medium">Item</span>
         </div>
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-800">Item Master</h1>
+            <h1 className="text-3xl font-bold text-slate-800">Item</h1>
             <p className="text-slate-500 mt-1"></p>
           </div>
 
@@ -488,7 +488,7 @@ export const ItemMaster = () => {
       <Modal
         isOpen={isFormOpen}
         onClose={() => setIsFormOpen(false)}
-        title={`${selectedRecord ? 'Edit' : 'Add'} Item Master`}
+        title={`${selectedRecord ? 'Edit' : 'Add'} Item`}
         size="3xl"
       >
         <div className="space-y-4 px-1">

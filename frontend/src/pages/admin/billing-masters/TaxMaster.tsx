@@ -264,11 +264,11 @@ export const TaxMaster = () => {
         <div className="flex items-center text-sm text-slate-500 mb-2">
           <span>Masters</span>
           <span className="mx-2">/</span>
-          <span className="text-primary font-medium">Tax (GST) Master</span>
+          <span className="text-primary font-medium">Tax (GST)</span>
         </div>
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-800">Tax (GST) Master</h1>
+            <h1 className="text-3xl font-bold text-slate-800">Tax (GST)</h1>
             <p className="text-slate-500 mt-1"></p>
           </div>
 
@@ -419,7 +419,7 @@ export const TaxMaster = () => {
       <Modal
         isOpen={isFormOpen}
         onClose={() => setIsFormOpen(false)}
-        title={`${selectedRecord ? 'Edit' : 'Add'} Tax (GST) Master`}
+        title={`${selectedRecord ? 'Edit' : 'Add'} Tax (GST)`}
         size="3xl"
       >
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-h-[70vh] overflow-y-auto px-1">

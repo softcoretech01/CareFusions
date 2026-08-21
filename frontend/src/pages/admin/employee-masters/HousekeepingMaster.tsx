@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Search, Download, Edit2, Trash2, AlertTriangle, X, Power, Save } from 'lucide-react';
+import { Plus, Search, Download, Edit2, Trash2, AlertTriangle, X, Save } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
@@ -27,7 +27,6 @@ export interface HousekeepingRecord {
   shift: string;
   experience: string;
   manager: string;
-  status: string;
   remarks: string;
   createdBy?: string;
   createdDate?: string;
@@ -40,8 +39,7 @@ const SHIFTS = ['Morning', 'Afternoon', 'Night', 'General', 'Rotational'];
 const emptyData: Omit<HousekeepingRecord, 'id'> = {
   housekeepingCode: '', employeeCode: '', name: '', gender: '',
   hospital: '', branch: '', assignedArea: '', mobile: '', email: '',
-  address: '', joiningDate: '', shift: '', experience: '', manager: '',
-  status: 'Active', remarks: '',
+  address: '', joiningDate: '', shift: '', experience: '', manager: '', remarks: '',
 };
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
@@ -62,7 +60,6 @@ const mapApiToRecord = (item: any): HousekeepingRecord => ({
   shift:            item.shift,
   experience:       item.experience === null || item.experience === undefined ? '' : String(item.experience),
   manager:          item.manager || '',
-  status:           item.status,
   remarks:          item.remarks || '',
   createdBy:        item.createdBy,
   createdDate:      item.createdDate,
@@ -76,8 +73,7 @@ const LABEL = 'block text-xs font-semibold text-slate-600 mb-1';
 export const HousekeepingMaster = () => {
   const [records, setRecords] = useState<HousekeepingRecord[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
-  const [filterShift, setFilterShift] = useState('');
+    const [filterShift, setFilterShift] = useState('');
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -88,8 +84,6 @@ export const HousekeepingMaster = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
 
-  const [hospitals, setHospitals] = useState<any[]>([]);
-  const [branches, setBranches] = useState<any[]>([]);
 
   const fetchStaff = useCallback(async () => {
     setIsLoading(true);
@@ -107,11 +101,6 @@ export const HousekeepingMaster = () => {
 
   useEffect(() => {
     fetchStaff();
-    Promise.all([
-      fetch(`${API_BASE}/hospitals/`).then(r => (r.ok ? r.json() : [])),
-      fetch(`${API_BASE}/branches/`).then(r => (r.ok ? r.json() : [])),
-    ]).then(([h, b]) => { setHospitals(h); setBranches(b); })
-      .catch(() => { /* the pickers are optional */ });
   }, [fetchStaff]);
 
   const validateForm = () => {
@@ -167,17 +156,6 @@ export const HousekeepingMaster = () => {
     setIsFormOpen(true);
   };
 
-  const handleToggleStatus = async (record: HousekeepingRecord) => {
-    setApiError(null);
-    try {
-      const res = await fetch(`${API_BASE}/housekeeping/${record.id}/toggle-status`, { method: 'PATCH' });
-      if (!res.ok) throw new Error((await res.json()).detail || 'Failed to change status');
-      await fetchStaff();
-    } catch (err: any) {
-      setApiError(err.message);
-    }
-  };
-
   const handleDeleteRequest = (record: HousekeepingRecord) => {
     setSelectedRecord(record);
     setIsDeleteOpen(true);
@@ -216,7 +194,6 @@ export const HousekeepingMaster = () => {
         shift:        formData.shift,
         experience:   formData.experience === '' ? null : Number(formData.experience),
         manager:      formData.manager.trim() || null,
-        status:       formData.status,
         remarks:      formData.remarks.trim() || null,
         ...(selectedRecord ? { modifiedBy: 'Admin' } : { createdBy: 'Admin' }),
       };
@@ -250,7 +227,6 @@ export const HousekeepingMaster = () => {
       r.assignedArea.toLowerCase().includes(q) ||
       r.mobile.includes(q);
     return matchesSearch
-      && (!filterStatus || r.status === filterStatus)
       && (!filterShift || r.shift === filterShift);
   });
 
@@ -299,13 +275,7 @@ export const HousekeepingMaster = () => {
                   <option value="">All Shifts</option>
                   {SHIFTS.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
-                <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}
-                        className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
-                  <option value="">All Statuses</option>
-                  <option value="Active">Active</option>
-                  <option value="Inactive">Inactive</option>
-                </select>
-                <button onClick={() => { setSearchTerm(''); setFilterStatus(''); setFilterShift(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
+                <button onClick={() => { setSearchTerm(''); setFilterShift(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
                   <X className="w-4 h-4" />
                 </button>
                 <button onClick={() => exportToExcel(records, 'HousekeepingMaster')} title="Export to Excel" className="p-2 border border-emerald-200 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 transition-colors">
@@ -324,7 +294,6 @@ export const HousekeepingMaster = () => {
                     <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Assigned Area</th>
                     <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Shift</th>
                     <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Contact</th>
-                    <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
                     <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
                   </tr>
                 </thead>
@@ -345,18 +314,10 @@ export const HousekeepingMaster = () => {
                         <div className="text-sm text-slate-700">{row.mobile}</div>
                         {row.email && <div className="text-xs text-slate-500">{row.email}</div>}
                       </td>
-                      <td className="px-4 py-3">
-                        <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${row.status === 'Inactive' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
-                          {row.status}
-                        </span>
-                      </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-1">
                           <button onClick={() => handleEdit(row)} title="Edit" className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors">
                             <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button onClick={() => handleToggleStatus(row)} title={row.status === 'Active' ? 'Deactivate' : 'Activate'} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-colors">
-                            <Power className="w-4 h-4" />
                           </button>
                           <button onClick={() => handleDeleteRequest(row)} title="Delete" className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
                             <Trash2 className="w-4 h-4" />
@@ -408,14 +369,6 @@ export const HousekeepingMaster = () => {
                          className={`${FIELD} bg-slate-100 text-slate-500 border-slate-200`} />
                 </div>
                 <div>
-                  <label className={LABEL}>Employee Code <span className="text-red-500">*</span></label>
-                  <input type="text" value={formData.employeeCode}
-                         onChange={e => setFormData({ ...formData, employeeCode: alphanumeric(e.target.value, 50) })}
-                         placeholder="EMP-HK-01"
-                         className={`${FIELD} ${errors.employeeCode ? 'border-red-300' : 'border-slate-200'}`} />
-                  {errors.employeeCode && <p className="text-red-500 text-[11px] mt-0.5">{errors.employeeCode}</p>}
-                </div>
-                <div>
                   <label className={LABEL}>Staff Name <span className="text-red-500">*</span></label>
                   {/* Letters and spaces only, per the field rules. */}
                   <input type="text" value={formData.name}
@@ -441,28 +394,6 @@ export const HousekeepingMaster = () => {
             <section className="mb-5">
               <h3 className="text-sm font-bold text-slate-800 mb-3 border-b border-slate-100 pb-1.5">Posting</h3>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                <div>
-                  <label className={LABEL}>Hospital</label>
-                  <select value={formData.hospital}
-                          onChange={e => setFormData({ ...formData, hospital: e.target.value })}
-                          className={`${FIELD} border-slate-200`}>
-                    <option value="">Select Hospital</option>
-                    {hospitals.map((h: any) => (
-                      <option key={h.id ?? h.name} value={h.name ?? h.hospitalName}>{h.name ?? h.hospitalName}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className={LABEL}>Branch</label>
-                  <select value={formData.branch}
-                          onChange={e => setFormData({ ...formData, branch: e.target.value })}
-                          className={`${FIELD} border-slate-200`}>
-                    <option value="">Select Branch</option>
-                    {branches.map((b: any) => (
-                      <option key={b.id ?? b.name} value={b.name ?? b.branchName}>{b.name ?? b.branchName}</option>
-                    ))}
-                  </select>
-                </div>
                 <div>
                   <label className={LABEL}>Assigned Area <span className="text-red-500">*</span></label>
                   <input type="text" value={formData.assignedArea}
@@ -532,15 +463,6 @@ export const HousekeepingMaster = () => {
                   <input type="text" value={formData.manager}
                          onChange={e => setFormData({ ...formData, manager: lettersOnly(e.target.value, LIMITS.name) })}
                          className={`${FIELD} border-slate-200`} />
-                </div>
-                <div>
-                  <label className={LABEL}>Status</label>
-                  <select value={formData.status}
-                          onChange={e => setFormData({ ...formData, status: e.target.value })}
-                          className={`${FIELD} border-slate-200`}>
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                  </select>
                 </div>
                 <div className="md:col-span-4">
                   <label className={LABEL}>Remarks</label>

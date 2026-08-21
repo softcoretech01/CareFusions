@@ -7,7 +7,6 @@ class MasterNurse(Base):
 
     NurseId = Column(Integer, primary_key=True, index=True, autoincrement=True)
     NurseCode = Column(String(20), unique=True, index=True, nullable=False)
-    EmployeeCode = Column(String(50), nullable=False)
     NurseName = Column(String(100), index=True, nullable=False)
     Gender = Column(String(20))
     DateOfBirth = Column(Date)
@@ -30,8 +29,6 @@ class MasterNurse(Base):
     ReportingManager = Column(String(100))
     EmploymentType = Column(String(50))
     ExperienceYears = Column(Integer)
-    
-    Status = Column(String(20), default="Active", index=True)
     Remarks = Column(Text)
     
     CreatedBy = Column(String(100), default="System")

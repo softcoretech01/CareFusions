@@ -245,11 +245,11 @@ export const BrandMaster = () => {
         <div className="flex items-center text-sm text-slate-500 mb-2">
           <span>Masters</span>
           <span className="mx-2">/</span>
-          <span className="text-primary font-medium">Brand Master</span>
+          <span className="text-primary font-medium">Brand</span>
         </div>
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-800">Brand Master</h1>
+            <h1 className="text-3xl font-bold text-slate-800">Brand</h1>
             <p className="text-slate-500 mt-1"></p>
           </div>
 
@@ -400,7 +400,7 @@ export const BrandMaster = () => {
       <Modal
         isOpen={isFormOpen}
         onClose={() => setIsFormOpen(false)}
-        title={`${selectedRecord ? 'Edit' : 'Add'} Brand Master`}
+        title={`${selectedRecord ? 'Edit' : 'Add'} Brand`}
         size="3xl"
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[70vh] overflow-y-auto px-1">

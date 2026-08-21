@@ -5,7 +5,11 @@ from fastapi.responses import JSONResponse
 
 router = APIRouter(prefix="/upload", tags=["Upload"])
 
-UPLOAD_DIR = os.path.join(os.getcwd(), "uploads")
+# Anchored to the Python/ directory rather than os.getcwd(): the working
+# directory depends on where uvicorn was launched from, so uploads used to be
+# written to one folder and served from another, and files 404'd.
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @router.post("/")
