@@ -12,18 +12,9 @@ class StatusEnum(str, Enum):
     Active   = "Active"
     Inactive = "Inactive"
 
-class DoctorTypeEnum(str, Enum):
-    FullTime = "Full-time"
-    Visiting = "Visiting"
-    OnCall   = "On-call"
 
-class ConsultationTypeEnum(str, Enum):
-    OP   = "OP"
-    IP   = "IP"
-    OPIP = "OP/IP"
 
 class DoctorCreate(BaseModel):
-    registrationNumber: str
     name:               str
     gender:             GenderEnum
     dob:                Optional[date]      = None
@@ -43,13 +34,9 @@ class DoctorCreate(BaseModel):
     branch:             str
     department:         str
     designation:        str
-    medicalCouncil:     Optional[str]       = None
     experience:         Optional[int]       = None
     languages:          Optional[str]       = None
-    doctorType:         Optional[DoctorTypeEnum] = None
-    consultationType:   Optional[ConsultationTypeEnum] = None
     joiningDate:        Optional[date]      = None
-    licenseExpiryDate:  Optional[date]      = None
 
     consultationFee:    float
     followUpFee:        Optional[float]     = None
@@ -72,6 +59,7 @@ class DoctorCreate(BaseModel):
     signatureImage:     Optional[str]       = None
     digitalSignature:   Optional[str]       = None
     registrationCertificate: Optional[str]  = None
+    aadhaarCard:        Optional[str]       = None
 
     status:             StatusEnum          = StatusEnum.Active
     remarks:            Optional[str]       = None
@@ -85,7 +73,6 @@ class DoctorResponse(BaseModel):
     # doctor row still serializes instead of raising ResponseValidationError.
     id:                 int
     doctorId:           str
-    registrationNumber: str
     name:               str
     gender:             Optional[GenderEnum] = None
     dob:                Optional[date]      = None
@@ -105,13 +92,9 @@ class DoctorResponse(BaseModel):
     branch:             Optional[str]       = None
     department:         Optional[str]       = None
     designation:        Optional[str]       = None
-    medicalCouncil:     Optional[str]       = None
     experience:         Optional[int]       = None
     languages:          Optional[str]       = None
-    doctorType:         Optional[str]       = None
-    consultationType:   Optional[str]       = None
     joiningDate:        Optional[date]      = None
-    licenseExpiryDate:  Optional[date]      = None
 
     consultationFee:    Optional[float]     = None
     followUpFee:        Optional[float]     = None
@@ -134,6 +117,7 @@ class DoctorResponse(BaseModel):
     signatureImage:     Optional[str]       = None
     digitalSignature:   Optional[str]       = None
     registrationCertificate: Optional[str]  = None
+    aadhaarCard:        Optional[str]       = None
 
     status:             Optional[str]       = None
     remarks:            Optional[str]       = None

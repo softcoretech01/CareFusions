@@ -7,6 +7,13 @@ import { DateFilter } from '../../components/ui/DateFilter';
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
 
+// Used only when the master has no price for that doctor, test or scan. They
+// are still editable on the bill, so a missing master is visible but not
+// blocking.
+const DEFAULT_CONSULT_FEE = 500;
+const DEFAULT_LAB_FEE = 250;
+const DEFAULT_RADIOLOGY_FEE = 1500;
+
 interface BillItem {
   id: string;
   description: string;
@@ -51,6 +58,14 @@ interface BillResponse {
 export const OPBilling = () => {
 
   const [bills, setBills] = useState<BillResponse[]>([]);
+
+  // Price books. Consultation, lab and radiology charges used to be the
+  // literals 500 / 250 / 1500, so every bill ignored the masters: a 5,000
+  // consultation was billed at 500 and a 1,200 Troponin at 250.
+  const [doctorFees, setDoctorFees] = useState<Record<string, number>>({});
+  const [deptFees, setDeptFees] = useState<Record<string, number>>({});
+  const [testPrices, setTestPrices] = useState<Record<string, number>>({});
+  const [radPrices, setRadPrices] = useState<Record<string, number>>({});
   const [patients, setPatients] = useState<OpdVisit[]>([]);
   const [searchId, setSearchId] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -75,6 +90,7 @@ export const OPBilling = () => {
   useEffect(() => {
     fetchBills();
     fetchVisits();
+    fetchPriceBooks();
 
     const handleClickOutside = (event: MouseEvent) => {
       if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
@@ -91,6 +107,36 @@ export const OPBilling = () => {
       setBills(response.data);
     } catch (error) {
       console.error("Failed to fetch bills", error);
+    }
+  };
+
+  // Keyed on the name, because visits carry doctor/test names rather than ids.
+  const fetchPriceBooks = async () => {
+    const key = (v: unknown) => String(v ?? '').trim().toLowerCase();
+    try {
+      const [docs, tests, rads, depts] = await Promise.all([
+        axios.get(`${API_BASE}/doctors/`).catch(() => ({ data: [] })),
+        axios.get(`${API_BASE}/tests/`).catch(() => ({ data: [] })),
+        axios.get(`${API_BASE}/radiology-services/`).catch(() => ({ data: [] })),
+        axios.get(`${API_BASE}/departments/`).catch(() => ({ data: [] })),
+      ]);
+
+      const toMap = (rows: any[], nameKey: string, priceKey: string) => {
+        const m: Record<string, number> = {};
+        (Array.isArray(rows) ? rows : []).forEach(r => {
+          const n = key(r?.[nameKey]);
+          const price = Number(r?.[priceKey]);
+          if (n && Number.isFinite(price) && price > 0) m[n] = price;
+        });
+        return m;
+      };
+
+      setDoctorFees(toMap(docs.data, 'name', 'consultationFee'));
+      setTestPrices(toMap(tests.data, 'testName', 'testPrice'));
+      setRadPrices(toMap(rads.data, 'serviceName', 'servicePrice'));
+      setDeptFees(toMap(depts.data, 'departmentName', 'consultationFee'));
+    } catch (error) {
+      console.error('Failed to load price masters', error);
     }
   };
 
@@ -150,31 +196,49 @@ export const OPBilling = () => {
     setMobileNumber(mobile);
     setShowSuggestions(false);
 
-    // Auto populate items
+    // Auto populate items. Prices come from the masters: the doctor's own
+    // consultation fee first, then the department's fee, and only then a
+    // fallback so a missing master never blocks billing.
+    const lookup = (book: Record<string, number>, name?: string) =>
+      book[String(name ?? '').trim().toLowerCase()];
+
+    const consultFee =
+      lookup(doctorFees, visit.doctorName)
+      ?? lookup(deptFees, visit.department)
+      ?? DEFAULT_CONSULT_FEE;
+
     const newItems: BillItem[] = [
-      { id: 'ITM-CONSULT', description: `Consultation Fee (${visit.doctorName || 'General'})`, price: 500, qty: 1, total: 500 },
+      {
+        id: 'ITM-CONSULT',
+        description: `Consultation Fee (${visit.doctorName || 'General'})`,
+        price: consultFee,
+        qty: 1,
+        total: consultFee,
+      },
     ];
 
     if (visit.labOrders && visit.labOrders.length > 0) {
       visit.labOrders.forEach((lab, idx) => {
+        const price = lookup(testPrices, lab.testName) ?? DEFAULT_LAB_FEE;
         newItems.push({
           id: `LAB-${idx}`,
           description: `Lab Test: ${lab.testName || 'General Lab'}`,
-          price: 250,
+          price,
           qty: 1,
-          total: 250
+          total: price
         });
       });
     }
 
     if (visit.radiologyOrders && visit.radiologyOrders.length > 0) {
       visit.radiologyOrders.forEach((rad, idx) => {
+        const price = lookup(radPrices, rad.testName) ?? DEFAULT_RADIOLOGY_FEE;
         newItems.push({
           id: `RAD-${idx}`,
           description: `Radiology: ${rad.testName || 'Scan'}`,
-          price: 1500,
+          price,
           qty: 1,
-          total: 1500
+          total: price
         });
       });
     }

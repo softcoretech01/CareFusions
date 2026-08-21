@@ -17,6 +17,8 @@ export interface DepartmentRecord {
   departmentType: string;
   description: string;
   departmentHead: string;
+  consultationFee: number | null;
+  doctorsCount: number;
   status: string;
   createdBy?: string;
   createdDate?: string;
@@ -31,6 +33,8 @@ const emptyData: Omit<DepartmentRecord, 'id' | 'departmentCode'> & { departmentC
   departmentType: 'Clinical',
   description: '',
   departmentHead: '',
+  consultationFee: null,
+  doctorsCount: 0,
   status: 'Active',
 };
 
@@ -42,6 +46,8 @@ const mapApiToRecord = (item: Record<string, unknown>): DepartmentRecord => ({
   departmentType: item.departmentType as string,
   description: (item.description as string) ?? '',
   departmentHead: (item.departmentHead as string) ?? '',
+  consultationFee: (item.consultationFee as number | null) ?? null,
+  doctorsCount: (item.doctorsCount as number) ?? 0,
   status: item.status as string,
   createdBy: (item.createdBy as string) ?? undefined,
   createdDate: item.createdDate ? String(item.createdDate).split('T')[0] : undefined,
@@ -77,7 +83,18 @@ export const DepartmentMaster = () => {
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [selectedRecord, setSelectedRecord] = useState<DepartmentRecord | null>(null);
+  // Doctors in the department being edited. The head used to be free text, so
+  // it could name anyone \u2014 including someone in another department.
+  const [deptDoctors, setDeptDoctors] = useState<{ id: number; name: string }[]>([]);
   const [formData, setFormData] = useState<Omit<DepartmentRecord, 'id' | 'departmentCode'> & { departmentCode?: string }>(emptyData);
+
+  useEffect(() => {
+    if (!selectedRecord?.id) { setDeptDoctors([]); return; }
+    fetch(`${API_BASE}/departments/${selectedRecord.id}/doctors`)
+      .then(r => r.json())
+      .then(d => setDeptDoctors(Array.isArray(d) ? d : []))
+      .catch(() => setDeptDoctors([]));
+  }, [selectedRecord]);
 
   // ── Fetch departments ────────────────────────────────────────
   const fetchDepartments = async () => {
@@ -130,16 +147,6 @@ export const DepartmentMaster = () => {
     setIsViewOpen(true);
   };
 
-  const handleToggleStatus = async (record: DepartmentRecord) => {
-    try {
-      const res = await fetch(`${API_BASE}/departments/${record.id}/toggle-status`, { method: 'PATCH' });
-      if (!res.ok) throw new Error(`Toggle failed: ${res.status}`);
-      await fetchDepartments();
-    } catch (err: unknown) {
-      setApiError(err instanceof Error ? err.message : 'Failed to toggle status');
-    }
-  };
-
   const handleDelete = (record: DepartmentRecord) => {
     setSelectedRecord(record);
     setIsDeleteOpen(true);
@@ -168,6 +175,7 @@ export const DepartmentMaster = () => {
         departmentType: formData.departmentType,
         description: formData.description || null,
         departmentHead: formData.departmentHead || null,
+        consultationFee: formData.consultationFee ?? null,
         status: formData.status,
       };
 
@@ -328,14 +336,14 @@ export const DepartmentMaster = () => {
         </AnimatePresence>
 
         <div className="flex-1 overflow-auto">
-          <table className="w-full">
+          <table className="w-full table-fixed">
             <thead className="bg-slate-50 sticky top-0 z-10 border-b border-slate-200">
               <tr>
-                <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm cursor-pointer hover:bg-slate-100" onClick={() => handleSort('departmentCode')}>Code</th>
+                <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm cursor-pointer hover:bg-slate-100 w-28" onClick={() => handleSort('departmentCode')}>Code</th>
                 <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm cursor-pointer hover:bg-slate-100" onClick={() => handleSort('departmentName')}>Name</th>
-                <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm cursor-pointer hover:bg-slate-100" onClick={() => handleSort('departmentType')}>Type</th>
-                <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm">Head</th>
-                <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm">Status</th>
+                <th className="text-right py-3 px-4 font-medium text-slate-500 text-sm w-24">Doctors</th>
+                <th className="text-right py-3 px-4 font-medium text-slate-500 text-sm w-28">Fee</th>
+                <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm w-64">Department Head</th>
                 <th className="text-right py-3 px-4 font-medium text-slate-500 text-sm w-32">Actions</th>
               </tr>
             </thead>
@@ -349,15 +357,12 @@ export const DepartmentMaster = () => {
               ) : paginatedData.map((record) => (
                 <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="py-3 px-4 text-slate-800 font-medium">{record.departmentCode}</td>
-                  <td className="py-3 px-4 text-slate-800">{record.departmentName}</td>
-                  <td className="py-3 px-4 text-slate-800"><span className={`px-2 py-1 rounded text-xs ${record.departmentType === 'Clinical' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-600'}`}>{record.departmentType}</span></td>
-                  <td className="py-3 px-4 text-slate-800">{record.departmentHead || '-'}</td>
-                  <td className="py-3 px-4">
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${record.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'
-                      }`}>
-                      {record.status}
-                    </span>
+                  <td className="py-3 px-4 text-slate-800 truncate" title={record.departmentName}>{record.departmentName}</td>
+                  <td className="py-3 px-4 text-right tabular-nums text-slate-800">{record.doctorsCount}</td>
+                  <td className="py-3 px-4 text-right tabular-nums text-slate-800">
+                    {record.consultationFee == null ? '-' : `\u20b9${record.consultationFee.toLocaleString('en-IN')}`}
                   </td>
+                  <td className="py-3 px-4 text-slate-800 truncate" title={record.departmentHead || ''}>{record.departmentHead || '-'}</td>
                   <td className="py-3 px-4 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <button onClick={() => handleView(record)} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="View Details">
@@ -366,9 +371,7 @@ export const DepartmentMaster = () => {
                       <button onClick={() => handleEdit(record)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Edit">
                         <Edit2 className="w-4 h-4" />
                       </button>
-                      <button onClick={() => handleToggleStatus(record)} className={`p-1.5 rounded-lg transition-colors ${record.status === 'Active' ? 'text-slate-400 hover:text-orange-500 hover:bg-orange-50' : 'text-slate-400 hover:text-emerald-500 hover:bg-emerald-50'}`} title={record.status === 'Active' ? 'Deactivate' : 'Activate'}>
-                        <Power className="w-4 h-4" />
-                      </button>
+
                       <button onClick={() => handleDelete(record)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -416,18 +419,52 @@ export const DepartmentMaster = () => {
           {/* DepartmentCode: hidden on Create, read-only on Edit */}
           <div><label className="block text-sm font-medium text-slate-700 mb-1">Department Code</label><input type="text" value={formData.departmentCode} readOnly maxLength={10} className="w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed focus:outline-none" /></div>
           <div><label className="block text-sm font-medium text-slate-700 mb-1">Name <span className="text-red-500">*</span></label><input type="text" value={formData.departmentName} onChange={(e) => setFormData({ ...formData, departmentName: e.target.value })} maxLength={50} className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary" /></div>
-          <div><label className="block text-sm font-medium text-slate-700 mb-1">Type</label><select value={formData.departmentType} onChange={(e) => setFormData({ ...formData, departmentType: e.target.value })} className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary"><option value="Clinical">Clinical</option><option value="Non-Clinical">Non-Clinical</option></select></div>
-          <div><label className="block text-sm font-medium text-slate-700 mb-1">Head</label><input type="text" value={formData.departmentHead} onChange={(e) => setFormData({ ...formData, departmentHead: e.target.value })} maxLength={50} className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary" /></div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Consultation Fee</label>
+            <input
+              type="number"
+              min={0}
+              step="0.01"
+              value={formData.consultationFee ?? ''}
+              onChange={(e) => setFormData({ ...formData, consultationFee: e.target.value === '' ? null : Number(e.target.value) })}
+              placeholder="0.00"
+              className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Doctors</label>
+            <input
+              type="text"
+              readOnly
+              value={selectedRecord ? `${selectedRecord.doctorsCount} doctor${selectedRecord.doctorsCount === 1 ? '' : 's'}` : 'Saved first'}
+              title="Counted from doctors assigned to this department"
+              className="w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed focus:outline-none"
+            />
+          </div>
+          <div className="col-span-2">
+            <label className="block text-sm font-medium text-slate-700 mb-1">Department Head</label>
             <select
-              value={formData.status}
-              onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-              className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+              value={formData.departmentHead}
+              onChange={(e) => setFormData({ ...formData, departmentHead: e.target.value })}
+              disabled={!selectedRecord || deptDoctors.length === 0}
+              className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed"
             >
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
+              <option value="">
+                {!selectedRecord
+                  ? 'Save the department first'
+                  : deptDoctors.length === 0
+                    ? 'No doctors assigned to this department'
+                    : 'Select a doctor'}
+              </option>
+              {deptDoctors.map(d => (
+                <option key={d.id} value={d.name}>{d.name}</option>
+              ))}
             </select>
+            {selectedRecord && deptDoctors.length === 0 && (
+              <p className="text-xs text-slate-400 mt-1">
+                Assign doctors to this department in the Doctor master to pick a head.
+              </p>
+            )}
           </div>
         </div>
 
@@ -451,8 +488,9 @@ export const DepartmentMaster = () => {
             <div className="grid grid-cols-2 gap-4">
               <div><span className="text-xs text-slate-400 block">Code</span><span className="text-sm font-medium">{selectedRecord.departmentCode}</span></div>
               <div><span className="text-xs text-slate-400 block">Name</span><span className="text-sm font-medium">{selectedRecord.departmentName}</span></div>
-              <div><span className="text-xs text-slate-400 block">Type</span><span className="text-sm font-medium">{selectedRecord.departmentType}</span></div>
-              <div><span className="text-xs text-slate-400 block">Head</span><span className="text-sm font-medium">{selectedRecord.departmentHead}</span></div>
+              <div><span className="text-xs text-slate-400 block">Doctors</span><span className="text-sm font-medium">{selectedRecord.doctorsCount}</span></div>
+              <div><span className="text-xs text-slate-400 block">Consultation Fee</span><span className="text-sm font-medium">{selectedRecord.consultationFee == null ? '-' : `₹${selectedRecord.consultationFee.toLocaleString('en-IN')}`}</span></div>
+              <div><span className="text-xs text-slate-400 block">Department Head</span><span className="text-sm font-medium">{selectedRecord.departmentHead || '-'}</span></div>
             </div>
             <div className="pt-4 border-t border-slate-100">
               <span className="text-xs text-slate-400 block mb-1">Status</span>

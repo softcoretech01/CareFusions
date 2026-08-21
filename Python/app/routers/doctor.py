@@ -27,7 +27,6 @@ def _call_sp(db: Session, opt: str, **kwargs):
     params = {
         "p_Opt": opt,
         "p_DoctorId": kwargs.get("doctor_id"),
-        "p_RegistrationNumber": safe_value(kwargs.get("registration_number")),
         "p_DoctorName": safe_value(kwargs.get("name")),
         "p_Gender": safe_value(kwargs.get("gender")),
         "p_DateOfBirth": safe_value(kwargs.get("dob")),
@@ -47,13 +46,9 @@ def _call_sp(db: Session, opt: str, **kwargs):
         "p_BranchName": safe_value(kwargs.get("branch")),
         "p_DepartmentName": safe_value(kwargs.get("department")),
         "p_Designation": safe_value(kwargs.get("designation")),
-        "p_MedicalCouncil": safe_value(kwargs.get("medical_council")),
         "p_Experience": safe_value(kwargs.get("experience")),
         "p_Languages": safe_value(kwargs.get("languages")),
-        "p_DoctorType": safe_value(kwargs.get("doctor_type")),
-        "p_ConsultationType": safe_value(kwargs.get("consultation_type")),
         "p_JoiningDate": safe_value(kwargs.get("joining_date")),
-        "p_LicenseExpiryDate": safe_value(kwargs.get("license_expiry_date")),
         
         "p_ConsultationFee": safe_value(kwargs.get("consultation_fee")),
         "p_FollowUpFee": safe_value(kwargs.get("follow_up_fee")),
@@ -88,10 +83,10 @@ def _call_sp(db: Session, opt: str, **kwargs):
     sql = text(f"""
         CALL {SP_NAME}(
             :p_Opt, :p_DoctorId,
-            :p_RegistrationNumber, :p_DoctorName, :p_Gender, :p_DateOfBirth, :p_Mobile, :p_AlternateMobile, :p_Email,
+            :p_DoctorName, :p_Gender, :p_DateOfBirth, :p_Mobile, :p_AlternateMobile, :p_Email,
             :p_Address1, :p_Address2, :p_City, :p_State, :p_Country, :p_PostalCode,
             :p_Qualification, :p_Specialization, :p_HospitalName, :p_BranchName, :p_DepartmentName, :p_Designation,
-            :p_MedicalCouncil, :p_Experience, :p_Languages, :p_DoctorType, :p_ConsultationType, :p_JoiningDate, :p_LicenseExpiryDate,
+            :p_Experience, :p_Languages, :p_JoiningDate,
             :p_ConsultationFee, :p_FollowUpFee, :p_EmergencyFee, :p_TeleConsultationFee, :p_OpDuration, :p_MaxPatients, :p_AllowOnlineBooking,
             :p_AvailableDays, :p_FromTime, :p_ToTime, :p_BreakFrom, :p_BreakTo, :p_SlotDuration, :p_AvailableEmergency, :p_AvailableTele,
             :p_DoctorPhoto, :p_SignatureImage, :p_DigitalSignature, :p_RegistrationCertificate,
@@ -99,6 +94,27 @@ def _call_sp(db: Session, opt: str, **kwargs):
         )
     """)
     return db.execute(sql, params)
+
+
+def _aadhaar_map(db: Session) -> dict:
+    """DoctorId -> AadhaarCard, for enriching list responses in one query."""
+    rows = db.execute(text(
+        "SELECT DoctorId, AadhaarCard FROM admin.Master_DoctorDocument_Detail"
+    )).fetchall()
+    return {r.DoctorId: r.AadhaarCard for r in rows}
+
+
+def _aadhaar_of(db: Session, doctor_id: int):
+    return db.execute(text(
+        "SELECT AadhaarCard FROM admin.Master_DoctorDocument_Detail WHERE DoctorId = :i"
+    ), {"i": doctor_id}).scalar()
+
+
+def _save_aadhaar(db: Session, doctor_id: int, value):
+    """The document row is created by the SP, so this only ever updates."""
+    db.execute(text(
+        "UPDATE admin.Master_DoctorDocument_Detail SET AadhaarCard = :v WHERE DoctorId = :i"
+    ), {"v": value, "i": doctor_id})
 
 
 def _map_row(row) -> dict:
@@ -114,7 +130,6 @@ def _map_row(row) -> dict:
     return {
         "id": row.DoctorId,
         "doctorId": row.DoctorCode,
-        "registrationNumber": row.RegistrationNumber,
         "name": row.DoctorName,
         "gender": row.Gender,
         "dob": row.DateOfBirth,
@@ -134,13 +149,9 @@ def _map_row(row) -> dict:
         "branch": row.BranchName,
         "department": row.DepartmentName,
         "designation": row.Designation,
-        "medicalCouncil": row.MedicalCouncil,
         "experience": row.Experience,
         "languages": row.Languages,
-        "doctorType": row.DoctorType,
-        "consultationType": row.ConsultationType,
         "joiningDate": row.JoiningDate,
-        "licenseExpiryDate": row.LicenseExpiryDate,
         
         "consultationFee": float(row.ConsultationFee) if row.ConsultationFee else 0,
         "followUpFee": float(row.FollowUpFee) if row.FollowUpFee is not None else None,
@@ -174,7 +185,13 @@ def _map_row(row) -> dict:
 def get_doctors(search: Optional[str] = None, db: Session = Depends(get_db)):
     try:
         result = _call_sp(db, "GET", search=search)
-        return [_map_row(r) for r in result.fetchall()]
+        aadhaar = _aadhaar_map(db)
+        out = []
+        for r in result.fetchall():
+            item = _map_row(r)
+            item["aadhaarCard"] = aadhaar.get(item["id"])
+            out.append(item)
+        return out
     except Exception as e:
         logger.error(f"[GET /doctors] Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -187,7 +204,9 @@ def get_doctor_by_id(doctor_id: int, db: Session = Depends(get_db)):
         row = result.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Doctor not found")
-        return _map_row(row)
+        item = _map_row(row)
+        item["aadhaarCard"] = _aadhaar_of(db, doctor_id)
+        return item
     except HTTPException: raise
     except Exception as e:
         logger.error(f"[GET /doctors/{doctor_id}] Error: {e}")
@@ -200,7 +219,6 @@ def create_doctor(payload: DoctorCreate, db: Session = Depends(get_db)):
         kwargs = payload.model_dump()
         # map payload fields to snake_case kwargs expected by _call_sp
         mapped = {
-            "registration_number": kwargs["registrationNumber"],
             "name": kwargs["name"],
             "gender": kwargs["gender"],
             "dob": kwargs["dob"],
@@ -220,13 +238,9 @@ def create_doctor(payload: DoctorCreate, db: Session = Depends(get_db)):
             "branch": kwargs["branch"],
             "department": kwargs["department"],
             "designation": kwargs["designation"],
-            "medical_council": kwargs["medicalCouncil"],
             "experience": kwargs["experience"],
             "languages": kwargs["languages"],
-            "doctor_type": kwargs["doctorType"],
-            "consultation_type": kwargs["consultationType"],
             "joining_date": kwargs["joiningDate"],
-            "license_expiry_date": kwargs["licenseExpiryDate"],
             
             "consultation_fee": kwargs["consultationFee"],
             "follow_up_fee": kwargs["followUpFee"],
@@ -257,10 +271,13 @@ def create_doctor(payload: DoctorCreate, db: Session = Depends(get_db)):
         result = _call_sp(db, "INSERT", **mapped)
         row = result.fetchone()
         new_id = row.DoctorId
+        _save_aadhaar(db, new_id, kwargs.get("aadhaarCard"))
         db.commit()
 
         fetch = _call_sp(db, "GETBYID", doctor_id=new_id)
-        return _map_row(fetch.fetchone())
+        item = _map_row(fetch.fetchone())
+        item["aadhaarCard"] = _aadhaar_of(db, new_id)
+        return item
     except Exception as e:
         db.rollback()
         logger.error(f"[POST /doctors] Error: {e}")
@@ -273,7 +290,6 @@ def update_doctor(doctor_id: int, payload: DoctorUpdate, db: Session = Depends(g
         kwargs = payload.model_dump()
         mapped = {
             "doctor_id": doctor_id,
-            "registration_number": kwargs["registrationNumber"],
             "name": kwargs["name"],
             "gender": kwargs["gender"],
             "dob": kwargs["dob"],
@@ -293,13 +309,9 @@ def update_doctor(doctor_id: int, payload: DoctorUpdate, db: Session = Depends(g
             "branch": kwargs["branch"],
             "department": kwargs["department"],
             "designation": kwargs["designation"],
-            "medical_council": kwargs["medicalCouncil"],
             "experience": kwargs["experience"],
             "languages": kwargs["languages"],
-            "doctor_type": kwargs["doctorType"],
-            "consultation_type": kwargs["consultationType"],
             "joining_date": kwargs["joiningDate"],
-            "license_expiry_date": kwargs["licenseExpiryDate"],
             
             "consultation_fee": kwargs["consultationFee"],
             "follow_up_fee": kwargs["followUpFee"],
@@ -328,6 +340,7 @@ def update_doctor(doctor_id: int, payload: DoctorUpdate, db: Session = Depends(g
             "modified_by": kwargs["modifiedBy"]
         }
         _call_sp(db, "UPDATE", **mapped)
+        _save_aadhaar(db, doctor_id, kwargs.get("aadhaarCard"))
         db.commit()
 
         fetch = _call_sp(db, "GETBYID", doctor_id=doctor_id)

@@ -12,7 +12,6 @@ import { exportToExcel } from '../../../utils/exportToExcel';
 interface DoctorRecord {
   id: number;
   doctorId: string;
-  registrationNumber: string;
   name: string;
   gender: string;
   dob: string;
@@ -31,13 +30,9 @@ interface DoctorRecord {
   state: string;
   country: string;
   postalCode: string;
-  medicalCouncil: string;
   experience: string;
   languages: string;
-  doctorType: string;
-  consultationType: string;
   joiningDate: string;
-  licenseExpiryDate: string;
   consultationFee: string;
   followUpFee: string;
   emergencyFee: string;
@@ -55,7 +50,7 @@ interface DoctorRecord {
   availableTele: boolean;
   doctorPhoto: string;
   signatureImage: string;
-  digitalSignature: string;
+  aadhaarCard: string;
   registrationCertificate: string;
   status: string;
   remarks: string;
@@ -65,9 +60,22 @@ interface DoctorRecord {
   modifiedDate: string;
 }
 
+// A doctor cannot be younger than 18, so today's date and anything after it
+// are not valid dates of birth. 100 years is the lower bound.
+const yearsAgo = (n: number) => {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() - n);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+const MAX_DOB = yearsAgo(18);
+const MIN_DOB = yearsAgo(100);
+
+// Used when a doctor is saved without an OP consultation duration, which is
+// every new doctor now that the Consultation & Billing tab is gone.
+const DEFAULT_OP_DURATION = 15;
+
 const emptyDoctorData: Omit<DoctorRecord, 'id'> = {
   doctorId: '',
-  registrationNumber: '',
   name: '',
   gender: '',
   dob: '',
@@ -86,13 +94,9 @@ const emptyDoctorData: Omit<DoctorRecord, 'id'> = {
   state: '',
   country: '',
   postalCode: '',
-  medicalCouncil: '',
   experience: '',
   languages: '',
-  doctorType: 'Full-time',
-  consultationType: 'OP',
   joiningDate: '',
-  licenseExpiryDate: '',
   consultationFee: '',
   followUpFee: '',
   emergencyFee: '',
@@ -110,7 +114,7 @@ const emptyDoctorData: Omit<DoctorRecord, 'id'> = {
   availableTele: false,
   doctorPhoto: '',
   signatureImage: '',
-  digitalSignature: '',
+  aadhaarCard: '',
   registrationCertificate: '',
   status: 'Active',
   remarks: '',
@@ -125,7 +129,6 @@ const API_BASE = import.meta.env.VITE_API_URL as string;
 const mapApiToRecord = (item: Record<string, any>): DoctorRecord => ({
   id: item.id as number,
   doctorId: item.doctorId as string,
-  registrationNumber: item.registrationNumber as string,
   name: item.name as string,
   gender: item.gender as string,
   dob: item.dob ? String(item.dob) : '',
@@ -144,13 +147,9 @@ const mapApiToRecord = (item: Record<string, any>): DoctorRecord => ({
   state: item.state as string || '',
   country: item.country as string || '',
   postalCode: item.postalCode as string || '',
-  medicalCouncil: item.medicalCouncil as string || '',
   experience: item.experience != null ? String(item.experience) : '',
   languages: item.languages as string || '',
-  doctorType: item.doctorType as string || '',
-  consultationType: item.consultationType as string || '',
   joiningDate: item.joiningDate ? String(item.joiningDate) : '',
-  licenseExpiryDate: item.licenseExpiryDate ? String(item.licenseExpiryDate) : '',
   consultationFee: item.consultationFee != null ? String(item.consultationFee) : '',
   followUpFee: item.followUpFee != null ? String(item.followUpFee) : '',
   emergencyFee: item.emergencyFee != null ? String(item.emergencyFee) : '',
@@ -168,7 +167,7 @@ const mapApiToRecord = (item: Record<string, any>): DoctorRecord => ({
   availableTele: Boolean(item.availableTele),
   doctorPhoto: item.doctorPhoto as string || '',
   signatureImage: item.signatureImage as string || '',
-  digitalSignature: item.digitalSignature as string || '',
+  aadhaarCard: item.aadhaarCard as string || '',
   registrationCertificate: item.registrationCertificate as string || '',
   status: item.status as string,
   remarks: item.remarks as string || '',
@@ -188,12 +187,11 @@ export const DoctorMaster = () => {
   const [apiError, setApiError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Dropdowns
+  // Hospital and Branch are no longer asked for on the form. The lists are
+  // still loaded so a new doctor can be defaulted to the first hospital, and
+  // so the list filters keep working.
   const [hospitals, setHospitals] = useState<{ name: string }[]>([]);
-  const [branches, setBranches] = useState<{ name: string }[]>([]);
-  const [departments, setDepartments] = useState<{ departmentName: string }[]>([]);
-  // Specialization was a free-text box, so "Cardiologist" and "cardiologist"
-  // became separate values and the filter below listed three hardcoded ones.
+  const [departments, setDepartments] = useState<{ departmentName: string, status: string }[]>([]);
   const [specializations, setSpecializations] = useState<{ specializationName: string, status: string }[]>([]);
 
   const fetchDoctors = async () => {
@@ -213,14 +211,12 @@ export const DoctorMaster = () => {
 
   const fetchDropdowns = async () => {
     try {
-      const [hRes, bRes, dRes, sRes] = await Promise.all([
+      const [hRes, dRes, sRes] = await Promise.all([
         fetch(`${API_BASE}/hospitals/`),
-        fetch(`${API_BASE}/branches/`),
         fetch(`${API_BASE}/departments/`),
         fetch(`${API_BASE}/doctor-specializations/`)
       ]);
       if (hRes.ok) setHospitals(await hRes.json());
-      if (bRes.ok) setBranches(await bRes.json());
       if (dRes.ok) setDepartments(await dRes.json());
       if (sRes.ok) setSpecializations(await sRes.json());
     } catch { }
@@ -231,15 +227,11 @@ export const DoctorMaster = () => {
     fetchDropdowns();
   }, []);
 
-  // Filter States
   const [showFilters, setShowFilters] = useState(false);
   const [filterSpec, setFilterSpec] = useState('');
   const [filterDept, setFilterDept] = useState('');
-  const [filterHospital, setFilterHospital] = useState('');
-  const [filterBranch, setFilterBranch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
 
-  // Modal States
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
@@ -252,10 +244,8 @@ export const DoctorMaster = () => {
   const tabs = [
     { id: 'general', label: 'General Information' },
     { id: 'professional', label: 'Professional Details' },
-    { id: 'consultation', label: 'Consultation & Billing' },
     { id: 'schedule', label: 'Schedule & Availability' },
-    { id: 'documents', label: 'Documents' },
-    { id: 'audit', label: 'Audit' }
+    { id: 'documents', label: 'Documents' }
   ];
 
   const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -285,11 +275,7 @@ export const DoctorMaster = () => {
     let isValid = true;
 
     if (!tabId || tabId === 'general') {
-      ['registrationNumber', 'name', 'gender', 'mobile', 'email'].forEach(k => delete newErrors[k]);
-      if (!formData.registrationNumber.trim()) { newErrors.registrationNumber = 'Registration Number is required'; isValid = false; }
-      else if (records.some(r => r.registrationNumber === formData.registrationNumber && r.id !== selectedRecord?.id)) {
-        newErrors.registrationNumber = 'Registration Number must be unique'; isValid = false;
-      }
+      ['name', 'gender', 'mobile', 'email', 'dob'].forEach(k => delete newErrors[k]);
       if (!formData.name.trim()) { newErrors.name = 'Name is required'; isValid = false; }
       if (!formData.gender) { newErrors.gender = 'Gender is required'; isValid = false; }
       if (!formData.mobile.trim()) {
@@ -302,34 +288,33 @@ export const DoctorMaster = () => {
       } else if (!/^\S+@\S+\.\S+$/.test(formData.email)) {
         newErrors.email = 'Enter a valid email'; isValid = false;
       }
+      // min/max on the input stops the picker, but a typed or pasted date
+      // still reaches here.
+      if (formData.dob) {
+        if (formData.dob > MAX_DOB) {
+          newErrors.dob = 'The doctor must be at least 18 years old'; isValid = false;
+        } else if (formData.dob < MIN_DOB) {
+          newErrors.dob = 'Enter a valid date of birth'; isValid = false;
+        }
+      }
     }
 
     if (!tabId || tabId === 'professional') {
       ['qualification', 'specialization', 'department', 'designation', 'hospital', 'branch'].forEach(k => delete newErrors[k]);
+      // Hospital and Branch were removed from the form; a default hospital is
+      // applied on save, so requiring them here would block every submit.
       if (!formData.qualification.trim()) { newErrors.qualification = 'Qualification is required'; isValid = false; }
       if (!formData.specialization.trim()) { newErrors.specialization = 'Specialization is required'; isValid = false; }
       if (!formData.department) { newErrors.department = 'Department is required'; isValid = false; }
       if (!formData.designation.trim()) { newErrors.designation = 'Designation is required'; isValid = false; }
-      if (!formData.hospital) { newErrors.hospital = 'Hospital is required'; isValid = false; }
-      if (!formData.branch) { newErrors.branch = 'Branch is required'; isValid = false; }
-    }
 
-    if (!tabId || tabId === 'consultation') {
-      delete newErrors.consultationFee;
-      if (!formData.consultationFee) {
-        newErrors.consultationFee = 'Fee is required'; isValid = false;
-      } else if (Number(formData.consultationFee) < 0) {
-        newErrors.consultationFee = 'Fee must be >= 0'; isValid = false;
-      }
     }
 
     if (!tabId || tabId === 'schedule') {
       ['opDuration', 'availableDays', 'fromTime', 'toTime', 'slotDuration'].forEach(k => delete newErrors[k]);
-      if (!formData.opDuration) {
-        newErrors.opDuration = 'Duration is required'; isValid = false;
-      } else if (Number(formData.opDuration) <= 0) {
-        newErrors.opDuration = 'Duration must be > 0'; isValid = false;
-      }
+      // The Consultation & Billing tab was removed, and OP duration was one of
+      // its inputs. It falls back to DEFAULT_OP_DURATION on save, so requiring
+      // it here would block every submit.
       if (formData.availableDays.length === 0) { newErrors.availableDays = 'Select at least one day'; isValid = false; }
       if (!formData.fromTime) { newErrors.fromTime = 'From Time is required'; isValid = false; }
       if (!formData.toTime) { newErrors.toTime = 'To Time is required'; isValid = false; }
@@ -388,7 +373,6 @@ export const DoctorMaster = () => {
 
     try {
       const payload = {
-        registrationNumber: formData.registrationNumber,
         name: formData.name,
         gender: formData.gender,
         dob: formData.dob || null,
@@ -404,23 +388,22 @@ export const DoctorMaster = () => {
 
         qualification: formData.qualification,
         specialization: formData.specialization,
-        hospital: formData.hospital,
-        branch: formData.branch,
+        // Defaulted rather than collected: the form no longer shows these.
+        hospital: formData.hospital || hospitals[0]?.name || null,
+        branch: formData.branch || null,
         department: formData.department,
         designation: formData.designation,
-        medicalCouncil: formData.medicalCouncil || null,
         experience: formData.experience ? Number(formData.experience) : null,
         languages: formData.languages || null,
-        doctorType: formData.doctorType || null,
-        consultationType: formData.consultationType || null,
         joiningDate: formData.joiningDate || null,
-        licenseExpiryDate: formData.licenseExpiryDate || null,
 
-        consultationFee: Number(formData.consultationFee),
+        // Fees and OP duration are no longer collected on the form; existing
+        // values are preserved on edit and new doctors get sensible defaults.
+        consultationFee: formData.consultationFee ? Number(formData.consultationFee) : 0,
         followUpFee: formData.followUpFee ? Number(formData.followUpFee) : null,
         emergencyFee: formData.emergencyFee ? Number(formData.emergencyFee) : null,
         teleConsultationFee: formData.teleConsultationFee ? Number(formData.teleConsultationFee) : null,
-        opDuration: Number(formData.opDuration),
+        opDuration: formData.opDuration ? Number(formData.opDuration) : DEFAULT_OP_DURATION,
         maxPatients: formData.maxPatients ? Number(formData.maxPatients) : null,
         allowOnlineBooking: formData.allowOnlineBooking,
 
@@ -435,13 +418,12 @@ export const DoctorMaster = () => {
 
         doctorPhoto: formData.doctorPhoto || null,
         signatureImage: formData.signatureImage || null,
-        digitalSignature: formData.digitalSignature || null,
+        aadhaarCard: formData.aadhaarCard || null,
         registrationCertificate: formData.registrationCertificate || null,
 
         status: formData.status,
         remarks: formData.remarks || null,
 
-        // Audit
         ...(selectedRecord ? { modifiedBy: 'Dr. John Doe' } : { createdBy: 'Dr. John Doe' })
       };
 
@@ -502,11 +484,9 @@ export const DoctorMaster = () => {
 
     const matchesSpec = !filterSpec || record.specialization === filterSpec;
     const matchesDept = !filterDept || record.department === filterDept;
-    const matchesHosp = !filterHospital || record.hospital === filterHospital;
-    const matchesBranch = !filterBranch || record.branch === filterBranch;
     const matchesStatus = !filterStatus || record.status === filterStatus;
 
-    return matchesSearch && matchesSpec && matchesDept && matchesHosp && matchesBranch && matchesStatus;
+    return matchesSearch && matchesSpec && matchesDept && matchesStatus;
   });
 
   const _totalPages = Math.max(1, Math.ceil(filteredRecords.length / itemsPerPage));
@@ -535,8 +515,6 @@ export const DoctorMaster = () => {
             </div>
           </div>
 
-          {/* The load failure used to be swallowed, leaving an empty table that
-              looked like 'no data' rather than 'the server is unreachable'. */}
           {apiError && (
             <div className="mb-4 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
@@ -559,7 +537,7 @@ export const DoctorMaster = () => {
                 <button onClick={() => setShowFilters(!showFilters)} title="Filters" className={showFilters ? "p-2 border rounded-lg transition-colors border-primary bg-primary/5 text-primary" : "p-2 border rounded-lg transition-colors border-slate-200 text-slate-500 hover:bg-slate-50"}>
                   <Filter className="w-4 h-4" />
                 </button>
-                <button onClick={() => { setSearchTerm(''); setFilterBranch(''); setFilterDept(''); setFilterHospital(''); setFilterSpec(''); setFilterStatus(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
+                <button onClick={() => { setSearchTerm(''); setFilterDept(''); setFilterSpec(''); setFilterStatus(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
                   <X className="w-4 h-4" />
                 </button>
                 <button onClick={() => exportToExcel(records, 'DoctorMaster')} title="Export to Excel" className="p-2 border border-emerald-200 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 transition-colors">
@@ -599,22 +577,6 @@ export const DoctorMaster = () => {
                       <option value="Neurology">Neurology</option>
                     </select>
                     <select
-                      value={filterHospital}
-                      onChange={(e) => setFilterHospital(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    >
-                      <option value="">All Hospitals</option>
-                      <option value="City General Hospital">City General Hospital</option>
-                    </select>
-                    <select
-                      value={filterBranch}
-                      onChange={(e) => setFilterBranch(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    >
-                      <option value="">All Branches</option>
-                      <option value="Main Campus">Main Campus</option>
-                    </select>
-                    <select
                       value={filterStatus}
                       onChange={(e) => setFilterStatus(e.target.value)}
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
@@ -639,7 +601,6 @@ export const DoctorMaster = () => {
                     <th className="px-4 py-2 font-medium">Qualification</th>
                     <th className="px-4 py-2 font-medium text-right">Fee</th>
                     <th className="px-4 py-2 font-medium">Mobile</th>
-                    <th className="px-4 py-2 font-medium text-center">Status</th>
                     <th className="px-4 py-2 font-medium text-center">Action</th>
                   </tr>
                 </thead>
@@ -654,14 +615,6 @@ export const DoctorMaster = () => {
                         <td className="px-4 py-2 text-slate-600">{record.qualification}</td>
                         <td className="px-4 py-2 text-right">{record.consultationFee}</td>
                         <td className="px-4 py-2 text-slate-600">{record.mobile}</td>
-                        <td className="px-4 py-2 text-center">
-                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${record.status === 'Active'
-                            ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
-                            : 'bg-red-50 text-red-600 border border-red-200'
-                            }`}>
-                            {record.status}
-                          </span>
-                        </td>
                         <td className="px-4 py-2 text-center">
                           <div className="flex items-center justify-center gap-2">
                             <button
@@ -684,7 +637,7 @@ export const DoctorMaster = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={9} className="px-4 py-8 text-center text-slate-500">
+                      <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
                         {isLoading ? 'Loading records...' : 'No doctors found matching your criteria.'}
                       </td>
                     </tr>
@@ -726,7 +679,6 @@ export const DoctorMaster = () => {
           </div>
 
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden">
-            {/* Tabs */}
             <div className="flex border-b border-slate-200 overflow-x-auto shrink-0 bg-slate-50/50">
               {paged.map((tab) => (
                 <button
@@ -747,28 +699,14 @@ export const DoctorMaster = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">
-                      Doctor ID <span className="text-red-500">*</span>
+                      Doctor ID
                     </label>
                     <input
                       type="text"
                       value={formData.doctorId}
                       readOnly
-                      maxLength={50} className="w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed focus:outline-none"
+                      className="w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm text-slate-500 cursor-not-allowed focus:outline-none"
                     />
-                    {errors.doctorId && <p className="text-red-500 text-xs mt-1">{errors.doctorId}</p>}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                      Registration Number <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.registrationNumber} maxLength={50}
-                      onChange={e => setFormData({ ...formData, registrationNumber: e.target.value })}
-                      className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.registrationNumber ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
-                        }`}
-                    />
-                    {errors.registrationNumber && <p className="text-red-500 text-xs mt-1">{errors.registrationNumber}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -806,8 +744,13 @@ export const DoctorMaster = () => {
                       type="date"
                       value={formData.dob}
                       onChange={e => setFormData({ ...formData, dob: e.target.value })}
-                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      min={MIN_DOB}
+                      max={MAX_DOB}
+                      title="The doctor must be at least 18 years old"
+                      className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.dob ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
+                        }`}
                     />
+                    {errors.dob && <p className="text-red-500 text-xs mt-1">{errors.dob}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -923,58 +866,15 @@ export const DoctorMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">
                       Specialization <span className="text-red-500">*</span>
                     </label>
-                    <select
-                      value={formData.specialization}
+                    <input
+                      type="text"
+                      value={formData.specialization} maxLength={255}
                       onChange={e => setFormData({ ...formData, specialization: e.target.value })}
+                      placeholder="e.g., Cardiology, Pediatrics"
                       className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.specialization ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
                         }`}
-                    >
-                      <option value="">Select Specialization</option>
-                      {/* Retired specializations stay listed while a doctor on
-                          file still holds one, so editing them does not blank it. */}
-                      {specializations
-                        .filter(sp => sp.status === 'Active' || sp.specializationName === formData.specialization)
-                        .map(sp => (
-                          <option key={sp.specializationName} value={sp.specializationName}>
-                            {sp.specializationName}
-                          </option>
-                        ))}
-                    </select>
+                    />
                     {errors.specialization && <p className="text-red-500 text-xs mt-1">{errors.specialization}</p>}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                      Hospital <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={formData.hospital}
-                      onChange={e => setFormData({ ...formData, hospital: e.target.value })}
-                      className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.hospital ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
-                        }`}
-                    >
-                      <option value="">Select Hospital</option>
-                      {hospitals.map((h, i) => (
-                        <option key={i} value={h.name}>{h.name}</option>
-                      ))}
-                    </select>
-                    {errors.hospital && <p className="text-red-500 text-xs mt-1">{errors.hospital}</p>}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                      Branch <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={formData.branch}
-                      onChange={e => setFormData({ ...formData, branch: e.target.value })}
-                      className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.branch ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
-                        }`}
-                    >
-                      <option value="">Select Branch</option>
-                      {branches.map((b, i) => (
-                        <option key={i} value={b.name}>{b.name}</option>
-                      ))}
-                    </select>
-                    {errors.branch && <p className="text-red-500 text-xs mt-1">{errors.branch}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -987,9 +887,11 @@ export const DoctorMaster = () => {
                         }`}
                     >
                       <option value="">Select Department</option>
-                      {departments.map((d, i) => (
-                        <option key={i} value={d.departmentName}>{d.departmentName}</option>
-                      ))}
+                      {departments
+                        .filter(d => d.status === 'Active' || d.departmentName === formData.department)
+                        .map((d, i) => (
+                          <option key={i} value={d.departmentName}>{d.departmentName}</option>
+                        ))}
                     </select>
                     {errors.department && <p className="text-red-500 text-xs mt-1">{errors.department}</p>}
                   </div>
@@ -1005,15 +907,6 @@ export const DoctorMaster = () => {
                         }`}
                     />
                     {errors.designation && <p className="text-red-500 text-xs mt-1">{errors.designation}</p>}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Medical Council</label>
-                    <input
-                      type="text"
-                      value={formData.medicalCouncil} maxLength={50}
-                      onChange={e => setFormData({ ...formData, medicalCouncil: e.target.value })}
-                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Experience (Years)</label>
@@ -1032,122 +925,6 @@ export const DoctorMaster = () => {
                       onChange={e => setFormData({ ...formData, languages: e.target.value })}
                       className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Doctor Type</label>
-                    <select
-                      value={formData.doctorType}
-                      onChange={e => setFormData({ ...formData, doctorType: e.target.value })}
-                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    >
-                      <option value="Full-time">Full-time</option>
-                      <option value="Visiting">Visiting</option>
-                      <option value="On-call">On-call</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Consultation Type</label>
-                    <select
-                      value={formData.consultationType}
-                      onChange={e => setFormData({ ...formData, consultationType: e.target.value })}
-                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    >
-                      <option value="OP">OP Only</option>
-                      <option value="IP">IP Only</option>
-                      <option value="OP/IP">OP & IP</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">License Expiry Date</label>
-                    <input
-                      type="date"
-                      value={formData.licenseExpiryDate}
-                      onChange={e => setFormData({ ...formData, licenseExpiryDate: e.target.value })}
-                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'consultation' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                      Consultation Fee <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={formData.consultationFee} maxLength={50}
-                      onChange={e => setFormData({ ...formData, consultationFee: e.target.value })}
-                      className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.consultationFee ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
-                        }`}
-                    />
-                    {errors.consultationFee && <p className="text-red-500 text-xs mt-1">{errors.consultationFee}</p>}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Follow-up Fee</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={formData.followUpFee} maxLength={50}
-                      onChange={e => setFormData({ ...formData, followUpFee: e.target.value })}
-                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Emergency Fee</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={formData.emergencyFee} maxLength={50}
-                      onChange={e => setFormData({ ...formData, emergencyFee: e.target.value })}
-                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Tele Consultation Fee</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={formData.teleConsultationFee} maxLength={50}
-                      onChange={e => setFormData({ ...formData, teleConsultationFee: e.target.value })}
-                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                      OP Consultation Duration (Minutes) <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={formData.opDuration} maxLength={50}
-                      onChange={e => setFormData({ ...formData, opDuration: e.target.value })}
-                      className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.opDuration ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
-                        }`}
-                    />
-                    {errors.opDuration && <p className="text-red-500 text-xs mt-1">{errors.opDuration}</p>}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Maximum Patients Per Slot</label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={formData.maxPatients} maxLength={50}
-                      onChange={e => setFormData({ ...formData, maxPatients: e.target.value })}
-                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2 mt-7">
-                    <input
-                      type="checkbox"
-                      id="allowOnlineBooking"
-                      checked={formData.allowOnlineBooking}
-                      onChange={e => setFormData({ ...formData, allowOnlineBooking: e.target.checked })}
-                      className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary"
-                    />
-                    <label htmlFor="allowOnlineBooking" className="text-sm text-slate-700">Allow Online Booking</label>
                   </div>
                 </div>
               )}
@@ -1265,10 +1042,12 @@ export const DoctorMaster = () => {
               {activeTab === 'documents' && (
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                   {[
-                    { label: 'Doctor Photo', note: 'Display Image', field: 'doctorPhoto' },
+                    // Digital Signature was dropped: it duplicated Signature
+                    // Image, which already covers prescription and e-prescription.
+                    { label: 'Doctor Photo', note: 'Display image', field: 'doctorPhoto' },
                     { label: 'Signature Image', note: 'Prescription print', field: 'signatureImage' },
-                    { label: 'Digital Signature', note: 'E-prescription', field: 'digitalSignature' },
-                    { label: 'Registration Certificate', note: 'Compliance', field: 'registrationCertificate' },
+                    { label: 'Aadhaar Card', note: 'Identity proof', field: 'aadhaarCard' },
+                    { label: 'Registration Certificate', note: 'Medical council registration', field: 'registrationCertificate' },
                   ].map((doc, idx) => (
                     <div key={idx} className="border border-slate-200 rounded-xl p-4 flex flex-col gap-2 relative">
                       <label className="block text-sm font-medium text-slate-700">{doc.label}</label>
@@ -1304,59 +1083,6 @@ export const DoctorMaster = () => {
                       </div>
                     </div>
                   ))}
-                </div>
-              )}
-
-              {activeTab === 'audit' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">
-                      Status <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={formData.status}
-                      onChange={e => setFormData({ ...formData, status: e.target.value })}
-                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    >
-                      <option value="Active">Active</option>
-                      <option value="Inactive">Inactive</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Remarks</label>
-                    <input
-                      type="text"
-                      value={formData.remarks} maxLength={250}
-                      onChange={e => setFormData({ ...formData, remarks: e.target.value })}
-                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    />
-                  </div>
-
-                  {selectedRecord && (
-                    <>
-                      <div className="pt-4 border-t border-slate-200 md:col-span-2">
-                        <h4 className="text-sm font-medium text-slate-800 mb-4">System Information</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                            <label className="block text-xs font-medium text-slate-500">Created By</label>
-                            <p className="text-sm text-slate-700 mt-1">{selectedRecord.createdBy || 'System'}</p>
-                          </div>
-                          <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                            <label className="block text-xs font-medium text-slate-500">Created Date</label>
-                            <p className="text-sm text-slate-700 mt-1">{selectedRecord.createdDate ? new Date(selectedRecord.createdDate + 'Z').toLocaleString() : 'N/A'}</p>
-                          </div>
-                          <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                            <label className="block text-xs font-medium text-slate-500">Modified By</label>
-                            <p className="text-sm text-slate-700 mt-1">{selectedRecord.modifiedBy || 'N/A'}</p>
-                          </div>
-                          <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                            <label className="block text-xs font-medium text-slate-500">Modified Date</label>
-                            <p className="text-sm text-slate-700 mt-1">{selectedRecord.modifiedDate ? new Date(selectedRecord.modifiedDate + 'Z').toLocaleString() : 'N/A'}</p>
-                          </div>
-                        </div>
-                      </div>
-                    </>
-                  )}
                 </div>
               )}
             </div>

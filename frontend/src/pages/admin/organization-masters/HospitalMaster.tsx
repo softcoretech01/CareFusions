@@ -121,19 +121,35 @@ export const HospitalMaster = () => {
     setIsLoading(true);
     setApiError(null);
     try {
-      const [hospitalsRes, optionsRes] = await Promise.all([
+      const [hospitalsRes, optionsRes, fyRes] = await Promise.all([
         fetch(`${API_BASE}/hospitals/`),
-        fetch(`${API_BASE}/hospitals/options`)
+        fetch(`${API_BASE}/hospitals/options`),
+        fetch(`${API_BASE}/financial-years/`)
       ]);
 
       if (!hospitalsRes.ok) throw new Error(`Server error: ${hospitalsRes.status}`);
       if (!optionsRes.ok) throw new Error(`Server error: ${optionsRes.status}`);
+      if (!fyRes.ok) throw new Error(`Server error: ${fyRes.status}`);
 
       const hospitalsData: Record<string, unknown>[] = await hospitalsRes.json();
       const optionsData: HospitalOptions = await optionsRes.json();
+      
+      let financialYears = optionsData.financialYears;
+      try {
+        const fyData = await fyRes.json();
+        if (Array.isArray(fyData)) {
+          const activeFys = fyData.filter(fy => fy.status === 'Active').map(fy => fy.financialYear);
+          if (activeFys.length > 0) financialYears = activeFys;
+        }
+      } catch (e) {
+        console.warn('Could not parse financial years', e);
+      }
 
       setRecords(hospitalsData.map(mapApiToRecord));
-      setOptions(optionsData);
+      setOptions({
+        ...optionsData,
+        financialYears
+      });
     } catch (err: unknown) {
       setApiError(err instanceof Error ? err.message : 'Failed to load data');
     } finally {

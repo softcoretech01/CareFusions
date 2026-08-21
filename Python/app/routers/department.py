@@ -66,6 +66,10 @@ def _map_row(row) -> dict:
         "departmentType": row.DepartmentType,
         "description":    row.Description,
         "departmentHead": row.DepartmentHead,
+        # Added alongside the fee so the master can show how many doctors
+        # sit in each department without a second request.
+        "consultationFee": float(row.ConsultationFee) if getattr(row, "ConsultationFee", None) is not None else None,
+        "doctorsCount": int(getattr(row, "DoctorsCount", 0) or 0),
         "status":         row.Status,
         "createdBy":      row.CreatedBy,
         "createdDate":    row.CreatedDate,
@@ -85,7 +89,16 @@ def get_departments(
     try:
         result = _call_sp(db, "GET", search=search, status_filter=status_filter)
         rows = result.fetchall()
-        return [_map_row(r) for r in rows]
+        extras = _extras(db)
+        out = []
+        for r in rows:
+            item = _map_row(r)
+            ex = extras.get(item["id"])
+            if ex is not None:
+                item["consultationFee"] = float(ex.ConsultationFee) if ex.ConsultationFee is not None else None
+                item["doctorsCount"] = int(ex.DoctorsCount or 0)
+            out.append(item)
+        return out
     except Exception as e:
         logger.error(f"[GET /departments] Error: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -94,7 +107,7 @@ def get_departments(
 
 # ── GET /departments/{id} ─────────────────────────────────────
 @router.get("/{department_id}", response_model=DepartmentResponse)
-def get_department_by_id(department_id: int, db: Session = Depends(get_db)):
+def get_department_by_id(department_id: int, db: Session = Depends(get_db)):  # noqa: D401
     """Fetch a single department by ID."""
     try:
         result = _call_sp(db, "GETBYID", department_id=department_id)
@@ -127,6 +140,7 @@ def create_department(payload: DepartmentCreate, db: Session = Depends(get_db)):
         )
         row = result.fetchone()
         new_id = row.DepartmentId
+        _save_fee(db, new_id, payload.consultationFee)
         db.commit()
 
         fetch = _call_sp(db, "GETBYID", department_id=new_id)
@@ -156,6 +170,7 @@ def update_department(department_id: int, payload: DepartmentUpdate, db: Session
             status=payload.status.value,
             updated_by=payload.updatedBy or "Admin",
         )
+        _save_fee(db, department_id, payload.consultationFee)
         db.commit()
 
         fetch = _call_sp(db, "GETBYID", department_id=department_id)
@@ -209,3 +224,51 @@ def delete_department(department_id: int, db: Session = Depends(get_db)):
         logger.error(f"[DELETE /departments/{department_id}] Error: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                             detail=f"Failed to delete department: {str(e)}")
+
+
+# ── Fee + doctor count ────────────────────────────────────────
+# ConsultationFee is not a parameter of SpDepartment, so it is written
+# separately rather than reshaping a stored procedure other screens share.
+def _save_fee(db: Session, department_id: int, fee):
+    db.execute(text(
+        "UPDATE admin.Master_Department SET ConsultationFee = :f WHERE DepartmentId = :i"
+    ), {"f": fee, "i": department_id})
+
+
+def _extras(db: Session):
+    """Fee and doctor headcount per department, keyed by DepartmentId.
+
+    Doctors are matched on department name, which is how the doctor master
+    stores the link (Master_DoctorProfessional_Detail.DepartmentName).
+    """
+    rows = db.execute(text("""
+        SELECT d.DepartmentId,
+               d.ConsultationFee,
+               (SELECT COUNT(*)
+                  FROM admin.Master_DoctorProfessional_Detail p
+                  JOIN admin.Master_Doctor_Header h ON h.DoctorId = p.DoctorId
+                 WHERE p.DepartmentName = d.DepartmentName
+                   AND COALESCE(h.Status, 'Active') = 'Active') AS DoctorsCount
+        FROM admin.Master_Department d
+        WHERE d.IsDeleted = 0
+    """)).fetchall()
+    return {r.DepartmentId: r for r in rows}
+
+
+@router.get("/{department_id}/doctors")
+def department_doctors(department_id: int, db: Session = Depends(get_db)):
+    """Active doctors in this department — used by the Department Head picker."""
+    try:
+        rows = db.execute(text("""
+            SELECT h.DoctorId AS id, h.DoctorName AS name
+            FROM admin.Master_Department d
+            JOIN admin.Master_DoctorProfessional_Detail p ON p.DepartmentName = d.DepartmentName
+            JOIN admin.Master_Doctor_Header h ON h.DoctorId = p.DoctorId
+            WHERE d.DepartmentId = :i
+              AND COALESCE(h.Status, 'Active') = 'Active'
+            ORDER BY h.DoctorName
+        """), {"i": department_id}).fetchall()
+        return [{"id": r.id, "name": r.name} for r in rows]
+    except Exception as e:
+        logger.error(f"[GET /departments/{department_id}/doctors] {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch department doctors")

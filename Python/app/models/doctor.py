@@ -8,7 +8,6 @@ class Doctor(Base):
 
     DoctorId            = Column(Integer, primary_key=True, index=True, autoincrement=True)
     DoctorCode          = Column(String(20), unique=True, nullable=False)
-    RegistrationNumber  = Column(String(100), unique=True, nullable=False)
     DoctorName          = Column(String(255), nullable=False)
     Gender              = Column(Enum("Male", "Female", "Other"), nullable=False)
     DateOfBirth         = Column(Date, nullable=True)
@@ -43,14 +42,10 @@ class DoctorProfessionalDetail(Base):
     HospitalName        = Column(String(255), nullable=False)
     BranchName          = Column(String(255), nullable=False)
     DepartmentName      = Column(String(255), nullable=False)
-    Designation         = Column(String(255), nullable=False)
-    MedicalCouncil      = Column(String(255), nullable=True)
+    Designation         = Column(String(100), nullable=True)
     Experience          = Column(Integer, nullable=True)
     Languages           = Column(String(500), nullable=True)
-    DoctorType          = Column(Enum("Full-time", "Visiting", "On-call"), nullable=True)
-    ConsultationType    = Column(Enum("OP", "IP", "OP/IP"), nullable=True)
     JoiningDate         = Column(Date, nullable=True)
-    LicenseExpiryDate   = Column(Date, nullable=True)
 
     doctor = relationship("Doctor", back_populates="professional_detail")
 
