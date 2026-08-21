@@ -60,6 +60,7 @@ CREATE PROCEDURE SpMasterMedicine (
     IN p_MedicineCode       VARCHAR(50),
     IN p_GenericName        VARCHAR(200),
     IN p_Category           VARCHAR(100),
+    IN p_SubCategory        VARCHAR(100),
     IN p_Strength           VARCHAR(100),
     IN p_DosageForm         VARCHAR(100),
     IN p_Unit               VARCHAR(50),
@@ -88,7 +89,7 @@ BEGIN
     -- ==================================================================
     IF p_Opt = 'GET' THEN
         SELECT
-            MedicineId, MedicineCode, GenericName, Category,
+            MedicineId, MedicineCode, GenericName, Category, SubCategory,
             Strength, DosageForm, Unit,
             BatchTracking, ExpiryRequired, ControlledDrug, ReorderLevel, Barcode,
             PurchasePrice, SellingPrice, Gst,
@@ -103,7 +104,7 @@ BEGIN
     -- ==================================================================
     ELSEIF p_Opt = 'GETBYID' THEN
         SELECT
-            MedicineId, MedicineCode, GenericName, Category,
+            MedicineId, MedicineCode, GenericName, Category, SubCategory,
             Strength, DosageForm, Unit,
             BatchTracking, ExpiryRequired, ControlledDrug, ReorderLevel, Barcode,
             PurchasePrice, SellingPrice, Gst,
@@ -117,7 +118,7 @@ BEGIN
     -- ==================================================================
     ELSEIF p_Opt = 'SEARCH' THEN
         SELECT
-            MedicineId, MedicineCode, GenericName, Category,
+            MedicineId, MedicineCode, GenericName, Category, SubCategory,
             Strength, DosageForm, Unit,
             BatchTracking, ExpiryRequired, ControlledDrug, ReorderLevel, Barcode,
             PurchasePrice, SellingPrice, Gst,
@@ -136,13 +137,13 @@ BEGIN
     -- ==================================================================
     ELSEIF p_Opt = 'INSERT' THEN
         INSERT INTO Master_Medicine (
-            MedicineCode, GenericName, Category,
+            MedicineCode, GenericName, Category, SubCategory,
             Strength, DosageForm, Unit,
             BatchTracking, ExpiryRequired, ControlledDrug, ReorderLevel, Barcode,
             PurchasePrice, SellingPrice, Gst,
             Status, Remarks, CreatedBy, CreatedDate, IsDeleted
         ) VALUES (
-            p_MedicineCode, p_GenericName, p_Category,
+            p_MedicineCode, p_GenericName, p_Category, p_SubCategory,
             p_Strength, p_DosageForm, p_Unit,
             p_BatchTracking, p_ExpiryRequired, p_ControlledDrug, p_ReorderLevel, p_Barcode,
             p_PurchasePrice, p_SellingPrice, p_Gst,
@@ -160,6 +161,7 @@ BEGIN
             MedicineCode    = p_MedicineCode,
             GenericName     = p_GenericName,
             Category        = p_Category,
+            SubCategory     = p_SubCategory,
             Strength        = p_Strength,
             DosageForm      = p_DosageForm,
             Unit            = p_Unit,

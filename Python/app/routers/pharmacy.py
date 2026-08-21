@@ -61,9 +61,62 @@ def _sale_sp(db: Session, opt: str, **kw):
 
 
 # ── Row mappers ──────────────────────────────────────────────
+
+# -- FEFO allocation over the unified ledger --------------------------
+# The pharmacy counter is a store inside inventory.Inventory_Stock, so a sale
+# is an ISSUE from that store. A requested quantity is filled from the batch
+# expiring soonest, then the next, so short-dated stock leaves first and
+# nothing quietly expires behind a newer lot.
+
+def _pharmacy_store_id(db: Session) -> int:
+    row = db.execute(text("""
+        SELECT StoreId FROM admin.Master_Store
+         WHERE StoreType = 'Pharmacy Store' AND IsDeleted = 0
+         ORDER BY StoreId LIMIT 1""")).first()
+    if not row:
+        raise HTTPException(status_code=500,
+                            detail="No store of type 'Pharmacy Store' is configured")
+    return row.StoreId
+
+
+def _allocate_fefo(db: Session, store_id: int, item_type: str, item_id: int, qty: float):
+    """Split `qty` across the store's lots, nearest expiry first.
+
+    Expired lots are excluded - they must be written off, not sold. Raises 409
+    when the counter cannot cover the quantity, naming what is short.
+    """
+    lots = db.execute(text("""
+        SELECT BatchNo, Quantity, ExpiryDate
+          FROM inventory.Inventory_Stock
+         WHERE ItemType = :t AND ItemId = :i AND StoreId = :s AND Quantity > 0
+           AND (ExpiryDate IS NULL OR ExpiryDate >= CURDATE())
+         ORDER BY ExpiryDate IS NULL, ExpiryDate, BatchNo"""),
+        {"t": item_type, "i": item_id, "s": store_id}).fetchall()
+
+    remaining, picked = float(qty), []
+    for lot in lots:
+        if remaining <= 0:
+            break
+        take = min(remaining, float(lot.Quantity))
+        picked.append({"batchNo": lot.BatchNo, "quantity": take})
+        remaining -= take
+
+    if remaining > 0:
+        available = sum(float(l.Quantity) for l in lots)
+        raise HTTPException(
+            status_code=409,
+            detail=(f"Insufficient stock at the pharmacy counter: {qty:g} requested, "
+                    f"{available:g} available (excluding expired batches)"))
+    return picked
+
+
 def _map_medicine(r) -> dict:
     return {
         "id": str(r.id),
+        # Which master owns `id`. The counter sells medicines and priced
+        # medical items, and a sale must name the type so the right master and
+        # the right stock lots are used.
+        "itemType": getattr(r, "itemType", None) or "MEDICINE",
         "name": r.name,
         "category": r.category or "",
         "batchNo": r.batchNo or "",
@@ -78,6 +131,8 @@ def _map_medicine(r) -> dict:
 def _map_item(r) -> dict:
     return {
         "medicineId": str(r.MedicineId),
+        "itemType": getattr(r, "ItemType", None) or "MEDICINE",
+        "batchNo": getattr(r, "BatchNo", None) or "",
         "medicineName": r.MedicineName,
         "quantity": int(r.Quantity),
         "unitPrice": float(r.UnitPrice),
@@ -153,11 +208,49 @@ def upsert_stock(medicine_id: int, payload: StockUpsert, db: Session = Depends(g
 
 @router.post("/stock/{medicine_id}/adjust", status_code=200)
 def adjust_stock(medicine_id: int, payload: StockAdjust, db: Session = Depends(get_db)):
+    """Manual stock correction at the pharmacy counter.
+
+    Posts a real ADJUSTMENT document to the inventory ledger rather than
+    editing a quantity in place, so a correction is as auditable as a receipt
+    or a sale. A decrease is applied FEFO across the counter's batches; an
+    increase needs a batch to land on, so it goes to the batch expiring
+    soonest, or to 'OPENING' when the counter holds none.
+    """
+    store_id = _pharmacy_store_id(db)
+    delta = float(payload.delta)
+    if delta == 0:
+        raise HTTPException(status_code=400, detail="Adjustment quantity cannot be zero")
     try:
-        _stock_sp(db, "ADJUST", medicine_id=medicine_id, quantity=payload.delta,
-                  user=payload.user or "Admin")
+        if delta < 0:
+            lines = [{
+                "itemId": medicine_id, "itemType": "MEDICINE", "batchNo": part["batchNo"],
+                "mfgDate": None, "expiryDate": None, "quantity": -part["quantity"],
+                "rate": 0, "uom": None, "remarks": "Manual counter correction",
+            } for part in _allocate_fefo(db, store_id, "MEDICINE", medicine_id, -delta)]
+        else:
+            row = db.execute(text("""
+                SELECT BatchNo FROM inventory.Inventory_Stock
+                 WHERE ItemType = 'MEDICINE' AND ItemId = :i AND StoreId = :s
+                 ORDER BY ExpiryDate IS NULL, ExpiryDate LIMIT 1"""),
+                {"i": medicine_id, "s": store_id}).first()
+            lines = [{
+                "itemId": medicine_id, "itemType": "MEDICINE",
+                "batchNo": row.BatchNo if row else "OPENING",
+                "mfgDate": None, "expiryDate": None, "quantity": delta,
+                "rate": 0, "uom": None, "remarks": "Manual counter correction",
+            }]
+
+        db.execute(text("""
+            CALL inventory.SpInvDocument('CREATE', NULL, 'ADJUSTMENT', :store, NULL, NULL,
+                 NULL, NULL, NULL, NULL, 'Manual pharmacy stock correction',
+                 NULL, :items, NULL, NULL, :user)"""),
+            {"store": store_id, "items": json.dumps(lines),
+             "user": payload.user or "Admin"}).fetchall()
         db.commit()
         return {"id": str(medicine_id)}
+    except HTTPException:
+        db.rollback()
+        raise
     except Exception as e:
         db.rollback()
         logger.error(f"[POST /pharmacy/stock/{medicine_id}/adjust] {e}")
@@ -198,11 +291,46 @@ def get_sale(sale_id: int, db: Session = Depends(get_db)):
 
 @router.post("/sales", status_code=201)
 def create_sale(payload: SaleCreate, db: Session = Depends(get_db)):
-    items_json = json.dumps([{
-        "medicineId": it.medicineId, "medicineName": it.medicineName,
-        "quantity": it.quantity, "unitPrice": it.unitPrice, "subtotal": it.subtotal,
-    } for it in payload.items])
+    """Sell from the pharmacy counter.
+
+    The sale is posted as an inventory ISSUE from the Pharmacy Store before the
+    bill is written, so stock, valuation and the ledger all move together. Each
+    requested quantity is allocated FEFO and the bill records one line per
+    batch consumed. Both steps share one transaction: if either fails nothing
+    is committed, so a bill can never exist without the stock movement behind it.
+    """
+    store_id = _pharmacy_store_id(db)
+
+    # 1. Allocate every line to real batches before anything is written.
+    sale_lines, movement_lines = [], []
+    for it in payload.items:
+        item_type = getattr(it, "itemType", None) or "MEDICINE"
+        for part in _allocate_fefo(db, store_id, item_type, it.medicineId, it.quantity):
+            sale_lines.append({
+                "medicineId": it.medicineId, "itemType": item_type,
+                "medicineName": it.medicineName, "batchNo": part["batchNo"],
+                "quantity": part["quantity"], "unitPrice": it.unitPrice,
+                "subtotal": round(part["quantity"] * it.unitPrice, 2),
+            })
+            movement_lines.append({
+                "itemId": it.medicineId, "itemType": item_type,
+                "batchNo": part["batchNo"], "mfgDate": None, "expiryDate": None,
+                "quantity": part["quantity"], "rate": 0, "uom": None,
+                "remarks": "Pharmacy counter sale",
+            })
+
+    items_json = json.dumps(sale_lines)
     try:
+        # 2. Move the stock. SpInvStockPost refuses to take a lot negative, so
+        #    this is the single guard against overselling.
+        db.execute(text("""
+            CALL inventory.SpInvDocument('CREATE', NULL, 'ISSUE', :store, NULL,
+                 'Pharmacy Counter', NULL, NULL, NULL, NULL, NULL,
+                 'Pharmacy POS sale', :items, NULL, NULL, :user)"""),
+            {"store": store_id, "items": json.dumps(movement_lines),
+             "user": payload.user or "Admin"}).fetchall()
+
+        # 3. Write the bill against the same transaction.
         row = _sale_sp(db, "CREATE",
                        patient_name=payload.patientName, patient_ref=payload.patientRef,
                        total_amount=payload.totalAmount, discount=payload.discount,
@@ -212,6 +340,9 @@ def create_sale(payload: SaleCreate, db: Session = Depends(get_db)):
                        items=items_json, user=payload.user or "Admin").fetchone()
         db.commit()
         return {"saleId": row.SaleId, "billId": row.BillNumber}
+    except HTTPException:
+        db.rollback()
+        raise
     except Exception as e:
         db.rollback()
         msg = str(getattr(e, "orig", e))
@@ -223,10 +354,51 @@ def create_sale(payload: SaleCreate, db: Session = Depends(get_db)):
 
 @router.post("/sales/{sale_id}/refund", status_code=200)
 def refund_sale(sale_id: int, db: Session = Depends(get_db)):
+    """Refund a bill and put the stock back into the batches it came from.
+
+    Returning by medicine alone would be wrong once stock is batch tracked: the
+    quantity would land on whichever lot happened to be found, corrupting both
+    expiry tracking and valuation. The sale lines record the batch, so the
+    return goes back exactly where it came from.
+    """
+    store_id = _pharmacy_store_id(db)
     try:
+        lines = db.execute(text("""
+            SELECT MedicineId, ItemType, MedicineName, BatchNo, Quantity
+              FROM hospital.Pharmacy_SaleItem WHERE SaleId = :sid"""),
+            {"sid": sale_id}).fetchall()
+        if not lines:
+            raise HTTPException(status_code=404, detail="Sale not found")
+
+        # Lines sold before batch tracking have no batch; those cannot be put
+        # back automatically without guessing a lot, so they are refused rather
+        # than silently landing on the wrong batch.
+        unbatched = [l.MedicineName for l in lines if not (l.BatchNo or "").strip()]
+        if unbatched:
+            raise HTTPException(
+                status_code=409,
+                detail=("This bill predates batch tracking and has no batch on: "
+                        + ", ".join(unbatched)
+                        + ". Restore the stock with a manual inventory adjustment."))
+
+        db.execute(text("""
+            CALL inventory.SpInvDocument('CREATE', NULL, 'RETURN', NULL, :store, NULL,
+                 NULL, NULL, NULL, NULL, NULL, :remarks, :items, NULL, NULL, :user)"""),
+            {"store": store_id, "remarks": f"Refund of pharmacy sale {sale_id}",
+             "items": json.dumps([{
+                 "itemId": l.MedicineId, "itemType": l.ItemType or "MEDICINE",
+                 "batchNo": l.BatchNo, "mfgDate": None, "expiryDate": None,
+                 "quantity": float(l.Quantity), "rate": 0, "uom": None,
+                 "remarks": "Pharmacy sale refund",
+             } for l in lines]),
+             "user": "Admin"}).fetchall()
+
         _sale_sp(db, "REFUND", sale_id=sale_id, user="Admin")
         db.commit()
         return {"saleId": sale_id, "paymentStatus": "Refunded"}
+    except HTTPException:
+        db.rollback()
+        raise
     except Exception as e:
         db.rollback()
         logger.error(f"[POST /pharmacy/sales/{sale_id}/refund] {e}")

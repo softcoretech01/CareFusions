@@ -38,11 +38,11 @@ CREATE TABLE IF NOT EXISTS Rad_OrderTest (
 );
 
 -- Drop Stored Procedure if exists
-DROP PROCEDURE IF EXISTS SpRadOrders;
+DROP PROCEDURE IF EXISTS hospital.SpRadOrders;
 
 DELIMITER //
 
-CREATE PROCEDURE SpRadOrders(
+CREATE PROCEDURE hospital.SpRadOrders(
     IN p_Action VARCHAR(50),
     IN p_OrderId INT,
     IN p_OrderTestId INT,
@@ -68,10 +68,19 @@ BEGIN
         SELECT 
             ro.OrderId, ro.OrderNumber, ro.Category, ro.VisitType, ro.Uhid,
             ro.PatientName, ro.OrderedBy, ro.OrderedAt, ro.Status AS OrderStatus,
+            -- The order list shows the patient's age and gender. A patient is
+            -- registered either fully or through quick registration, so both
+            -- are joined and the one that matched is used.
+            COALESCE(pr.Age, qr.Age)                   AS Age,
+            COALESCE(pr.Gender, qr.Gender)             AS Gender,
+            COALESCE(pr.MobileNumber, qr.MobileNumber) AS MobileNumber,
             rt.OrderTestId, rt.TestId, rt.TestCode, rt.TestName, rt.BodyPart, rt.Status AS TestStatus,
-            rt.ResultValue, rt.ResultFile, rt.IsCritical, rt.CompletedAt, rt.VerifiedAt, rt.VerifiedBy
+            rt.ResultValue, rt.ResultFile, rt.IsCritical, rt.CompletedAt, rt.VerifiedAt, rt.VerifiedBy,
+            rt.AcknowledgedAt, rt.AcknowledgedBy
         FROM Rad_Order ro
         LEFT JOIN Rad_OrderTest rt ON ro.OrderId = rt.OrderId
+        LEFT JOIN registration.PatientRegistration pr ON pr.Uhid = ro.Uhid
+        LEFT JOIN registration.QuickRegistration   qr ON qr.Uhid = ro.Uhid
         ORDER BY ro.OrderedAt DESC;
 
     ELSEIF p_Action = 'INSERT_ORDER' THEN

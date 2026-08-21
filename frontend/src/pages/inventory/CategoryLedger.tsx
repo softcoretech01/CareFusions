@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { INVENTORY_TYPES } from '../../utils/inventoryTypes';
 import { Pagination } from '../../components/ui/Pagination';
 import { PageHeader } from '../../components/inventory/PageHeader';
 import { AutoStatusBadge } from '../../components/inventory/StatusBadge';
@@ -28,6 +29,7 @@ export const CategoryLedger = () => {
   const { valuation, stock, loading } = useInventory();
   const [active, setActive] = useState<string>('');
   const [search, setSearch] = useState('');
+  const [itemType, setItemType] = useState('');
 
   // Default to the first category so the dashboard opens with a selection, like
   // the reference (Medicines highlighted).
@@ -36,10 +38,11 @@ export const CategoryLedger = () => {
   }, [valuation, active]);
 
   const rows = useMemo(() => stock.filter(r => {
+    if (itemType && r.itemType !== itemType) return false;
     if (active && (r.category || 'Uncategorised') !== active) return false;
     const s = search.trim().toLowerCase();
     return !s || r.itemName.toLowerCase().includes(s) || r.itemCode.toLowerCase().includes(s);
-  }), [stock, active, search]);
+  }), [stock, active, search, itemType]);
 
   const categoryCount = useMemo(
     () => stock.filter(r => (r.category || 'Uncategorised') === active).length,
@@ -104,6 +107,11 @@ export const CategoryLedger = () => {
           </div>
           <div className="relative w-72 max-w-full">
             <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <select value={itemType} onChange={e => setItemType(e.target.value)}
+              className="h-11 px-3 mr-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-600 focus:outline-none focus:border-primary">
+              <option value="">All Types</option>
+              {INVENTORY_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </select>
             <input type="text" value={search} onChange={e => setSearch(e.target.value)}
               placeholder="Search items..."
               className="w-full h-10 pl-10 pr-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary focus:bg-white" />

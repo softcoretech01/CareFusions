@@ -133,6 +133,7 @@ def get_all_vendor_quotations(db: Session = Depends(get_db)):
                 (SELECT JSON_ARRAYAGG(
                     JSON_OBJECT(
                         'itemId', i.ItemId,
+                        'itemType', i.ItemType,
                         'itemName', i.ItemName,
                         'category', i.Category,
                         'qty', i.Qty,
@@ -161,6 +162,7 @@ def get_vendor_quotation_by_id(quotation_id: int, db: Session = Depends(get_db))
                 (SELECT JSON_ARRAYAGG(
                     JSON_OBJECT(
                         'itemId', i.ItemId,
+                        'itemType', i.ItemType,
                         'itemName', i.ItemName,
                         'category', i.Category,
                         'qty', i.Qty,

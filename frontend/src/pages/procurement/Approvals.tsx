@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { INVENTORY_TYPES, typeLabel } from '../../utils/inventoryTypes';
 import { Search, CheckCircle, XCircle, Eye, AlertCircle, FileText, ShoppingCart, RotateCcw } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '../../components/ui/Button';
@@ -16,6 +17,11 @@ interface ApprovalRecord {
   amount: number;
   requestedBy: string;
   priority: string;
+  /**
+   * The inventory type the document covers. null on a legacy document whose
+   * lines disagree, which is treated as "mixed" and needs both approvals.
+   */
+  inventoryType?: string | null;
   status: string;
 }
 
@@ -23,6 +29,7 @@ export const Approvals = () => {
   const [pendingRecords, setPendingRecords] = useState<ApprovalRecord[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('All');
+  const [filterType, setFilterType] = useState('');
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<ApprovalRecord | null>(null);
   const [selectedDocDetails, setSelectedDocDetails] = useState<any>(null);
@@ -53,9 +60,11 @@ export const Approvals = () => {
         String(val).toLowerCase().includes(searchTerm.toLowerCase())
       );
       const matchesTab = activeTab === 'All' ? true : record.documentType === activeTab;
-      return matchesSearch && matchesTab;
+      const matchesType = filterType ? record.inventoryType === filterType : true;
+      return matchesSearch && matchesTab && matchesType;
     });
-  }, [pendingRecords, searchTerm, activeTab]);
+  }, [pendingRecords, searchTerm, activeTab, filterType]);
+
 
   const promptAction = (record: ApprovalRecord, action: 'Approved' | 'Rejected') => {
     setConfirmAction({ record, action });
@@ -144,6 +153,14 @@ export const Approvals = () => {
               )}
             </button>
           ))}
+          <select
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value)}
+            className="ml-auto mb-2 px-3 py-1.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-primary bg-white"
+          >
+            <option value="">All Types</option>
+            {INVENTORY_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+          </select>
         </div>
 
         <div className="p-4 border-b border-slate-100 flex items-center justify-between">
@@ -188,7 +205,17 @@ export const Approvals = () => {
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-2">
                       {getDocIcon(record.documentType)}
-                      <span className="font-medium text-slate-700">{record.documentType}</span>
+                      <div>
+                        <span className="font-medium text-slate-700 block">{record.documentType}</span>
+                        {record.inventoryType && (
+                          <span className={`inline-block mt-0.5 px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                            record.inventoryType === 'MEDICINE' ? 'bg-emerald-50 text-emerald-700'
+                              : record.inventoryType === 'MEDICAL_ITEM' ? 'bg-sky-50 text-sky-700'
+                              : 'bg-slate-100 text-slate-600'}`}>
+                            {typeLabel(record.inventoryType)}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </td>
                   <td className="py-3 px-4 font-bold text-slate-800">{record.refNo}</td>

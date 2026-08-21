@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { INVENTORY_TYPES } from '../../utils/inventoryTypes';
 import { Pagination } from '../../components/ui/Pagination';
 import { PageHeader } from '../../components/inventory/PageHeader';
 import { DateFilter, monthStart, today } from '@/components/ui/DateFilter';
@@ -34,6 +35,7 @@ export const StockLedger = () => {
   const [entry, setEntry] = useState<LedgerGroup | null>(null);
   const [search, setSearch] = useState('');
   const [storeId, setStoreId] = useState('');
+  const [itemType, setItemType] = useState('');
   const [inout, setInout] = useState<'in' | 'out'>('in');
   // Draft vs applied date range so the header Search/Cancel buttons do real work.
   const [draftFrom, setDraftFrom] = useState(monthStart());
@@ -53,6 +55,7 @@ export const StockLedger = () => {
       if (s && !(r.itemName.toLowerCase().includes(s) || (r.docNumber || '').toLowerCase().includes(s)
         || r.batchNo.toLowerCase().includes(s))) return false;
       if (storeId && String(r.storeId) !== storeId) return false;
+      if (itemType && r.itemType !== itemType) return false;
       if (r.txnDate) {
         const day = localDay(new Date(r.txnDate));
         if (fromDate && day < fromDate) return false;
@@ -89,7 +92,7 @@ export const StockLedger = () => {
     for (const g of asc) { runQty += g.qty; runVal += g.value; g.balanceQty = runQty; g.cumulativeValue = runVal; }
     // Display newest first.
     return asc.reverse();
-  }, [ledger, search, storeId, inout, fromDate, toDate]);
+  }, [ledger, search, storeId, inout, fromDate, toDate, itemType]);
 
   const PAGE_SIZE = 10;
   const [page, setPage] = useState(1);
@@ -146,6 +149,11 @@ export const StockLedger = () => {
           <button onClick={() => setInout('out')}
             className={`h-11 px-5 text-sm font-bold transition-colors ${inout === 'out' ? 'bg-rose-500 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>Out Stock</button>
         </div>
+        <select value={itemType} onChange={e => setItemType(e.target.value)}
+          className="h-11 px-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-600 focus:outline-none focus:border-primary">
+          <option value="">All Types</option>
+          {INVENTORY_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+        </select>
         <select value={storeId} onChange={e => setStoreId(e.target.value)}
           className="h-11 px-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-600 focus:outline-none focus:border-primary">
           <option value="">All Stores</option>

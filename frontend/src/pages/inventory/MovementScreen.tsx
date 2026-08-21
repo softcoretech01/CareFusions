@@ -173,6 +173,14 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
   const [fromStoreId, setFromStoreId] = useState<string>('');
   const [toStoreId, setToStoreId] = useState<string>('');
   const [departmentName, setDepartmentName] = useState('');
+  /**
+   * Stock Out destination. 'Department' consumes the stock (ISSUE);
+   * 'Store' moves it to another store and keeps it on the books (TRANSFER,
+   * posted as both legs at the same cost). The pharmacy counter is a store,
+   * which is how it is replenished.
+   */
+  const [issueTo, setIssueTo] = useState<'Department' | 'Store'>('Department');
+  const isStoreIssue = config.docType === 'ISSUE' && issueTo === 'Store';
   const [vendorName, setVendorName] = useState('');
   const [referenceNo, setReferenceNo] = useState('');
   const [requestedBy, setRequestedBy] = useState('');
@@ -286,7 +294,9 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
     if (config.needsSource && !fromStoreId) return 'Select the source store';
     if (config.needsDestination && !toStoreId) return 'Select the destination store';
     if (config.docType === 'TRANSFER' && fromStoreId === toStoreId) return 'Source and destination must differ';
-    if (config.needsDepartment && !departmentName) return 'Select the destination department';
+    if (isStoreIssue && !toStoreId) return 'Select the destination store';
+    if (isStoreIssue && fromStoreId === toStoreId) return 'Source and destination store must differ';
+    if (config.needsDepartment && !isStoreIssue && !departmentName) return 'Select the destination department';
     if (config.reasons && !reason) return 'Select a reason';
     if (lines.length === 0) return 'Add at least one item';
     for (const l of lines) {
@@ -335,10 +345,13 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
 
     setSubmitting(true);
     const payload = {
-      docType: config.docType,
+      // Issuing to a store is a store-to-store movement, so it posts as a
+      // TRANSFER (both legs, cost preserved) rather than as consumption.
+      docType: isStoreIssue ? 'TRANSFER' : config.docType,
       fromStoreId: config.needsSource ? Number(fromStoreId) : null,
-      toStoreId: config.needsDestination ? Number(toStoreId) : null,
-      departmentName: config.needsDepartment ? departmentName : null,
+      toStoreId: isStoreIssue ? Number(toStoreId)
+        : config.needsDestination ? Number(toStoreId) : null,
+      departmentName: config.needsDepartment && !isStoreIssue ? departmentName : null,
       vendorName: config.needsVendor ? vendorName || null : null,
       referenceNo: config.needsVendor ? referenceNo || null : null,
       requestedBy: requestedBy || null,
@@ -538,15 +551,51 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
                   </div>
                 )}
                 {config.needsDepartment && (
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Destination</label>
-                    <select value={departmentName} onChange={e => setDepartmentName(e.target.value)} className={inputCls}>
-                      <option value="">Select Destination</option>
-                      {departmentOptions.map(d => (
-                        <option key={d.id} value={d.departmentName}>{d.departmentName}</option>
-                      ))}
-                    </select>
-                  </div>
+                  <>
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-1.5">Issue To</label>
+                      <div className="flex gap-2">
+                        {(['Department', 'Store'] as const).map(opt => (
+                          <button
+                            key={opt}
+                            type="button"
+                            onClick={() => { setIssueTo(opt); setDepartmentName(''); setToStoreId(''); }}
+                            className={`flex-1 h-11 rounded-xl border text-sm font-medium transition-colors ${
+                              issueTo === opt
+                                ? 'bg-primary text-white border-primary'
+                                : 'bg-white text-slate-600 border-slate-200 hover:border-primary/40'}`}
+                          >
+                            {opt}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-[11px] text-slate-400 mt-1">
+                        {issueTo === 'Department'
+                          ? 'Consumed by the department — leaves inventory.'
+                          : 'Moved to another store (e.g. the pharmacy counter) — stays in inventory.'}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                        {issueTo === 'Department' ? 'Destination Department' : 'Destination Store'}
+                      </label>
+                      {issueTo === 'Department' ? (
+                        <select value={departmentName} onChange={e => setDepartmentName(e.target.value)} className={inputCls}>
+                          <option value="">Select Destination</option>
+                          {departmentOptions.map(d => (
+                            <option key={d.id} value={d.departmentName}>{d.departmentName}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <select value={toStoreId} onChange={e => setToStoreId(e.target.value)} className={inputCls}>
+                          <option value="">Select Destination Store</option>
+                          {stores.filter(st => String(st.storeId) !== fromStoreId).map(st => (
+                            <option key={st.storeId} value={st.storeId}>{st.storeName}</option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  </>
                 )}
                 {config.needsVendor && (
                   <>

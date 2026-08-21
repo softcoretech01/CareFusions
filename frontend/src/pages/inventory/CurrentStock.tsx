@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { INVENTORY_TYPES, typeLabel } from '../../utils/inventoryTypes';
 import { Pagination } from '../../components/ui/Pagination';
 import { PageHeader } from '../../components/inventory/PageHeader';
 import { DateFilter, monthStart, today } from '@/components/ui/DateFilter';
@@ -22,6 +23,10 @@ export const CurrentStock = () => {
   const { stock, stores, loading } = useInventory();
   const [search, setSearch] = useState('');
   const [storeId, setStoreId] = useState('');
+  // Current Stock is the single place every kind of stock is visible, so it
+  // filters by type and by category as well as by store.
+  const [itemType, setItemType] = useState('');
+  const [category, setCategory] = useState('');
   const [status, setStatus] = useState('');
 
   const [fromDate, setFromDate] = useState(monthStart());
@@ -37,6 +42,8 @@ export const CurrentStock = () => {
     if (s && !(r.itemName.toLowerCase().includes(s) || r.itemCode.toLowerCase().includes(s)
       || r.batchNo.toLowerCase().includes(s) || (r.category || '').toLowerCase().includes(s))) return false;
     if (storeId && String(r.storeId) !== storeId) return false;
+    if (itemType && r.itemType !== itemType) return false;
+    if (category && r.category !== category) return false;
     if (status && statusOf(r.quantity, r.reorderLevel) !== status) return false;
     
     if (fromDate || toDate) {
@@ -47,7 +54,12 @@ export const CurrentStock = () => {
     }
     
     return true;
-  }), [stock, search, storeId, status, fromDate, toDate]);
+  }), [stock, search, storeId, itemType, category, status, fromDate, toDate]);
+
+  /** Categories present in stock, narrowed to the selected type. */
+  const categories = useMemo(() => Array.from(new Set(
+    stock.filter(r => !itemType || r.itemType === itemType)
+         .map(r => r.category).filter(Boolean))).sort(), [stock, itemType]);
 
   const PAGE_SIZE = 10;
   const [page, setPage] = useState(1);
@@ -83,6 +95,14 @@ export const CurrentStock = () => {
             placeholder="Search items, codes, batches..."
             className="w-full h-11 pl-10 pr-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-primary focus:bg-white" />
         </div>
+        <select value={itemType} onChange={e => { setItemType(e.target.value); setCategory(''); }} className={selectCls}>
+          <option value="">All Types</option>
+          {INVENTORY_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+        </select>
+        <select value={category} onChange={e => setCategory(e.target.value)} className={selectCls}>
+          <option value="">All Categories</option>
+          {categories.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
         <select value={storeId} onChange={e => setStoreId(e.target.value)} className={selectCls}>
           <option value="">All Stores</option>
           {stores.map(s => <option key={s.storeId} value={s.storeId}>{s.storeName}</option>)}
@@ -110,6 +130,7 @@ export const CurrentStock = () => {
               <tr>
                 <th className="px-4 py-3 text-left">Item Code</th>
                 <th className="px-4 py-3 text-left">Item Details</th>
+                <th className="px-4 py-3 text-left">Type</th>
                 <th className="px-4 py-3 text-left">Category</th>
                 <th className="px-4 py-3 text-left">Store</th>
                 <th className="px-4 py-3 text-left">Batch</th>
@@ -128,6 +149,16 @@ export const CurrentStock = () => {
                     <td className="px-4 py-3">
                       <div className="font-bold text-slate-800">{r.itemName}</div>
                       {r.manufacturer && <div className="text-xs italic text-slate-400 mt-0.5">{r.manufacturer}</div>}
+                    </td>
+                    <td className="px-4 py-3">
+                      {r.itemType && (
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                          r.itemType === 'MEDICINE' ? 'bg-emerald-50 text-emerald-700'
+                            : r.itemType === 'MEDICAL_ITEM' ? 'bg-sky-50 text-sky-700'
+                            : 'bg-slate-100 text-slate-600'}`}>
+                          {typeLabel(r.itemType)}
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-slate-600">{r.category || 'â€”'}</td>
                     <td className="px-4 py-3 text-slate-600">{r.storeName}</td>

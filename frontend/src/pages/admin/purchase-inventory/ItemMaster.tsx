@@ -11,12 +11,12 @@ import { exportToExcel } from '../../../utils/exportToExcel';
 const API_BASE = import.meta.env.VITE_API_URL as string;
 
 export interface ItemRecord {
-  id: number; itemCode: string; itemName: string; category: string; subCategory: string; department: string; brand: string; manufacturer: string; vendor: string; uom: string; hsnCode: string; gstPercentage: number; reorderLevel: number; minStock: number; maxStock: number; shelfLife: number; batchRequired: boolean; expiryRequired: boolean; barcode: string; itemDescription: string; status: string; createdBy?: string; createdDate?: string; updatedBy?: string; updatedDate?: string;
+  id: number; itemCode: string; itemName: string; category: string; subCategory: string; department: string; brand: string; manufacturer: string; vendor: string; uom: string; hsnCode: string; gstPercentage: number; reorderLevel: number; minStock: number; maxStock: number; shelfLife: number; batchRequired: boolean; expiryRequired: boolean; barcode: string; itemDescription: string; standardRate: number | null; sellingPrice: number | null; status: string; createdBy?: string; createdDate?: string; updatedBy?: string; updatedDate?: string;
 }
 
 type ItemForm = Omit<ItemRecord, 'id' | 'itemCode' | 'createdBy' | 'createdDate' | 'updatedBy' | 'updatedDate'>;
 
-const emptyData: ItemForm = { itemName: '', category: '', subCategory: '', department: '', brand: '', manufacturer: '', vendor: '', uom: '', hsnCode: '', gstPercentage: 0, reorderLevel: 0, minStock: 0, maxStock: 0, shelfLife: 0, batchRequired: false, expiryRequired: false, barcode: '', itemDescription: '', status: 'Active' };
+const emptyData: ItemForm = { itemName: '', category: '', subCategory: '', department: '', brand: '', manufacturer: '', vendor: '', uom: '', hsnCode: '', gstPercentage: 0, reorderLevel: 0, minStock: 0, maxStock: 0, shelfLife: 0, batchRequired: false, expiryRequired: false, barcode: '', itemDescription: '', standardRate: 0, sellingPrice: 0, status: 'Active' };
 
 const LIMITS = {
   itemName: 200, category: 100, subCategory: 100, department: 100, brand: 100,
@@ -25,12 +25,6 @@ const LIMITS = {
 };
 
 const gstOptions = [0, 5, 12, 18, 28];
-
-// NOTE: Retained ONLY for legacy inventory/procurement pages that import it as
-// sample data. The Item Master page itself now loads from the live API.
-export const mockData: ItemRecord[] = [{"id":1,"itemCode":"ITM-001","itemName":"Paracetamol 500 mg Tablet","category":"Medicines","subCategory":"Analgesics","department":"Pharmacy","brand":"GSK","manufacturer":"GSK","vendor":"Apollo Distributors","uom":"Strip","hsnCode":"30049099","gstPercentage":12,"reorderLevel":100,"minStock":50,"maxStock":500,"shelfLife":730,"batchRequired":true,"expiryRequired":true,"barcode":"8901234567890","itemDescription":"Fever and pain relief","status":"Active","createdBy":"System","createdDate":"2024-01-01"},
-{"id":2,"itemCode":"ITM-002","itemName":"Amoxicillin 500 mg Capsule","category":"Medicines","subCategory":"Antibiotics","department":"Pharmacy","brand":"Cipla","manufacturer":"Cipla Ltd","vendor":"Apollo Distributors","uom":"Strip","hsnCode":"30041010","gstPercentage":12,"reorderLevel":50,"minStock":25,"maxStock":200,"shelfLife":730,"batchRequired":true,"expiryRequired":true,"barcode":"8901234567891","itemDescription":"Antibiotic","status":"Active","createdBy":"System","createdDate":"2024-01-01"},
-{"id":3,"itemCode":"ITM-003","itemName":"Disposable Syringe 5 ml","category":"Medical Consumables","subCategory":"Syringes","department":"Central Store","brand":"BD","manufacturer":"Becton Dickinson India","vendor":"MediTech Supplies","uom":"Box","hsnCode":"90183100","gstPercentage":12,"reorderLevel":20,"minStock":10,"maxStock":100,"shelfLife":1825,"batchRequired":true,"expiryRequired":true,"barcode":"8901234567892","itemDescription":"With needle","status":"Active","createdBy":"System","createdDate":"2024-01-01"}];
 
 const mapApiToRecord = (item: Record<string, unknown>): ItemRecord => ({
   id:              item.id              as number,
@@ -53,6 +47,8 @@ const mapApiToRecord = (item: Record<string, unknown>): ItemRecord => ({
   expiryRequired:  Boolean(item.expiryRequired),
   barcode:         (item.barcode        as string) ?? '',
   itemDescription: (item.itemDescription as string) ?? '',
+  standardRate:    (item.standardRate as number) ?? null,
+  sellingPrice:    (item.sellingPrice as number) ?? null,
   status:          item.status          as string,
   createdBy:       (item.createdBy      as string) ?? undefined,
   createdDate:     item.createdDate ? String(item.createdDate).split('T')[0] : undefined,
@@ -64,9 +60,19 @@ const blockIntKeys = (e: KeyboardEvent<HTMLInputElement>) => {
   if (['e', 'E', '+', '-', '.'].includes(e.key)) e.preventDefault();
 };
 
-export const ItemMaster = () => {
+interface ItemMasterProps {
+  /**
+   * Narrows the screen to one inventory type. Medical Items and Non-Medical
+   * Items are the same master filtered by the type their category carries;
+   * omitting the prop lists both (the legacy /masters/item route).
+   * MEDICINE is never valid here - drugs live in the Medicine master.
+   */
+  inventoryType?: 'MEDICAL_ITEM' | 'NON_MEDICAL';
+}
+
+export const ItemMaster = ({ inventoryType }: ItemMasterProps = {}) => {
   const [records, setRecords] = useState<ItemRecord[]>([]);
-  const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
+  const [categoryOptions, setCategoryOptions] = useState<{ name: string; type: string }[]>([]);
   const [subCategoryList, setSubCategoryList] = useState<{ category: string; name: string }[]>([]);
   const [vendorOptions, setVendorOptions] = useState<string[]>([]);
   const [uomOptions, setUomOptions] = useState<string[]>([]);
@@ -99,7 +105,8 @@ export const ItemMaster = () => {
     setIsLoading(true);
     setApiError(null);
     try {
-      const res = await fetch(`${API_BASE}/items/`);
+      const res = await fetch(`${API_BASE}/items/`
+        + (inventoryType ? `?inventoryType=${inventoryType}` : ''));
       if (!res.ok) throw new Error(`Server error: ${res.status}`);
       const data: Record<string, unknown>[] = await res.json();
       setRecords(data.map(mapApiToRecord));
@@ -119,14 +126,19 @@ export const ItemMaster = () => {
         fetch(`${API_BASE}/vendors/?status_filter=Active`),
         fetch(`${API_BASE}/uoms/?status_filter=Active`),
       ]);
-      if (catRes.ok) setCategoryOptions((await catRes.json()).map((c: Record<string, unknown>) => c.categoryName as string));
+      if (catRes.ok) setCategoryOptions((await catRes.json()).map((c: Record<string, unknown>) => ({
+        name: c.categoryName as string,
+        type: (c.inventoryType as string) ?? '',
+      })));
       if (subRes.ok) setSubCategoryList((await subRes.json()).map((s: Record<string, unknown>) => ({ category: s.category as string, name: s.subCategoryName as string })));
       if (venRes.ok) setVendorOptions((await venRes.json()).map((v: Record<string, unknown>) => v.vendorName as string));
       if (uomRes.ok) setUomOptions((await uomRes.json()).map((u: Record<string, unknown>) => u.uomName as string));
     } catch { /* leave options as-is */ }
   };
 
-  useEffect(() => { fetchItems(); fetchLookups(); }, []);
+  // Re-fetch when the route switches between Medical and Non-Medical Items:
+  // the two screens share this component instance under React Router.
+  useEffect(() => { fetchItems(); fetchLookups(); }, [inventoryType]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchNextCode = async () => {
     setNextCode('');
@@ -137,7 +149,16 @@ export const ItemMaster = () => {
   };
 
   // Options unioned with values present in records (so existing data always shows)
-  const allCategories = useMemo(() => Array.from(new Set([...categoryOptions, ...records.map(r => r.category)].filter(Boolean))).sort(), [categoryOptions, records]);
+  // Categories offered by this screen. On a type-scoped route only that
+  // type's categories are selectable, which is what keeps a Medical Item from
+  // being filed under a Non-Medical category. Categories already used by
+  // existing rows stay listed so an old record can still be edited.
+  const allCategories = useMemo(() => {
+    const fromMaster = inventoryType
+      ? categoryOptions.filter(c => c.type === inventoryType).map(c => c.name)
+      : categoryOptions.filter(c => c.type !== 'MEDICINE').map(c => c.name);
+    return Array.from(new Set([...fromMaster, ...records.map(r => r.category)].filter(Boolean))).sort();
+  }, [categoryOptions, records, inventoryType]);
   const allVendors = useMemo(() => Array.from(new Set([...vendorOptions, ...records.map(r => r.vendor)].filter(Boolean))).sort(), [vendorOptions, records]);
   const allUoms = useMemo(() => Array.from(new Set([...uomOptions, ...records.map(r => r.uom)].filter(Boolean))).sort(), [uomOptions, records]);
   const subCategoriesForCategory = useMemo(() => {
@@ -242,6 +263,10 @@ export const ItemMaster = () => {
         expiryRequired:  formData.expiryRequired,
         barcode:         formData.barcode || null,
         itemDescription: formData.itemDescription || null,
+        standardRate: Number(formData.standardRate) || null,
+        // NULL keeps the item out of the pharmacy counter list; a price
+        // makes it sellable there.
+        sellingPrice: Number(formData.sellingPrice) || null,
         status:          formData.status,
       };
 
@@ -330,7 +355,11 @@ export const ItemMaster = () => {
       <div className="mb-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-800">Item</h1>
+            <h1 className="text-3xl font-bold text-slate-800">
+              {inventoryType === 'MEDICAL_ITEM' ? 'Medical Items'
+                : inventoryType === 'NON_MEDICAL' ? 'Non-Medical Items'
+                : 'Item'}
+            </h1>
             <p className="text-slate-500 mt-1"></p>
           </div>
 
@@ -418,7 +447,6 @@ export const ItemMaster = () => {
                 <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm cursor-pointer" onClick={() => handleSort('itemName')}>Name</th>
                 <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm">Category</th>
                 <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm">Stock Limits</th>
-                <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm">Status</th>
                 <th className="text-right py-3 px-4 font-medium text-slate-500 text-sm w-32">Actions</th>
               </tr>
             </thead>
@@ -433,13 +461,6 @@ export const ItemMaster = () => {
                   <td className="py-3 px-4 text-slate-800">{record.itemName}</td>
                   <td className="py-3 px-4 text-slate-800 text-sm">{record.category}</td>
                   <td className="py-3 px-4 text-slate-500 text-sm">Min: {record.minStock} | Max: {record.maxStock}</td>
-                  <td className="py-3 px-4">
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                      record.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'
-                    }`}>
-                      {record.status}
-                    </span>
-                  </td>
                   <td className="py-3 px-4 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <button onClick={() => handleView(record)} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="View Details">
@@ -447,9 +468,6 @@ export const ItemMaster = () => {
                       </button>
                       <button onClick={() => handleEdit(record)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Edit">
                         <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => handleToggleStatus(record)} className={`p-1.5 rounded-lg transition-colors ${record.status === 'Active' ? 'text-slate-400 hover:text-orange-500 hover:bg-orange-50' : 'text-slate-400 hover:text-emerald-500 hover:bg-emerald-50'}`} title={record.status === 'Active' ? 'Deactivate' : 'Activate'}>
-                        <Power className="w-4 h-4" />
                       </button>
                       <button onClick={() => handleDelete(record)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
                         <Trash2 className="w-4 h-4" />
@@ -603,15 +621,22 @@ export const ItemMaster = () => {
             <label className="block text-sm font-medium text-slate-700 mb-1">Item Description</label>
             <textarea value={formData.itemDescription} maxLength={LIMITS.description} onChange={(e) => setFormData({...formData, itemDescription: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" rows={2}/>
           </div>
-
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
-            <select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })} className={inputCls()}>
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
-            </select>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Standard Rate (₹)</label>
+            <input type="number" min={0} step="0.01" value={formData.standardRate ?? ''}
+              onChange={(e) => setFormData({ ...formData, standardRate: e.target.value === '' ? null : Number(e.target.value) })}
+              className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
+            <p className="text-[11px] text-slate-400 mt-1">Reference purchase rate used when estimating a requisition.</p>
           </div>
-        </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Counter Selling Price (₹)</label>
+            <input type="number" min={0} step="0.01" value={formData.sellingPrice ?? ''}
+              onChange={(e) => setFormData({ ...formData, sellingPrice: e.target.value === '' ? null : Number(e.target.value) })}
+              className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
+            <p className="text-[11px] text-slate-400 mt-1">Leave blank if this item is not sold over the pharmacy counter.</p>
+          </div>
+
+          </div>
 
         {selectedRecord && (
           <div className="mt-6 pt-4 border-t border-slate-100 grid grid-cols-2 gap-4 text-xs text-slate-500">
@@ -642,15 +667,7 @@ export const ItemMaster = () => {
               <div><span className="text-xs text-slate-400 block">Stock (Min/Max)</span><span className="text-sm font-medium">{selectedRecord.minStock} / {selectedRecord.maxStock}</span></div>
               <div><span className="text-xs text-slate-400 block">Barcode</span><span className="text-sm font-medium">{selectedRecord.barcode || '-'}</span></div>
             </div>
-            <div className="pt-4 border-t border-slate-100">
-              <span className="text-xs text-slate-400 block mb-1">Status</span>
-              <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                selectedRecord.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'
-              }`}>
-                {selectedRecord.status}
-              </span>
             </div>
-          </div>
         )}
       </Modal>
 

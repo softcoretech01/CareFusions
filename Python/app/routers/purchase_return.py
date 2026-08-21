@@ -104,6 +104,7 @@ def get_all_purchase_returns(db: Session = Depends(get_db)):
                 (SELECT JSON_ARRAYAGG(
                     JSON_OBJECT(
                         'itemId', i.ItemId,
+                        'itemType', i.ItemType,
                         'itemName', i.ItemName,
                         'receivedQty', i.ReceivedQty,
                         'returnQty', i.ReturnQty,
@@ -129,6 +130,7 @@ def get_purchase_return_by_id(return_id: int, db: Session = Depends(get_db)):
                 (SELECT JSON_ARRAYAGG(
                     JSON_OBJECT(
                         'itemId', i.ItemId,
+                        'itemType', i.ItemType,
                         'itemName', i.ItemName,
                         'receivedQty', i.ReceivedQty,
                         'returnQty', i.ReturnQty,

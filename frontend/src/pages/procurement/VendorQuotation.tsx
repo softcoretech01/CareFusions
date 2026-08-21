@@ -11,6 +11,8 @@ const API_BASE = import.meta.env.VITE_API_URL as string;
 interface QuotationItem {
   id: string;
   itemId: number;
+  /** Owning master, inherited from the upstream document. */
+  itemType?: string;
   itemName: string;
   category?: string;
   qty: number;
@@ -394,6 +396,7 @@ export const VendorQuotation = () => {
                   const newItems = rfq.items.map(item => ({
                     id: Math.random().toString(),
                     itemId: item.itemId,
+                    itemType: item.itemType,
                     itemName: item.itemName,
                     category: item.category,
                     qty: item.requestedQty,

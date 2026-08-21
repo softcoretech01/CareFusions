@@ -7,6 +7,8 @@ class MedicineCreate(BaseModel):
     medicineCode:   str
     genericName:    str
     category:       str
+    # Second level of the same tree items use, from Master_SubCategory.
+    subCategory:    Optional[str] = None
     strength:       str
     dosageForm:     str
     unit:           str
@@ -35,6 +37,7 @@ class MedicineResponse(BaseModel):
     medicineCode:   str
     genericName:    str
     category:       str
+    subCategory:    Optional[str] = None
     strength:       str
     dosageForm:     str
     unit:           str

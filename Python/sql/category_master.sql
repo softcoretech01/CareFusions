@@ -50,6 +50,11 @@ CREATE TABLE IF NOT EXISTS Master_Category (
 -- STORED PROCEDURE: SpMasterCategory
 -- p_Opt: GET | GETBYID | NEXTCODE | INSERT | UPDATE | TOGGLESTATUS | DELETE
 --
+-- InventoryType is the canonical classification and is mandatory on write:
+--   MEDICINE | MEDICAL_ITEM | NON_MEDICAL
+-- It decides which master owns items filed under the category and which type
+-- may reference it on a PR/PO/GRN line. Violations raise INVALID_INVENTORY_TYPE.
+--
 -- Uniqueness: CategoryName must be unique among NON-DELETED rows. Violations
 -- raise SQLSTATE '45000' with MESSAGE_TEXT = 'DUPLICATE_CATEGORY_NAME'.
 -- ============================================================
@@ -72,7 +77,8 @@ CREATE PROCEDURE SpMasterCategory(
     IN  p_CreatedBy    VARCHAR(100),
     IN  p_UpdatedBy    VARCHAR(100),
     IN  p_Search       VARCHAR(255),
-    IN  p_StatusFilter VARCHAR(20)
+    IN  p_StatusFilter VARCHAR(20),
+    IN  p_InventoryTypeFilter VARCHAR(50)
 )
 BEGIN
 
@@ -90,6 +96,8 @@ BEGIN
             OR CategoryName LIKE CONCAT('%', p_Search, '%')
           )
           AND (p_StatusFilter IS NULL OR p_StatusFilter = '' OR Status = p_StatusFilter)
+          AND (p_InventoryTypeFilter IS NULL OR p_InventoryTypeFilter = ''
+               OR InventoryType = p_InventoryTypeFilter)
         ORDER BY CategoryId ASC;
 
     ELSEIF p_Opt = 'GETBYID' THEN
@@ -113,6 +121,11 @@ BEGIN
         BEGIN
             DECLARE v_NextNum INT DEFAULT 1;
             DECLARE v_Code    VARCHAR(20);
+
+            IF p_InventoryType IS NULL OR p_InventoryType NOT IN
+               ('MEDICINE', 'MEDICAL_ITEM', 'NON_MEDICAL') THEN
+                SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'INVALID_INVENTORY_TYPE';
+            END IF;
 
             IF EXISTS (
                 SELECT 1 FROM Master_Category
@@ -153,6 +166,11 @@ BEGIN
         END;
 
     ELSEIF p_Opt = 'UPDATE' THEN
+        IF p_InventoryType IS NULL OR p_InventoryType NOT IN
+           ('MEDICINE', 'MEDICAL_ITEM', 'NON_MEDICAL') THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'INVALID_INVENTORY_TYPE';
+        END IF;
+
         IF EXISTS (
             SELECT 1 FROM Master_Category
             WHERE CategoryName = p_CategoryName

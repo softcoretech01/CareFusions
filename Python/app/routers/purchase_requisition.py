@@ -30,7 +30,10 @@ def _call_sp(db: Session, action: str, **kwargs):
         "p_PrNo": kwargs.get("pr_no"),
         "p_RequisitionDate": kwargs.get("requisition_date"),
         "p_Department": kwargs.get("department"),
+<<<<<<< HEAD
+=======
         # Added to the SP after this router was written.
+>>>>>>> origin/main
         "p_InventoryType": kwargs.get("inventory_type"),
         "p_RequestedBy": kwargs.get("requested_by"),
         "p_Priority": kwargs.get("priority"),
@@ -61,6 +64,7 @@ def _map_pr_row(row) -> dict:
         "prNo": row.PrNo,
         "requisitionDate": row.RequisitionDate,
         "department": row.Department,
+        "inventoryType": row.InventoryType,
         "requestedBy": row.RequestedBy,
         "priority": row.Priority,
         "requiredDate": row.RequiredDate,
@@ -79,6 +83,7 @@ def _map_item_row(row) -> dict:
         "PrItemId": row.PrItemId,
         "PrId": row.PrId,
         "itemId": row.ItemId,
+        "itemType": row.ItemType,
         "itemCode": row.ItemCode,
         "itemName": row.ItemName,
         "category": row.Category,
@@ -156,6 +161,7 @@ def create_pr(payload: PurchaseRequisitionCreate, db: Session = Depends(get_db))
             pr_no=payload.prNo,
             requisition_date=payload.requisitionDate,
             department=payload.department,
+            inventory_type=payload.inventoryType,
             requested_by=payload.requestedBy,
             priority=payload.priority,
             required_date=payload.requiredDate,
@@ -187,6 +193,7 @@ def update_pr(pr_id: int, payload: PurchaseRequisitionUpdate, db: Session = Depe
             pr_no=payload.prNo,
             requisition_date=payload.requisitionDate,
             department=payload.department,
+            inventory_type=payload.inventoryType,
             requested_by=payload.requestedBy,
             priority=payload.priority,
             required_date=payload.requiredDate,

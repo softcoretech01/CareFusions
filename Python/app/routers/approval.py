@@ -32,6 +32,10 @@ def _map_row(row) -> dict:
         "amount": float(row.Amount) if row.Amount else 0.0,
         "requestedBy": row.RequestedBy or "Unknown",
         "priority": row.Priority or "Normal",
+        # The inventory type this document covers. NULL means its lines
+        # disagree (only possible on legacy documents) - the UI treats that as
+        # "mixed" and requires both approval permissions.
+        "inventoryType": row.InventoryType,
         "status": row.Status
     }
 

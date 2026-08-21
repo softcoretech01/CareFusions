@@ -1,12 +1,28 @@
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Building2, Users, UserCog, CalendarClock, Pill, Microscope, ActivitySquare, Receipt, ShieldCheck, PackageSearch, Landmark, Lock, BellRing, Sparkles, History, ChevronRight, ChevronDown, Stethoscope } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import { LayoutDashboard, Building2, Users, UserCog, CalendarClock, Microscope, ActivitySquare, Receipt, ShieldCheck, PackageSearch, Landmark, Lock, BellRing, Sparkles, History, ChevronRight, ChevronDown, Stethoscope } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePermissions } from '../hooks/usePermissions';
 import { useAppDispatch } from '../hooks/redux';
 import { logout } from '../redux/slices/authSlice';
 
-const navigation = [
+interface NavChild {
+  name: string;
+  to: string;
+  /** Overrides the group's permission module for this entry only. */
+  module?: string;
+}
+
+interface NavItem {
+  name: string;
+  to?: string;
+  icon: LucideIcon;
+  module?: string;
+  children?: NavChild[];
+}
+
+const navigation: NavItem[] = [
   { name: 'Dashboard', to: '/admin', icon: LayoutDashboard },
 
   {
@@ -28,12 +44,6 @@ const navigation = [
   },
 
 
-  {
-    name: 'Pharmacy', icon: Pill, children: [
-      { name: 'Medicine', to: '/admin/masters/medicine' },
-      { name: 'Medicine Category', to: '/admin/masters/medicine-category' },
-    ]
-  },
   {
     name: 'Laboratory', icon: Microscope, children: [
       { name: 'Test', to: '/admin/masters/test' },
@@ -61,7 +71,9 @@ const navigation = [
       { name: 'Category', to: '/admin/masters/category' },
       { name: 'Sub Category', to: '/admin/masters/sub-category' },
       { name: 'UOM', to: '/admin/masters/uom' },
-      { name: 'Item', to: '/admin/masters/item' },
+      { name: 'Medicine', to: '/admin/masters/medicine', module: 'Pharmacy' },
+      { name: 'Medical Items', to: '/admin/masters/medical-item' },
+      { name: 'Non-Medical Items', to: '/admin/masters/non-medical-item' },
       { name: 'Stores', to: '/admin/masters/warehouse' },
     ]
   },
@@ -123,9 +135,22 @@ export const Sidebar = () => {
 
   // Role-based menu: show a section only if the role may view it.
   // Fallback: if no permissions are loaded (e.g. legacy session), show everything.
+  //
+  // A child may carry its own `module`, which is how an entry keeps its
+  // original permission after being moved to a different menu group (Medicine
+  // moved under Purchase & Inventory but is still gated by 'Pharmacy'). A
+  // group therefore stays visible when the role can view the group itself OR
+  // any single child, and its children are filtered individually — so the move
+  // neither grants nor revokes access for anyone.
   const visibleNavigation = permissions.length === 0
     ? navigation
-    : navigation.filter(item => canView(item.module || item.name));
+    : navigation
+        .map(item => {
+          const groupModule = item.module || item.name;
+          const children = item.children?.filter(c => canView(c.module || groupModule));
+          return { ...item, children };
+        })
+        .filter(item => (item.children ? item.children.length > 0 : canView(item.module || item.name)));
 
   return (
     <motion.aside

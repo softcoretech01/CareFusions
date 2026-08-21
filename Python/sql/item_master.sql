@@ -95,20 +95,24 @@ CREATE PROCEDURE SpMasterItem(
     IN  p_ExpiryRequired  TINYINT,
     IN  p_Barcode         VARCHAR(50),
     IN  p_ItemDescription VARCHAR(500),
+    IN  p_StandardRate    DECIMAL(14,4),
+    IN  p_SellingPrice    DECIMAL(14,4),
     IN  p_Status          VARCHAR(20),
     IN  p_CreatedBy       VARCHAR(100),
     IN  p_UpdatedBy       VARCHAR(100),
     IN  p_Search          VARCHAR(255),
     IN  p_CategoryFilter  VARCHAR(100),
-    IN  p_StatusFilter    VARCHAR(20)
+    IN  p_StatusFilter    VARCHAR(20),
+    IN  p_InventoryTypeFilter VARCHAR(50)
 )
 BEGIN
 
     IF p_Opt = 'GET' THEN
         SELECT
-            ItemId, ItemCode, ItemName, Category, SubCategory, Department, Brand,
+            ItemId, ItemCode, ItemName, InventoryType, Category, SubCategory, Department, Brand,
             Manufacturer, Vendor, Uom, HsnCode, GstPercentage, ReorderLevel, MinStock,
             MaxStock, ShelfLife, BatchRequired, ExpiryRequired, Barcode, ItemDescription,
+            StandardRate, SellingPrice, LastPurchaseRate,
             Status, CreatedBy, CreatedDate, UpdatedBy, UpdatedDate
         FROM Master_Item
         WHERE IsDeleted = 0
@@ -121,13 +125,16 @@ BEGIN
           )
           AND (p_CategoryFilter IS NULL OR p_CategoryFilter = '' OR Category = p_CategoryFilter)
           AND (p_StatusFilter   IS NULL OR p_StatusFilter   = '' OR Status   = p_StatusFilter)
+          AND (p_InventoryTypeFilter IS NULL OR p_InventoryTypeFilter = ''
+               OR InventoryType = p_InventoryTypeFilter)
         ORDER BY ItemId ASC;
 
     ELSEIF p_Opt = 'GETBYID' THEN
         SELECT
-            ItemId, ItemCode, ItemName, Category, SubCategory, Department, Brand,
+            ItemId, ItemCode, ItemName, InventoryType, Category, SubCategory, Department, Brand,
             Manufacturer, Vendor, Uom, HsnCode, GstPercentage, ReorderLevel, MinStock,
             MaxStock, ShelfLife, BatchRequired, ExpiryRequired, Barcode, ItemDescription,
+            StandardRate, SellingPrice, LastPurchaseRate,
             Status, CreatedBy, CreatedDate, UpdatedBy, UpdatedDate
         FROM Master_Item
         WHERE ItemId = p_ItemId
@@ -144,6 +151,7 @@ BEGIN
         BEGIN
             DECLARE v_NextNum INT DEFAULT 1;
             DECLARE v_Code    VARCHAR(20);
+            DECLARE v_CatType VARCHAR(50) DEFAULT NULL;
 
             IF EXISTS (SELECT 1 FROM Master_Item WHERE ItemName = p_ItemName AND IsDeleted = 0) THEN
                 SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'DUPLICATE_ITEM_NAME';
@@ -153,6 +161,22 @@ BEGIN
                 SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'DUPLICATE_BARCODE';
             END IF;
 
+            -- The Item master owns MEDICAL_ITEM and NON_MEDICAL only. A drug
+            -- belongs in Master_Medicine, which is what prescriptions, the MAR
+            -- and pharmacy billing reference by MedicineId. Filing one here
+            -- would create a second, unreferenced copy of the same product.
+            SELECT InventoryType INTO v_CatType
+              FROM Master_Category
+             WHERE CategoryName = p_Category AND IsDeleted = 0
+             LIMIT 1;
+
+            IF v_CatType IS NULL THEN
+                SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'UNKNOWN_CATEGORY';
+            END IF;
+            IF v_CatType = 'MEDICINE' THEN
+                SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'MEDICINE_NOT_ALLOWED_IN_ITEM_MASTER';
+            END IF;
+
             SELECT COALESCE(MAX(CAST(SUBSTRING(ItemCode, 5) AS UNSIGNED)), 0) + 1
             INTO v_NextNum
             FROM Master_Item;
@@ -160,19 +184,30 @@ BEGIN
             SET v_Code = CONCAT('ITM-', LPAD(v_NextNum, 3, '0'));
 
             INSERT INTO Master_Item (
-                ItemCode, ItemName, Category, SubCategory, Department, Brand, Manufacturer,
+                ItemCode, ItemName, InventoryType, Category, SubCategory, Department, Brand, Manufacturer,
                 Vendor, Uom, HsnCode, GstPercentage, ReorderLevel, MinStock, MaxStock,
-                ShelfLife, BatchRequired, ExpiryRequired, Barcode, ItemDescription, Status, CreatedBy
+                ShelfLife, BatchRequired, ExpiryRequired, Barcode, ItemDescription,
+                StandardRate, SellingPrice, Status, CreatedBy
             ) VALUES (
-                v_Code, p_ItemName, p_Category, p_SubCategory, p_Department, p_Brand, p_Manufacturer,
+                v_Code, p_ItemName, v_CatType, p_Category, p_SubCategory, p_Department, p_Brand, p_Manufacturer,
                 p_Vendor, p_Uom, p_HsnCode, p_GstPercentage, p_ReorderLevel, p_MinStock, p_MaxStock,
-                p_ShelfLife, p_BatchRequired, p_ExpiryRequired, p_Barcode, p_ItemDescription, p_Status, p_CreatedBy
+                p_ShelfLife, p_BatchRequired, p_ExpiryRequired, p_Barcode, p_ItemDescription,
+                p_StandardRate, p_SellingPrice, p_Status, p_CreatedBy
             );
 
             SELECT LAST_INSERT_ID() AS ItemId, v_Code AS ItemCode;
         END;
 
     ELSEIF p_Opt = 'UPDATE' THEN
+        SET @v_CatType = (SELECT InventoryType FROM Master_Category
+                           WHERE CategoryName = p_Category AND IsDeleted = 0 LIMIT 1);
+        IF @v_CatType IS NULL THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'UNKNOWN_CATEGORY';
+        END IF;
+        IF @v_CatType = 'MEDICINE' THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'MEDICINE_NOT_ALLOWED_IN_ITEM_MASTER';
+        END IF;
+
         IF EXISTS (SELECT 1 FROM Master_Item WHERE ItemName = p_ItemName AND IsDeleted = 0 AND ItemId <> p_ItemId) THEN
             SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'DUPLICATE_ITEM_NAME';
         END IF;
@@ -184,6 +219,7 @@ BEGIN
         UPDATE Master_Item
         SET
             ItemName        = p_ItemName,
+            InventoryType   = @v_CatType,
             Category        = p_Category,
             SubCategory     = p_SubCategory,
             Department      = p_Department,
@@ -201,6 +237,10 @@ BEGIN
             ExpiryRequired  = p_ExpiryRequired,
             Barcode         = p_Barcode,
             ItemDescription = p_ItemDescription,
+            StandardRate    = p_StandardRate,
+            -- NULL means "not sold at the pharmacy counter", which is what
+            -- keeps an unpriced item out of the POS list.
+            SellingPrice    = p_SellingPrice,
             Status          = p_Status,
             UpdatedBy       = p_UpdatedBy,
             UpdatedDate     = CURRENT_TIMESTAMP

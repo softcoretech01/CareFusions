@@ -141,6 +141,7 @@ def get_all_purchase_orders(db: Session = Depends(get_db)):
                 (SELECT JSON_ARRAYAGG(
                     JSON_OBJECT(
                         'itemId', i.ItemId,
+                        'itemType', i.ItemType,
                         'itemName', i.ItemName,
                         'category', i.Category,
                         'orderedQty', i.OrderedQty,
@@ -169,6 +170,7 @@ def get_purchase_order_by_id(po_id: int, db: Session = Depends(get_db)):
                 (SELECT JSON_ARRAYAGG(
                     JSON_OBJECT(
                         'itemId', i.ItemId,
+                        'itemType', i.ItemType,
                         'itemName', i.ItemName,
                         'category', i.Category,
                         'orderedQty', i.OrderedQty,

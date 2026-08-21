@@ -11,6 +11,7 @@ class ApprovalRecordResponse(BaseModel):
     amount: float
     requestedBy: str
     priority: str
+    inventoryType: Optional[str] = None
     status: str
 
     class Config:

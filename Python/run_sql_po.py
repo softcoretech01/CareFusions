@@ -108,11 +108,12 @@ def execute_sql_file():
                 SET v_TotalItems = JSON_LENGTH(p_ItemsJSON);
                 WHILE v_Index < v_TotalItems DO
                     INSERT INTO `PurchaseOrderItem` (
-                        `PoId`, `ItemId`, `ItemName`, `Category`, `OrderedQty`, 
+                        `PoId`, `ItemId`, `ItemType`, `ItemName`, `Category`, `OrderedQty`, 
                         `Uom`, `Rate`, `Discount`, `Gst`, `Amount`, `CreatedBy`
                     ) VALUES (
                         v_PoId,
                         JSON_UNQUOTE(JSON_EXTRACT(p_ItemsJSON, CONCAT('$[', v_Index, '].itemId'))),
+                        JSON_UNQUOTE(JSON_EXTRACT(p_ItemsJSON, CONCAT('$[', v_Index, '].itemType'))),
                         JSON_UNQUOTE(JSON_EXTRACT(p_ItemsJSON, CONCAT('$[', v_Index, '].itemName'))),
                         JSON_UNQUOTE(JSON_EXTRACT(p_ItemsJSON, CONCAT('$[', v_Index, '].category'))),
                         JSON_UNQUOTE(JSON_EXTRACT(p_ItemsJSON, CONCAT('$[', v_Index, '].orderedQty'))),
@@ -157,11 +158,12 @@ def execute_sql_file():
                 SET v_TotalItems = JSON_LENGTH(p_ItemsJSON);
                 WHILE v_Index < v_TotalItems DO
                     INSERT INTO `PurchaseOrderItem` (
-                        `PoId`, `ItemId`, `ItemName`, `Category`, `OrderedQty`, 
+                        `PoId`, `ItemId`, `ItemType`, `ItemName`, `Category`, `OrderedQty`, 
                         `Uom`, `Rate`, `Discount`, `Gst`, `Amount`, `CreatedBy`, `ModifiedBy`
                     ) VALUES (
                         p_PoId,
                         JSON_UNQUOTE(JSON_EXTRACT(p_ItemsJSON, CONCAT('$[', v_Index, '].itemId'))),
+                        JSON_UNQUOTE(JSON_EXTRACT(p_ItemsJSON, CONCAT('$[', v_Index, '].itemType'))),
                         JSON_UNQUOTE(JSON_EXTRACT(p_ItemsJSON, CONCAT('$[', v_Index, '].itemName'))),
                         JSON_UNQUOTE(JSON_EXTRACT(p_ItemsJSON, CONCAT('$[', v_Index, '].category'))),
                         JSON_UNQUOTE(JSON_EXTRACT(p_ItemsJSON, CONCAT('$[', v_Index, '].orderedQty'))),

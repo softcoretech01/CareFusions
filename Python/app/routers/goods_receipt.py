@@ -121,6 +121,7 @@ def get_all_grns(db: Session = Depends(get_db)):
                 (SELECT JSON_ARRAYAGG(
                     JSON_OBJECT(
                         'itemId', i.ItemId,
+                        'itemType', i.ItemType,
                         'itemName', i.ItemName,
                         'category', i.Category,
                         'orderedQty', i.OrderedQty,
@@ -153,6 +154,7 @@ def get_grn_by_id(grn_id: int, db: Session = Depends(get_db)):
                 (SELECT JSON_ARRAYAGG(
                     JSON_OBJECT(
                         'itemId', i.ItemId,
+                        'itemType', i.ItemType,
                         'itemName', i.ItemName,
                         'category', i.Category,
                         'orderedQty', i.OrderedQty,

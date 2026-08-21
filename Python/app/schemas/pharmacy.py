@@ -19,7 +19,10 @@ class PaymentStatusEnum(str, Enum):
 
 
 class SaleItemIn(BaseModel):
+    # medicineId is the id within the master named by itemType. Defaults to
+    # MEDICINE so an existing POS client keeps working unchanged.
     medicineId: int = Field(..., gt=0)
+    itemType: str = Field(default="MEDICINE", pattern="^(MEDICINE|MEDICAL_ITEM)$")
     medicineName: str = Field(..., min_length=1, max_length=200)
     quantity: int = Field(..., gt=0, le=100000)
     unitPrice: float = Field(..., ge=0)

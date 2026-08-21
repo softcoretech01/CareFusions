@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { typeLabel } from '../../utils/inventoryTypes';
 import { Plus, Search, Filter, Edit2, Eye, Printer, CheckCircle, ShoppingBag, Trash2, Download, RefreshCw, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../components/ui/Button';
@@ -15,6 +16,8 @@ const API_BASE = import.meta.env.VITE_API_URL as string;
 interface POItem {
   id: string;
   itemId: number;
+  /** Owning master, inherited from the upstream document. */
+  itemType?: string;
   itemName: string;
   category?: string;
   orderedQty: number;
@@ -429,6 +432,7 @@ export const PurchaseOrders = () => {
                     const newItems = qtn.items.map(item => ({
                       id: Math.random().toString(),
                       itemId: item.itemId,
+                      itemType: item.itemType,
                       itemName: item.itemName,
                       category: item.category,
                       orderedQty: item.qty,
@@ -453,6 +457,7 @@ export const PurchaseOrders = () => {
                     const newItems = pr.items.map(item => ({
                       id: Math.random().toString(),
                       itemId: item.itemId,
+                      itemType: item.itemType,
                       itemName: item.itemName,
                       category: item.category,
                       orderedQty: item.requestedQty,
@@ -485,6 +490,7 @@ export const PurchaseOrders = () => {
                   const newItems = qtn.items.map(item => ({
                     id: Math.random().toString(),
                     itemId: item.itemId,
+                    itemType: item.itemType,
                     itemName: item.itemName,
                     category: item.category,
                     orderedQty: item.qty,
@@ -585,6 +591,14 @@ export const PurchaseOrders = () => {
                     <tr key={item.id} className="bg-white">
                       <td className="py-2 px-3">
                         <div className="text-sm font-medium text-slate-800 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">{item.itemName}</div>
+                        {item.itemType && (
+                          <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                            item.itemType === 'MEDICINE' ? 'bg-emerald-50 text-emerald-700'
+                              : item.itemType === 'MEDICAL_ITEM' ? 'bg-sky-50 text-sky-700'
+                              : 'bg-slate-100 text-slate-600'}`}>
+                            {typeLabel(item.itemType)}
+                          </span>
+                        )}
                       </td>
                       <td className="py-2 px-3 text-slate-600">{item.category || '-'}</td>
                       <td className="py-2 px-3"><input type="number" min="1" value={item.orderedQty} onChange={(e) => handleItemCalc(index, 'orderedQty', Number(e.target.value))} className="w-full p-1.5 border rounded-lg text-sm text-right" /></td>

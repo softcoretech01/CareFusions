@@ -330,7 +330,6 @@ export const UomMaster = () => {
                 <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm cursor-pointer" onClick={() => handleSort('uomCode')}>Code</th>
                 <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm cursor-pointer" onClick={() => handleSort('uomName')}>Name</th>
                 <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm">Short Name</th>
-                <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm">Status</th>
                 <th className="text-right py-3 px-4 font-medium text-slate-500 text-sm w-32">Actions</th>
               </tr>
             </thead>
@@ -344,13 +343,6 @@ export const UomMaster = () => {
                   <td className="py-3 px-4 text-slate-800 font-medium">{record.uomCode}</td>
                   <td className="py-3 px-4 text-slate-800">{record.uomName}</td>
                   <td className="py-3 px-4 text-slate-800">{record.shortName}</td>
-                  <td className="py-3 px-4">
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                      record.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'
-                    }`}>
-                      {record.status}
-                    </span>
-                  </td>
                   <td className="py-3 px-4 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <button onClick={() => handleView(record)} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="View Details">
@@ -358,9 +350,6 @@ export const UomMaster = () => {
                       </button>
                       <button onClick={() => handleEdit(record)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Edit">
                         <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => handleToggleStatus(record)} className={`p-1.5 rounded-lg transition-colors ${record.status === 'Active' ? 'text-slate-400 hover:text-orange-500 hover:bg-orange-50' : 'text-slate-400 hover:text-emerald-500 hover:bg-emerald-50'}`} title={record.status === 'Active' ? 'Deactivate' : 'Activate'}>
-                        <Power className="w-4 h-4" />
                       </button>
                       <button onClick={() => handleDelete(record)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
                         <Trash2 className="w-4 h-4" />
@@ -421,18 +410,7 @@ export const UomMaster = () => {
             <input type="text" maxLength={LIMITS.shortName} value={formData.shortName} onChange={(e) => setFormData({...formData, shortName: e.target.value})} className={`w-full px-4 py-2 border rounded-xl text-sm outline-none focus:ring-2 transition-all ${errors.shortName ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'}`} placeholder="e.g. kg" />
             {errors.shortName && <p className="text-red-500 text-xs mt-1">{errors.shortName}</p>}
           </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
-            <select
-              value={formData.status}
-              onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-              className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
-            >
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
-            </select>
           </div>
-        </div>
 
         {selectedRecord && (
           <div className="mt-6 pt-4 border-t border-slate-100 grid grid-cols-2 gap-4 text-xs text-slate-500">
@@ -456,15 +434,7 @@ export const UomMaster = () => {
               <div><span className="text-xs text-slate-400 block">Name</span><span className="text-sm font-medium">{selectedRecord.uomName}</span></div>
               <div><span className="text-xs text-slate-400 block">Short Name</span><span className="text-sm font-medium">{selectedRecord.shortName}</span></div>
             </div>
-            <div className="pt-4 border-t border-slate-100">
-              <span className="text-xs text-slate-400 block mb-1">Status</span>
-              <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                selectedRecord.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'
-              }`}>
-                {selectedRecord.status}
-              </span>
             </div>
-          </div>
         )}
       </Modal>
 
