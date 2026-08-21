@@ -30,6 +30,10 @@ def _call_sp(db: Session, opt: str, **kwargs):
         "p_UpdatedBy":    kwargs.get("updated_by"),
         "p_Search":       kwargs.get("search"),
         "p_StatusFilter": kwargs.get("status_filter"),
+<<<<<<< HEAD
+=======
+        # Added to the SP after this router was written.
+>>>>>>> origin/main
         "p_InventoryTypeFilter": kwargs.get("inventory_type_filter"),
     }
     sql = text(f"""

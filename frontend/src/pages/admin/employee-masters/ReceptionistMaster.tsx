@@ -115,8 +115,7 @@ export const ReceptionistMaster = () => {
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
     if (!formData.receptionistId.trim()) newErrors.receptionistId = 'Receptionist ID is required';    if (!formData.name.trim()) newErrors.name = 'Name is required';
-    if (!formData.branch) newErrors.branch = 'Branch is required';
-    if (!formData.counter.trim()) newErrors.counter = 'Reception Counter is required';
+        if (!formData.counter.trim()) newErrors.counter = 'Reception Counter is required';
     if (!formData.mobile.trim()) newErrors.mobile = 'Mobile is required';
     if (!formData.shift) newErrors.shift = 'Shift is required';
 
@@ -517,7 +516,7 @@ export const ReceptionistMaster = () => {
                           type="file"
                           accept="image/*,.pdf"
                           onChange={(e) => handleFileUpload(e, doc.field)}
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-0"
                         />
                       </div>
                     </div>

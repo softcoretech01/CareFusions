@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { DateFilter } from '@/components/ui/DateFilter';
 import { Pagination } from '@/components/ui/Pagination';
 import { usePagination } from '@/hooks/usePagination';
-import { Plus, Search, FileText, CheckCircle, Clock, Ban, X, Edit, Trash2, Shield, AlertCircle, UploadCloud } from 'lucide-react';
+import { Plus, Search, FileText, CheckCircle, Clock, Ban, X, Edit, Trash2, Shield, AlertCircle, UploadCloud , Eye} from "lucide-react";
 import toast from 'react-hot-toast';
 import { usePatients } from '../../contexts/PatientContext';
 import { useInsurance } from '../../contexts/InsuranceContext';
@@ -403,7 +403,17 @@ export const PreAuthManagement = () => {
                     {docs.map((f, i) => (
                       <li key={i} className="flex items-center justify-between text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
                         <span className="truncate text-slate-700 flex items-center gap-1.5"><FileText className="w-3.5 h-3.5 text-slate-400" />{f.name}</span>
-                        <button type="button" onClick={() => setDocs(prev => prev.filter((_, idx) => idx !== i))} className="text-slate-400 hover:text-red-600"><X className="w-3.5 h-3.5" /></button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => window.open(URL.createObjectURL(f), '_blank')}
+                            className="text-slate-400 hover:text-primary transition-colors"
+                            title="View Document"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+                          <button type="button" onClick={() => setDocs(prev => prev.filter((_, idx) => idx !== i))} className="text-slate-400 hover:text-red-600"><X className="w-3.5 h-3.5" /></button>
+                        </div>
                       </li>
                     ))}
                   </ul>

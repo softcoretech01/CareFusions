@@ -152,8 +152,7 @@ export const LabTechnicianMaster = () => {
     if (!formData.qualification.trim()) newErrors.qualification = 'Qualification is required';
     if (!formData.department) newErrors.department = 'Department is required';
     if (!formData.laboratory) newErrors.laboratory = 'Laboratory is required';
-    if (!formData.branch) newErrors.branch = 'Branch is required';
-    if (!formData.mobile.trim()) newErrors.mobile = 'Mobile is required';
+        if (!formData.mobile.trim()) newErrors.mobile = 'Mobile is required';
     if (!formData.shift) newErrors.shift = 'Shift is required';
 
     // Uniqueness checks
@@ -607,7 +606,7 @@ export const LabTechnicianMaster = () => {
                           type="file"
                           accept="image/*,.pdf"
                           onChange={(e) => handleFileUpload(e, doc.field)}
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-0"
                         />
                       </div>
                     </div>
