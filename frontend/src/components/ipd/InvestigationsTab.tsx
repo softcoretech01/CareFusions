@@ -28,8 +28,11 @@ export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({ patientNam
   const [isAdding, setIsAdding] = useState(false);
   const [selectedLabs, setSelectedLabs] = useState<string[]>([]);
   const [selectedScans, setSelectedScans] = useState<string[]>([]);
+  const [testBodyParts, setTestBodyParts] = useState<Record<string, string>>({});
   const [customTest, setCustomTest] = useState('');
+  const [customTestBodyPart, setCustomTestBodyPart] = useState('');
   const [customScan, setCustomScan] = useState('');
+  const [customScanBodyPart, setCustomScanBodyPart] = useState('');
   const [placing, setPlacing] = useState(false);
 
   // Radiology exam list comes from the Radiology Service master.
@@ -56,10 +59,11 @@ export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({ patientNam
     set(list.includes(val) ? list.filter(x => x !== val) : [...list, val]);
 
   const handlePlaceOrder = async () => {
-    const labTests = [...selectedLabs];
-    if (customTest.trim()) labTests.push(customTest.trim());
-    const scanTests = [...selectedScans];
-    if (customScan.trim()) scanTests.push(customScan.trim());
+    const labTests = [...selectedLabs].map(name => ({ name, bodyPart: testBodyParts[name] || '' }));
+    if (customTest.trim()) labTests.push({ name: customTest.trim(), bodyPart: customTestBodyPart.trim() });
+    
+    const scanTests = [...selectedScans].map(name => ({ name, bodyPart: testBodyParts[name] || '' }));
+    if (customScan.trim()) scanTests.push({ name: customScan.trim(), bodyPart: customScanBodyPart.trim() });
 
     if (labTests.length === 0 && scanTests.length === 0) {
       toast.error('Please select at least one test to order.');
@@ -82,7 +86,7 @@ export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({ patientNam
           patientName,
           orderedBy: 'Doctor',
           orderedAt: now,
-          tests: labTests.map((name, i) => ({ id: `T-${Date.now()}-L${i}`, name, status: 'Pending' })),
+          tests: labTests.map((t, i) => ({ id: `T-${Date.now()}-L${i}`, name: t.name, bodyPart: t.bodyPart, status: 'Pending' })),
           status: 'Pending',
         });
       }
@@ -95,7 +99,7 @@ export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({ patientNam
           patientName,
           orderedBy: 'Doctor',
           orderedAt: now,
-          tests: scanTests.map((name, i) => ({ id: `T-${Date.now()}-R${i}`, name, status: 'Pending' })),
+          tests: scanTests.map((t, i) => ({ id: `T-${Date.now()}-R${i}`, name: t.name, bodyPart: t.bodyPart, status: 'Pending' })),
           status: 'Pending',
         });
       }
@@ -103,8 +107,11 @@ export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({ patientNam
       setIsAdding(false);
       setSelectedLabs([]);
       setSelectedScans([]);
+      setTestBodyParts({});
       setCustomTest('');
+      setCustomTestBodyPart('');
       setCustomScan('');
+      setCustomScanBodyPart('');
     } finally {
       setPlacing(false);
     }
@@ -193,18 +200,29 @@ export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({ patientNam
                 {catalogue.length === 0 ? (
                   <p className="text-xs text-slate-400">No lab tests in master. Use custom entry below.</p>
                 ) : catalogue.map(t => (
-                  <label key={t.testId} className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      className="rounded border-slate-300 text-primary focus:ring-primary"
-                      checked={selectedLabs.includes(t.testName)}
-                      onChange={() => toggle(selectedLabs, setSelectedLabs, t.testName)}
-                    />
-                    {t.testName}
-                  </label>
+                  <div key={t.testId} className="flex flex-col gap-1">
+                    <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="rounded border-slate-300 text-primary focus:ring-primary"
+                        checked={selectedLabs.includes(t.testName)}
+                        onChange={() => toggle(selectedLabs, setSelectedLabs, t.testName)}
+                      />
+                      {t.testName}
+                    </label>
+                    {selectedLabs.includes(t.testName) && (
+                      <input
+                        type="text"
+                        placeholder="Body Part / Scan Area (optional)"
+                        value={testBodyParts[t.testName] || ''}
+                        onChange={(e) => setTestBodyParts({ ...testBodyParts, [t.testName]: e.target.value })}
+                        className="ml-6 px-2 py-1 text-xs border border-slate-200 rounded focus:outline-none focus:border-primary w-full max-w-[200px]"
+                      />
+                    )}
+                  </div>
                 ))}
               </div>
-              <div className="pt-2">
+              <div className="pt-2 flex flex-col gap-2">
                 <input
                   type="text"
                   placeholder="+ Add Custom Lab Test"
@@ -212,6 +230,15 @@ export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({ patientNam
                   onChange={e => setCustomTest(e.target.value)}
                   className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-primary"
                 />
+                {customTest.trim() && (
+                  <input
+                    type="text"
+                    placeholder="Body Part / Scan Area (optional)"
+                    value={customTestBodyPart}
+                    onChange={e => setCustomTestBodyPart(e.target.value)}
+                    className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-primary"
+                  />
+                )}
               </div>
             </div>
 
@@ -224,18 +251,29 @@ export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({ patientNam
                 {radiologyServices.length === 0 ? (
                   <p className="text-xs text-slate-400">No radiology services in master. Use custom entry below.</p>
                 ) : radiologyServices.map(s => (
-                  <label key={s.id} className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      className="rounded border-slate-300 text-primary focus:ring-primary"
-                      checked={selectedScans.includes(s.serviceName)}
-                      onChange={() => toggle(selectedScans, setSelectedScans, s.serviceName)}
-                    />
-                    {s.serviceName}
-                  </label>
+                  <div key={s.id} className="flex flex-col gap-1">
+                    <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="rounded border-slate-300 text-primary focus:ring-primary"
+                        checked={selectedScans.includes(s.serviceName)}
+                        onChange={() => toggle(selectedScans, setSelectedScans, s.serviceName)}
+                      />
+                      {s.serviceName}
+                    </label>
+                    {selectedScans.includes(s.serviceName) && (
+                      <input
+                        type="text"
+                        placeholder="Body Part / Scan Area (optional)"
+                        value={testBodyParts[s.serviceName] || ''}
+                        onChange={(e) => setTestBodyParts({ ...testBodyParts, [s.serviceName]: e.target.value })}
+                        className="ml-6 px-2 py-1 text-xs border border-slate-200 rounded focus:outline-none focus:border-primary w-full max-w-[200px]"
+                      />
+                    )}
+                  </div>
                 ))}
               </div>
-              <div className="pt-2">
+              <div className="pt-2 flex flex-col gap-2">
                 <input
                   type="text"
                   placeholder="+ Add Custom Scan"
@@ -243,6 +281,15 @@ export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({ patientNam
                   onChange={e => setCustomScan(e.target.value)}
                   className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-primary"
                 />
+                {customScan.trim() && (
+                  <input
+                    type="text"
+                    placeholder="Body Part / Scan Area (optional)"
+                    value={customScanBodyPart}
+                    onChange={e => setCustomScanBodyPart(e.target.value)}
+                    className="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:border-primary"
+                  />
+                )}
               </div>
             </div>
           </div>
@@ -274,6 +321,7 @@ export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({ patientNam
         </div>
       ) : (
         <div className="space-y-4">{orders.map(renderOrderCard)}</div>
+
       )}
     </div>
   );

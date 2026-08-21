@@ -256,7 +256,18 @@ export const LabOrderList = () => {
                   <div className="text-xs text-slate-500">{order.patientId}</div>
                 </td>
                 <td className="px-4 py-3 text-slate-500 text-xs">{order.orderedBy}</td>
-                <td className="px-4 py-3 text-slate-700 text-sm font-medium">{order.tests.map(t => t.name).join(', ')}</td>
+                <td className="px-4 py-3 min-w-[200px]">
+                  <div className="flex flex-col gap-1.5">
+                    {order.tests.map(test => (
+                      <div key={test.id} className="text-slate-700 font-medium bg-slate-100/50 px-2 py-1 rounded inline-block w-fit">
+                        {test.name}
+                        {test.bodyPart && (
+                          <span className="block text-xs text-slate-500 font-normal mt-0.5">Note: {test.bodyPart}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </td>
                 <td className="px-4 py-3">
                   <span className={`px-2.5 py-1 text-xs font-bold rounded-md ${order.status === 'Verified' ? 'bg-emerald-100 text-emerald-700' :
                       order.status === 'Completed' ? 'bg-green-100 text-green-700' :
