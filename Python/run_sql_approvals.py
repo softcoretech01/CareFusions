@@ -34,6 +34,7 @@ def execute_sql_file():
                 (SELECT IFNULL(SUM(RequestedQty * EstimatedPrice), 0) FROM `PurchaseRequisitionItem` WHERE `PrId` = PR.PrId) AS Amount,
                 PR.CreatedBy AS RequestedBy,
                 PR.Priority AS Priority,
+                PR.InventoryType AS InventoryType,
                 PR.ApprovalStatus AS Status
             FROM `PurchaseRequisition` PR
             WHERE PR.ApprovalStatus IN ('Submitted', 'Pending Department Approval')
@@ -49,6 +50,8 @@ def execute_sql_file():
                 PO.TotalAmount AS Amount,
                 'System' AS RequestedBy,
                 'Normal' AS Priority,
+                (SELECT CASE WHEN COUNT(DISTINCT i.ItemType) = 1 THEN MIN(i.ItemType) END
+                   FROM `PurchaseOrderItem` i WHERE i.PoId = PO.PoId) AS InventoryType,
                 PO.Status AS Status
             FROM `PurchaseOrder` PO
             WHERE PO.Status IN ('Submitted', 'Pending Approval')
@@ -64,6 +67,8 @@ def execute_sql_file():
                 0 AS Amount,
                 'System' AS RequestedBy,
                 'Normal' AS Priority,
+                (SELECT CASE WHEN COUNT(DISTINCT i.ItemType) = 1 THEN MIN(i.ItemType) END
+                   FROM `PurchaseReturnItem` i WHERE i.ReturnId = R.ReturnId) AS InventoryType,
                 R.Status AS Status
             FROM `PurchaseReturn` R
             WHERE R.Status IN ('Submitted', 'Pending Approval');

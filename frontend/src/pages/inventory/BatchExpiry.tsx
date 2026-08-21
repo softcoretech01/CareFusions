@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { INVENTORY_TYPES } from '../../utils/inventoryTypes';
 import { Pagination } from '../../components/ui/Pagination';
 import { PageHeader } from '../../components/inventory/PageHeader';
 import { StatusBadge } from '../../components/inventory/StatusBadge';
@@ -23,6 +24,7 @@ export const BatchExpiry = () => {
   const [lot, setLot] = useState<ExpiringRow | null>(null);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
+  const [itemType, setItemType] = useState('');
   const [window, setWindow] = useState<string>('All');
 
   const categories = useMemo(() => {
@@ -49,8 +51,9 @@ export const BatchExpiry = () => {
     const s = search.trim().toLowerCase();
     if (s && !(r.itemName.toLowerCase().includes(s) || r.batchNo.toLowerCase().includes(s))) return false;
     if (category && r.category !== category) return false;
+    if (itemType && r.itemType !== itemType) return false;
     return inWindow(r.daysToExpiry);
-  }), [expiring, search, category, window]);
+  }), [expiring, search, category, itemType, window]);
 
   const PAGE_SIZE = 10;
   const [page, setPage] = useState(1);
@@ -72,6 +75,11 @@ export const BatchExpiry = () => {
             placeholder="Search items or batches..."
             className="w-full h-11 pl-10 pr-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-primary focus:bg-white" />
         </div>
+        <select value={itemType} onChange={e => setItemType(e.target.value)}
+          className="h-11 px-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-600 focus:outline-none focus:border-primary">
+          <option value="">All Types</option>
+          {INVENTORY_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+        </select>
         <select value={category} onChange={e => setCategory(e.target.value)} className={selectCls}>
           <option value="">All Categories</option>
           {categories.map(c => <option key={c} value={c}>{c}</option>)}

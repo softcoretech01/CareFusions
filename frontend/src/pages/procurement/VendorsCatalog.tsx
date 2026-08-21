@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { INVENTORY_TYPES } from '../../utils/inventoryTypes';
 import { 
   Search, Filter, BookOpen, Star, Package, Clock, TrendingUp, RefreshCw
 } from 'lucide-react';
@@ -9,6 +10,9 @@ const API_BASE = import.meta.env.VITE_API_URL as string;
 export const VendorsCatalog = () => {
   const [catalogs, setCatalogs] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
+  // Categories now carry an inventory type, so the buyer can narrow the
+  // catalog to medicines, medical items or non-medical items.
+  const [filterType, setFilterType] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const fetchData = async () => {
@@ -104,10 +108,18 @@ export const VendorsCatalog = () => {
           <AnimatePresence>
             {showFilters && (
               <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="border-b border-slate-100 bg-slate-50 overflow-hidden">
-                <div className="p-3">
-                  <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none">
+                <div className="p-3 flex gap-3">
+                  <select value={filterType}
+                          onChange={(e) => { setFilterType(e.target.value); setFilterCategory(''); }}
+                          className="w-1/3 px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none">
+                    <option value="">All Types</option>
+                    {INVENTORY_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  </select>
+                  <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none">
                     <option value="">Filter by Category</option>
-                    {categories.map(c => <option key={c.id} value={c.categoryName}>{c.categoryName}</option>)}
+                    {categories
+                      .filter(c => !filterType || c.inventoryType === filterType)
+                      .map(c => <option key={c.id} value={c.categoryName}>{c.categoryName}</option>)}
                   </select>
                 </div>
               </motion.div>

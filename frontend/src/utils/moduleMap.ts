@@ -15,7 +15,10 @@ const SLUG_TO_MODULE: Record<string, string> = {
   // Appointment (masters)
   'consultation-type': 'Appointment', 'appointment-status': 'Appointment',
   // Pharmacy
-  medicine: 'Pharmacy', 'medicine-category': 'Pharmacy',
+  // Medicine now sits under the Purchase & Inventory menu but deliberately
+  // keeps its 'Pharmacy' permission module, so relocating the entry does not
+  // grant or revoke access for any existing role.
+  medicine: 'Pharmacy',
   // Laboratory
   test: 'Laboratory', 'sample-type': 'Laboratory',
   // Radiology
@@ -27,7 +30,9 @@ const SLUG_TO_MODULE: Record<string, string> = {
   // Purchase & Inventory
   vendor: 'Purchase & Inventory', category: 'Purchase & Inventory',
   'sub-category': 'Purchase & Inventory', uom: 'Purchase & Inventory',
-  item: 'Purchase & Inventory', brand: 'Purchase & Inventory',
+  item: 'Purchase & Inventory',
+  'medical-item': 'Purchase & Inventory', 'non-medical-item': 'Purchase & Inventory',
+  brand: 'Purchase & Inventory',
   manufacturer: 'Purchase & Inventory', warehouse: 'Purchase & Inventory',
   // Financial
   coa: 'Financial', 'cost-center': 'Financial', 'profit-center': 'Financial',

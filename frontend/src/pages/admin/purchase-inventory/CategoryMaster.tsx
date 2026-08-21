@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
 import { exportToExcel } from '../../../utils/exportToExcel';
+import { INVENTORY_TYPES, typeLabel } from '../../../utils/inventoryTypes';
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
 
@@ -14,6 +15,7 @@ export interface CategoryRecord {
   id: number;
   categoryCode: string;
   categoryName: string;
+  inventoryType: string;
   description: string;
   status: string;
   createdBy?: string;
@@ -22,24 +24,17 @@ export interface CategoryRecord {
   updatedDate?: string;
 }
 
-type CategoryForm = { categoryName: string; description: string; status: string };
+type CategoryForm = { categoryName: string; inventoryType: string; description: string; status: string };
 
-const emptyData: CategoryForm = { categoryName: '', description: '', status: 'Active' };
+const emptyData: CategoryForm = { categoryName: '', inventoryType: '', description: '', status: 'Active' };
 
 const LIMITS = { categoryName: 100, description: 500 };
-
-// NOTE: Retained ONLY for legacy pages (e.g. VendorsCatalog) that import it as
-// sample data. The Category Master page itself now loads from the live API.
-export const mockData: CategoryRecord[] = [{ "id": 1, "categoryCode": "CAT-001", "categoryName": "Medicines", "description": "All pharmaceutical drugs", "status": "Active", "createdBy": "System", "createdDate": "2024-01-01" },
-{ "id": 2, "categoryCode": "CAT-002", "categoryName": "Medical Consumables", "description": "Disposable medical items", "status": "Active", "createdBy": "System", "createdDate": "2024-01-01" },
-{ "id": 3, "categoryCode": "CAT-003", "categoryName": "Surgical Instruments", "description": "Reusable surgical tools", "status": "Active", "createdBy": "System", "createdDate": "2024-01-01" },
-{ "id": 4, "categoryCode": "CAT-004", "categoryName": "Laboratory Supplies", "description": "Lab reagents and kits", "status": "Active", "createdBy": "System", "createdDate": "2024-01-01" },
-{ "id": 5, "categoryCode": "CAT-005", "categoryName": "Radiology Supplies", "description": "Films and contrast media", "status": "Active", "createdBy": "System", "createdDate": "2024-01-01" }];
 
 const mapApiToRecord = (item: Record<string, unknown>): CategoryRecord => ({
   id: item.id as number,
   categoryCode: item.categoryCode as string,
   categoryName: item.categoryName as string,
+  inventoryType: (item.inventoryType as string) ?? '',
   description: (item.description as string) ?? '',
   status: item.status as string,
   createdBy: (item.createdBy as string) ?? undefined,
@@ -64,6 +59,7 @@ export const CategoryMaster = () => {
   // Filter States
   const [showFilters, setShowFilters] = useState(false);
   const [filterStatus, setFilterStatus] = useState('');
+  const [filterType, setFilterType] = useState('');
 
   // Form States
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -109,6 +105,7 @@ export const CategoryMaster = () => {
     if (!formData.categoryName.trim()) newErrors.categoryName = 'Category Name is required';
     if (records.some(r => r.categoryName.toLowerCase() === formData.categoryName.trim().toLowerCase() && r.id !== selectedRecord?.id))
       newErrors.categoryName = 'Category Name cannot be duplicated';
+    if (!formData.inventoryType) newErrors.inventoryType = 'Inventory Type is required';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -123,7 +120,7 @@ export const CategoryMaster = () => {
 
   const handleEdit = (record: CategoryRecord) => {
     setSelectedRecord(record);
-    setFormData({ categoryName: record.categoryName, description: record.description, status: record.status });
+    setFormData({ categoryName: record.categoryName, inventoryType: record.inventoryType, description: record.description, status: record.status });
     setErrors({});
     setIsFormOpen(true);
   };
@@ -171,6 +168,7 @@ export const CategoryMaster = () => {
     try {
       const body = {
         categoryName: formData.categoryName.trim(),
+        inventoryType: formData.inventoryType,
         description: formData.description || null,
         status: formData.status,
       };
@@ -220,7 +218,8 @@ export const CategoryMaster = () => {
         String(val).toLowerCase().includes(searchTerm.toLowerCase())
       );
       const matchesStatus = filterStatus ? record.status === filterStatus : true;
-      return matchesSearch && matchesStatus;
+      const matchesType = filterType ? record.inventoryType === filterType : true;
+      return matchesSearch && matchesStatus && matchesType;
     });
 
     if (sortConfig.key) {
@@ -236,7 +235,7 @@ export const CategoryMaster = () => {
     }
 
     return result;
-  }, [records, searchTerm, filterStatus, sortConfig]);
+  }, [records, searchTerm, filterStatus, filterType, sortConfig]);
 
   const totalPages = Math.ceil(processedData.length / itemsPerPage);
   const paginatedData = processedData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -326,6 +325,14 @@ export const CategoryMaster = () => {
             >
               <div className="p-4 flex gap-4">
                 <select
+                  value={filterType}
+                  onChange={(e) => { setFilterType(e.target.value); setCurrentPage(1); }}
+                  className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                >
+                  <option value="">All Types</option>
+                  {INVENTORY_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+                <select
                   value={filterStatus}
                   onChange={(e) => { setFilterStatus(e.target.value); setCurrentPage(1); }}
                   className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
@@ -345,27 +352,26 @@ export const CategoryMaster = () => {
               <tr>
                 <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm cursor-pointer" onClick={() => handleSort('categoryCode')}>Code</th>
                 <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm cursor-pointer" onClick={() => handleSort('categoryName')}>Name</th>
+                <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm">Type</th>
                 <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm">Description</th>
-                <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm">Status</th>
                 <th className="text-right py-3 px-4 font-medium text-slate-500 text-sm w-32">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {isLoading ? (
-                <tr><td colSpan={5} className="py-8 text-center text-slate-500">Loading categories...</td></tr>
+                <tr><td colSpan={6} className="py-8 text-center text-slate-500">Loading categories...</td></tr>
               ) : paginatedData.length === 0 ? (
-                <tr><td colSpan={5} className="py-8 text-center text-slate-500">No records found</td></tr>
+                <tr><td colSpan={6} className="py-8 text-center text-slate-500">No records found</td></tr>
               ) : paginatedData.map((record) => (
                 <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="py-3 px-4 text-slate-800 font-medium">{record.categoryCode}</td>
                   <td className="py-3 px-4 text-slate-800">{record.categoryName}</td>
-                  <td className="py-3 px-4 text-slate-600 text-sm max-w-xs truncate">{record.description}</td>
-                  <td className="py-3 px-4">
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${record.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'
-                      }`}>
-                      {record.status}
+                  <td className="py-3 px-4 text-sm">
+                    <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
+                      {typeLabel(record.inventoryType)}
                     </span>
                   </td>
+                  <td className="py-3 px-4 text-slate-600 text-sm max-w-xs truncate">{record.description}</td>
                   <td className="py-3 px-4 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <button onClick={() => handleView(record)} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="View Details">
@@ -373,9 +379,6 @@ export const CategoryMaster = () => {
                       </button>
                       <button onClick={() => handleEdit(record)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Edit">
                         <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => handleToggleStatus(record)} className={`p-1.5 rounded-lg transition-colors ${record.status === 'Active' ? 'text-slate-400 hover:text-orange-500 hover:bg-orange-50' : 'text-slate-400 hover:text-emerald-500 hover:bg-emerald-50'}`} title={record.status === 'Active' ? 'Deactivate' : 'Activate'}>
-                        <Power className="w-4 h-4" />
                       </button>
                       <button onClick={() => handleDelete(record)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
                         <Trash2 className="w-4 h-4" />
@@ -431,22 +434,23 @@ export const CategoryMaster = () => {
             {errors.categoryName && <p className="text-red-500 text-xs mt-1">{errors.categoryName}</p>}
           </div>
           <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Inventory Type <span className="text-red-500">*</span></label>
+            <select
+              value={formData.inventoryType}
+              onChange={(e) => setFormData({ ...formData, inventoryType: e.target.value })}
+              className={`w-full px-4 py-2 border rounded-xl text-sm outline-none focus:ring-2 transition-all ${errors.inventoryType ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'}`}
+            >
+              <option value="">Select Inventory Type</option>
+              {INVENTORY_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </select>
+            {errors.inventoryType && <p className="text-red-500 text-xs mt-1">{errors.inventoryType}</p>}
+          </div>
+          <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
             <textarea value={formData.description} maxLength={LIMITS.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" rows={1} />
             {/* <p className="text-slate-400 text-xs mt-1 text-right">{formData.description.length}/{LIMITS.description}</p> */}
           </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
-            <select
-              value={formData.status}
-              onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-              className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
-            >
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
-            </select>
           </div>
-        </div>
 
         {selectedRecord && (
           <div className="mt-6 pt-4 border-t border-slate-100 grid grid-cols-2 gap-4 text-xs text-slate-500">
@@ -470,14 +474,7 @@ export const CategoryMaster = () => {
               <div><span className="text-xs text-slate-400 block">Name</span><span className="text-sm font-medium">{selectedRecord.categoryName}</span></div>
               <div className="col-span-2"><span className="text-xs text-slate-400 block">Description</span><span className="text-sm font-medium">{selectedRecord.description || '-'}</span></div>
             </div>
-            <div className="pt-4 border-t border-slate-100">
-              <span className="text-xs text-slate-400 block mb-1">Status</span>
-              <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${selectedRecord.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'
-                }`}>
-                {selectedRecord.status}
-              </span>
             </div>
-          </div>
         )}
       </Modal>
 

@@ -39,6 +39,7 @@ def execute_sql_file():
         `RfqItemId` INT AUTO_INCREMENT PRIMARY KEY,
         `RfqId` INT NOT NULL,
         `ItemId` INT NOT NULL,
+        `ItemType` VARCHAR(20) NULL,
         `ItemCode` VARCHAR(50),
         `ItemName` VARCHAR(255),
         `Category` VARCHAR(100),
@@ -102,11 +103,12 @@ def execute_sql_file():
                 SET v_TotalItems = JSON_LENGTH(p_ItemsJSON);
                 WHILE v_Index < v_TotalItems DO
                     INSERT INTO `RequestForQuotationItem` (
-                        `RfqId`, `ItemId`, `ItemCode`, `ItemName`, `Category`, `RequestedQty`, 
+                        `RfqId`, `ItemId`, `ItemType`, `ItemCode`, `ItemName`, `Category`, `RequestedQty`, 
                         `Uom`, `TargetPrice`, `ExpectedDeliveryDays`, `Remarks`
                     ) VALUES (
                         v_RfqId,
                         JSON_UNQUOTE(JSON_EXTRACT(p_ItemsJSON, CONCAT('$[', v_Index, '].itemId'))),
+                        JSON_UNQUOTE(JSON_EXTRACT(p_ItemsJSON, CONCAT('$[', v_Index, '].itemType'))),
                         NULLIF(JSON_UNQUOTE(JSON_EXTRACT(p_ItemsJSON, CONCAT('$[', v_Index, '].itemCode'))), 'null'),
                         NULLIF(JSON_UNQUOTE(JSON_EXTRACT(p_ItemsJSON, CONCAT('$[', v_Index, '].itemName'))), 'null'),
                         NULLIF(JSON_UNQUOTE(JSON_EXTRACT(p_ItemsJSON, CONCAT('$[', v_Index, '].category'))), 'null'),
@@ -164,11 +166,12 @@ def execute_sql_file():
                 SET v_TotalItems = JSON_LENGTH(p_ItemsJSON);
                 WHILE v_Index < v_TotalItems DO
                     INSERT INTO `RequestForQuotationItem` (
-                        `RfqId`, `ItemId`, `ItemCode`, `ItemName`, `Category`, `RequestedQty`, 
+                        `RfqId`, `ItemId`, `ItemType`, `ItemCode`, `ItemName`, `Category`, `RequestedQty`, 
                         `Uom`, `TargetPrice`, `ExpectedDeliveryDays`, `Remarks`
                     ) VALUES (
                         p_RfqId,
                         JSON_UNQUOTE(JSON_EXTRACT(p_ItemsJSON, CONCAT('$[', v_Index, '].itemId'))),
+                        JSON_UNQUOTE(JSON_EXTRACT(p_ItemsJSON, CONCAT('$[', v_Index, '].itemType'))),
                         NULLIF(JSON_UNQUOTE(JSON_EXTRACT(p_ItemsJSON, CONCAT('$[', v_Index, '].itemCode'))), 'null'),
                         NULLIF(JSON_UNQUOTE(JSON_EXTRACT(p_ItemsJSON, CONCAT('$[', v_Index, '].itemName'))), 'null'),
                         NULLIF(JSON_UNQUOTE(JSON_EXTRACT(p_ItemsJSON, CONCAT('$[', v_Index, '].category'))), 'null'),
@@ -209,6 +212,7 @@ def execute_sql_file():
                                JSON_OBJECT(
                                    'id', i.RfqItemId,
                                    'itemId', i.ItemId,
+                                   'itemType', i.ItemType,
                                    'itemCode', i.ItemCode,
                                    'itemName', i.ItemName,
                                    'category', i.Category,

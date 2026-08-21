@@ -21,6 +21,7 @@ def execute_sql_file():
         PrNo VARCHAR(50) NOT NULL,
         RequisitionDate DATE NOT NULL,
         Department VARCHAR(100) NOT NULL,
+        InventoryType VARCHAR(20) NULL,      -- MEDICINE | MEDICAL_ITEM | NON_MEDICAL
         RequestedBy VARCHAR(100) NOT NULL,
         Priority VARCHAR(20) DEFAULT 'Normal',
         RequiredDate DATE NOT NULL,
@@ -42,6 +43,7 @@ def execute_sql_file():
         PrItemId INT AUTO_INCREMENT PRIMARY KEY,
         PrId INT NOT NULL,
         ItemId INT NOT NULL,
+        ItemType VARCHAR(20) NULL,           -- owning master for ItemId
         ItemCode VARCHAR(50),
         ItemName VARCHAR(255),
         Category VARCHAR(100),
@@ -67,6 +69,7 @@ def execute_sql_file():
         IN p_PrNo VARCHAR(50),
         IN p_RequisitionDate DATE,
         IN p_Department VARCHAR(100),
+        IN p_InventoryType VARCHAR(20),
         IN p_RequestedBy VARCHAR(100),
         IN p_Priority VARCHAR(20),
         IN p_RequiredDate DATE,
@@ -87,11 +90,11 @@ def execute_sql_file():
 
         IF p_Action = 'CREATE' THEN
             INSERT INTO inventory.PurchaseRequisition (
-                PrNo, RequisitionDate, Department, RequestedBy, Priority,
+                PrNo, RequisitionDate, Department, InventoryType, RequestedBy, Priority,
                 RequiredDate, Purpose, Remarks, TotalItems, EstimatedCost,
                 ApprovalStatus, CurrentStage, CreatedBy
             ) VALUES (
-                p_PrNo, p_RequisitionDate, p_Department, p_RequestedBy, p_Priority,
+                p_PrNo, p_RequisitionDate, p_Department, p_InventoryType, p_RequestedBy, p_Priority,
                 p_RequiredDate, p_Purpose, p_Remarks, p_TotalItems, p_EstimatedCost,
                 p_ApprovalStatus, p_CurrentStage, p_CreatedBy
             );
@@ -103,11 +106,12 @@ def execute_sql_file():
                 WHILE i < item_count DO
                     SET curr_item = JSON_EXTRACT(p_ItemsJSON, CONCAT('$[', i, ']'));
                     INSERT INTO inventory.PurchaseRequisitionItem (
-                        PrId, ItemId, ItemCode, ItemName, Category, SubCategory,
+                        PrId, ItemId, ItemType, ItemCode, ItemName, Category, SubCategory,
                         AvailableStock, RequestedQty, Uom, EstimatedPrice, EstimatedAmount, Store
                     ) VALUES (
                         v_PrId,
                         JSON_UNQUOTE(JSON_EXTRACT(curr_item, '$.itemId')),
+                        COALESCE(JSON_UNQUOTE(JSON_EXTRACT(curr_item, '$.itemType')), p_InventoryType),
                         JSON_UNQUOTE(JSON_EXTRACT(curr_item, '$.itemCode')),
                         JSON_UNQUOTE(JSON_EXTRACT(curr_item, '$.itemName')),
                         JSON_UNQUOTE(JSON_EXTRACT(curr_item, '$.category')),
@@ -129,6 +133,7 @@ def execute_sql_file():
             UPDATE inventory.PurchaseRequisition SET
                 RequisitionDate = p_RequisitionDate,
                 Department = p_Department,
+                InventoryType = p_InventoryType,
                 RequestedBy = p_RequestedBy,
                 Priority = p_Priority,
                 RequiredDate = p_RequiredDate,
@@ -146,11 +151,12 @@ def execute_sql_file():
                 WHILE i < item_count DO
                     SET curr_item = JSON_EXTRACT(p_ItemsJSON, CONCAT('$[', i, ']'));
                     INSERT INTO inventory.PurchaseRequisitionItem (
-                        PrId, ItemId, ItemCode, ItemName, Category, SubCategory,
+                        PrId, ItemId, ItemType, ItemCode, ItemName, Category, SubCategory,
                         AvailableStock, RequestedQty, Uom, EstimatedPrice, EstimatedAmount, Store
                     ) VALUES (
                         p_PrId,
                         JSON_UNQUOTE(JSON_EXTRACT(curr_item, '$.itemId')),
+                        COALESCE(JSON_UNQUOTE(JSON_EXTRACT(curr_item, '$.itemType')), p_InventoryType),
                         JSON_UNQUOTE(JSON_EXTRACT(curr_item, '$.itemCode')),
                         JSON_UNQUOTE(JSON_EXTRACT(curr_item, '$.itemName')),
                         JSON_UNQUOTE(JSON_EXTRACT(curr_item, '$.category')),

@@ -1,6 +1,6 @@
 import logging
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
@@ -30,12 +30,14 @@ def _call_sp(db: Session, opt: str, **kwargs):
         "p_UpdatedBy":    kwargs.get("updated_by"),
         "p_Search":       kwargs.get("search"),
         "p_StatusFilter": kwargs.get("status_filter"),
+        "p_InventoryTypeFilter": kwargs.get("inventory_type_filter"),
     }
     sql = text(f"""
         CALL {SP_NAME}(
             :p_Opt, :p_CategoryId, :p_CategoryName, :p_InventoryType, :p_Description,
             :p_StockRequired, :p_BatchTracking, :p_ExpiryTracking, :p_BarcodeRequired,
-            :p_Remarks, :p_Status, :p_CreatedBy, :p_UpdatedBy, :p_Search, :p_StatusFilter
+            :p_Remarks, :p_Status, :p_CreatedBy, :p_UpdatedBy, :p_Search, :p_StatusFilter,
+            :p_InventoryTypeFilter
         )
     """)
     return db.execute(sql, params)
@@ -74,6 +76,10 @@ def _raise_if_duplicate(exc: Exception):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                             detail="Batch and expiry tracking only apply to categories "
                                    "that are stocked")
+    if "INVALID_INVENTORY_TYPE" in msg:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Inventory Type is required and must be one of "
+                                   "MEDICINE, MEDICAL_ITEM or NON_MEDICAL")
     if "1062" in msg or "Duplicate entry" in msg:
         if "UQ_Category_Code" in msg:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT,
@@ -101,11 +107,18 @@ def _payload_kwargs(payload) -> dict:
 def get_categories(
     search: Optional[str] = None,
     status_filter: Optional[str] = None,
+    inventory_type: Optional[str] = Query(None, alias="inventoryType"),
     db: Session = Depends(get_db)
 ):
-    """Fetch all categories with optional search and status filter."""
+    """Fetch categories, optionally narrowed to one inventory type.
+
+    The type filter is applied inside the stored procedure, not here, so a
+    caller cannot widen it by editing the request (spec: the backend enforces
+    the Type -> Category rule, never the frontend alone).
+    """
     try:
-        result = _call_sp(db, "GET", search=search, status_filter=status_filter)
+        result = _call_sp(db, "GET", search=search, status_filter=status_filter,
+                          inventory_type_filter=inventory_type)
         return [_map_row(r) for r in result.fetchall()]
     except Exception as e:
         logger.error(f"[GET /categories] Error: {e}")

@@ -14,7 +14,19 @@ NAME_MAX = 100
 DESC_MAX = 500
 INVTYPE_MAX = 50
 
-INVENTORY_TYPES = {"Medical", "Non-Medical", "Asset", "Service"}
+# Canonical inventory types. MEDICINE is owned by Master_Medicine; the other
+# two are owned by Master_Item. These exact strings are the only spelling of
+# this concept used across DB, API and UI.
+INVENTORY_TYPES = {"MEDICINE", "MEDICAL_ITEM", "NON_MEDICAL"}
+
+# Values written before the unified-inventory migration. Accepted on input and
+# translated, so an older client or a saved form does not start failing.
+LEGACY_INVENTORY_TYPES = {
+    "Medical": "MEDICAL_ITEM",
+    "Non-Medical": "NON_MEDICAL",
+    "Asset": "NON_MEDICAL",
+    "Service": "NON_MEDICAL",
+}
 
 
 # ── Shared field rules ───────────────────────────────────────
@@ -50,7 +62,11 @@ class _CategoryFields(BaseModel):
     @field_validator("inventoryType")
     @classmethod
     def known_type(cls, v: Optional[str]) -> Optional[str]:
-        if v and v not in INVENTORY_TYPES:
+        if not v:
+            raise ValueError(
+                f"Inventory Type is required: {', '.join(sorted(INVENTORY_TYPES))}")
+        v = LEGACY_INVENTORY_TYPES.get(v, v)
+        if v not in INVENTORY_TYPES:
             raise ValueError(f"Inventory Type must be one of: {', '.join(sorted(INVENTORY_TYPES))}")
         return v
 

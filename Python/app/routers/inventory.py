@@ -22,13 +22,14 @@ _DOC = ("CALL inventory.SpInvDocument(:p_Opt, :p_DocId, :p_DocType, :p_FromStore
         ":p_DepartmentName, :p_VendorName, :p_ReferenceNo, :p_RequestedBy, :p_ApprovedBy, "
         ":p_Reason, :p_Remarks, :p_Items, :p_FromDate, :p_ToDate, :p_User)")
 
-_STOCK = "CALL inventory.SpInvStock(:p_Opt, :p_StoreId, :p_ItemId, :p_Days, :p_FromDate, :p_ToDate)"
+_STOCK = ("CALL inventory.SpInvStock(:p_Opt, :p_StoreId, :p_ItemId, :p_Days, :p_FromDate, "
+          ":p_ToDate, :p_ItemType)")
 
 _DOC_D = {k: None for k in (
     "p_Opt p_DocId p_DocType p_FromStoreId p_ToStoreId p_DepartmentName p_VendorName "
     "p_ReferenceNo p_RequestedBy p_ApprovedBy p_Reason p_Remarks p_Items p_FromDate "
     "p_ToDate p_User").split()}
-_STOCK_D = {k: None for k in "p_Opt p_StoreId p_ItemId p_Days p_FromDate p_ToDate".split()}
+_STOCK_D = {k: None for k in "p_Opt p_StoreId p_ItemId p_Days p_FromDate p_ToDate p_ItemType".split()}
 
 
 def _doc_sp(db: Session, opt: str, **kw):
@@ -56,7 +57,8 @@ def _iso(v):
 # ── Row mappers ──────────────────────────────────────────────
 def _map_lot(r) -> dict:
     return {
-        "stockId": r.StockId, "itemId": r.ItemId, "itemCode": r.ItemCode, "itemName": r.ItemName,
+        "stockId": r.StockId, "itemType": r.ItemType, "itemId": r.ItemId,
+        "itemCode": r.ItemCode, "itemName": r.ItemName,
         "category": r.Category or "", "subCategory": r.SubCategory or "",
         "brand": r.Brand or "", "manufacturer": r.Manufacturer or "",
         "storeId": r.StoreId, "storeName": r.StoreName,
@@ -85,7 +87,8 @@ def _map_doc(r) -> dict:
 
 def _map_doc_item(r) -> dict:
     return {
-        "docItemId": r.DocItemId, "itemId": r.ItemId, "itemName": r.ItemName,
+        "docItemId": r.DocItemId, "itemType": r.ItemType, "itemId": r.ItemId,
+        "itemName": r.ItemName,
         "batchNo": r.BatchNo, "mfgDate": _iso(r.MfgDate), "expiryDate": _iso(r.ExpiryDate),
         "quantity": _f(r.Quantity), "rate": _f(r.Rate), "value": _f(r.Value),
         "uom": r.Uom or "", "remarks": r.Remarks or "",
@@ -110,12 +113,17 @@ def list_stores(db: Session = Depends(get_db)):
 @router.get("/items")
 def list_items(db: Session = Depends(get_db)):
     try:
+        # Reads the union view, so medicines, medical items and non-medical
+        # items all reach the inventory screens from one feed. Existing keys
+        # are unchanged; itemType is added alongside them.
         rows = db.execute(text(
-            "SELECT ItemId, ItemCode, ItemName, Category, SubCategory, Uom, ReorderLevel, "
+            "SELECT ItemType, ItemId, ItemCode, ItemName, Category, SubCategory, Uom, ReorderLevel, "
             "MinStock, MaxStock, BatchRequired, ExpiryRequired, GstPercentage "
-            "FROM admin.Master_Item WHERE IsDeleted = 0 AND Status = 'Active' ORDER BY ItemName"
+            "FROM inventory.Vw_CatalogItem WHERE IsDeleted = 0 AND Status = 'Active' "
+            "ORDER BY ItemName"
         )).fetchall()
         return [{
+            "itemType": r.ItemType,
             "itemId": r.ItemId, "itemCode": r.ItemCode, "itemName": r.ItemName,
             "category": r.Category or "", "subCategory": r.SubCategory or "",
             "uom": r.Uom or "", "reorderLevel": r.ReorderLevel,
@@ -146,7 +154,7 @@ def issuable_lots(store_id: int = Query(..., alias="storeId"), db: Session = Dep
     try:
         rows = _stock_sp(db, "ITEMLOTS", StoreId=store_id).fetchall()
         return [{
-            "stockId": r.StockId, "itemId": r.ItemId, "itemCode": r.ItemCode,
+            "stockId": r.StockId, "itemType": r.ItemType, "itemId": r.ItemId, "itemCode": r.ItemCode,
             "itemName": r.ItemName, "category": r.Category or "", "batchNo": r.BatchNo,
             "expiryDate": _iso(r.ExpiryDate), "quantity": _f(r.Quantity),
             "valuationRate": _f(r.ValuationRate), "uom": r.Uom or "",
@@ -161,7 +169,7 @@ def low_stock(store_id: Optional[int] = Query(None, alias="storeId"), db: Sessio
     try:
         rows = _stock_sp(db, "LOWSTOCK", StoreId=store_id).fetchall()
         return [{
-            "itemId": r.ItemId, "itemCode": r.ItemCode, "itemName": r.ItemName,
+            "itemType": r.ItemType, "itemId": r.ItemId, "itemCode": r.ItemCode, "itemName": r.ItemName,
             "category": r.Category or "", "reorderLevel": r.ReorderLevel,
             "quantity": _f(r.Quantity), "deficit": _f(r.Deficit), "uom": r.Uom or "",
         } for r in rows]
@@ -177,7 +185,8 @@ def expiring(days: int = Query(90, ge=0),
     try:
         rows = _stock_sp(db, "EXPIRY", Days=days, StoreId=store_id).fetchall()
         return [{
-            "stockId": r.StockId, "itemId": r.ItemId, "itemCode": r.ItemCode,
+            "stockId": r.StockId, "itemType": r.ItemType, "itemId": r.ItemId,
+            "itemCode": r.ItemCode,
             "itemName": r.ItemName, "category": r.Category or "", "storeName": r.StoreName,
             "batchNo": r.BatchNo, "mfgDate": _iso(r.MfgDate), "expiryDate": _iso(r.ExpiryDate),
             "quantity": _f(r.Quantity), "uom": r.Uom or "", "daysToExpiry": r.DaysToExpiry,
@@ -191,7 +200,7 @@ def expiring(days: int = Query(90, ge=0),
 def valuation(store_id: Optional[int] = Query(None, alias="storeId"), db: Session = Depends(get_db)):
     try:
         rows = _stock_sp(db, "VALUATION", StoreId=store_id).fetchall()
-        return [{"category": r.Category or "Uncategorised", "itemCount": r.ItemCount,
+        return [{"category": r.Category or "Uncategorised", "itemType": r.ItemType, "itemCount": r.ItemCount,
                  "totalQty": _f(r.TotalQty), "totalValue": _f(r.TotalValue)} for r in rows]
     except Exception as e:
         logger.error(f"[GET /inventory/stock/valuation] {e}")
@@ -208,7 +217,7 @@ def ledger(store_id: Optional[int] = Query(None, alias="storeId"),
         rows = _stock_sp(db, "LEDGER", StoreId=store_id, ItemId=item_id,
                          FromDate=from_date, ToDate=to_date).fetchall()
         return [{
-            "ledgerId": r.LedgerId, "txnDate": _iso(r.TxnDate), "itemId": r.ItemId,
+            "ledgerId": r.LedgerId, "txnDate": _iso(r.TxnDate), "itemType": r.ItemType, "itemId": r.ItemId,
             "itemName": r.ItemName, "storeId": r.StoreId, "storeName": r.StoreName or "",
             "batchNo": r.BatchNo, "movementType": r.MovementType,
             "quantity": _f(r.Quantity), "rate": _f(r.Rate), "value": _f(r.Value),
@@ -270,7 +279,7 @@ def create_document(payload: DocumentCreate, db: Session = Depends(get_db)):
     stored procedure, so stock, valuation and audit trail always move together.
     """
     items_json = json.dumps([{
-        "itemId": i.itemId, "batchNo": i.batchNo, "mfgDate": i.mfgDate,
+        "itemId": i.itemId, "itemType": i.itemType, "batchNo": i.batchNo, "mfgDate": i.mfgDate,
         "expiryDate": i.expiryDate, "quantity": i.quantity, "rate": i.rate,
         "uom": i.uom, "remarks": i.remarks,
     } for i in payload.items])

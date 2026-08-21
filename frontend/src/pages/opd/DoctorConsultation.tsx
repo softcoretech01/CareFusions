@@ -5,6 +5,7 @@ import { useAppointments } from '../../contexts/AppointmentContext';
 import { useIPD } from '../../contexts/IPDContext';
 import { useInvestigations } from '../../contexts/InvestigationContext';
 import type { Diagnosis, PrescriptionItem, LabOrder, RadiologyOrder } from '../../contexts/OPDVisitContext';
+import { MedicineSearch, loadMedicines, medicineLabel } from '../../components/ui/MedicineSearch';
 const API_BASE = import.meta.env.VITE_API_URL as string;
 
 // Types for live master data
@@ -130,20 +131,31 @@ export const DoctorConsultation = () => {
     fetchRadiologyServices();
   }, []);
 
+  // The prescribable catalog: Medicine master only, Active only. Medical Items
+  // (syringes, gloves) are stocked and billable but are never prescribable, so
+  // they are deliberately absent here.
   useEffect(() => {
-    const fetchMedicines = async () => {
-      try {
-        const res = await fetch(`${API_BASE}/medicines`);
-        if (res.ok) {
-          const data = await res.json();
-          // Filter to only active medicines
-          setApiMedicines(data.filter((m: any) => m.status === 'Active' || m.status === 'active'));
-        }
-      } catch (e) {
-        console.error("Failed to fetch medicines", e);
-      }
-    };
-    fetchMedicines();
+    let alive = true;
+    loadMedicines()
+      .then(list => { if (alive) setApiMedicines(list); })
+      .catch(e => console.error('Failed to fetch medicines', e));
+    return () => { alive = false; };
+  }, []);
+
+  // Live pharmacy-counter stock, so the doctor knows before prescribing
+  // whether the patient can actually collect it. Read-only: this is the same
+  // unified ledger the pharmacy sells from, not a separate number.
+  const [counterStock, setCounterStock] = useState<Record<number, number>>({});
+  useEffect(() => {
+    let alive = true;
+    fetch(`${API_BASE}/catalog/?type=MEDICINE`)
+      .then(r => (r.ok ? r.json() : []))
+      .then((rows: any[]) => {
+        if (!alive) return;
+        setCounterStock(Object.fromEntries(rows.map(r => [r.itemId, r.availableStock])));
+      })
+      .catch(() => { /* the badge simply does not render */ });
+    return () => { alive = false; };
   }, []);
 
   // Compute unique types (Dosage Forms) from live medicines to populate the Type dropdown
@@ -165,11 +177,37 @@ export const DoctorConsultation = () => {
   // Prescription State
   const [rxForm, setRxForm] = useState({
     type: 'Tablet' as PrescriptionItem['type'],
+    medicineId: '' as number | '',
     medicineName: '',
     quantity: '',
   });
 
   // Lab local state (checked IDs)
+  const selectedStock = typeof rxForm.medicineId === 'number'
+    ? counterStock[rxForm.medicineId] : undefined;
+
+  /**
+   * Opens a pharmacy purchase requisition pre-filled with this medicine.
+   * Nothing is submitted from here - the buyer completes and submits the PR.
+   */
+  const raisePrFor = (medicineId: number) => {
+    const med = apiMedicines.find(m => m.id === medicineId);
+    if (!med) return;
+    navigate('/procurement/pr', {
+      state: {
+        raisePr: {
+          inventoryType: 'MEDICINE',
+          itemId: med.id,
+          itemCode: med.medicineCode,
+          itemName: medicineLabel(med),
+          category: med.category,
+          uom: med.unit,
+          requestedQty: Math.max(1, Number(med.reorderLevel) || 10),
+        },
+      },
+    });
+  };
+
   const [selectedLabs, setSelectedLabs] = useState<string[]>([]);
   const [radForm, setRadForm] = useState({ serviceName: '', bodyPart: '' });
   const [showAdmitModal, setShowAdmitModal] = useState(false);
@@ -211,12 +249,15 @@ export const DoctorConsultation = () => {
     const item: PrescriptionItem = {
       id: Date.now().toString(),
       type: rxForm.type,
+      // Persisted alongside the name so the line can be dispensed and priced
+      // reliably; the name stays as the snapshot of what was written.
+      medicineId: typeof rxForm.medicineId === 'number' ? rxForm.medicineId : undefined,
       medicineName: rxForm.medicineName,
       quantity: rxForm.quantity,
       alerts: [],
     };
     addPrescription(visit.id, item);
-    setRxForm({ type: 'Tablet', medicineName: '', quantity: '1' });
+    setRxForm({ type: 'Tablet', medicineId: '', medicineName: '', quantity: '1' });
     toast.success('Added to prescription');
   };
 
@@ -534,12 +575,12 @@ export const DoctorConsultation = () => {
                         const newState = { ...f, type: newType };
                         // If type is selected, filter medicines. If current medicine doesn't match, clear it (or select first)
                         if (newType) {
-                          const matchedMeds = apiMedicines.filter(m => m.dosageForm === newType);
-                          if (matchedMeds.length === 1) {
-                            newState.medicineName = matchedMeds[0].brandName || matchedMeds[0].genericName;
-                          } else {
-                            const currentMedMatches = matchedMeds.some(m => (m.brandName === f.medicineName || m.genericName === f.medicineName));
-                            if (!currentMedMatches) newState.medicineName = '';
+                          // Drop the current pick when it is not of the newly
+                          // chosen form; the picker is then filtered to it.
+                          const current = apiMedicines.find(m => m.id === f.medicineId);
+                          if (current && current.dosageForm !== newType) {
+                            newState.medicineId = '';
+                            newState.medicineName = '';
                           }
                         }
                         return newState;
@@ -555,28 +596,39 @@ export const DoctorConsultation = () => {
                 </div>
                 <div className="flex-1">
                   <label className={labelCls}>Medicine</label>
-                  <select
-                    value={rxForm.medicineName}
-                    onChange={e => {
-                      const selectedName = e.target.value;
-                      const matchedMed = apiMedicines.find(m => m.brandName === selectedName || m.genericName === selectedName);
-                      setRxForm(f => ({
-                        ...f,
-                        medicineName: selectedName,
-                        // Auto-fill Type if we found a matching medicine
-                        ...(matchedMed && matchedMed.dosageForm ? { type: matchedMed.dosageForm as any } : {})
-                      }));
-                    }}
-                    className={inputCls}
-                  >
-                    <option value="">Select from Master...</option>
-                    {apiMedicines
-                      .filter(m => !rxForm.type || m.dosageForm === rxForm.type)
-                      .map((m, i) => {
-                        const name = m.brandName || m.genericName;
-                        return <option key={m.id || m.medicineId || name || i} value={name}>{name}</option>;
-                      })}
-                  </select>
+                  <MedicineSearch
+                    value={rxForm.medicineId}
+                    dosageForm={rxForm.type || undefined}
+                    hint={selectedStock === undefined ? null : (
+                      <div className="mt-1 flex items-center gap-2 text-xs">
+                        <span className={`px-2 py-0.5 rounded-full font-medium ${
+                          selectedStock <= 0 ? 'bg-red-50 text-red-600'
+                            : selectedStock < 10 ? 'bg-amber-50 text-amber-700'
+                            : 'bg-emerald-50 text-emerald-700'}`}>
+                          {selectedStock <= 0
+                            ? 'Out of stock at pharmacy'
+                            : `${selectedStock} in stock at pharmacy`}
+                        </span>
+                        {selectedStock <= 0 && typeof rxForm.medicineId === 'number' && (
+                          <button
+                            type="button"
+                            onClick={() => raisePrFor(rxForm.medicineId as number)}
+                            className="px-2 py-0.5 rounded-full border border-primary/30 text-primary font-medium hover:bg-primary/5"
+                          >
+                            Raise PR
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    onSelect={m => setRxForm(f => ({
+                      ...f,
+                      medicineId: m ? m.id : '',
+                      medicineName: m ? medicineLabel(m) : '',
+                      // Selecting a medicine settles its form, so the Type box
+                      // follows the master rather than the doctor re-picking it.
+                      ...(m?.dosageForm ? { type: m.dosageForm as PrescriptionItem['type'] } : {}),
+                    }))}
+                  />
                 </div>
                 <div className="w-36">
                   <label className={labelCls}>{UOM_MAP[rxForm.type] || 'QTY'}</label>

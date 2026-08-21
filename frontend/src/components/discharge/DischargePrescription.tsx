@@ -1,16 +1,9 @@
 import { useState, useEffect } from 'react';
+import { MedicineSearch, loadMedicines, medicineLabel, type MasterMedicine } from '../ui/MedicineSearch';
 import { Plus, Trash2, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-const API_BASE = import.meta.env.VITE_API_URL as string;
 
-interface MasterMedicine {
-  id: number;
-  brandName: string;
-  genericName: string;
-  strength: string;
-  status: string;
-}
 
 export interface DischargeItem {
   id: string;
@@ -44,17 +37,14 @@ export const DischargePrescription = ({
   const [notes, setNotes] = useState('');
   const [medicines, setMedicines] = useState<MasterMedicine[]>([]);   // from /medicines master
 
-  // Discharge medicine dropdown comes from the Medicine master (Active only).
+  // Discharge medicines come from the Medicine master (Active only), via the
+  // same cache the OPD and MAR pickers use.
   useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch(`${API_BASE}/medicines/`);
-        if (res.ok) {
-          const data = await res.json();
-          setMedicines((Array.isArray(data) ? data : []).filter((m: MasterMedicine) => m.status === 'Active'));
-        }
-      } catch { /* offline — dropdown just shows no options */ }
-    })();
+    let alive = true;
+    loadMedicines()
+      .then(list => { if (alive) setMedicines(list); })
+      .catch(() => { /* offline — the picker shows its own error */ });
+    return () => { alive = false; };
   }, []);
 
   const handleAddItem = () => {
@@ -72,7 +62,7 @@ export const DischargePrescription = ({
     const newItem: DischargeItem = {
       id: Date.now().toString(),
       medicineId: selectedMedicineId as number,
-      medicineName: `${selectedMedicine.brandName} (${selectedMedicine.strength})`,
+      medicineName: medicineLabel(selectedMedicine),
       dosage,
       frequency,
       duration,
@@ -109,18 +99,10 @@ export const DischargePrescription = ({
             <label className="block text-sm font-medium text-slate-700 mb-1">
               Select Medicine <span className="text-red-500">*</span>
             </label>
-            <select
+            <MedicineSearch
               value={selectedMedicineId}
-              onChange={(e) => setSelectedMedicineId(e.target.value ? Number(e.target.value) : '')}
-              className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-            >
-              <option value="">-- Select Medicine --</option>
-              {medicines.map(medicine => (
-                <option key={medicine.id} value={medicine.id}>
-                  {medicine.brandName} - {medicine.genericName} ({medicine.strength})
-                </option>
-              ))}
-            </select>
+              onSelect={m => setSelectedMedicineId(m ? m.id : '')}
+            />
           </div>
 
           <div>

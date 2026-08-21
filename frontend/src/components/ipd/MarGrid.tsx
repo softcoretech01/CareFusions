@@ -1,13 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Pill, Plus, Check, Loader2, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { MedicineSearch, loadMedicines, medicineLabel, type MasterMedicine } from '../ui/MedicineSearch';
 
-interface MasterMedicine {
-  id: number;
-  brandName: string;
-  genericName: string;
-  status: string;
-}
 
 export interface MarMedication {
   id: string;
@@ -67,17 +62,14 @@ export const MarGrid: React.FC<MarGridProps> = ({ patientId }) => {
     fetchMedications();
   }, [patientId]);
 
-  // Medicine dropdown comes from the Medicine master (Active only).
+  // Medicine list comes from the Medicine master (Active only), through the
+  // same cache the OPD and discharge pickers use.
   useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch(`${API_BASE}/medicines/`);
-        if (res.ok) {
-          const data = await res.json();
-          setMedicines((Array.isArray(data) ? data : []).filter((m: MasterMedicine) => m.status === 'Active'));
-        }
-      } catch { /* offline — dropdown just shows no options */ }
-    })();
+    let alive = true;
+    loadMedicines()
+      .then(list => { if (alive) setMedicines(list); })
+      .catch(() => { /* offline — the picker shows its own error */ });
+    return () => { alive = false; };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -98,7 +90,7 @@ export const MarGrid: React.FC<MarGridProps> = ({ patientId }) => {
       admissionId: patientId,
       medication: {
         medicineId: med.id,
-        medicineName: med.brandName,
+        medicineName: medicineLabel(med),
         dosage: formData.dosage,
         frequency: formData.frequency,
         route: formData.route,
@@ -204,13 +196,11 @@ export const MarGrid: React.FC<MarGridProps> = ({ patientId }) => {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Medication</label>
-                <select required value={formData.medicineId} onChange={e => setFormData({ ...formData, medicineId: e.target.value })} className={inputCls}>
-                  <option value="">Select Medicine</option>
-                  {medicines.length === 0 && <option value="" disabled>No medicines in the Pharmacy master</option>}
-                  {medicines.map(m => (
-                    <option key={m.id} value={m.id}>{m.brandName} ({m.genericName})</option>
-                  ))}
-                </select>
+                <MedicineSearch
+                  value={formData.medicineId ? Number(formData.medicineId) : ''}
+                  onSelect={m => setFormData({ ...formData, medicineId: m ? String(m.id) : '' })}
+                  placeholder="Search medicine…"
+                />
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Dosage</label>

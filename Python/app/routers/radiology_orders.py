@@ -15,7 +15,9 @@ router = APIRouter(
 def get_radiology_orders(db: Session = Depends(get_db)):
     try:
         # Call SpRadOrders with 'SELECT_ALL'
-        query = text("CALL hospital.SpRadOrders('SELECT_ALL', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)")
+        # 17 arguments: p_BodyPart sits between p_TestName and p_ResultValue.
+        query = text("CALL hospital.SpRadOrders('SELECT_ALL', NULL, NULL, NULL, NULL, NULL, "
+                     "NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)")
         result = db.execute(query).fetchall()
 
         orders_dict = {}
@@ -113,6 +115,7 @@ def update_radiology_test(order_id: int, test_id: str, test_data: RadiologyTestU
                 :order_id, 
                 :order_test_id, 
                 NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 
+                NULL,                 -- p_BodyPart: not changed when posting a result
                 :result_value, 
                 :result_file, 
                 :is_critical, 
@@ -146,7 +149,7 @@ def acknowledge_radiology_alert(test_id: str, db: Session = Depends(get_db)):
                 'ACKNOWLEDGE_ALERT', 
                 NULL, 
                 :order_test_id, 
-                NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 
+                NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 
                 'Admin'
             )
         """)

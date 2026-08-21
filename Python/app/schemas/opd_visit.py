@@ -31,6 +31,10 @@ class DiagnosisSchema(BaseModel):
 
 class PrescriptionSchema(BaseModel):
     type: Optional[str] = None
+    # The medicine master row this line prescribes. Optional so a line written
+    # before the id was stored still validates; MedicineName stays as the
+    # snapshot of what was written at the time.
+    medicineId: Optional[int] = None
     medicineName: Optional[str] = None
     quantity: Optional[str] = None
     alerts: Optional[Union[List[str], str]] = None

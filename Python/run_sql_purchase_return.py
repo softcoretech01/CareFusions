@@ -37,6 +37,7 @@ def execute_sql_file():
         `ReturnItemId` INT AUTO_INCREMENT PRIMARY KEY,
         `ReturnId` INT NOT NULL,
         `ItemId` INT NOT NULL,
+        `ItemType` VARCHAR(20) NULL,
         `ItemName` VARCHAR(255),
         `ReceivedQty` INT DEFAULT 0,
         `ReturnQty` INT DEFAULT 0,
@@ -87,11 +88,12 @@ def execute_sql_file():
                 SET v_TotalItems = JSON_LENGTH(p_ItemsJSON);
                 WHILE v_Index < v_TotalItems DO
                     INSERT INTO `PurchaseReturnItem` (
-                        `ReturnId`, `ItemId`, `ItemName`, `ReceivedQty`, 
+                        `ReturnId`, `ItemId`, `ItemType`, `ItemName`, `ReceivedQty`, 
                         `ReturnQty`, `Reason`, `Remarks`, `CreatedBy`
                     ) VALUES (
                         v_ReturnId,
                         JSON_UNQUOTE(JSON_EXTRACT(p_ItemsJSON, CONCAT('$[', v_Index, '].itemId'))),
+                        JSON_UNQUOTE(JSON_EXTRACT(p_ItemsJSON, CONCAT('$[', v_Index, '].itemType'))),
                         JSON_UNQUOTE(JSON_EXTRACT(p_ItemsJSON, CONCAT('$[', v_Index, '].itemName'))),
                         JSON_UNQUOTE(JSON_EXTRACT(p_ItemsJSON, CONCAT('$[', v_Index, '].receivedQty'))),
                         JSON_UNQUOTE(JSON_EXTRACT(p_ItemsJSON, CONCAT('$[', v_Index, '].returnQty'))),
@@ -126,11 +128,12 @@ def execute_sql_file():
                 SET v_TotalItems = JSON_LENGTH(p_ItemsJSON);
                 WHILE v_Index < v_TotalItems DO
                     INSERT INTO `PurchaseReturnItem` (
-                        `ReturnId`, `ItemId`, `ItemName`, `ReceivedQty`, 
+                        `ReturnId`, `ItemId`, `ItemType`, `ItemName`, `ReceivedQty`, 
                         `ReturnQty`, `Reason`, `Remarks`, `CreatedBy`, `ModifiedBy`
                     ) VALUES (
                         p_ReturnId,
                         JSON_UNQUOTE(JSON_EXTRACT(p_ItemsJSON, CONCAT('$[', v_Index, '].itemId'))),
+                        JSON_UNQUOTE(JSON_EXTRACT(p_ItemsJSON, CONCAT('$[', v_Index, '].itemType'))),
                         JSON_UNQUOTE(JSON_EXTRACT(p_ItemsJSON, CONCAT('$[', v_Index, '].itemName'))),
                         JSON_UNQUOTE(JSON_EXTRACT(p_ItemsJSON, CONCAT('$[', v_Index, '].receivedQty'))),
                         JSON_UNQUOTE(JSON_EXTRACT(p_ItemsJSON, CONCAT('$[', v_Index, '].returnQty'))),

@@ -206,10 +206,20 @@ BEGIN
                 SELECT JSON_ARRAYAGG(
                     JSON_OBJECT(
                         'type', PR.Type,
+                        'medicineId', PR.MedicineId,
                         'medicineName', PR.MedicineName,
                         'quantity', PR.Quantity,
                         'alerts', PR.Alerts,
-                        'price', COALESCE((SELECT SellingPrice FROM admin.Master_Medicine WHERE GenericName = PR.MedicineName AND IsDeleted = 0 LIMIT 1), 0)
+                        -- Priced by id when the line carries one. The name
+                        -- match is only a fallback for lines written before
+                        -- the id was stored; it cannot tell two strengths of
+                        -- the same generic apart.
+                        'price', COALESCE(
+                            (SELECT m.SellingPrice FROM admin.Master_Medicine m
+                              WHERE m.MedicineId = PR.MedicineId AND m.IsDeleted = 0),
+                            (SELECT m2.SellingPrice FROM admin.Master_Medicine m2
+                              WHERE m2.GenericName = PR.MedicineName AND m2.IsDeleted = 0 LIMIT 1),
+                            0)
                     )
                 )
                 FROM hospital.Trn_OpdVisitPrescription PR
@@ -329,9 +339,10 @@ BEGIN
         -- Process Prescriptions
         IF p_PrescriptionsJson IS NOT NULL THEN
             DELETE FROM hospital.Trn_OpdVisitPrescription WHERE VisitId = v_VisitId;
-            INSERT INTO hospital.Trn_OpdVisitPrescription (VisitId, Type, MedicineName, Quantity, Alerts)
+            INSERT INTO hospital.Trn_OpdVisitPrescription (VisitId, Type, MedicineId, MedicineName, Quantity, Alerts)
             SELECT v_VisitId, 
                    JSON_UNQUOTE(JSON_EXTRACT(value, '$.type')),
+                   JSON_EXTRACT(value, '$.medicineId'),
                    JSON_UNQUOTE(JSON_EXTRACT(value, '$.medicineName')),
                    JSON_UNQUOTE(JSON_EXTRACT(value, '$.quantity')),
                    JSON_UNQUOTE(JSON_EXTRACT(value, '$.alerts'))

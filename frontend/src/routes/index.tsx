@@ -129,7 +129,6 @@ const ProcedureMaster = lazy(() => import('../pages/admin/patient-masters/Proced
 const ConsultationTypeMaster = lazy(() => import('../pages/admin/appointment-masters/ConsultationTypeMaster').then(m => ({ default: (m as any).ConsultationTypeMaster ?? (m as any).default })));
 const AppointmentStatusMaster = lazy(() => import('../pages/admin/appointment-masters/AppointmentStatusMaster').then(m => ({ default: (m as any).AppointmentStatusMaster ?? (m as any).default })));
 const MedicineMaster = lazy(() => import('../pages/admin/pharmacy-masters/MedicineMaster').then(m => ({ default: (m as any).MedicineMaster ?? (m as any).default })));
-const MedicineCategoryMaster = lazy(() => import('../pages/admin/pharmacy-masters/MedicineCategoryMaster').then(m => ({ default: (m as any).MedicineCategoryMaster ?? (m as any).default })));
 const TestMaster = lazy(() => import('../pages/admin/laboratory-masters/TestMaster').then(m => ({ default: (m as any).TestMaster ?? (m as any).default })));
 const SampleTypeMaster = lazy(() => import('../pages/admin/laboratory-masters/SampleTypeMaster').then(m => ({ default: (m as any).SampleTypeMaster ?? (m as any).default })));
 const RadiologyServiceMaster = lazy(() => import('../pages/admin/radiology-masters/RadiologyServiceMaster').then(m => ({ default: (m as any).RadiologyServiceMaster ?? (m as any).default })));
@@ -143,7 +142,10 @@ const VendorMaster = lazy(() => import('../pages/admin/purchase-inventory/Vendor
 const CategoryMaster = lazy(() => import('../pages/admin/purchase-inventory/CategoryMaster').then(m => ({ default: (m as any).CategoryMaster ?? (m as any).default })));
 const SubCategoryMaster = lazy(() => import('../pages/admin/purchase-inventory/SubCategoryMaster').then(m => ({ default: (m as any).SubCategoryMaster ?? (m as any).default })));
 const UomMaster = lazy(() => import('../pages/admin/purchase-inventory/UomMaster').then(m => ({ default: (m as any).UomMaster ?? (m as any).default })));
-const ItemMaster = lazy(() => import('../pages/admin/purchase-inventory/ItemMaster').then(m => ({ default: (m as any).ItemMaster ?? (m as any).default })));
+const ItemMaster = lazy(() => import('../pages/admin/purchase-inventory/ItemMaster')
+  .then(m => ({ default: (m as any).ItemMaster ?? (m as any).default })) as Promise<{
+    default: React.ComponentType<{ inventoryType?: 'MEDICAL_ITEM' | 'NON_MEDICAL' }>
+  }>);
 const BrandMaster = lazy(() => import('../pages/admin/purchase-inventory/BrandMaster').then(m => ({ default: (m as any).BrandMaster ?? (m as any).default })));
 const ManufacturerMaster = lazy(() => import('../pages/admin/purchase-inventory/ManufacturerMaster').then(m => ({ default: (m as any).ManufacturerMaster ?? (m as any).default })));
 const WarehouseMaster = lazy(() => import('../pages/admin/purchase-inventory/WarehouseMaster').then(m => ({ default: (m as any).WarehouseMaster ?? (m as any).default })));
@@ -652,7 +654,6 @@ export const router = createBrowserRouter([
       { path: 'admin/masters/consultation-type', element: <ConsultationTypeMaster /> },
       { path: 'admin/masters/appointment-status', element: <AppointmentStatusMaster /> },
       { path: 'admin/masters/medicine', element: <MedicineMaster /> },
-      { path: 'admin/masters/medicine-category', element: <MedicineCategoryMaster /> },
       { path: 'admin/masters/test', element: <TestMaster /> },
       { path: 'admin/masters/sample-type', element: <SampleTypeMaster /> },
       { path: 'admin/masters/radiology-service', element: <RadiologyServiceMaster /> },
@@ -666,7 +667,11 @@ export const router = createBrowserRouter([
       { path: 'admin/masters/category', element: <CategoryMaster /> },
       { path: 'admin/masters/sub-category', element: <SubCategoryMaster /> },
       { path: 'admin/masters/uom', element: <UomMaster /> },
+      // One component, two type-scoped routes. `item` is kept so existing deep
+      // links and bookmarks still resolve; it lists both item types.
       { path: 'admin/masters/item', element: <ItemMaster /> },
+      { path: 'admin/masters/medical-item', element: <ItemMaster inventoryType="MEDICAL_ITEM" /> },
+      { path: 'admin/masters/non-medical-item', element: <ItemMaster inventoryType="NON_MEDICAL" /> },
       { path: 'admin/masters/brand', element: <BrandMaster /> },
       { path: 'admin/masters/manufacturer', element: <ManufacturerMaster /> },
       { path: 'admin/masters/warehouse', element: <WarehouseMaster /> },

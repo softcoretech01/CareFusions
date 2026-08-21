@@ -6,7 +6,8 @@
 -- Screens  : /pharmacy/* (POS, Returns, Reports, Dashboard, Print)
 --
 -- Relationships (FK):
---   Pharmacy_Stock.MedicineId    -> admin.Master_Medicine.MedicineId  (cross-schema, 1 stock row / medicine)
+--   Pharmacy_Stock is DEPRECATED (see below); stock lives in
+--   inventory.Inventory_Stock keyed by (ItemType, ItemId, StoreId, BatchNo).
 --   Pharmacy_SaleItem.SaleId     -> hospital.Pharmacy_Sale.SaleId      (ON DELETE CASCADE)
 --   Pharmacy_SaleItem.MedicineId -> admin.Master_Medicine.MedicineId   (cross-schema)
 --
@@ -17,7 +18,11 @@
 -- ============================================================
 CREATE DATABASE IF NOT EXISTS hospital;
 
--- ── Live stock (one row per medicine) ────────────────────────
+-- ── DEPRECATED: live stock (one row per medicine) ────────────
+-- Superseded by inventory.Inventory_Stock at the Pharmacy Store. Nothing
+-- reads or writes this table any more: the POS, dashboard, low-stock and
+-- expiry queries all project the unified ledger. It is retained for one
+-- release alongside Pharmacy_Stock_Backup_UIM and can then be dropped.
 CREATE TABLE IF NOT EXISTS hospital.Pharmacy_Stock (
     StockId       INT          NOT NULL AUTO_INCREMENT,
     MedicineId    INT          NOT NULL,
@@ -121,30 +126,72 @@ CREATE PROCEDURE hospital.SpPharmacyStock(
 )
 BEGIN
     IF p_Opt = 'LIST' THEN
-        SELECT m.MedicineId AS id, m.GenericName AS name, m.GenericName AS genericName,
-               m.Category AS category, '' AS manufacturer,
-               COALESCE(s.BatchNo, '') AS batchNo,
-               COALESCE(s.Quantity, 0) AS quantity,
-               COALESCE(s.UnitPrice, m.SellingPrice) AS unitPrice,
-               s.ExpiryDate AS expiryDate,
-               COALESCE(s.MinStockLevel, m.ReorderLevel) AS minStockLevel,
-               m.Gst AS gst
-        FROM admin.Master_Medicine m
-        LEFT JOIN hospital.Pharmacy_Stock s ON s.MedicineId = m.MedicineId
-        WHERE m.IsDeleted = 0 AND m.Status = 'Active'
-        ORDER BY m.GenericName;
+        -- Counter catalog: what the Pharmacy Store actually holds, from the
+        -- one inventory ledger. Medicines plus any medical item that has been
+        -- given a counter price. Quantity is the sum across batches; the batch
+        -- and expiry shown are the FEFO one (nearest expiry), which is the lot
+        -- a sale will consume first.
+        SELECT c.ItemId AS id, c.ItemName AS name, c.ItemName AS genericName,
+               c.Category AS category, COALESCE(c.Manufacturer, '') AS manufacturer,
+               c.ItemType AS itemType,
+               COALESCE(f.BatchNo, '') AS batchNo,
+               COALESCE(q.Qty, 0) AS quantity,
+               CASE WHEN c.ItemType = 'MEDICINE' THEN m.SellingPrice ELSE i.SellingPrice END AS unitPrice,
+               f.ExpiryDate AS expiryDate,
+               c.ReorderLevel AS minStockLevel,
+               c.GstPercentage AS gst
+        FROM inventory.Vw_CatalogItem c
+        LEFT JOIN admin.Master_Medicine m ON c.ItemType = 'MEDICINE' AND m.MedicineId = c.ItemId
+        LEFT JOIN admin.Master_Item     i ON c.ItemType <> 'MEDICINE' AND i.ItemId = c.ItemId
+        LEFT JOIN (
+            SELECT st.ItemType, st.ItemId, SUM(st.Quantity) AS Qty
+              FROM inventory.Inventory_Stock st
+              JOIN admin.Master_Store ms ON ms.StoreId = st.StoreId
+             WHERE ms.StoreType = 'Pharmacy Store'
+             GROUP BY st.ItemType, st.ItemId
+        ) q ON q.ItemType = c.ItemType AND q.ItemId = c.ItemId
+        LEFT JOIN (
+            SELECT x.ItemType, x.ItemId, x.BatchNo, x.ExpiryDate
+              FROM inventory.Inventory_Stock x
+              JOIN admin.Master_Store ms2 ON ms2.StoreId = x.StoreId
+             WHERE ms2.StoreType = 'Pharmacy Store' AND x.Quantity > 0
+               AND NOT EXISTS (
+                    SELECT 1 FROM inventory.Inventory_Stock y
+                      JOIN admin.Master_Store ms3 ON ms3.StoreId = y.StoreId
+                     WHERE ms3.StoreType = 'Pharmacy Store' AND y.Quantity > 0
+                       AND y.ItemType = x.ItemType AND y.ItemId = x.ItemId
+                       AND (y.ExpiryDate IS NOT NULL AND (x.ExpiryDate IS NULL OR y.ExpiryDate < x.ExpiryDate))
+               )
+        ) f ON f.ItemType = c.ItemType AND f.ItemId = c.ItemId
+        WHERE c.IsDeleted = 0 AND c.Status = 'Active'
+          AND (c.ItemType = 'MEDICINE'
+               OR (c.ItemType = 'MEDICAL_ITEM' AND i.SellingPrice IS NOT NULL))
+        ORDER BY c.ItemName;
 
     ELSEIF p_Opt = 'GETBYID' THEN
         SELECT m.MedicineId AS id, m.GenericName AS name, m.GenericName AS genericName,
                m.Category AS category, '' AS manufacturer,
-               COALESCE(s.BatchNo, '') AS batchNo,
-               COALESCE(s.Quantity, 0) AS quantity,
-               COALESCE(s.UnitPrice, m.SellingPrice) AS unitPrice,
-               s.ExpiryDate AS expiryDate,
-               COALESCE(s.MinStockLevel, m.ReorderLevel) AS minStockLevel,
+               COALESCE(f.BatchNo, '') AS batchNo,
+               COALESCE(q.Qty, 0) AS quantity,
+               m.SellingPrice AS unitPrice,
+               f.ExpiryDate AS expiryDate,
+               m.ReorderLevel AS minStockLevel,
                m.Gst AS gst
         FROM admin.Master_Medicine m
-        LEFT JOIN hospital.Pharmacy_Stock s ON s.MedicineId = m.MedicineId
+        LEFT JOIN (
+            SELECT st.ItemId, SUM(st.Quantity) AS Qty
+              FROM inventory.Inventory_Stock st
+              JOIN admin.Master_Store ms ON ms.StoreId = st.StoreId
+             WHERE ms.StoreType = 'Pharmacy Store' AND st.ItemType = 'MEDICINE'
+             GROUP BY st.ItemId
+        ) q ON q.ItemId = m.MedicineId
+        LEFT JOIN (
+            SELECT x.ItemId, MIN(x.BatchNo) AS BatchNo, MIN(x.ExpiryDate) AS ExpiryDate
+              FROM inventory.Inventory_Stock x
+              JOIN admin.Master_Store ms2 ON ms2.StoreId = x.StoreId
+             WHERE ms2.StoreType = 'Pharmacy Store' AND x.ItemType = 'MEDICINE' AND x.Quantity > 0
+             GROUP BY x.ItemId
+        ) f ON f.ItemId = m.MedicineId
         WHERE m.MedicineId = p_MedicineId;
 
     ELSEIF p_Opt = 'UPSERT' THEN
@@ -162,20 +209,28 @@ BEGIN
 
     ELSEIF p_Opt = 'LOWSTOCK' THEN
         SELECT m.MedicineId AS id, m.GenericName AS name, m.Category AS category,
-               COALESCE(s.Quantity, 0) AS quantity,
-               COALESCE(s.MinStockLevel, m.ReorderLevel) AS minStockLevel
+               COALESCE(s.Qty, 0) AS quantity,
+               m.ReorderLevel AS minStockLevel
         FROM admin.Master_Medicine m
-        LEFT JOIN hospital.Pharmacy_Stock s ON s.MedicineId = m.MedicineId
+        LEFT JOIN (
+            SELECT st.ItemId, SUM(st.Quantity) AS Qty
+              FROM inventory.Inventory_Stock st
+              JOIN admin.Master_Store ms ON ms.StoreId = st.StoreId
+             WHERE ms.StoreType = 'Pharmacy Store' AND st.ItemType = 'MEDICINE'
+             GROUP BY st.ItemId
+        ) s ON s.ItemId = m.MedicineId
         WHERE m.IsDeleted = 0 AND m.Status = 'Active'
-          AND COALESCE(s.Quantity, 0) < COALESCE(s.MinStockLevel, m.ReorderLevel)
+          AND COALESCE(s.Qty, 0) < m.ReorderLevel
         ORDER BY m.GenericName;
 
     ELSEIF p_Opt = 'EXPIRY' THEN
         SELECT m.MedicineId AS id, m.GenericName AS name, m.Category AS category,
-               s.BatchNo AS batchNo, s.ExpiryDate AS expiryDate, COALESCE(s.Quantity, 0) AS quantity
-        FROM hospital.Pharmacy_Stock s
-        JOIN admin.Master_Medicine m ON m.MedicineId = s.MedicineId
-        WHERE s.ExpiryDate IS NOT NULL
+               s.BatchNo AS batchNo, s.ExpiryDate AS expiryDate, s.Quantity AS quantity
+        FROM inventory.Inventory_Stock s
+        JOIN admin.Master_Store ms ON ms.StoreId = s.StoreId AND ms.StoreType = 'Pharmacy Store'
+        JOIN admin.Master_Medicine m ON m.MedicineId = s.ItemId
+        WHERE s.ItemType = 'MEDICINE' AND s.Quantity > 0
+          AND s.ExpiryDate IS NOT NULL
           AND s.ExpiryDate <= DATE_ADD(CURDATE(), INTERVAL COALESCE(p_Days, 30) DAY)
         ORDER BY s.ExpiryDate;
     END IF;
@@ -226,18 +281,10 @@ BEGIN
         SELECT * FROM hospital.Pharmacy_SaleItem WHERE SaleId = p_SaleId;
 
     ELSEIF p_Opt = 'CREATE' THEN
-        -- Guard: reject if any line exceeds available stock.
-        IF EXISTS (
-            SELECT 1 FROM JSON_TABLE(p_Items, '$[*]' COLUMNS (
-                MedicineId INT PATH '$.medicineId',
-                Qty        INT PATH '$.quantity'
-            )) jt
-            LEFT JOIN hospital.Pharmacy_Stock s ON s.MedicineId = jt.MedicineId
-            WHERE jt.Qty > COALESCE(s.Quantity, 0)
-        ) THEN
-            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Insufficient stock for one or more items';
-        END IF;
-
+        -- No stock guard here any more. Availability and the negative-stock
+        -- refusal belong to the inventory engine (SpInvStockPost), which the
+        -- caller posts the sale through before this runs. Duplicating the
+        -- check here would mean two implementations that can disagree.
         SET @yr = YEAR(CURDATE());
         SELECT COALESCE(MAX(CAST(SUBSTRING(BillNumber, 9) AS UNSIGNED)), 0) + 1 INTO @roll
         FROM hospital.Pharmacy_Sale WHERE BillNumber LIKE CONCAT('INV-', @yr, '%');
@@ -249,31 +296,28 @@ BEGIN
             (@billno, p_PatientName, p_PatientRef, p_TotalAmount, p_Discount, p_Tax, p_NetAmount, p_PaymentMode, p_PaymentStatus, p_User);
         SET @sid = LAST_INSERT_ID();
 
-        INSERT INTO hospital.Pharmacy_SaleItem (SaleId, MedicineId, MedicineName, Quantity, UnitPrice, Subtotal)
-        SELECT @sid, jt.MedicineId, jt.MedicineName, jt.Quantity, jt.UnitPrice, jt.Subtotal
+        -- One row per batch consumed: a bill line is now (item, batch), which
+        -- is what makes a recall traceable and a return restorable.
+        INSERT INTO hospital.Pharmacy_SaleItem
+            (SaleId, MedicineId, ItemType, MedicineName, BatchNo, Quantity, UnitPrice, Subtotal)
+        SELECT @sid, jt.MedicineId, COALESCE(jt.ItemType, 'MEDICINE'), jt.MedicineName,
+               jt.BatchNo, jt.Quantity, jt.UnitPrice, jt.Subtotal
         FROM JSON_TABLE(p_Items, '$[*]' COLUMNS (
             MedicineId   INT           PATH '$.medicineId',
+            ItemType     VARCHAR(20)   PATH '$.itemType',
             MedicineName VARCHAR(200)  PATH '$.medicineName',
+            BatchNo      VARCHAR(50)   PATH '$.batchNo',
             Quantity     INT           PATH '$.quantity',
             UnitPrice    DECIMAL(10,2) PATH '$.unitPrice',
             Subtotal     DECIMAL(12,2) PATH '$.subtotal'
         )) jt;
 
-        UPDATE hospital.Pharmacy_Stock s
-        JOIN JSON_TABLE(p_Items, '$[*]' COLUMNS (
-            MedicineId INT PATH '$.medicineId',
-            Qty        INT PATH '$.quantity'
-        )) jt ON jt.MedicineId = s.MedicineId
-        SET s.Quantity = s.Quantity - jt.Qty;
-
         SELECT @sid AS SaleId, @billno AS BillNumber;
 
     ELSEIF p_Opt = 'REFUND' THEN
-        UPDATE hospital.Pharmacy_Stock s
-        JOIN hospital.Pharmacy_SaleItem si ON si.MedicineId = s.MedicineId
-        SET s.Quantity = s.Quantity + si.Quantity
-        WHERE si.SaleId = p_SaleId;
-
+        -- Stock is put back through the inventory engine by the caller, into
+        -- the exact batches recorded on the sale lines. This branch only
+        -- marks the bill refunded.
         UPDATE hospital.Pharmacy_Sale SET PaymentStatus = 'Refunded', ModifiedBy = p_User
         WHERE SaleId = p_SaleId;
         SELECT p_SaleId AS SaleId;

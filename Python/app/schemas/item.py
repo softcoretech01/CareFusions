@@ -49,6 +49,10 @@ class _ItemFields(BaseModel):
 
     barcode:         Optional[str]  = Field(default=None, max_length=BARCODE_MAX)
     itemDescription: Optional[str]  = Field(default=None, max_length=DESC_MAX)
+    # Purchase reference rate, and the counter price. SellingPrice is NULL
+    # for anything not sold over the pharmacy counter.
+    standardRate:    Optional[float] = Field(default=None, ge=0)
+    sellingPrice:    Optional[float] = Field(default=None, ge=0)
 
     status:          StatusEnum     = StatusEnum.Active
 
@@ -119,6 +123,10 @@ class ItemResponse(BaseModel):
     id:              int
     itemCode:        str
     itemName:        str
+    # Derived from the item's category and stored on write. The Item master
+    # only ever owns MEDICAL_ITEM / NON_MEDICAL; MEDICINE lives in the
+    # Medicine master. Optional so rows predating the migration still serialise.
+    inventoryType:   Optional[str] = None
     category:        str
     subCategory:     Optional[str]
     department:      Optional[str]
@@ -136,6 +144,9 @@ class ItemResponse(BaseModel):
     expiryRequired:  bool
     barcode:         Optional[str]
     itemDescription: Optional[str]
+    standardRate:     Optional[float] = None
+    sellingPrice:     Optional[float] = None
+    lastPurchaseRate: Optional[float] = None
     status:          str
     createdBy:       Optional[str]
     createdDate:     Optional[datetime]

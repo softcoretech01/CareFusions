@@ -1,6 +1,6 @@
 import logging
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
@@ -35,20 +35,25 @@ def _call_sp(db: Session, opt: str, **kwargs):
         "p_ExpiryRequired":  kwargs.get("expiry_required"),
         "p_Barcode":         kwargs.get("barcode"),
         "p_ItemDescription": kwargs.get("item_description"),
+        "p_StandardRate":    kwargs.get("standard_rate"),
+        "p_SellingPrice":    kwargs.get("selling_price"),
         "p_Status":          kwargs.get("status"),
         "p_CreatedBy":       kwargs.get("created_by"),
         "p_UpdatedBy":       kwargs.get("updated_by"),
         "p_Search":          kwargs.get("search"),
         "p_CategoryFilter":  kwargs.get("category_filter"),
         "p_StatusFilter":    kwargs.get("status_filter"),
+        "p_InventoryTypeFilter": kwargs.get("inventory_type_filter"),
     }
     sql = text(f"""
         CALL {SP_NAME}(
             :p_Opt, :p_ItemId, :p_ItemName, :p_Category, :p_SubCategory, :p_Department,
             :p_Brand, :p_Manufacturer, :p_Vendor, :p_Uom, :p_HsnCode, :p_GstPercentage,
             :p_ReorderLevel, :p_MinStock, :p_MaxStock, :p_ShelfLife, :p_BatchRequired,
-            :p_ExpiryRequired, :p_Barcode, :p_ItemDescription, :p_Status,
-            :p_CreatedBy, :p_UpdatedBy, :p_Search, :p_CategoryFilter, :p_StatusFilter
+            :p_ExpiryRequired, :p_Barcode, :p_ItemDescription,
+            :p_StandardRate, :p_SellingPrice, :p_Status,
+            :p_CreatedBy, :p_UpdatedBy, :p_Search, :p_CategoryFilter, :p_StatusFilter,
+            :p_InventoryTypeFilter
         )
     """)
     return db.execute(sql, params)
@@ -59,6 +64,7 @@ def _map_row(row) -> dict:
         "id":              row.ItemId,
         "itemCode":        row.ItemCode,
         "itemName":        row.ItemName,
+        "inventoryType":   row.InventoryType,
         "category":        row.Category,
         "subCategory":     row.SubCategory,
         "department":      row.Department,
@@ -76,6 +82,9 @@ def _map_row(row) -> dict:
         "expiryRequired":  bool(row.ExpiryRequired),
         "barcode":         row.Barcode,
         "itemDescription": row.ItemDescription,
+        "standardRate":     float(row.StandardRate) if row.StandardRate is not None else None,
+        "sellingPrice":     float(row.SellingPrice) if row.SellingPrice is not None else None,
+        "lastPurchaseRate": float(row.LastPurchaseRate) if row.LastPurchaseRate is not None else None,
         "status":          row.Status,
         "createdBy":       row.CreatedBy,
         "createdDate":     row.CreatedDate,
@@ -92,6 +101,13 @@ def _raise_if_duplicate(exc: Exception):
     if "DUPLICATE_BARCODE" in msg:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT,
                             detail="Barcode is already assigned to another item")
+    if "MEDICINE_NOT_ALLOWED_IN_ITEM_MASTER" in msg:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="This category is a Medicine category. Drugs are "
+                                   "maintained in the Medicine master, not the Item master")
+    if "UNKNOWN_CATEGORY" in msg:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Category does not exist in the Category master")
     if "1062" in msg or "Duplicate entry" in msg:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT,
                             detail="An item with these details already exists")
@@ -117,6 +133,8 @@ def _payload_kwargs(payload) -> dict:
         expiry_required=int(payload.expiryRequired),
         barcode=payload.barcode,
         item_description=payload.itemDescription,
+        standard_rate=payload.standardRate,
+        selling_price=payload.sellingPrice,
         status=payload.status.value,
     )
 
@@ -127,11 +145,19 @@ def get_items(
     search: Optional[str] = None,
     category: Optional[str] = None,
     status_filter: Optional[str] = None,
+    inventory_type: Optional[str] = Query(None, alias="inventoryType"),
     db: Session = Depends(get_db)
 ):
-    """Fetch all items with optional search and category/status filters."""
+    """Fetch items, optionally narrowed to one inventory type.
+
+    The Item master owns MEDICAL_ITEM and NON_MEDICAL. Passing
+    inventoryType=MEDICINE is therefore always empty by construction - drugs
+    live in Master_Medicine and are served by /medicines.
+    The filter is applied inside the stored procedure, not here.
+    """
     try:
-        result = _call_sp(db, "GET", search=search, category_filter=category, status_filter=status_filter)
+        result = _call_sp(db, "GET", search=search, category_filter=category,
+                          status_filter=status_filter, inventory_type_filter=inventory_type)
         return [_map_row(r) for r in result.fetchall()]
     except Exception as e:
         logger.error(f"[GET /items] Error: {e}")

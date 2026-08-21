@@ -233,6 +233,7 @@ VALUES
 DROP PROCEDURE IF EXISTS inventory.SpInvStockPost;
 DELIMITER $$
 CREATE PROCEDURE inventory.SpInvStockPost(
+    IN p_ItemType VARCHAR(20),       -- MEDICINE | MEDICAL_ITEM | NON_MEDICAL
     IN p_ItemId INT,
     IN p_StoreId INT,
     IN p_BatchNo VARCHAR(50),
@@ -257,14 +258,35 @@ BEGIN
     DECLARE v_exists INT DEFAULT 0;
     DECLARE v_itemName VARCHAR(200);
     DECLARE v_storeName VARCHAR(150);
+    DECLARE v_type VARCHAR(20);
 
     SET v_batch = COALESCE(NULLIF(TRIM(p_BatchNo), ''), '-');
+    SET v_type  = COALESCE(NULLIF(TRIM(p_ItemType), ''), 'MEDICAL_ITEM');
 
-    SELECT ItemName INTO v_itemName FROM admin.Master_Item WHERE ItemId = p_ItemId;
+    IF v_type NOT IN ('MEDICINE', 'MEDICAL_ITEM', 'NON_MEDICAL') THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'INVALID_ITEM_TYPE';
+    END IF;
+
+    -- ItemType decides which master owns the id, so the same numeric id in the
+    -- two masters can never be mistaken for the same product. Resolving the
+    -- name here also validates the pair: an id absent from its own master
+    -- leaves v_itemName NULL and the posting is refused.
+    IF v_type = 'MEDICINE' THEN
+        SELECT TRIM(CONCAT(GenericName, ' ', COALESCE(Strength, '')))
+          INTO v_itemName
+          FROM admin.Master_Medicine
+         WHERE MedicineId = p_ItemId AND IsDeleted = 0;
+    ELSE
+        SELECT ItemName INTO v_itemName
+          FROM admin.Master_Item
+         WHERE ItemId = p_ItemId AND IsDeleted = 0
+           AND (InventoryType IS NULL OR InventoryType = v_type);
+    END IF;
+
     SELECT StoreName INTO v_storeName FROM admin.Master_Store WHERE StoreId = p_StoreId;
 
     IF v_itemName IS NULL THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Unknown item';
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'INVALID_ITEMTYPE_ITEMID';
     END IF;
     IF v_storeName IS NULL THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Unknown store';
@@ -276,7 +298,7 @@ BEGIN
     SELECT COUNT(*), COALESCE(MAX(Quantity), 0), COALESCE(MAX(ValuationRate), 0)
       INTO v_exists, v_oldQty, v_oldRate
     FROM inventory.Inventory_Stock
-    WHERE ItemId = p_ItemId AND StoreId = p_StoreId AND BatchNo = v_batch;
+    WHERE ItemType = v_type AND ItemId = p_ItemId AND StoreId = p_StoreId AND BatchNo = v_batch;
 
     IF p_Qty > 0 THEN
         SET v_newQty = v_oldQty + p_Qty;
@@ -289,9 +311,9 @@ BEGIN
 
         IF v_exists = 0 THEN
             INSERT INTO inventory.Inventory_Stock
-                (ItemId, StoreId, BatchNo, MfgDate, ExpiryDate, Quantity, ValuationRate, Uom, UpdatedBy)
+                (ItemType, ItemId, StoreId, BatchNo, MfgDate, ExpiryDate, Quantity, ValuationRate, Uom, UpdatedBy)
             VALUES
-                (p_ItemId, p_StoreId, v_batch, p_MfgDate, p_ExpiryDate, v_newQty, v_newRate, p_Uom, p_User);
+                (v_type, p_ItemId, p_StoreId, v_batch, p_MfgDate, p_ExpiryDate, v_newQty, v_newRate, p_Uom, p_User);
         ELSE
             UPDATE inventory.Inventory_Stock
             SET Quantity = v_newQty,
@@ -300,7 +322,7 @@ BEGIN
                 ExpiryDate = COALESCE(p_ExpiryDate, ExpiryDate),
                 Uom = COALESCE(p_Uom, Uom),
                 UpdatedBy = p_User
-            WHERE ItemId = p_ItemId AND StoreId = p_StoreId AND BatchNo = v_batch;
+            WHERE ItemType = v_type AND ItemId = p_ItemId AND StoreId = p_StoreId AND BatchNo = v_batch;
         END IF;
     ELSE
         IF v_exists = 0 THEN
@@ -314,14 +336,14 @@ BEGIN
 
         UPDATE inventory.Inventory_Stock
         SET Quantity = v_newQty, UpdatedBy = p_User
-        WHERE ItemId = p_ItemId AND StoreId = p_StoreId AND BatchNo = v_batch;
+        WHERE ItemType = v_type AND ItemId = p_ItemId AND StoreId = p_StoreId AND BatchNo = v_batch;
     END IF;
 
     INSERT INTO inventory.Inventory_StockLedger
-        (ItemId, ItemName, StoreId, StoreName, BatchNo, MovementType, Quantity, Rate, Value,
+        (ItemType, ItemId, ItemName, StoreId, StoreName, BatchNo, MovementType, Quantity, Rate, Value,
          BalanceQty, DocId, DocNumber, DocType, Remarks, CreatedBy)
     VALUES
-        (p_ItemId, v_itemName, p_StoreId, v_storeName, v_batch, p_MovementType, p_Qty, v_newRate,
+        (v_type, p_ItemId, v_itemName, p_StoreId, v_storeName, v_batch, p_MovementType, p_Qty, v_newRate,
          ROUND(p_Qty * v_newRate, 2), v_newQty, p_DocId, p_DocNumber, p_DocType, p_Remarks, p_User);
 END$$
 DELIMITER ;
@@ -359,6 +381,7 @@ BEGIN
     DECLARE v_docId INT;
     DECLARE v_done INT DEFAULT 0;
     DECLARE v_itemId INT;
+    DECLARE v_itemType VARCHAR(20);
     DECLARE v_batch VARCHAR(50);
     DECLARE v_mfg DATE;
     DECLARE v_exp DATE;
@@ -420,14 +443,25 @@ BEGIN
              p_ReferenceNo, p_RequestedBy, p_ApprovedBy, p_Reason, p_Remarks, 'Posted', NOW(), p_User);
         SET v_docId = LAST_INSERT_ID();
 
+        -- A line's name and UoM come from whichever master owns its type;
+        -- itemType defaults to MEDICAL_ITEM so a caller predating the unified
+        -- ledger still posts exactly as before.
         INSERT INTO inventory.Inventory_DocumentItem
-            (DocId, ItemId, ItemName, BatchNo, MfgDate, ExpiryDate, Quantity, Rate, Value, Uom, Remarks)
-        SELECT v_docId, jt.ItemId, COALESCE(m.ItemName, 'Unknown'),
+            (DocId, ItemType, ItemId, ItemName, BatchNo, MfgDate, ExpiryDate, Quantity, Rate, Value, Uom, Remarks)
+        SELECT v_docId,
+               COALESCE(NULLIF(TRIM(jt.ItemType), ''), 'MEDICAL_ITEM'),
+               jt.ItemId,
+               COALESCE(
+                   CASE WHEN jt.ItemType = 'MEDICINE'
+                        THEN TRIM(CONCAT(md.GenericName, ' ', COALESCE(md.Strength, '')))
+                        ELSE m.ItemName END,
+                   'Unknown'),
                COALESCE(NULLIF(TRIM(jt.BatchNo), ''), '-'), jt.MfgDate, jt.ExpiryDate,
                jt.Quantity, COALESCE(jt.Rate, 0), ROUND(jt.Quantity * COALESCE(jt.Rate, 0), 2),
-               COALESCE(jt.Uom, m.Uom), jt.Remarks
+               COALESCE(jt.Uom, CASE WHEN jt.ItemType = 'MEDICINE' THEN md.Unit ELSE m.Uom END), jt.Remarks
         FROM JSON_TABLE(p_Items, '$[*]' COLUMNS (
             ItemId     INT           PATH '$.itemId',
+            ItemType   VARCHAR(20)   PATH '$.itemType',
             BatchNo    VARCHAR(50)   PATH '$.batchNo',
             MfgDate    DATE          PATH '$.mfgDate',
             ExpiryDate DATE          PATH '$.expiryDate',
@@ -436,47 +470,51 @@ BEGIN
             Uom        VARCHAR(50)   PATH '$.uom',
             Remarks    VARCHAR(255)  PATH '$.remarks'
         )) jt
-        LEFT JOIN admin.Master_Item m ON m.ItemId = jt.ItemId;
+        LEFT JOIN admin.Master_Item m
+               ON m.ItemId = jt.ItemId AND COALESCE(jt.ItemType, 'MEDICAL_ITEM') <> 'MEDICINE'
+        LEFT JOIN admin.Master_Medicine md
+               ON md.MedicineId = jt.ItemId AND jt.ItemType = 'MEDICINE';
 
         -- Post each line to stock + ledger.
         BEGIN
             DECLARE cur CURSOR FOR
-                SELECT ItemId, BatchNo, MfgDate, ExpiryDate, Quantity, Rate, Uom, Remarks
+                SELECT ItemType, ItemId, BatchNo, MfgDate, ExpiryDate, Quantity, Rate, Uom, Remarks
                 FROM inventory.Inventory_DocumentItem WHERE DocId = v_docId;
             DECLARE CONTINUE HANDLER FOR NOT FOUND SET v_done = 1;
 
             OPEN cur;
             read_loop: LOOP
-                FETCH cur INTO v_itemId, v_batch, v_mfg, v_exp, v_qty, v_rate, v_uom, v_lineRemarks;
+                FETCH cur INTO v_itemType, v_itemId, v_batch, v_mfg, v_exp, v_qty, v_rate, v_uom, v_lineRemarks;
                 IF v_done = 1 THEN
                     LEAVE read_loop;
                 END IF;
 
                 IF p_DocType = 'RECEIPT' THEN
-                    CALL inventory.SpInvStockPost(v_itemId, p_ToStoreId, v_batch, v_mfg, v_exp,
+                    CALL inventory.SpInvStockPost(v_itemType, v_itemId, p_ToStoreId, v_batch, v_mfg, v_exp,
                         v_qty, v_rate, v_uom, 'RECEIPT', v_docId, v_docNo, p_DocType, v_lineRemarks, p_User);
 
                 ELSEIF p_DocType = 'ISSUE' THEN
-                    CALL inventory.SpInvStockPost(v_itemId, p_FromStoreId, v_batch, NULL, NULL,
+                    CALL inventory.SpInvStockPost(v_itemType, v_itemId, p_FromStoreId, v_batch, NULL, NULL,
                         -v_qty, 0, v_uom, 'ISSUE', v_docId, v_docNo, p_DocType, v_lineRemarks, p_User);
 
                 ELSEIF p_DocType = 'TRANSFER' THEN
                     -- Out of the source at its own cost, then into the destination
                     -- at that same cost so value is preserved across stores.
-                    CALL inventory.SpInvStockPost(v_itemId, p_FromStoreId, v_batch, NULL, NULL,
+                    CALL inventory.SpInvStockPost(v_itemType, v_itemId, p_FromStoreId, v_batch, NULL, NULL,
                         -v_qty, 0, v_uom, 'TRANSFER_OUT', v_docId, v_docNo, p_DocType, v_lineRemarks, p_User);
                     SET @xrate = (SELECT ValuationRate FROM inventory.Inventory_Stock
-                                  WHERE ItemId = v_itemId AND StoreId = p_FromStoreId AND BatchNo = v_batch);
-                    CALL inventory.SpInvStockPost(v_itemId, p_ToStoreId, v_batch, v_mfg, v_exp,
+                                  WHERE ItemType = v_itemType AND ItemId = v_itemId
+                                    AND StoreId = p_FromStoreId AND BatchNo = v_batch);
+                    CALL inventory.SpInvStockPost(v_itemType, v_itemId, p_ToStoreId, v_batch, v_mfg, v_exp,
                         v_qty, COALESCE(@xrate, 0), v_uom, 'TRANSFER_IN', v_docId, v_docNo, p_DocType, v_lineRemarks, p_User);
 
                 ELSEIF p_DocType = 'RETURN' THEN
-                    CALL inventory.SpInvStockPost(v_itemId, p_ToStoreId, v_batch, v_mfg, v_exp,
+                    CALL inventory.SpInvStockPost(v_itemType, v_itemId, p_ToStoreId, v_batch, v_mfg, v_exp,
                         v_qty, v_rate, v_uom, 'RETURN', v_docId, v_docNo, p_DocType, v_lineRemarks, p_User);
 
                 ELSEIF p_DocType = 'ADJUSTMENT' THEN
                     -- Quantity is the signed delta: negative writes stock off.
-                    CALL inventory.SpInvStockPost(v_itemId, p_FromStoreId, v_batch, v_mfg, v_exp,
+                    CALL inventory.SpInvStockPost(v_itemType, v_itemId, p_FromStoreId, v_batch, v_mfg, v_exp,
                         v_qty, v_rate, v_uom,
                         IF(v_qty < 0, 'WRITEOFF', 'ADJUSTMENT'), v_docId, v_docNo, p_DocType, v_lineRemarks, p_User);
                 END IF;
@@ -512,52 +550,58 @@ CREATE PROCEDURE inventory.SpInvStock(
     IN p_ItemId INT,
     IN p_Days INT,
     IN p_FromDate DATE,
-    IN p_ToDate DATE
+    IN p_ToDate DATE,
+    IN p_ItemType VARCHAR(20)        -- optional filter: MEDICINE | MEDICAL_ITEM | NON_MEDICAL
 )
 BEGIN
     IF p_Opt = 'LOTS' THEN
-        SELECT s.StockId, s.ItemId, i.ItemCode, i.ItemName, i.Category, i.SubCategory,
+        SELECT s.StockId, s.ItemType, s.ItemId, i.ItemCode, i.ItemName, i.Category, i.SubCategory,
                i.Brand, i.Manufacturer, s.StoreId, st.StoreName, s.BatchNo, s.MfgDate, s.ExpiryDate,
                s.Quantity, s.ReservedQty, s.ValuationRate,
                ROUND(s.Quantity * s.ValuationRate, 2) AS StockValue,
                COALESCE(s.Uom, i.Uom) AS Uom, i.ReorderLevel, i.MinStock, i.MaxStock
         FROM inventory.Inventory_Stock s
-        JOIN admin.Master_Item i  ON i.ItemId = s.ItemId
+        JOIN inventory.Vw_CatalogItem i ON i.ItemType = s.ItemType AND i.ItemId = s.ItemId
         JOIN admin.Master_Store st ON st.StoreId = s.StoreId
         WHERE (p_StoreId IS NULL OR s.StoreId = p_StoreId)
           AND (p_ItemId  IS NULL OR s.ItemId  = p_ItemId)
+          AND (p_ItemType IS NULL OR p_ItemType = '' OR s.ItemType = p_ItemType)
         ORDER BY i.ItemName, s.ExpiryDate;
 
     ELSEIF p_Opt = 'ITEMLOTS' THEN
         -- Issuable lots for a store, nearest expiry first (FEFO), expired excluded.
-        SELECT s.StockId, s.ItemId, i.ItemCode, i.ItemName, i.Category, s.BatchNo,
+        SELECT s.StockId, s.ItemType, s.ItemId, i.ItemCode, i.ItemName, i.Category, s.BatchNo,
                s.ExpiryDate, s.Quantity, s.ValuationRate, COALESCE(s.Uom, i.Uom) AS Uom
         FROM inventory.Inventory_Stock s
-        JOIN admin.Master_Item i ON i.ItemId = s.ItemId
+        JOIN inventory.Vw_CatalogItem i ON i.ItemType = s.ItemType AND i.ItemId = s.ItemId
         WHERE s.StoreId = p_StoreId AND s.Quantity > 0
+          AND (p_ItemType IS NULL OR p_ItemType = '' OR s.ItemType = p_ItemType)
           AND (s.ExpiryDate IS NULL OR s.ExpiryDate >= CURDATE())
         ORDER BY i.ItemName, s.ExpiryDate IS NULL, s.ExpiryDate;
 
     ELSEIF p_Opt = 'LOWSTOCK' THEN
-        SELECT i.ItemId, i.ItemCode, i.ItemName, i.Category, i.ReorderLevel, i.Uom,
+        SELECT i.ItemType, i.ItemId, i.ItemCode, i.ItemName, i.Category, i.ReorderLevel, i.Uom,
                COALESCE(SUM(s.Quantity), 0) AS Quantity,
                i.ReorderLevel - COALESCE(SUM(s.Quantity), 0) AS Deficit
-        FROM admin.Master_Item i
-        LEFT JOIN inventory.Inventory_Stock s ON s.ItemId = i.ItemId
-             AND (p_StoreId IS NULL OR s.StoreId = p_StoreId)
+        FROM inventory.Vw_CatalogItem i
+        LEFT JOIN inventory.Inventory_Stock s
+               ON s.ItemType = i.ItemType AND s.ItemId = i.ItemId
+              AND (p_StoreId IS NULL OR s.StoreId = p_StoreId)
         WHERE i.IsDeleted = 0 AND i.Status = 'Active' AND i.ReorderLevel IS NOT NULL
-        GROUP BY i.ItemId, i.ItemCode, i.ItemName, i.Category, i.ReorderLevel, i.Uom
+          AND (p_ItemType IS NULL OR p_ItemType = '' OR i.ItemType = p_ItemType)
+        GROUP BY i.ItemType, i.ItemId, i.ItemCode, i.ItemName, i.Category, i.ReorderLevel, i.Uom
         HAVING Quantity <= i.ReorderLevel
         ORDER BY Deficit DESC;
 
     ELSEIF p_Opt = 'EXPIRY' THEN
-        SELECT s.StockId, i.ItemId, i.ItemCode, i.ItemName, i.Category, st.StoreName,
+        SELECT s.StockId, s.ItemType, i.ItemId, i.ItemCode, i.ItemName, i.Category, st.StoreName,
                s.BatchNo, s.MfgDate, s.ExpiryDate, s.Quantity, COALESCE(s.Uom, i.Uom) AS Uom,
                DATEDIFF(s.ExpiryDate, CURDATE()) AS DaysToExpiry
         FROM inventory.Inventory_Stock s
-        JOIN admin.Master_Item i  ON i.ItemId = s.ItemId
+        JOIN inventory.Vw_CatalogItem i ON i.ItemType = s.ItemType AND i.ItemId = s.ItemId
         JOIN admin.Master_Store st ON st.StoreId = s.StoreId
         WHERE s.ExpiryDate IS NOT NULL AND s.Quantity > 0
+          AND (p_ItemType IS NULL OR p_ItemType = '' OR s.ItemType = p_ItemType)
           AND s.ExpiryDate <= DATE_ADD(CURDATE(), INTERVAL COALESCE(p_Days, 90) DAY)
           AND (p_StoreId IS NULL OR s.StoreId = p_StoreId)
         ORDER BY s.ExpiryDate;
@@ -566,19 +610,21 @@ BEGIN
         SELECT * FROM inventory.Inventory_StockLedger
         WHERE (p_StoreId IS NULL OR StoreId = p_StoreId)
           AND (p_ItemId  IS NULL OR ItemId  = p_ItemId)
+          AND (p_ItemType IS NULL OR p_ItemType = '' OR ItemType = p_ItemType)
           AND (p_FromDate IS NULL OR DATE(TxnDate) >= p_FromDate)
           AND (p_ToDate   IS NULL OR DATE(TxnDate) <= p_ToDate)
         ORDER BY LedgerId DESC;
 
     ELSEIF p_Opt = 'VALUATION' THEN
-        SELECT i.Category,
+        SELECT i.Category, s.ItemType,
                COUNT(DISTINCT s.ItemId) AS ItemCount,
                COALESCE(SUM(s.Quantity), 0) AS TotalQty,
                ROUND(COALESCE(SUM(s.Quantity * s.ValuationRate), 0), 2) AS TotalValue
         FROM inventory.Inventory_Stock s
-        JOIN admin.Master_Item i ON i.ItemId = s.ItemId
+        JOIN inventory.Vw_CatalogItem i ON i.ItemType = s.ItemType AND i.ItemId = s.ItemId
         WHERE (p_StoreId IS NULL OR s.StoreId = p_StoreId)
-        GROUP BY i.Category
+          AND (p_ItemType IS NULL OR p_ItemType = '' OR s.ItemType = p_ItemType)
+        GROUP BY i.Category, s.ItemType
         ORDER BY TotalValue DESC;
     END IF;
 END$$

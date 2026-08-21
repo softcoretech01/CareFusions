@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { typeLabel } from '../../utils/inventoryTypes';
 import { Search, Filter, Plus, Edit2, Eye, PackageCheck, Trash2, Download, RefreshCw, AlertTriangle, CheckCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../components/ui/Button';
@@ -13,6 +14,8 @@ const API_BASE = import.meta.env.VITE_API_URL as string;
 interface GRNItem {
   id: string;
   itemId: number;
+  /** Owning master, inherited from the upstream document. */
+  itemType?: string;
   itemName: string;
   category?: string;
   orderedQty: number;
@@ -109,6 +112,16 @@ export const GoodsReceipt = () => {
     if (!formData.poNumber) newErrors.poNumber = 'Required';
     if (!formData.store) newErrors.store = 'Required';
     if (formData.items.length === 0) newErrors.items = 'At least one item is required';
+
+    // Batch and expiry are mandatory for medicines: without them a drug cannot
+    // be traced, recalled, or sold under FEFO once it reaches the pharmacy.
+    formData.items.forEach((item: GRNItem, index: number) => {
+      if (item.itemType === 'MEDICINE') {
+        if (!item.batchNumber?.trim()) newErrors[`batch_${index}`] = 'Batch required for medicines';
+        if (!item.expiryDate) newErrors[`expiry_${index}`] = 'Expiry required for medicines';
+      }
+    });
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -415,6 +428,7 @@ export const GoodsReceipt = () => {
                   const newItems = po.items.map(item => ({
                     id: Math.random().toString(),
                     itemId: item.itemId,
+                    itemType: item.itemType,
                     itemName: item.itemName,
                     category: item.category,
                     orderedQty: item.orderedQty,
@@ -423,7 +437,9 @@ export const GoodsReceipt = () => {
                     rejectedQty: 0,
                     rate: item.rate,
                     totalPrice: item.rate * item.orderedQty,
-                    batchNumber: 'BAT-' + Math.floor(100000 + Math.random() * 900000).toString(),
+                    // Left blank on purpose: the batch number must be read off the
+                    // goods received, never generated. Mandatory for medicines below.
+                    batchNumber: '',
                     expiryDate: '',
                     manufactureDate: '',
                     remarks: ''
@@ -497,6 +513,14 @@ export const GoodsReceipt = () => {
                     <tr key={item.id} className="bg-white">
                       <td className="py-2 px-3">
                         <div className="text-sm font-medium text-slate-800 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">{item.itemName}</div>
+                        {item.itemType && (
+                          <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                            item.itemType === 'MEDICINE' ? 'bg-emerald-50 text-emerald-700'
+                              : item.itemType === 'MEDICAL_ITEM' ? 'bg-sky-50 text-sky-700'
+                              : 'bg-slate-100 text-slate-600'}`}>
+                            {typeLabel(item.itemType)}
+                          </span>
+                        )}
                       </td>
                       <td className="py-2 px-3 text-slate-600">{item.category || '-'}</td>
                       <td className="py-2 px-3"><input type="number" min="0" value={item.rate || 0} onChange={(e) => handleQtyCalc(index, 'rate', Number(e.target.value))} className="w-full p-1.5 border rounded-lg text-sm text-right" /></td>
@@ -505,8 +529,19 @@ export const GoodsReceipt = () => {
                       <td className="py-2 px-3"><input type="number" min="0" value={item.acceptedQty} onChange={(e) => handleQtyCalc(index, 'acceptedQty', Number(e.target.value))} className="w-full p-1.5 border rounded-lg text-sm text-right bg-emerald-50" /></td>
                       <td className="py-2 px-3"><input type="number" min="0" value={item.rejectedQty} onChange={(e) => handleQtyCalc(index, 'rejectedQty', Number(e.target.value))} className="w-full p-1.5 border rounded-lg text-sm text-right bg-red-50 text-red-600 font-bold" /></td>
                       <td className="py-2 px-3 text-right font-medium text-slate-800 bg-slate-50 rounded-lg">{(item.totalPrice || 0).toFixed(2)}</td>
-                      <td className="py-2 px-3"><input type="text" value={item.batchNumber} onChange={(e) => { const items = [...formData.items]; items[index].batchNumber = e.target.value; setFormData({...formData, items})}} className="w-full p-1.5 border rounded-lg text-sm" /></td>
-                      <td className="py-2 px-3"><input type="date" value={item.expiryDate} onChange={(e) => { const items = [...formData.items]; items[index].expiryDate = e.target.value; setFormData({...formData, items})}} className="w-full p-1.5 border rounded-lg text-sm" /></td>
+                      <td className="py-2 px-3">
+                        <input type="text" value={item.batchNumber}
+                          placeholder={item.itemType === 'MEDICINE' ? 'Required' : ''}
+                          onChange={(e) => { const items = [...formData.items]; items[index].batchNumber = e.target.value; setFormData({...formData, items})}}
+                          className={`w-full p-1.5 border rounded-lg text-sm ${errors[`batch_${index}`] ? 'border-red-300' : ''}`} />
+                        {errors[`batch_${index}`] && <span className="text-[10px] text-red-500">{errors[`batch_${index}`]}</span>}
+                      </td>
+                      <td className="py-2 px-3">
+                        <input type="date" value={item.expiryDate}
+                          onChange={(e) => { const items = [...formData.items]; items[index].expiryDate = e.target.value; setFormData({...formData, items})}}
+                          className={`w-full p-1.5 border rounded-lg text-sm ${errors[`expiry_${index}`] ? 'border-red-300' : ''}`} />
+                        {errors[`expiry_${index}`] && <span className="text-[10px] text-red-500">{errors[`expiry_${index}`]}</span>}
+                      </td>
                       <td className="py-2 px-3"><input type="date" value={item.manufactureDate} onChange={(e) => { const items = [...formData.items]; items[index].manufactureDate = e.target.value; setFormData({...formData, items})}} className="w-full p-1.5 border rounded-lg text-sm" /></td>
                       <td className="py-2 px-3"><input type="text" value={item.remarks} onChange={(e) => { const items = [...formData.items]; items[index].remarks = e.target.value; setFormData({...formData, items})}} className="w-full p-1.5 border rounded-lg text-sm" /></td>
                     </tr>

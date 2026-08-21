@@ -12,6 +12,8 @@ const API_BASE = import.meta.env.VITE_API_URL as string;
 interface ReturnItem {
   id: string;
   itemId: number;
+  /** Owning master of itemId. */
+  itemType?: string;
   itemName: string;
   receivedQty: number;
   returnQty: number;
@@ -48,7 +50,8 @@ export const PurchaseReturn = () => {
       const [prRes, grnRes, itemRes, venRes, whRes] = await Promise.all([
         fetch(`${API_BASE}/purchase-returns`),
         fetch(`${API_BASE}/grns`),
-        fetch(`${API_BASE}/items`),
+        // Unified catalog: a return can cover a medicine as well as an item.
+        fetch(`${API_BASE}/catalog/`),
         fetch(`${API_BASE}/vendors`),
         fetch(`${API_BASE}/stores`)
       ]);
@@ -166,10 +169,15 @@ export const PurchaseReturn = () => {
   };
 
   const handleItemChange = (index: number, itemId: number) => {
-    const selectedItem = itemsMock.find(i => i.id === itemId);
+    const selectedItem = itemsMock.find(i => i.itemId === itemId);
     if (!selectedItem) return;
     const newItems = [...formData.items];
-    newItems[index] = { ...newItems[index], itemId: selectedItem.id, itemName: selectedItem.itemName };
+    newItems[index] = {
+      ...newItems[index],
+      itemId: selectedItem.itemId,
+      itemType: selectedItem.itemType,
+      itemName: selectedItem.itemName,
+    };
     setFormData({ ...formData, items: newItems });
   };
 
@@ -415,7 +423,11 @@ export const PurchaseReturn = () => {
                       <td className="py-2 px-3">
                         <select value={item.itemId || ''} onChange={(e) => handleItemChange(index, Number(e.target.value))} className="w-full p-1.5 border rounded-lg text-sm">
                           <option value="">Select Item</option>
-                          {itemsMock.map(i => <option key={i.id} value={i.id}>{i.itemName}</option>)}
+                          {itemsMock.map(i => (
+                            <option key={`${i.itemType}-${i.itemId}`} value={i.itemId}>
+                              {i.itemCode} - {i.itemName}
+                            </option>
+                          ))}
                         </select>
                       </td>
                       <td className="py-2 px-3"><input type="number" min="0" value={item.receivedQty} onChange={(e) => { const items = [...formData.items]; items[index].receivedQty = Number(e.target.value); setFormData({...formData, items})}} className="w-full p-1.5 border rounded-lg text-sm text-right bg-slate-50" /></td>

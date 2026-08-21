@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { 
   Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle, 
   Save, RefreshCw, CheckCircle2, XCircle, X
@@ -13,6 +13,7 @@ interface MedicineRecord {
   medicineCode: string;
   genericName: string;
   category: string;
+  subCategory: string;
   manufacturer: string;
   strength: string;
   dosageForm: string;
@@ -33,6 +34,7 @@ const emptyData: Omit<MedicineRecord, 'id'> = {
   medicineCode: '',
   genericName: '',
   category: '',
+  subCategory: '',
   manufacturer: '',
   strength: '',
   dosageForm: '',
@@ -56,6 +58,7 @@ const mapApiToRecord = (item: any): MedicineRecord => ({
   medicineCode:   item.medicineCode,
   genericName:    item.genericName,
   category:       item.category,
+  subCategory:    item.subCategory ?? '',
   manufacturer:   item.manufacturer,
   strength:       item.strength,
   dosageForm:     item.dosageForm,
@@ -98,6 +101,15 @@ export const MedicineMaster = () => {
 
   // Dynamic lookup
   const [categoriesList, setCategoriesList] = useState<string[]>([]);
+  const [subCategoryList, setSubCategoryList] = useState<{ category: string; name: string }[]>([]);
+
+  /** Sub-categories under the selected medicine category. Values already used
+   *  by existing medicines are kept so an older record stays editable. */
+  const subCategoriesForCategory = useMemo(() => {
+    const fromMaster = subCategoryList.filter(sc => sc.category === formData.category).map(sc => sc.name);
+    const fromRecords = records.filter(r => r.category === formData.category).map(r => r.subCategory);
+    return Array.from(new Set([...fromMaster, ...fromRecords].filter(Boolean))).sort();
+  }, [subCategoryList, records, formData.category]);
 
   const fetchMedicines = async () => {
     try {
@@ -115,10 +127,22 @@ export const MedicineMaster = () => {
 
   const fetchLookups = async () => {
     try {
-      const res = await fetch(`${API_BASE}/medicines/categories`);
-      if (res.ok) {
-        const data = await res.json();
+      // Categories come from the one Category master, narrowed to MEDICINE.
+      // The old Master_MedicineCategory list was merged into it, so this is
+      // the same set of names with a single place to maintain them.
+      const [catRes, subRes] = await Promise.all([
+        fetch(`${API_BASE}/categories/?inventoryType=MEDICINE&status_filter=Active`),
+        fetch(`${API_BASE}/sub-categories/?status_filter=Active`),
+      ]);
+      if (catRes.ok) {
+        const data = await catRes.json();
         setCategoriesList(data.map((c: any) => c.categoryName));
+      }
+      // One sub-category master serves medicines and items alike; each row
+      // names its parent category, so the list below narrows to that.
+      if (subRes.ok) {
+        const data = await subRes.json();
+        setSubCategoryList(data.map((sc: any) => ({ category: sc.category, name: sc.subCategoryName })));
       }
     } catch (err) {
       console.error(err);
@@ -199,6 +223,7 @@ export const MedicineMaster = () => {
         medicineCode:   formData.medicineCode,
         genericName:    formData.genericName,
         category:       formData.category,
+        subCategory:    formData.subCategory || null,
         manufacturer:   formData.manufacturer,
         strength:       formData.strength,
         dosageForm:     formData.dosageForm,
@@ -459,6 +484,22 @@ export const MedicineMaster = () => {
                       {categoriesList.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                     {errors.category && <p className="text-red-500 text-xs mt-1">{errors.category}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Sub Category</label>
+                    <select
+                      value={formData.subCategory}
+                      onChange={e => setFormData({ ...formData, subCategory: e.target.value })}
+                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                    >
+                      <option value="">Select Sub Category</option>
+                      {subCategoriesForCategory.map(sc => <option key={sc} value={sc}>{sc}</option>)}
+                    </select>
+                    {formData.category && subCategoriesForCategory.length === 0 && (
+                      <p className="text-amber-600 text-xs mt-1">
+                        No sub-categories under “{formData.category}” — add one in Sub Category master.
+                      </p>
+                    )}
                   </div>
                   <div className="lg:col-span-2">
                     <label className="block text-sm font-medium text-slate-700 mb-1">Manufacturer <span className="text-red-500">*</span></label>

@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { INVENTORY_TYPES } from '../../utils/inventoryTypes';
 import { Pagination } from '../../components/ui/Pagination';
 import { DateFilter, monthStart, today } from '@/components/ui/DateFilter';
 import { Search, Building2 } from 'lucide-react';
@@ -11,6 +12,7 @@ const localDay = (d: Date) =>
 export const DepartmentConsumption = () => {
   const { documents, ledger, loading } = useInventory();
   const [search, setSearch] = useState('');
+  const [itemType, setItemType] = useState('');
   const [fromDate, setFromDate] = useState(monthStart());
   const [toDate, setToDate] = useState(today());
   const [draftFrom, setDraftFrom] = useState(monthStart());
@@ -41,16 +43,20 @@ export const DepartmentConsumption = () => {
     issues.forEach(d => {
       const k = d.departmentName;
       acc[k] = acc[k] || { department: k, docs: 0, items: 0, qty: 0, value: 0 };
+      // Consumption is reported per inventory type: a ward's drug usage and
+      // its consumable usage are different questions.
+      const lines = itemType ? d.items.filter(it => it.itemType === itemType) : d.items;
+      if (lines.length === 0) return;
       acc[k].docs += 1;
-      acc[k].items += d.items.length;
-      d.items.forEach(it => {
+      acc[k].items += lines.length;
+      lines.forEach(it => {
         acc[k].qty += Math.abs(it.quantity);
         acc[k].value += Math.abs(it.quantity) * rateFor(d.docNumber, it.itemId);
       });
     });
     const s = search.trim().toLowerCase();
     return Object.values(acc).filter(r => !s || r.department.toLowerCase().includes(s));
-  }, [issues, ledger, search]);
+  }, [issues, ledger, search, itemType]);
 
   const totalValue = summary.reduce((s, r) => s + r.value, 0);
 
@@ -78,6 +84,11 @@ export const DepartmentConsumption = () => {
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-2.5 flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[220px] max-w-sm">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <select value={itemType} onChange={e => setItemType(e.target.value)}
+            className="h-11 px-3 mr-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-600 focus:outline-none focus:border-primary">
+            <option value="">All Types</option>
+            {INVENTORY_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+          </select>
           <input type="text" value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Search department..."
             className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-primary" />

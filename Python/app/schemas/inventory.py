@@ -14,6 +14,11 @@ class DocTypeEnum(str, Enum):
 
 class DocumentItemIn(BaseModel):
     itemId: int = Field(..., gt=0)
+    # Which master owns itemId. Defaults to MEDICAL_ITEM so callers written
+    # before the unified ledger keep posting exactly as they did; the SP
+    # validates the pair against the owning master either way.
+    itemType: str = Field(default="MEDICAL_ITEM",
+                          pattern="^(MEDICINE|MEDICAL_ITEM|NON_MEDICAL)$")
     batchNo: Optional[str] = Field(None, max_length=50)
     mfgDate: Optional[str] = Field(None, max_length=10)      # YYYY-MM-DD
     expiryDate: Optional[str] = Field(None, max_length=10)   # YYYY-MM-DD

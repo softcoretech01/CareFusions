@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { INVENTORY_TYPES, typeLabel } from '../../utils/inventoryTypes';
 import { Pagination } from '../../components/ui/Pagination';
 import { PageHeader } from '../../components/inventory/PageHeader';
 import { StatusBadge } from '../../components/inventory/StatusBadge';
@@ -20,6 +21,7 @@ export const LowStockMonitor = () => {
   const { lowStock, stores, loading } = useInventory();
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
+  const [itemType, setItemType] = useState('');
   const [generating, setGenerating] = useState(false);
 
   const categories = useMemo(() => {
@@ -32,11 +34,12 @@ export const LowStockMonitor = () => {
   // prototype dashboard used a hardcoded threshold of 50 instead, so the two
   // screens disagreed.
   const rows = useMemo(() => lowStock.filter(r => {
+    if (itemType && r.itemType !== itemType) return false;
     const s = search.trim().toLowerCase();
     if (s && !(r.itemName.toLowerCase().includes(s) || r.itemCode.toLowerCase().includes(s))) return false;
     if (category && r.category !== category) return false;
     return true;
-  }), [lowStock, search, category]);
+  }), [lowStock, search, category, itemType]);
 
   const PAGE_SIZE = 10;
   const [page, setPage] = useState(1);
@@ -48,21 +51,41 @@ export const LowStockMonitor = () => {
   // Raise a real Purchase Requisition (procurement) for the given low-stock
   // items — the requested qty is each item's deficit back up to its reorder
   // level. Posts to the same /purchase-requisitions API the PR screen uses.
+  /**
+   * Raises purchase requisitions for the given low-stock rows.
+   *
+   * A requisition covers exactly ONE inventory type, so rows are grouped by
+   * type and one PR is raised per group. Medicines are requisitioned into the
+   * pharmacy store, everything else into the main store.
+   */
   const generatePR = async (items: LowStockRow[], label: string) => {
     if (!items.length) { toast('No low-stock items to requisition'); return; }
     if (generating) return;
     setGenerating(true);
     try {
+      const groups = items.reduce((acc: Record<string, LowStockRow[]>, r) => {
+        const t = r.itemType || 'MEDICAL_ITEM';
+        (acc[t] ||= []).push(r);
+        return acc;
+      }, {});
+      const raised: string[] = [];
+      let seqOffset = 0;
+      for (const [invType, groupItems] of Object.entries(groups)) {
       const existing = await fetch(`${API_BASE}/purchase-requisitions`)
         .then(r => (r.ok ? r.json() : [])).catch(() => []);
-      const seq = (Array.isArray(existing) ? existing.length : 0) + 1;
+      const seq = (Array.isArray(existing) ? existing.length : 0) + 1 + seqOffset;
+      seqOffset += 1;
       const prNo = `PR-${new Date().getFullYear()}-${String(seq).padStart(3, '0')}`;
-      const store = stores[0]?.storeName || 'Central Medical Store';
-      const critical = items.some(r => r.quantity <= 0 || r.quantity <= r.reorderLevel / 2);
+      const wanted = invType === 'MEDICINE' ? 'Pharmacy Store' : 'Main Store';
+      const store = (stores.find(st => st.storeType === wanted)
+        ?? stores.find(st => st.storeType === 'Main Store')
+        ?? stores[0])?.storeName || '';
+      const critical = groupItems.some(r => r.quantity <= 0 || r.quantity <= r.reorderLevel / 2);
 
-      const prItems = items.map(r => ({
-        id: Math.random().toString(),
-        itemId: r.itemId, itemCode: r.itemCode, itemName: r.itemName,
+      const prItems = groupItems.map(r => ({
+        id: `low-${r.itemType}-${r.itemId}`,
+        itemId: r.itemId, itemType: r.itemType || invType,
+        itemCode: r.itemCode, itemName: r.itemName,
         category: r.category || '', subCategory: '',
         availableStock: r.quantity,
         requestedQty: Math.max(1, r.deficit || (r.reorderLevel - r.quantity)),
@@ -74,6 +97,7 @@ export const LowStockMonitor = () => {
         prNo,
         requisitionDate: today(),
         department: store,
+        inventoryType: invType,
         requestedBy: 'Inventory',
         priority: critical ? 'High' : 'Normal',
         requiredDate: plusDays(7),
@@ -91,10 +115,14 @@ export const LowStockMonitor = () => {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
       });
       if (res.ok) {
-        toast.success(`${label} raised (${prNo}) — see Purchase Requisitions`);
+        raised.push(prNo);
       } else {
         console.error('PR create failed', res.status, await res.text().catch(() => ''));
-        toast.error('Failed to create purchase requisition');
+        toast.error(`Failed to create requisition for ${typeLabel(invType)}`);
+      }
+      }
+      if (raised.length) {
+        toast.success(`${label}: ${raised.join(', ')} raised — see Purchase Requisitions`);
       }
     } catch (e) {
       console.error(e);
@@ -115,6 +143,11 @@ export const LowStockMonitor = () => {
             placeholder="Search low stock items..."
             className="w-full h-11 pl-10 pr-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:border-primary focus:bg-white" />
         </div>
+        <select value={itemType} onChange={e => setItemType(e.target.value)}
+          className="h-11 px-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-600 focus:outline-none focus:border-primary">
+          <option value="">All Types</option>
+          {INVENTORY_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+        </select>
         <select value={category} onChange={e => setCategory(e.target.value)}
           className="h-11 px-3 bg-white border border-slate-200 rounded-xl text-sm text-slate-600 focus:outline-none focus:border-primary">
           <option value="">All Categories</option>
@@ -145,6 +178,7 @@ export const LowStockMonitor = () => {
                 <th className="px-4 py-3 text-left">Reorder Level</th>
                 <th className="px-4 py-3 text-left">Deficit</th>
                 <th className="px-4 py-3 text-left">Status</th>
+                <th className="px-4 py-3 text-right">Action</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
@@ -152,9 +186,19 @@ export const LowStockMonitor = () => {
               {paged.map(r => {
                 const sev = severity(r.quantity, r.reorderLevel);
                 return (
-                  <tr key={r.itemId} className="hover:bg-slate-50/70 transition-colors">
+                  <tr key={`${r.itemType}-${r.itemId}`} className="hover:bg-slate-50/70 transition-colors">
                     <td className="px-4 py-3">
-                      <div className="font-bold text-slate-800">{r.itemName}</div>
+                      <div className="font-bold text-slate-800 flex items-center gap-2">
+                        {r.itemName}
+                        {r.itemType && (
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                            r.itemType === 'MEDICINE' ? 'bg-emerald-50 text-emerald-700'
+                              : r.itemType === 'MEDICAL_ITEM' ? 'bg-sky-50 text-sky-700'
+                              : 'bg-slate-100 text-slate-600'}`}>
+                            {typeLabel(r.itemType)}
+                          </span>
+                        )}
+                      </div>
                       <div className="text-xs text-slate-400">{r.itemCode} | {r.category || '—'}</div>
                     </td>
                     <td className="px-4 py-3">

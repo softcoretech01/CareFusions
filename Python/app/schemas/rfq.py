@@ -5,6 +5,9 @@ from datetime import date, datetime
 
 class RFQItemCreate(BaseModel):
     itemId: int
+    # Which master owns itemId; inherited from the upstream document
+    # so the type survives PR -> RFQ -> Quotation -> PO -> GRN -> Return.
+    itemType: Optional[str] = None
     itemCode: Optional[str] = Field(None, max_length=50)
     itemName: Optional[str] = Field(None, max_length=255)
     category: Optional[str] = Field(None, max_length=100)

@@ -8,7 +8,7 @@ from app.core.audit_middleware import AuditLogMiddleware
 
 from app.routers import (
     hospital, branch, department, radiology_service, equipment, service, tax,
-    payment_mode, insurance_provider, tpa, vendor, category, sub_category, uom, item, brand,
+    payment_mode, insurance_provider, tpa, vendor, category, sub_category, uom, item, catalog, brand,
     manufacturer, store, coa, cost_center, profit_center, payment_term, currency,
     financial_year, bank, cash_counter, role, user, sms_template, email_template,
     whatsapp_template, push_template, reminder_rule, audit_log,
@@ -80,6 +80,7 @@ app.include_router(category.router, prefix="/api/v1")
 app.include_router(sub_category.router, prefix="/api/v1")
 app.include_router(uom.router, prefix="/api/v1")
 app.include_router(item.router, prefix="/api/v1")
+app.include_router(catalog.router, prefix="/api/v1")
 app.include_router(brand.router, prefix="/api/v1")
 app.include_router(manufacturer.router, prefix="/api/v1")
 app.include_router(store.router, prefix="/api/v1")

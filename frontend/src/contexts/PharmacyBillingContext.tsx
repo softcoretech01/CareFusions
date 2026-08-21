@@ -8,6 +8,8 @@ export interface Medicine {
   name: string;
   category: string;
   batchNo: string;
+  /** Owning master: MEDICINE | MEDICAL_ITEM. */
+  itemType?: string;
   quantity: number;
   unitPrice: number;
   expiryDate: string;
@@ -17,6 +19,7 @@ export interface Medicine {
 
 export interface BillItem {
   medicineId: string;
+  itemType?: string;
   medicineName: string;
   quantity: number;
   unitPrice: number;
@@ -80,6 +83,9 @@ const toSaleBody = (bill: Omit<Bill, 'billId'>) => ({
   paymentStatus: bill.paymentStatus || 'Pending',
   items: bill.items.map(i => ({
     medicineId: Number(i.medicineId),
+    // The counter sells medicines and priced medical items; the type tells
+    // the server which master the id belongs to and which lots to allocate.
+    itemType: i.itemType || 'MEDICINE',
     medicineName: i.medicineName,
     quantity: i.quantity,
     unitPrice: i.unitPrice,
@@ -169,7 +175,7 @@ export const PharmacyBillingProvider = ({ children }: { children: ReactNode }) =
       return;
     }
     setCurrentBillItems([...currentBillItems, {
-      medicineId: medicine.id, medicineName: medicine.name, quantity,
+      medicineId: medicine.id, itemType: medicine.itemType, medicineName: medicine.name, quantity,
       unitPrice: medicine.unitPrice, subtotal: medicine.unitPrice * quantity,
     }]);
   };

@@ -106,12 +106,13 @@ def execute_sql_file():
                 SET v_TotalItems = JSON_LENGTH(p_ItemsJSON);
                 WHILE v_Index < v_TotalItems DO
                     INSERT INTO `GoodsReceiptItem` (
-                        `GrnId`, `ItemId`, `ItemName`, `Category`, `OrderedQty`, 
+                        `GrnId`, `ItemId`, `ItemType`, `ItemName`, `Category`, `OrderedQty`, 
                         `ReceivedQty`, `AcceptedQty`, `RejectedQty`, `Rate`, `TotalPrice`, 
                         `BatchNumber`, `ExpiryDate`, `ManufactureDate`, `Remarks`, `CreatedBy`
                     ) VALUES (
                         v_GrnId,
                         JSON_UNQUOTE(JSON_EXTRACT(p_ItemsJSON, CONCAT('$[', v_Index, '].itemId'))),
+                        JSON_UNQUOTE(JSON_EXTRACT(p_ItemsJSON, CONCAT('$[', v_Index, '].itemType'))),
                         JSON_UNQUOTE(JSON_EXTRACT(p_ItemsJSON, CONCAT('$[', v_Index, '].itemName'))),
                         JSON_UNQUOTE(JSON_EXTRACT(p_ItemsJSON, CONCAT('$[', v_Index, '].category'))),
                         JSON_UNQUOTE(JSON_EXTRACT(p_ItemsJSON, CONCAT('$[', v_Index, '].orderedQty'))),
@@ -158,12 +159,13 @@ def execute_sql_file():
                 SET v_TotalItems = JSON_LENGTH(p_ItemsJSON);
                 WHILE v_Index < v_TotalItems DO
                     INSERT INTO `GoodsReceiptItem` (
-                        `GrnId`, `ItemId`, `ItemName`, `Category`, `OrderedQty`, 
+                        `GrnId`, `ItemId`, `ItemType`, `ItemName`, `Category`, `OrderedQty`, 
                         `ReceivedQty`, `AcceptedQty`, `RejectedQty`, `Rate`, `TotalPrice`, 
                         `BatchNumber`, `ExpiryDate`, `ManufactureDate`, `Remarks`, `CreatedBy`, `ModifiedBy`
                     ) VALUES (
                         p_GrnId,
                         JSON_UNQUOTE(JSON_EXTRACT(p_ItemsJSON, CONCAT('$[', v_Index, '].itemId'))),
+                        JSON_UNQUOTE(JSON_EXTRACT(p_ItemsJSON, CONCAT('$[', v_Index, '].itemType'))),
                         JSON_UNQUOTE(JSON_EXTRACT(p_ItemsJSON, CONCAT('$[', v_Index, '].itemName'))),
                         JSON_UNQUOTE(JSON_EXTRACT(p_ItemsJSON, CONCAT('$[', v_Index, '].category'))),
                         JSON_UNQUOTE(JSON_EXTRACT(p_ItemsJSON, CONCAT('$[', v_Index, '].orderedQty'))),

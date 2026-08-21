@@ -13,6 +13,8 @@ export interface Store {
 }
 
 export interface ItemMaster {
+  /** Owning master: MEDICINE | MEDICAL_ITEM | NON_MEDICAL. */
+  itemType?: string;
   itemId: number;
   itemCode: string;
   itemName: string;
@@ -28,6 +30,8 @@ export interface ItemMaster {
 }
 
 export interface StockLot {
+  /** Owning master: MEDICINE | MEDICAL_ITEM | NON_MEDICAL. */
+  itemType?: string;
   stockId: number;
   itemId: number;
   itemCode: string;
@@ -53,6 +57,8 @@ export interface StockLot {
 
 /** A lot that can be issued — FEFO ordered, expired excluded. */
 export interface IssuableLot {
+  /** Owning master: MEDICINE | MEDICAL_ITEM | NON_MEDICAL. */
+  itemType?: string;
   stockId: number;
   itemId: number;
   itemCode: string;
@@ -67,6 +73,8 @@ export interface IssuableLot {
 
 export interface DocumentItem {
   docItemId?: number;
+  /** Owning master: MEDICINE | MEDICAL_ITEM | NON_MEDICAL. */
+  itemType?: string;
   itemId: number;
   itemName: string;
   batchNo: string;
@@ -103,6 +111,8 @@ export interface MovementDocument {
 }
 
 export interface LedgerEntry {
+  /** Owning master: MEDICINE | MEDICAL_ITEM | NON_MEDICAL. */
+  itemType?: string;
   ledgerId: number;
   txnDate: string;
   itemId: number;
@@ -123,6 +133,8 @@ export interface LedgerEntry {
 }
 
 export interface LowStockRow {
+  /** Owning master: MEDICINE | MEDICAL_ITEM | NON_MEDICAL. */
+  itemType?: string;
   itemId: number;
   itemCode: string;
   itemName: string;
@@ -134,6 +146,8 @@ export interface LowStockRow {
 }
 
 export interface ExpiringRow {
+  /** Owning master: MEDICINE | MEDICAL_ITEM | NON_MEDICAL. */
+  itemType?: string;
   stockId: number;
   itemId: number;
   itemCode: string;
@@ -149,6 +163,8 @@ export interface ExpiringRow {
 }
 
 export interface ValuationRow {
+  /** Owning master: MEDICINE | MEDICAL_ITEM | NON_MEDICAL. */
+  itemType?: string;
   category: string;
   itemCount: number;
   totalQty: number;
@@ -179,6 +195,8 @@ export interface PostDocumentInput {
   remarks?: string | null;
   items: {
     itemId: number;
+    /** Owning master: MEDICINE | MEDICAL_ITEM | NON_MEDICAL. */
+    itemType?: string;
     batchNo?: string | null;
     mfgDate?: string | null;
     expiryDate?: string | null;

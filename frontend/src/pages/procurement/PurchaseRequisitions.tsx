@@ -1,4 +1,6 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect , useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { INVENTORY_TYPES, typeLabel } from '../../utils/inventoryTypes';
 import { Plus, Search, Filter, Download, Edit2, Trash2, Save, ChevronLeft, ChevronRight, Eye, Send, FileText, CheckCircle, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../components/ui/Button';
@@ -8,7 +10,13 @@ import { exportToExcel } from '../../utils/exportToExcel';
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
 
+/** Row keys for unsaved grid lines. Presentational only - never persisted. */
+let lineKeySeq = 0;
+const nextLineKey = () => `line-${++lineKeySeq}`;
+
 export interface PRItem {
+  /** Which master owns itemId. Always equals the PR's header type. */
+  itemType?: string;
   id: string;
   itemId: number;
   itemCode: string;
@@ -34,6 +42,7 @@ export interface PRRecord {
   requiredDate: string;
   purpose: string;
   remarks: string;
+  inventoryType?: string;
   items: PRItem[];
   totalItems: number;
   estimatedCost: number;
@@ -46,7 +55,24 @@ export const initialPRs: PRRecord[] = [];
 
 export const PurchaseRequisitions = () => {
   const [records, setRecords] = useState<PRRecord[]>([]);
-  const [itemsList, setItemsList] = useState<any[]>([]);
+  // Catalog rows for the PR's chosen inventory type, straight from /catalog:
+  // real availability from the stock ledger and the real last-paid rate. There
+  // is no client-side stand-in for either.
+  const [catalogList, setCatalogList] = useState<any[]>([]);
+  const [catalogCategories, setCatalogCategories] = useState<{ category: string; itemCount: number }[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+
+  /**
+   * Another screen can hand a line over via router state, e.g. the doctor's
+   * "Raise PR" when a medicine is out of stock at the counter. The form opens
+   * pre-filled but is NOT submitted: the buyer still completes and submits it.
+   */
+  const location = useLocation();
+  const navigate = useNavigate();
+  const handedOver = (location.state as any)?.raisePr as
+    | { inventoryType: string; itemId: number; itemCode?: string; itemName?: string;
+        category?: string; uom?: string; requestedQty?: number }
+    | undefined;
   const [departmentsList, setDepartmentsList] = useState<any[]>([]);
   const [warehousesList, setWarehousesList] = useState<any[]>([]);
   // Only the setter is used (to gate the fetch); the flag itself isn't rendered.
@@ -77,14 +103,35 @@ export const PurchaseRequisitions = () => {
     }
   };
 
+  /**
+   * Loads the catalog for one inventory type. Both calls are filtered by the
+   * backend, so the screen cannot show a category or an item belonging to
+   * another type even if the request is tampered with.
+   */
+  const fetchCatalog = async (invType: string) => {
+    if (!invType) { setCatalogList([]); setCatalogCategories([]); return; }
+    setCatalogLoading(true);
+    try {
+      const [itemsRes, catsRes] = await Promise.all([
+        fetch(`${API_BASE}/catalog/?type=${invType}`),
+        fetch(`${API_BASE}/catalog/categories?type=${invType}`),
+      ]);
+      setCatalogList(itemsRes.ok ? await itemsRes.json() : []);
+      setCatalogCategories(catsRes.ok ? await catsRes.json() : []);
+    } catch (error) {
+      console.error('Failed to fetch catalog:', error);
+      setCatalogList([]); setCatalogCategories([]);
+    } finally {
+      setCatalogLoading(false);
+    }
+  };
+
   const fetchMasters = async () => {
     try {
-      const [itemsRes, deptsRes, storesRes] = await Promise.all([
-        fetch(`${API_BASE}/items`),
+      const [deptsRes, storesRes] = await Promise.all([
         fetch(`${API_BASE}/departments`),
         fetch(`${API_BASE}/stores`)
       ]);
-      if (itemsRes.ok) setItemsList(await itemsRes.json());
       if (deptsRes.ok) setDepartmentsList(await deptsRes.json());
       if (storesRes.ok) setWarehousesList(await storesRes.json());
     } catch (error) {
@@ -101,6 +148,7 @@ export const PurchaseRequisitions = () => {
   const [filterDepartment, setFilterDepartment] = useState('');
   const [filterPriority, setFilterPriority] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+  const [filterType, setFilterType] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
@@ -112,16 +160,30 @@ export const PurchaseRequisitions = () => {
 
   const emptyForm: Omit<PRRecord, 'id' | 'prNo'> = {
     requisitionDate: new Date().toISOString().split('T')[0],
-    department: '', requestedBy: '', priority: 'Normal', requiredDate: '',
+    department: '', inventoryType: '', requestedBy: '', priority: 'Normal', requiredDate: '',
     purpose: '', remarks: '', items: [], totalItems: 0, estimatedCost: 0,
     approvalStatus: 'Draft', currentStage: 'Draft', createdBy: 'Admin'
   };
   const [formData, setFormData] = useState<any>(emptyForm);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  /**
+   * Medicines and medical items are stocked at the pharmacy counter by
+   * default, everything else at the main store. Resolved against the live
+   * store master so a renamed store still matches; falls back to blank rather
+   * than inventing a store name.
+   */
+  const defaultStoreFor = (invType: string): string => {
+    const wanted = invType === 'MEDICINE' ? 'Pharmacy Store' : 'Main Store';
+    const match = warehousesList.find((w: any) => w.storeType === wanted)
+      ?? warehousesList.find((w: any) => w.storeType === 'Main Store');
+    return match?.storeName ?? '';
+  };
+
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
     if (!formData.department) newErrors.department = 'Required';
+    if (!formData.inventoryType) newErrors.inventoryType = 'Required';
     if (!formData.requestedBy) newErrors.requestedBy = 'Required';
     if (!formData.requiredDate) newErrors.requiredDate = 'Required';
     if (formData.items.length === 0) newErrors.items = 'At least one item is required';
@@ -141,13 +203,53 @@ export const PurchaseRequisitions = () => {
     setSelectedRecord(null);
     setFormData({ ...emptyForm, prNo: `PR-${new Date().getFullYear()}-${String(records.length + 1).padStart(3, '0')}` });
     setErrors({});
+    setCatalogList([]); setCatalogCategories([]);
     setIsFormOpen(true);
   };
+
+  const handledRef = useRef(false);
+  useEffect(() => {
+    if (!handedOver || handledRef.current || warehousesList.length === 0) return;
+    handledRef.current = true;
+    (async () => {
+      await fetchCatalog(handedOver.inventoryType);
+      setSelectedRecord(null);
+      setFormData({
+        ...emptyForm,
+        prNo: `PR-${new Date().getFullYear()}-${String(records.length + 1).padStart(3, '0')}`,
+        inventoryType: handedOver.inventoryType,
+        items: [{
+          id: nextLineKey(),
+          itemId: handedOver.itemId,
+          itemType: handedOver.inventoryType,
+          itemCode: handedOver.itemCode || '',
+          itemName: handedOver.itemName || '',
+          category: handedOver.category || '',
+          subCategory: '',
+          availableStock: 0,
+          requestedQty: handedOver.requestedQty || 1,
+          uom: handedOver.uom || '',
+          estimatedPrice: 0,
+          estimatedAmount: 0,
+          store: defaultStoreFor(handedOver.inventoryType),
+          remarks: 'Raised from the consultation screen — out of stock at the pharmacy counter',
+        }],
+      });
+      setErrors({});
+      setIsFormOpen(true);
+      // Clear the hand-off so a refresh does not reopen the form.
+      navigate(location.pathname, { replace: true, state: null });
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handedOver, warehousesList]);
 
   const handleEdit = (record: PRRecord) => {
     setSelectedRecord(record);
     setFormData(record);
     setErrors({});
+    // Load the catalog for this requisition's own type so its lines resolve
+    // and any new line is picked from the same type.
+    fetchCatalog(record.inventoryType || record.items?.[0]?.itemType || '');
     setIsFormOpen(true);
   };
 
@@ -207,8 +309,12 @@ export const PurchaseRequisitions = () => {
   // Item Grid Handlers
   const handleAddItem = () => {
     const newItem: PRItem = {
-      id: Math.random().toString(), itemId: 0, itemCode: '', itemName: '', category: '', subCategory: '',
-      availableStock: 0, requestedQty: 1, uom: '', estimatedPrice: 0, estimatedAmount: 0, store: '', remarks: ''
+      id: nextLineKey(), itemId: 0, itemType: formData.inventoryType,
+      itemCode: '', itemName: '', category: '', subCategory: '',
+      availableStock: 0, requestedQty: 1, uom: '', estimatedPrice: 0, estimatedAmount: 0,
+      // Medicines and medical items are received into the pharmacy counter by
+      // default; everything else goes to the main store. Still overridable.
+      store: defaultStoreFor(formData.inventoryType), remarks: ''
     };
     setFormData({ ...formData, items: [...formData.items, newItem] });
   };
@@ -220,22 +326,43 @@ export const PurchaseRequisitions = () => {
   };
 
   const handleItemChange = (index: number, itemId: number) => {
-    const selectedItem = itemsList.find(i => i.id === itemId);
-    if (!selectedItem) return;
+    // Catalog rows are keyed by the PAIR (itemType, itemId): the same numeric
+    // id exists in both masters, so the type has to match too.
+    const row = catalogList.find(i => i.itemId === itemId
+      && i.itemType === (formData.items[index]?.itemType || formData.inventoryType));
+    if (!row) return;
 
     const newItems = [...formData.items];
+    const qty = newItems[index].requestedQty || 1;
     newItems[index] = {
       ...newItems[index],
-      itemId: selectedItem.id,
-      itemCode: selectedItem.itemCode,
-      itemName: selectedItem.itemName,
-      category: selectedItem.category,
-      subCategory: selectedItem.subCategory,
-      uom: selectedItem.uom,
-      availableStock: Math.floor(Math.random() * 100), // Note: Could be fetched from inventory
-      estimatedPrice: selectedItem.purchasePrice || 100, // Use price if available
-      estimatedAmount: (selectedItem.purchasePrice || 100) * newItems[index].requestedQty
+      itemId: row.itemId,
+      itemType: row.itemType,
+      itemCode: row.itemCode,
+      itemName: row.itemName,
+      category: row.category,
+      subCategory: row.subCategory,
+      uom: row.uom,
+      // Both figures come from the backend: availability is the live ledger
+      // balance and the rate is the last price actually paid for this item.
+      availableStock: row.availableStock,
+      estimatedPrice: row.rate,
+      estimatedAmount: row.rate * qty,
     };
+    updateTotals(newItems);
+  };
+
+  /** Category is per line; changing it clears an item that no longer fits. */
+  const handleLineCategoryChange = (index: number, category: string) => {
+    const newItems = [...formData.items];
+    const current = newItems[index];
+    const keepsItem = current.itemId && current.category === category;
+    newItems[index] = keepsItem
+      ? { ...current, category }
+      : {
+          ...current, category, itemId: 0, itemCode: '', itemName: '', subCategory: '',
+          uom: '', availableStock: 0, estimatedPrice: 0, estimatedAmount: 0,
+        };
     updateTotals(newItems);
   };
 
@@ -273,6 +400,7 @@ export const PurchaseRequisitions = () => {
       const matchesDept = filterDepartment ? record.department === filterDepartment : true;
       const matchesPriority = filterPriority ? record.priority === filterPriority : true;
       const matchesStatus = filterStatus ? record.approvalStatus === filterStatus : true;
+      const matchesType = filterType ? record.inventoryType === filterType : true;
       let matchesDate = true;
       if (fromDate && toDate) {
         const itemDate = new Date(record.requisitionDate);
@@ -280,13 +408,17 @@ export const PurchaseRequisitions = () => {
         const end = new Date(toDate);
         matchesDate = itemDate >= start && itemDate <= end;
       }
-      return matchesSearch && matchesDept && matchesPriority && matchesStatus && matchesDate;
+      return matchesSearch && matchesDept && matchesPriority && matchesStatus && matchesType && matchesDate;
     });
 
     if (sortConfig.key) {
       result.sort((a, b) => {
-        if (a[sortConfig.key!] < b[sortConfig.key!]) return sortConfig.direction === 'asc' ? -1 : 1;
-        if (a[sortConfig.key!] > b[sortConfig.key!]) return sortConfig.direction === 'asc' ? 1 : -1;
+        // Optional columns (e.g. inventoryType) can be undefined on older
+        // requisitions; treat missing as empty so sorting stays total.
+        const av = a[sortConfig.key!] ?? '';
+        const bv = b[sortConfig.key!] ?? '';
+        if (av < bv) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (av > bv) return sortConfig.direction === 'asc' ? 1 : -1;
         return 0;
       });
     }
@@ -410,6 +542,10 @@ export const PurchaseRequisitions = () => {
                   <option value="High">High</option>
                   <option value="Urgent">Urgent</option>
                 </select>
+                <select value={filterType} onChange={(e) => { setFilterType(e.target.value); setCurrentPage(1); }} className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none">
+                  <option value="">All Types</option>
+                  {INVENTORY_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
                 <select value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setCurrentPage(1); }} className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none">
                   <option value="">All Statuses</option>
                   <option value="Draft">Draft</option>
@@ -429,6 +565,7 @@ export const PurchaseRequisitions = () => {
               <tr>
                 <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm cursor-pointer" onClick={() => handleSort('prNo')}>PR No</th>
                 <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm cursor-pointer" onClick={() => handleSort('requisitionDate')}>Req. Date</th>
+                <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm cursor-pointer" onClick={() => handleSort('inventoryType')}>Type</th>
                 <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm cursor-pointer" onClick={() => handleSort('department')}>Department</th>
                 <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm cursor-pointer" onClick={() => handleSort('requestedBy')}>Requested By</th>
                 <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm cursor-pointer" onClick={() => handleSort('priority')}>Priority</th>
@@ -446,6 +583,16 @@ export const PurchaseRequisitions = () => {
                 <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="py-3 px-4 text-slate-800 font-medium">{record.prNo}</td>
                   <td className="py-3 px-4 text-slate-800">{record.requisitionDate}</td>
+                  <td className="py-3 px-4">
+                    {record.inventoryType ? (
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                        record.inventoryType === 'MEDICINE' ? 'bg-emerald-50 text-emerald-700'
+                          : record.inventoryType === 'MEDICAL_ITEM' ? 'bg-sky-50 text-sky-700'
+                          : 'bg-slate-100 text-slate-600'}`}>
+                        {typeLabel(record.inventoryType)}
+                      </span>
+                    ) : <span className="text-slate-300 text-xs">—</span>}
+                  </td>
                   <td className="py-3 px-4 text-slate-800">{record.department}</td>
                   <td className="py-3 px-4 text-slate-800 text-sm">{record.requestedBy}</td>
                   <td className="py-3 px-4"><span className={`px-2 py-1 rounded text-xs ${getPriorityColor(record.priority)}`}>{record.priority}</span></td>
@@ -531,6 +678,31 @@ export const PurchaseRequisitions = () => {
               </select>
               {errors.department && <span className="text-xs text-red-500">{errors.department}</span>}
             </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">Inventory Type*</label>
+              <select
+                value={formData.inventoryType || ''}
+                disabled={formData.items.length > 0}
+                onChange={(e) => {
+                  const t = e.target.value;
+                  setFormData({ ...formData, inventoryType: t, items: [] });
+                  fetchCatalog(t);
+                }}
+                title={formData.items.length > 0
+                  ? 'Remove all lines to change the type — a requisition covers one type only'
+                  : undefined}
+                className={`w-full px-3 py-1.5 border rounded-lg text-sm outline-none focus:border-primary ${
+                  formData.items.length > 0 ? 'bg-slate-100 cursor-not-allowed text-slate-500' : 'border-slate-200'
+                } ${errors.inventoryType ? 'border-red-300' : 'border-slate-200'}`}
+              >
+                <option value="">Select Type</option>
+                {INVENTORY_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+              {errors.inventoryType && <span className="text-xs text-red-500">{errors.inventoryType}</span>}
+              {formData.items.length > 0 && (
+                <span className="text-[10px] text-slate-400 leading-tight block mt-0.5">Locked — lines exist</span>
+              )}
+            </div>
             <div><label className="block text-xs font-medium text-slate-500 mb-1">Requested By*</label><input type="text" value={formData.requestedBy} onChange={(e) => setFormData({ ...formData, requestedBy: e.target.value })} className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-primary" />
               {errors.requestedBy && <span className="text-xs text-red-500">{errors.requestedBy}</span>}
             </div>
@@ -550,16 +722,32 @@ export const PurchaseRequisitions = () => {
           <div>
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold text-slate-800 flex items-center gap-2"><FileText className="w-4 h-4 text-primary" /> Item Details</h3>
-              <Button variant="outline" size="sm" icon={Plus} onClick={handleAddItem}>Add Item</Button>
+              <div className="flex items-center gap-3">
+                {formData.inventoryType && (
+                  <span className="text-xs text-slate-500">
+                    {catalogLoading
+                      ? 'Loading catalog…'
+                      : `${catalogList.length} ${typeLabel(formData.inventoryType).toLowerCase()}s available`}
+                  </span>
+                )}
+                <Button variant="outline" size="sm" icon={Plus} onClick={handleAddItem}
+                        disabled={!formData.inventoryType}>Add Item</Button>
+              </div>
             </div>
             {errors.items && <div className="text-sm text-red-500 mb-2">{errors.items}</div>}
+            {!formData.inventoryType && (
+              <div className="text-sm text-slate-500 mb-2 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                Select an <strong>Inventory Type</strong> first. Categories and items are filtered to that type,
+                and one requisition covers one type only.
+              </div>
+            )}
 
             <div className="border border-slate-200 rounded-xl overflow-hidden">
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
+                    <th className="text-left py-2 px-3 font-medium text-slate-600 w-40">Category*</th>
                     <th className="text-left py-2 px-3 font-medium text-slate-600">Item*</th>
-                    <th className="text-left py-2 px-3 font-medium text-slate-600 w-24">Cat/Sub</th>
                     <th className="text-right py-2 px-3 font-medium text-slate-600 w-20">Stock</th>
                     <th className="text-right py-2 px-3 font-medium text-slate-600 w-24">Req Qty*</th>
                     <th className="text-left py-2 px-3 font-medium text-slate-600 w-20">UOM</th>
@@ -575,18 +763,39 @@ export const PurchaseRequisitions = () => {
                   ) : formData.items.map((item: PRItem, index: number) => (
                     <tr key={item.id} className="bg-white">
                       <td className="py-2 px-3">
+                        {/* Categories are those of the PR's type only. */}
+                        <select
+                          value={item.category || ''}
+                          onChange={(e) => handleLineCategoryChange(index, e.target.value)}
+                          className="w-full p-1.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-primary"
+                        >
+                          <option value="">All categories</option>
+                          {catalogCategories.map(c => (
+                            <option key={c.category} value={c.category}>{c.category} ({c.itemCount})</option>
+                          ))}
+                        </select>
+                        {item.subCategory && (
+                          <div className="text-[10px] text-slate-400 mt-0.5 truncate" title={item.subCategory}>
+                            {item.subCategory}
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-2 px-3">
+                        {/* Items are filtered by the PR type AND the line's category. */}
                         <select
                           value={item.itemId || ''}
                           onChange={(e) => handleItemChange(index, Number(e.target.value))}
                           className={`w-full p-1.5 border rounded-lg text-sm outline-none ${errors[`item_${index}`] ? 'border-red-300' : 'border-slate-200 focus:border-primary'}`}
                         >
                           <option value="">Select Item</option>
-                          {itemsList.map(i => <option key={i.id} value={i.id}>{i.itemCode} - {i.itemName}</option>)}
+                          {catalogList
+                            .filter(i => !item.category || i.category === item.category)
+                            .map(i => (
+                              <option key={`${i.itemType}-${i.itemId}`} value={i.itemId}>
+                                {i.itemCode} - {i.itemName}
+                              </option>
+                            ))}
                         </select>
-                      </td>
-                      <td className="py-2 px-3 text-xs text-slate-500 leading-tight">
-                        <div className="truncate w-20" title={item.category}>{item.category || '-'}</div>
-                        <div className="truncate w-20" title={item.subCategory}>{item.subCategory || '-'}</div>
                       </td>
                       <td className="py-2 px-3 text-right">
                         <span className={`px-2 py-0.5 rounded text-xs ${item.availableStock > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>

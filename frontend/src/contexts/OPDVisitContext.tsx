@@ -48,6 +48,8 @@ export interface Diagnosis {
 export interface PrescriptionItem {
   id: string;
   type: 'Tablet' | 'Injection' | 'Syrup' | 'Capsule' | 'Ointment' | 'Drops';
+  /** Medicine master id. Absent on lines written before it was recorded. */
+  medicineId?: number;
   medicineName: string;
   quantity: string | number;
   alerts: string[];

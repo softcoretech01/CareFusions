@@ -410,7 +410,6 @@ export const VendorMaster = () => {
                 <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm cursor-pointer" onClick={() => handleSort('vendorName')}>Name</th>
                 <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm">Contact</th>
                 <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm">City</th>
-                <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm">Status</th>
                 <th className="text-right py-3 px-4 font-medium text-slate-500 text-sm w-32">Actions</th>
               </tr>
             </thead>
@@ -425,13 +424,6 @@ export const VendorMaster = () => {
                   <td className="py-3 px-4 text-slate-800">{record.vendorName}</td>
                   <td className="py-3 px-4 text-slate-800">{record.contactPerson}<br/><span className="text-xs text-slate-500">{record.mobileNumber}</span></td>
                   <td className="py-3 px-4 text-slate-800">{record.city}</td>
-                  <td className="py-3 px-4">
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                      record.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'
-                    }`}>
-                      {record.status}
-                    </span>
-                  </td>
                   <td className="py-3 px-4 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <button onClick={() => handleView(record)} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="View Details">
@@ -439,9 +431,6 @@ export const VendorMaster = () => {
                       </button>
                       <button onClick={() => handleEdit(record)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Edit">
                         <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => handleToggleStatus(record)} className={`p-1.5 rounded-lg transition-colors ${record.status === 'Active' ? 'text-slate-400 hover:text-orange-500 hover:bg-orange-50' : 'text-slate-400 hover:text-emerald-500 hover:bg-emerald-50'}`} title={record.status === 'Active' ? 'Deactivate' : 'Activate'}>
-                        <Power className="w-4 h-4" />
                       </button>
                       <button onClick={() => handleDelete(record)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
                         <Trash2 className="w-4 h-4" />
@@ -569,18 +558,7 @@ export const VendorMaster = () => {
               <input type="number" min="0" max={LIMITS.creditMax} step="1" onKeyDown={blockIntKeys} value={formData.creditDays} onChange={(e) => setFormData({...formData, creditDays: Number(e.target.value)})} className={inputCls(errors.creditDays)} />
               {errors.creditDays && <p className="text-red-500 text-xs mt-1">{errors.creditDays}</p>}
             </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
-              <select
-                value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                className={inputCls()}
-              >
-                <option value="Active">Active</option>
-                <option value="Inactive">Inactive</option>
-              </select>
             </div>
-          </div>
         </div>
 
         {selectedRecord && (
@@ -612,15 +590,7 @@ export const VendorMaster = () => {
               <div><span className="text-xs text-slate-400 block">Payment Terms</span><span className="text-sm font-medium">{selectedRecord.paymentTerms || '-'}</span></div>
               <div><span className="text-xs text-slate-400 block">Credit Days</span><span className="text-sm font-medium">{selectedRecord.creditDays}</span></div>
             </div>
-            <div className="pt-4 border-t border-slate-100">
-              <span className="text-xs text-slate-400 block mb-1">Status</span>
-              <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                selectedRecord.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'
-              }`}>
-                {selectedRecord.status}
-              </span>
             </div>
-          </div>
         )}
       </Modal>
 
