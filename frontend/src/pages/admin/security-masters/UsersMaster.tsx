@@ -117,7 +117,6 @@ export const UsersMaster = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [filterRole, setFilterRole] = useState('');
   const [filterDepartment, setFilterDepartment] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
 
   // Form States
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -324,8 +323,7 @@ export const UsersMaster = () => {
       record.username.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRole = !filterRole || record.role === filterRole;
     const matchesDepartment = !filterDepartment || record.department === filterDepartment;
-    const matchesStatus = !filterStatus || record.status === filterStatus;
-    return matchesSearch && matchesRole && matchesDepartment && matchesStatus;
+    return matchesSearch && matchesRole && matchesDepartment;
   });
 
   const _totalPages = Math.max(1, Math.ceil(filteredRecords.length / itemsPerPage));
@@ -378,7 +376,7 @@ export const UsersMaster = () => {
               <button onClick={() => setShowFilters(!showFilters)} title="Filters" className={showFilters ? "p-2 border rounded-lg transition-colors border-primary bg-primary/5 text-primary" : "p-2 border rounded-lg transition-colors border-slate-200 text-slate-500 hover:bg-slate-50"}>
                 <Filter className="w-4 h-4" />
               </button>
-              <button onClick={() => { setSearchTerm(''); setFilterDepartment(''); setFilterRole(''); setFilterStatus(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
+              <button onClick={() => { setSearchTerm(''); setFilterDepartment(''); setFilterRole(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
                 <X className="w-4 h-4" />
               </button>
               <button onClick={() => exportToExcel(records, 'UsersMaster')} title="Export to Excel" className="p-2 border border-emerald-200 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 transition-colors">
@@ -412,15 +410,6 @@ export const UsersMaster = () => {
                       <option value="">All Departments</option>
                       {allDepartments.map(d => <option key={d} value={d}>{d}</option>)}
                     </select>
-                    <select
-                      value={filterStatus}
-                      onChange={(e) => setFilterStatus(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    >
-                      <option value="">All Statuses</option>
-                      <option value="Active">Active</option>
-                      <option value="Inactive">Inactive</option>
-                    </select>
                   </div>
                 </motion.div>
               )}
@@ -435,13 +424,12 @@ export const UsersMaster = () => {
                     <th className="px-4 py-3 font-medium">Role</th>
                     <th className="px-4 py-3 font-medium">Department</th>
                     <th className="px-4 py-3 font-medium">Email</th>
-                    <th className="px-4 py-3 font-medium text-center">Status</th>
                     <th className="px-4 py-3 font-medium text-center">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {isLoading ? (
-                    <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500">Loading users…</td></tr>
+                    <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500">Loading users…</td></tr>
                   ) : filteredRecords.length > 0 ? (
                     pagedRecords.map((record) => (
                       <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
@@ -450,15 +438,6 @@ export const UsersMaster = () => {
                         <td className="px-4 py-3 text-slate-600">{record.role}</td>
                         <td className="px-4 py-3 text-slate-600">{record.department}</td>
                         <td className="px-4 py-3 text-slate-600 truncate max-w-[150px]">{record.email}</td>
-                        <td className="px-4 py-3 text-center">
-                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                            record.status === 'Active'
-                              ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
-                              : 'bg-red-50 text-red-600 border border-red-200'
-                          }`}>
-                            {record.status}
-                          </span>
-                        </td>
                         <td className="px-4 py-3 text-center">
                           <div className="flex items-center justify-center gap-2">
                             <button
@@ -481,7 +460,7 @@ export const UsersMaster = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
+                      <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
                         No users found matching your criteria.
                       </td>
                     </tr>
@@ -656,13 +635,6 @@ export const UsersMaster = () => {
               <section>
                 <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">System Information</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Status <span className="text-red-500">*</span></label>
-                    <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
-                      <option value="Active">Active</option>
-                      <option value="Inactive">Inactive</option>
-                    </select>
-                  </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Remarks</label>
                     <input type="text" maxLength={LIMITS.remarks} value={formData.remarks} onChange={e => setFormData({...formData, remarks: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />

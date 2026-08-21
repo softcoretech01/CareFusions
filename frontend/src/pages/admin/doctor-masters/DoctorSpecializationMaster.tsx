@@ -47,7 +47,6 @@ const mapApiToRecord = (item: any): DoctorSpecializationRecord => ({
 export const DoctorSpecializationMaster = () => {
   const [records, setRecords] = useState<DoctorSpecializationRecord[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -190,7 +189,7 @@ export const DoctorSpecializationMaster = () => {
       r.specializationName.toLowerCase().includes(q) ||
       r.specializationCode.toLowerCase().includes(q) ||
       r.departmentName.toLowerCase().includes(q);
-    return matchesSearch && (!filterStatus || r.status === filterStatus);
+    return matchesSearch;
   });
 
   const { page, setPage, pageSize, total, paged } = usePagination(filteredRecords);
@@ -236,16 +235,7 @@ export const DoctorSpecializationMaster = () => {
                 />
               </div>
               <div className="flex items-center gap-2">
-                <select
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
-                  className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                >
-                  <option value="">All Statuses</option>
-                  <option value="Active">Active</option>
-                  <option value="Inactive">Inactive</option>
-                </select>
-                <button onClick={() => { setSearchTerm(''); setFilterStatus(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
+                <button onClick={() => { setSearchTerm(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
                   <X className="w-4 h-4" />
                 </button>
                 <button onClick={() => exportToExcel(records, 'DoctorSpecializationMaster')} title="Export to Excel" className="p-2 border border-emerald-200 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 transition-colors">
@@ -263,7 +253,6 @@ export const DoctorSpecializationMaster = () => {
                     <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Specialization</th>
                     <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Department</th>
                     <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Description</th>
-                    <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
                     <th className="px-4 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Actions</th>
                   </tr>
                 </thead>
@@ -279,18 +268,10 @@ export const DoctorSpecializationMaster = () => {
                       <td className="px-4 py-3 text-sm text-slate-500 max-w-xs truncate" title={row.description}>
                         {row.description || '-'}
                       </td>
-                      <td className="px-4 py-3">
-                        <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${row.status === 'Inactive' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
-                          {row.status}
-                        </span>
-                      </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-1">
                           <button onClick={() => handleEdit(row)} title="Edit" className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors">
                             <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button onClick={() => handleToggleStatus(row)} title={row.status === 'Active' ? 'Deactivate' : 'Activate'} className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-colors">
-                            <Power className="w-4 h-4" />
                           </button>
                           <button onClick={() => handleDeleteRequest(row)} title="Delete" className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
                             <Trash2 className="w-4 h-4" />
@@ -301,7 +282,7 @@ export const DoctorSpecializationMaster = () => {
                   ))}
                   {paged.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
+                      <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
                         {isLoading ? 'Loading specializations...' : 'No specializations found.'}
                       </td>
                     </tr>
@@ -376,17 +357,6 @@ export const DoctorSpecializationMaster = () => {
                 </select>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Status</label>
-                <select
-                  value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                  className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary/20"
-                >
-                  <option value="Active">Active</option>
-                  <option value="Inactive">Inactive</option>
-                </select>
-              </div>
 
               <div className="md:col-span-3">
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Description</label>

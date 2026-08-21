@@ -89,7 +89,6 @@ export const TestMaster = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [filterSampleType, setFilterSampleType] = useState('');
   const [filterDepartment, setFilterDepartment] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
 
   // Form States
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -263,9 +262,8 @@ export const TestMaster = () => {
     
     const matchesSampleType = !filterSampleType || record.sampleType === filterSampleType;
     const matchesDepartment = !filterDepartment || record.department === filterDepartment;
-    const matchesStatus = !filterStatus || record.status === filterStatus;
 
-    return matchesSearch && matchesSampleType && matchesDepartment && matchesStatus;
+    return matchesSearch && matchesSampleType && matchesDepartment;
   });
 
   const _totalPages = Math.max(1, Math.ceil(filteredRecords.length / itemsPerPage));
@@ -308,7 +306,7 @@ export const TestMaster = () => {
               <button onClick={() => setShowFilters(!showFilters)} title="Filters" className={showFilters ? "p-2 border rounded-lg transition-colors border-primary bg-primary/5 text-primary" : "p-2 border rounded-lg transition-colors border-slate-200 text-slate-500 hover:bg-slate-50"}>
                 <Filter className="w-4 h-4" />
               </button>
-              <button onClick={() => { setSearchTerm(''); setFilterDepartment(''); setFilterSampleType(''); setFilterStatus(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
+              <button onClick={() => { setSearchTerm(''); setFilterDepartment(''); setFilterSampleType(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
                 <X className="w-4 h-4" />
               </button>
               <button onClick={() => exportToExcel(records, 'TestMaster')} title="Export to Excel" className="p-2 border border-emerald-200 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 transition-colors">
@@ -341,15 +339,6 @@ export const TestMaster = () => {
                     >
                       <option value="">All Departments</option>
                       {departments.map(d => <option key={d} value={d}>{d}</option>)}
-                    </select>
-                    <select
-                      value={filterStatus}
-                      onChange={(e) => setFilterStatus(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    >
-                      <option value="">All Statuses</option>
-                      <option value="Active">Active</option>
-                      <option value="Inactive">Inactive</option>
                     </select>
                   </div>
                 </motion.div>

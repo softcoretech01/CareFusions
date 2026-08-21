@@ -71,7 +71,6 @@ export const RolesMaster = () => {
 
   // Filter States
   const [showFilters, setShowFilters] = useState(false);
-  const [filterStatus, setFilterStatus] = useState('');
 
   // Form States
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -213,8 +212,7 @@ export const RolesMaster = () => {
     const matchesSearch =
       record.roleName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       record.roleCode.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = !filterStatus || record.status === filterStatus;
-    return matchesSearch && matchesStatus;
+    return matchesSearch;
   });
 
   const _totalPages = Math.max(1, Math.ceil(filteredRecords.length / itemsPerPage));
@@ -265,7 +263,7 @@ export const RolesMaster = () => {
               <button onClick={() => setShowFilters(!showFilters)} title="Filters" className={showFilters ? "p-2 border rounded-lg transition-colors border-primary bg-primary/5 text-primary" : "p-2 border rounded-lg transition-colors border-slate-200 text-slate-500 hover:bg-slate-50"}>
                 <Filter className="w-4 h-4" />
               </button>
-              <button onClick={() => { setSearchTerm(''); setFilterStatus(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
+              <button onClick={() => { setSearchTerm(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
                 <X className="w-4 h-4" />
               </button>
               <button onClick={() => exportToExcel(records, 'RolesMaster')} title="Export to Excel" className="p-2 border border-emerald-200 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 transition-colors">
@@ -283,15 +281,6 @@ export const RolesMaster = () => {
                   className="border-b border-slate-200 bg-slate-50/50 p-4"
                 >
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <select
-                      value={filterStatus}
-                      onChange={(e) => setFilterStatus(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    >
-                      <option value="">All Statuses</option>
-                      <option value="Active">Active</option>
-                      <option value="Inactive">Inactive</option>
-                    </select>
                   </div>
                 </motion.div>
               )}
@@ -305,13 +294,12 @@ export const RolesMaster = () => {
                     <th className="px-4 py-3 font-medium">Role Name</th>
                     <th className="px-4 py-3 font-medium">Description</th>
                     <th className="px-4 py-3 font-medium text-center">No. of Users</th>
-                    <th className="px-4 py-3 font-medium text-center">Status</th>
                     <th className="px-4 py-3 font-medium text-center">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {isLoading ? (
-                    <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500">Loading roles…</td></tr>
+                    <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-500">Loading roles…</td></tr>
                   ) : filteredRecords.length > 0 ? (
                     pagedRecords.map((record) => (
                       <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
@@ -328,15 +316,6 @@ export const RolesMaster = () => {
                         <td className="px-4 py-3 text-center">
                           <span className="inline-flex items-center justify-center bg-slate-100 text-slate-700 font-medium px-2.5 py-1 rounded-full text-xs min-w-[2rem]">
                             {record.numberOfUsers}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                            record.status === 'Active'
-                              ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
-                              : 'bg-red-50 text-red-600 border border-red-200'
-                          }`}>
-                            {record.status}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-center">
@@ -361,7 +340,7 @@ export const RolesMaster = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
+                      <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
                         No roles found matching your criteria.
                       </td>
                     </tr>
@@ -448,13 +427,6 @@ export const RolesMaster = () => {
               <section>
                 <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">System Information</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Status <span className="text-red-500">*</span></label>
-                    <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
-                      <option value="Active">Active</option>
-                      <option value="Inactive">Inactive</option>
-                    </select>
-                  </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Remarks</label>
                     <input type="text" maxLength={LIMITS.remarks} value={formData.remarks} onChange={e => setFormData({...formData, remarks: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />

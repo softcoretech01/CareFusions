@@ -191,7 +191,6 @@ export const ProfileMaster = () => {
                     <th className="px-4 py-3 font-medium">Department</th>
                     <th className="px-4 py-3 font-medium">Included Tests</th>
                     <th className="px-4 py-3 font-medium text-right">Price (₹)</th>
-                    <th className="px-4 py-3 font-medium text-center">Status</th>
                     <th className="px-4 py-3 font-medium text-center">Action</th>
                   </tr>
                 </thead>
@@ -214,15 +213,6 @@ export const ProfileMaster = () => {
                         </td>
                         <td className="px-4 py-3 text-right font-medium text-slate-700">{record.price}</td>
                         <td className="px-4 py-3 text-center">
-                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                            record.status === 'Active' 
-                              ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' 
-                              : 'bg-red-50 text-red-600 border border-red-200'
-                          }`}>
-                            {record.status}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-center">
                           <div className="flex items-center justify-center gap-2">
                             <button onClick={() => handleEdit(record)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors">
                               <Edit2 className="w-4 h-4" />
@@ -236,7 +226,7 @@ export const ProfileMaster = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
+                      <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
                         No profiles found matching your criteria.
                       </td>
                     </tr>
@@ -300,13 +290,6 @@ export const ProfileMaster = () => {
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Price (₹) <span className="text-red-500">*</span></label>
                     <input type="number" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} maxLength={50} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm ${errors.price ? 'border-red-300' : 'border-slate-200'}`} />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
-                    <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm">
-                      <option value="Active">Active</option>
-                      <option value="Inactive">Inactive</option>
-                    </select>
                   </div>
                 </div>
               </section>

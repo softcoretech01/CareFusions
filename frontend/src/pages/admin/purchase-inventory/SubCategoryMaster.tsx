@@ -61,7 +61,6 @@ export const SubCategoryMaster = () => {
   // Filter States
   const [showFilters, setShowFilters] = useState(false);
   const [filterCategory, setFilterCategory] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
 
   // Form States
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -257,8 +256,7 @@ export const SubCategoryMaster = () => {
         String(val).toLowerCase().includes(searchTerm.toLowerCase())
       );
       const matchesCategory = filterCategory ? record.category === filterCategory : true;
-      const matchesStatus = filterStatus ? record.status === filterStatus : true;
-      return matchesSearch && matchesCategory && matchesStatus;
+      return matchesSearch && matchesCategory;
     });
 
     if (sortConfig.key) {
@@ -274,7 +272,7 @@ export const SubCategoryMaster = () => {
     }
 
     return result;
-  }, [records, searchTerm, filterCategory, filterStatus, sortConfig]);
+  }, [records, searchTerm, filterCategory, sortConfig]);
 
   const totalPages = Math.ceil(processedData.length / itemsPerPage);
   const paginatedData = processedData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -331,7 +329,7 @@ export const SubCategoryMaster = () => {
             >
               <Filter className="w-4 h-4" />
             </button>
-            <button onClick={() => { setSearchTerm(''); setFilterStatus(''); setCurrentPage(1); }} className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors" title="Clear search & filters">
+            <button onClick={() => { setSearchTerm(''); setCurrentPage(1); }} className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors" title="Clear search & filters">
               <X className="w-4 h-4" />
             </button>
             <button onClick={() => exportToExcel(records, 'SubCategoryMaster')} className="p-2 border border-emerald-200 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 transition-colors" title="Export to Excel">
@@ -371,15 +369,6 @@ export const SubCategoryMaster = () => {
                   <option value="">All Categories</option>
                   {allCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                 </select>
-                <select
-                  value={filterStatus}
-                  onChange={(e) => { setFilterStatus(e.target.value); setCurrentPage(1); }}
-                  className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-                >
-                  <option value="">All Statuses</option>
-                  <option value="Active">Active</option>
-                  <option value="Inactive">Inactive</option>
-                </select>
               </div>
             </motion.div>
           )}
@@ -397,9 +386,9 @@ export const SubCategoryMaster = () => {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {isLoading ? (
-                <tr><td colSpan={5} className="py-8 text-center text-slate-500">Loading sub-categories...</td></tr>
+                <tr><td colSpan={4} className="py-8 text-center text-slate-500">Loading sub-categories...</td></tr>
               ) : paginatedData.length === 0 ? (
-                <tr><td colSpan={5} className="py-8 text-center text-slate-500">No records found</td></tr>
+                <tr><td colSpan={4} className="py-8 text-center text-slate-500">No records found</td></tr>
               ) : paginatedData.map((record) => (
                 <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="py-3 px-4 text-slate-800 font-medium">{record.subCategoryCode}</td>

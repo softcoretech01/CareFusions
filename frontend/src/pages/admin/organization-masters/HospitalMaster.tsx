@@ -114,7 +114,6 @@ export const HospitalMaster = () => {
 
   // Filter States
   const [showFilters, setShowFilters] = useState(false);
-  const [filterStatus, setFilterStatus] = useState('');
 
   // ── Fetch all hospitals on mount ──────────────────────────
   const fetchHospitals = async () => {
@@ -331,8 +330,7 @@ export const HospitalMaster = () => {
       r.state.toLowerCase().includes(searchTerm.toLowerCase()) ||
       r.status.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesStatus = filterStatus ? r.status === filterStatus : true;
-    return matchesSearch && matchesStatus;
+    return matchesSearch;
   });
 
   return (
@@ -377,7 +375,7 @@ export const HospitalMaster = () => {
                   <Filter className="w-4 h-4" />
                 </button>
                 <button 
-                  onClick={() => { setSearchTerm(''); setFilterStatus(''); setShowFilters(false); }} 
+                  onClick={() => { setSearchTerm(''); setShowFilters(false); }} 
                   title="Clear search & filters" 
                   className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors"
                 >
@@ -398,15 +396,6 @@ export const HospitalMaster = () => {
                   className="border-b border-slate-100 bg-slate-50 overflow-hidden"
                 >
                   <div className="p-4 flex gap-4">
-                    <select
-                      value={filterStatus}
-                      onChange={(e) => setFilterStatus(e.target.value)}
-                      className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-                    >
-                      <option value="">All Statuses</option>
-                      <option value="Active">Active</option>
-                      <option value="Inactive">Inactive</option>
-                    </select>
                   </div>
                 </motion.div>
               )}
@@ -428,14 +417,13 @@ export const HospitalMaster = () => {
                     <th className="px-6 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider">Registration No</th>
                     <th className="px-6 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider">City</th>
                     <th className="px-6 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider">Contact Number</th>
-                    <th className="px-6 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
                     <th className="px-6 py-2 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={7} className="px-6 py-12 text-center text-slate-400">
+                      <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
                         Loading...
                       </td>
                     </tr>
@@ -448,11 +436,6 @@ export const HospitalMaster = () => {
                           <td className="px-6 py-2 text-sm font-medium text-slate-500">{row.registrationNo}</td>
                           <td className="px-6 py-2 text-sm font-medium text-slate-500">{row.city}</td>
                           <td className="px-6 py-2 text-sm font-medium text-slate-500">{row.contactNumber}</td>
-                          <td className="px-6 py-2">
-                            <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${row.status === 'Inactive' ? 'bg-warning/10 text-warning' : 'bg-success/10 text-success'}`}>
-                              {row.status}
-                            </span>
-                          </td>
                           <td className="px-6 py-2 text-right">
                             <div className="flex items-center justify-end gap-2 transition-opacity">
                               <Button variant="text" color="primary" icon={Edit2} className="!p-2" aria-label="Edit" onClick={() => handleEdit(row)} />
@@ -463,7 +446,7 @@ export const HospitalMaster = () => {
                       ))}
                       {filteredRecords.length === 0 && (
                         <tr>
-                          <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
+                          <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
                             {searchTerm ? `No records found matching "${searchTerm}"` : 'No hospital records found'}
                           </td>
                         </tr>

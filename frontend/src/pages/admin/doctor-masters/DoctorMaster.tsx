@@ -248,7 +248,6 @@ export const DoctorMaster = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [filterSpec, setFilterSpec] = useState('');
   const [filterDept, setFilterDept] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isViewOpen, setIsViewOpen] = useState(false);
@@ -509,9 +508,8 @@ export const DoctorMaster = () => {
 
     const matchesSpec = !filterSpec || record.specialization === filterSpec;
     const matchesDept = !filterDept || record.department === filterDept;
-    const matchesStatus = !filterStatus || record.status === filterStatus;
 
-    return matchesSearch && matchesSpec && matchesDept && matchesStatus;
+    return matchesSearch && matchesSpec && matchesDept;
   });
 
   const _totalPages = Math.max(1, Math.ceil(filteredRecords.length / itemsPerPage));
@@ -562,7 +560,7 @@ export const DoctorMaster = () => {
                 <button onClick={() => setShowFilters(!showFilters)} title="Filters" className={showFilters ? "p-2 border rounded-lg transition-colors border-primary bg-primary/5 text-primary" : "p-2 border rounded-lg transition-colors border-slate-200 text-slate-500 hover:bg-slate-50"}>
                   <Filter className="w-4 h-4" />
                 </button>
-                <button onClick={() => { setSearchTerm(''); setFilterDept(''); setFilterSpec(''); setFilterStatus(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
+                <button onClick={() => { setSearchTerm(''); setFilterDept(''); setFilterSpec(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
                   <X className="w-4 h-4" />
                 </button>
                 <button onClick={() => exportToExcel(records, 'DoctorMaster')} title="Export to Excel" className="p-2 border border-emerald-200 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 transition-colors">
@@ -600,15 +598,6 @@ export const DoctorMaster = () => {
                       <option value="">All Departments</option>
                       <option value="Cardiology">Cardiology</option>
                       <option value="Neurology">Neurology</option>
-                    </select>
-                    <select
-                      value={filterStatus}
-                      onChange={(e) => setFilterStatus(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    >
-                      <option value="">All Statuses</option>
-                      <option value="Active">Active</option>
-                      <option value="Inactive">Inactive</option>
                     </select>
                   </div>
                 </motion.div>

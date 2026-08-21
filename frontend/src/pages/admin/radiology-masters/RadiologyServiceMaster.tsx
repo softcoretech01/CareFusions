@@ -392,8 +392,7 @@ export const RadiologyServiceMaster = () => {
                         <td className="px-4 py-3 font-medium text-slate-800">{record.serviceCode}</td>
                         <td className="px-4 py-3">
                           {record.serviceName}
-                          {record.requiresAppointment && <span className="ml-2 px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px] font-bold" title="Appointment Required">APP</span>}
-                          {record.requiresContrast && <span className="ml-1 px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded text-[10px] font-bold" title="Contrast Required">CON</span>}
+                          {record.requiresContrast && <span className="ml-2 px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded text-[10px] font-bold" title="Contrast Required">CON</span>}
                         </td>
                         <td className="px-4 py-3 text-right font-medium text-slate-700">{record.servicePrice}</td>
                         <td className="px-4 py-3 text-center">

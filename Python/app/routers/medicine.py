@@ -99,7 +99,7 @@ def _call_sp(db: Session, opt: str, medicine_id: int = 0, **kwargs):
 def get_categories(db: Session = Depends(get_db)):
     try:
         result = db.execute(text(
-            "SELECT CategoryId, CategoryName FROM Master_MedicineCategory ORDER BY CategoryName ASC"
+            "SELECT CategoryId, CategoryName FROM Master_MedicineCategory WHERE Status = 'Active' ORDER BY CategoryName ASC"
         ))
         return [{"id": row.CategoryId, "categoryName": row.CategoryName} for row in result.fetchall()]
     except Exception as e:

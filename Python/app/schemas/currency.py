@@ -13,14 +13,12 @@ class StatusEnum(str, Enum):
 # ── Field limits (kept in sync with the frontend LIMITS + DB columns) ──
 CODE_MAX   = 10
 NAME_MAX   = 100
-SYMBOL_MAX = 10
 
 
 # ── Shared field rules ───────────────────────────────────────
 class _CurrencyFields(BaseModel):
     currencyCode: str        = Field(max_length=CODE_MAX)
     currencyName: str        = Field(max_length=NAME_MAX)
-    symbol:       str        = Field(max_length=SYMBOL_MAX)
     # Units of this currency per one unit of the base currency. gt=0 because a
     # zero or negative rate would silently zero out every converted amount.
     exchangeRate: Decimal    = Field(default=Decimal("1"), gt=0, max_digits=14, decimal_places=6)
@@ -35,7 +33,7 @@ class _CurrencyFields(BaseModel):
             raise ValueError("Currency Code is required and cannot be blank")
         return v
 
-    @field_validator("currencyName", "symbol")
+    @field_validator("currencyName")
     @classmethod
     def not_empty(cls, v: str) -> str:
         if not v or not v.strip():
@@ -65,7 +63,6 @@ class CurrencyResponse(BaseModel):
     id:           int
     currencyCode: str
     currencyName: str
-    symbol:       str
     exchangeRate: Decimal
     baseCurrency: bool
     status:       str
