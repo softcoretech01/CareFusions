@@ -6,7 +6,6 @@
 CREATE TABLE IF NOT EXISTS Master_Doctor_Header (
     DoctorId            INT AUTO_INCREMENT PRIMARY KEY,
     DoctorCode          VARCHAR(20) NOT NULL UNIQUE,
-    RegistrationNumber  VARCHAR(100) NOT NULL UNIQUE,
     DoctorName          VARCHAR(255) NOT NULL,
     Gender              ENUM('Male', 'Female', 'Other') NOT NULL,
     DateOfBirth         DATE NULL,
@@ -36,14 +35,10 @@ CREATE TABLE IF NOT EXISTS Master_DoctorProfessional_Detail (
     HospitalName        VARCHAR(255) NOT NULL,
     BranchName          VARCHAR(255) NOT NULL,
     DepartmentName      VARCHAR(255) NOT NULL,
-    Designation         VARCHAR(255) NOT NULL,
-    MedicalCouncil      VARCHAR(255) NULL,
-    Experience          SMALLINT NULL,
+    Designation         VARCHAR(100) NULL,
+    Experience          INT NULL,
     Languages           VARCHAR(500) NULL,
-    DoctorType          ENUM('Full-time', 'Visiting', 'On-call') NULL,
-    ConsultationType    ENUM('OP', 'IP', 'OP/IP') NULL,
     JoiningDate         DATE NULL,
-    LicenseExpiryDate   DATE NULL,
     FOREIGN KEY (DoctorId) REFERENCES Master_Doctor_Header(DoctorId) ON DELETE CASCADE
 );
 
@@ -93,7 +88,6 @@ CREATE PROCEDURE SpMasterDoctor(
     IN p_DoctorId           INT,
     
     -- General
-    IN p_RegistrationNumber VARCHAR(100),
     IN p_DoctorName         VARCHAR(255),
     IN p_Gender             VARCHAR(20),
     IN p_DateOfBirth        DATE,
@@ -113,16 +107,12 @@ CREATE PROCEDURE SpMasterDoctor(
     IN p_HospitalName       VARCHAR(255),
     IN p_BranchName         VARCHAR(255),
     IN p_DepartmentName     VARCHAR(255),
-    IN p_Designation        VARCHAR(255),
-    IN p_MedicalCouncil     VARCHAR(255),
-    IN p_Experience         SMALLINT,
+    IN p_Designation        VARCHAR(100),
+    IN p_Experience         INT,
     IN p_Languages          VARCHAR(500),
-    IN p_DoctorType         VARCHAR(50),
-    IN p_ConsultationType   VARCHAR(50),
     IN p_JoiningDate        DATE,
-    IN p_LicenseExpiryDate  DATE,
     
-    -- Consultation
+    -- Consultation & Billing
     IN p_ConsultationFee    DECIMAL(10,2),
     IN p_FollowUpFee        DECIMAL(10,2),
     IN p_EmergencyFee       DECIMAL(10,2),
@@ -166,11 +156,11 @@ BEGIN
     -- ==================================================================
     IF p_Opt = 'GET' THEN
         SELECT 
-            m.DoctorId, m.DoctorCode, m.RegistrationNumber, m.DoctorName, m.Gender, m.DateOfBirth,
+            m.DoctorId, m.DoctorCode, m.DoctorName, m.Gender, m.DateOfBirth,
             m.Mobile, m.AlternateMobile, m.Email, m.Address1, m.Address2, m.City, m.State, m.Country, m.PostalCode,
             m.Status, m.Remarks, m.CreatedDate, m.CreatedBy, m.ModifiedDate, m.ModifiedBy,
             p.Qualification, p.Specialization, p.HospitalName, p.BranchName, p.DepartmentName, p.Designation,
-            p.MedicalCouncil, p.Experience, p.Languages, p.DoctorType, p.ConsultationType, p.JoiningDate, p.LicenseExpiryDate,
+            p.Experience, p.Languages, p.JoiningDate,
             c.ConsultationFee, c.FollowUpFee, c.EmergencyFee, c.TeleConsultationFee, c.OpDuration, c.MaxPatients, c.AllowOnlineBooking,
             s.AvailableDays, s.FromTime, s.ToTime, s.BreakFrom, s.BreakTo, s.SlotDuration, s.AvailableEmergency, s.AvailableTele,
             d.DoctorPhoto, d.SignatureImage, d.DigitalSignature, d.RegistrationCertificate
@@ -184,9 +174,9 @@ BEGIN
               p_Search IS NULL OR p_Search = '' 
               OR m.DoctorCode LIKE CONCAT('%', p_Search, '%')
               OR m.DoctorName LIKE CONCAT('%', p_Search, '%')
-              OR m.RegistrationNumber LIKE CONCAT('%', p_Search, '%')
               OR m.Mobile LIKE CONCAT('%', p_Search, '%')
               OR p.Specialization LIKE CONCAT('%', p_Search, '%')
+              OR p.DepartmentName LIKE CONCAT('%', p_Search, '%')
           )
         ORDER BY m.DoctorId DESC;
 
@@ -195,11 +185,11 @@ BEGIN
     -- ==================================================================
     ELSEIF p_Opt = 'GETBYID' THEN
         SELECT 
-            m.DoctorId, m.DoctorCode, m.RegistrationNumber, m.DoctorName, m.Gender, m.DateOfBirth,
+            m.DoctorId, m.DoctorCode, m.DoctorName, m.Gender, m.DateOfBirth,
             m.Mobile, m.AlternateMobile, m.Email, m.Address1, m.Address2, m.City, m.State, m.Country, m.PostalCode,
             m.Status, m.Remarks, m.CreatedDate, m.CreatedBy, m.ModifiedDate, m.ModifiedBy,
             p.Qualification, p.Specialization, p.HospitalName, p.BranchName, p.DepartmentName, p.Designation,
-            p.MedicalCouncil, p.Experience, p.Languages, p.DoctorType, p.ConsultationType, p.JoiningDate, p.LicenseExpiryDate,
+            p.Experience, p.Languages, p.JoiningDate,
             c.ConsultationFee, c.FollowUpFee, c.EmergencyFee, c.TeleConsultationFee, c.OpDuration, c.MaxPatients, c.AllowOnlineBooking,
             s.AvailableDays, s.FromTime, s.ToTime, s.BreakFrom, s.BreakTo, s.SlotDuration, s.AvailableEmergency, s.AvailableTele,
             d.DoctorPhoto, d.SignatureImage, d.DigitalSignature, d.RegistrationCertificate
@@ -223,10 +213,10 @@ BEGIN
 
         -- 1. Insert Header
         INSERT INTO Master_Doctor_Header (
-            DoctorCode, RegistrationNumber, DoctorName, Gender, DateOfBirth, Mobile, AlternateMobile, Email,
+            DoctorCode, DoctorName, Gender, DateOfBirth, Mobile, AlternateMobile, Email,
             Address1, Address2, City, State, Country, PostalCode, Status, Remarks, CreatedDate, CreatedBy, IsDeleted
         ) VALUES (
-            v_DoctorCode, p_RegistrationNumber, p_DoctorName, p_Gender, p_DateOfBirth, p_Mobile, p_AlternateMobile, p_Email,
+            v_DoctorCode, p_DoctorName, p_Gender, p_DateOfBirth, p_Mobile, p_AlternateMobile, p_Email,
             p_Address1, p_Address2, p_City, p_State, p_Country, p_PostalCode, p_Status, p_Remarks, CURRENT_TIMESTAMP, p_CreatedBy, 0
         );
         
@@ -235,10 +225,10 @@ BEGIN
         -- 2. Insert Professional
         INSERT INTO Master_DoctorProfessional_Detail (
             DoctorId, Qualification, Specialization, HospitalName, BranchName, DepartmentName, Designation,
-            MedicalCouncil, Experience, Languages, DoctorType, ConsultationType, JoiningDate, LicenseExpiryDate
+            Experience, Languages, JoiningDate
         ) VALUES (
             v_DoctorId, p_Qualification, p_Specialization, p_HospitalName, p_BranchName, p_DepartmentName, p_Designation,
-            p_MedicalCouncil, p_Experience, p_Languages, p_DoctorType, p_ConsultationType, p_JoiningDate, p_LicenseExpiryDate
+            p_Experience, p_Languages, p_JoiningDate
         );
 
         -- 3. Insert Consultation
@@ -275,7 +265,6 @@ BEGIN
         -- 1. Update Header
         UPDATE Master_Doctor_Header
         SET
-            RegistrationNumber = p_RegistrationNumber,
             DoctorName         = p_DoctorName,
             Gender             = p_Gender,
             DateOfBirth        = p_DateOfBirth,
@@ -303,13 +292,9 @@ BEGIN
             BranchName         = p_BranchName,
             DepartmentName     = p_DepartmentName,
             Designation        = p_Designation,
-            MedicalCouncil     = p_MedicalCouncil,
             Experience         = p_Experience,
             Languages          = p_Languages,
-            DoctorType         = p_DoctorType,
-            ConsultationType   = p_ConsultationType,
-            JoiningDate        = p_JoiningDate,
-            LicenseExpiryDate  = p_LicenseExpiryDate
+            JoiningDate        = p_JoiningDate
         WHERE DoctorId = p_DoctorId;
 
         -- 3. Update Consultation

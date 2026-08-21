@@ -20,6 +20,7 @@ class DepartmentCreate(BaseModel):
     departmentType: DepartmentTypeEnum = DepartmentTypeEnum.Clinical
     description:    Optional[str]      = None
     departmentHead: Optional[str]      = None
+    consultationFee: Optional[float]   = None
     status:         StatusEnum         = StatusEnum.Active
     createdBy:      Optional[str]      = None
 
@@ -30,6 +31,7 @@ class DepartmentUpdate(BaseModel):
     departmentType: DepartmentTypeEnum = DepartmentTypeEnum.Clinical
     description:    Optional[str]      = None
     departmentHead: Optional[str]      = None
+    consultationFee: Optional[float]   = None
     status:         StatusEnum         = StatusEnum.Active
     updatedBy:      Optional[str]      = None
 
@@ -42,6 +44,8 @@ class DepartmentResponse(BaseModel):
     departmentType: str
     description:    Optional[str]
     departmentHead: Optional[str]
+    consultationFee: Optional[float] = None
+    doctorsCount:    int             = 0
     status:         str
     createdBy:      Optional[str]
     createdDate:    Optional[datetime]

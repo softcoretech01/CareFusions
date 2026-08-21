@@ -10,19 +10,16 @@ const navigation = [
   { name: 'Dashboard', to: '/admin', icon: LayoutDashboard },
 
   {
-    name: 'Organization', icon: Building2, children: [
-      { name: 'Hospital', to: '/admin/masters/hospital' },
-      { name: 'Branch', to: '/admin/masters/branch' },
+    // Hospital and Branch are hidden from the menu. Their routes and master
+    // screens still exist, so re-adding the two entries brings them back.
+    name: 'Department', module: 'Organization', icon: Building2, children: [
       { name: 'Department', to: '/admin/masters/department' },
     ]
   },
-  {
-    name: 'Doctor', icon: Stethoscope, children: [
-      { name: 'Doctor', to: '/admin/masters/doctor' },
-    ]
-  },
+
   {
     name: 'Employee', icon: UserCog, children: [
+      { name: 'Doctors', to: '/admin/masters/doctor' },
       { name: 'Nurse', to: '/admin/masters/nurse' },
       { name: 'Pharmacist', to: '/admin/masters/pharmacist' },
       { name: 'Lab Technician', to: '/admin/masters/lab-technician' },
@@ -128,7 +125,7 @@ export const Sidebar = () => {
   // Fallback: if no permissions are loaded (e.g. legacy session), show everything.
   const visibleNavigation = permissions.length === 0
     ? navigation
-    : navigation.filter(item => canView(item.name));
+    : navigation.filter(item => canView(item.module || item.name));
 
   return (
     <motion.aside
