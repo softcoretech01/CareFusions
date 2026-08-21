@@ -491,7 +491,7 @@ export const HospitalMaster = () => {
           {/* Form Header */}
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-3xl font-bold text-slate-800">{selectedRecord ? 'Edit Hospital Master' : 'Create Hospital Master'}</h1>
+              <h1 className="text-3xl font-bold text-slate-800">{selectedRecord ? 'Edit Hospital' : 'Create Hospital'}</h1>
               <p className="text-slate-500 mt-1"></p>
             </div>
 

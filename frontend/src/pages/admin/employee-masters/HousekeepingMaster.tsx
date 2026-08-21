@@ -249,7 +249,7 @@ export const HousekeepingMaster = () => {
 
           <div className="flex justify-between items-center mb-4">
             <div>
-              <h1 className="text-2xl font-bold text-slate-800">Housekeeping Master</h1>
+              <h1 className="text-2xl font-bold text-slate-800">Housekeeping</h1>
               <p className="text-slate-500 text-xs">Housekeeping staff, their shift and assigned area</p>
             </div>
             <Button variant="filled" color="primary" icon={Plus} onClick={handleCreateNew}>

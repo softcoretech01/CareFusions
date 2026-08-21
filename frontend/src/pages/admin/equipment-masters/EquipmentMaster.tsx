@@ -415,6 +415,7 @@ export const EquipmentMaster = () => {
                     <th className="px-4 py-3 font-medium">Equipment Code</th>
                     <th className="px-4 py-3 font-medium">Machine Name</th>
                     <th className="px-4 py-3 font-medium">Manufacturer</th>
+                    <th className="px-4 py-3 font-medium">Department</th>
                     <th className="px-4 py-3 font-medium">Model</th>
                     <th className="px-4 py-3 font-medium text-center">Next Maintenance</th>
                     <th className="px-4 py-3 font-medium text-center">Action</th>
@@ -423,7 +424,7 @@ export const EquipmentMaster = () => {
                 <tbody className="divide-y divide-slate-100">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
+                      <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
                         Loading equipment...
                       </td>
                     </tr>
@@ -433,6 +434,7 @@ export const EquipmentMaster = () => {
                         <td className="px-4 py-3 font-medium text-slate-800">{record.equipmentCode}</td>
                         <td className="px-4 py-3">{record.equipmentName}</td>
                         <td className="px-4 py-3 text-slate-600">{record.manufacturer}</td>
+                        <td className="px-4 py-3 text-slate-600">{record.department}</td>
                         <td className="px-4 py-3 text-slate-600">{record.model}</td>
                         <td className="px-4 py-3 text-center text-slate-600">{record.nextMaintenanceDate}</td>
                         <td className="px-4 py-3 text-center">
@@ -457,7 +459,7 @@ export const EquipmentMaster = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
+                      <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
                         No equipment records found matching your criteria.
                       </td>
                     </tr>

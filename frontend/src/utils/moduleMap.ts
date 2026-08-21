@@ -8,7 +8,7 @@ const SLUG_TO_MODULE: Record<string, string> = {
   doctor: 'Doctor', 'doctor-specialization': 'Doctor',
   // Employee
   nurse: 'Employee', pharmacist: 'Employee', 'lab-technician': 'Employee',
-  receptionist: 'Employee', 'facility-management': 'Employee',
+  receptionist: 'Employee',
   // Patient
   'patient-category': 'Patient', 'blood-group': 'Patient', allergy: 'Patient',
   diagnosis: 'Patient', procedure: 'Patient',

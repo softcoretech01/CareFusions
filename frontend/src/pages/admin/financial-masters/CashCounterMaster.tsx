@@ -1,6 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Pagination } from '@/components/ui/Pagination';
-import { usePagination } from '@/hooks/usePagination';
 import {
   Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle,
   Save, RefreshCw, X
@@ -64,7 +62,6 @@ const mapApiToRecord = (item: Record<string, unknown>): CashCounterRecord => ({
 
 export const CashCounterMaster = () => {
   const [records, setRecords] = useState<CashCounterRecord[]>([]);
-  const [hospitalOptions, setHospitalOptions] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -100,17 +97,7 @@ export const CashCounterMaster = () => {
     }
   };
 
-  // Hospitals & branches come from the live masters
-  const fetchLookups = async () => {
-    try {
-      const [hRes] = await Promise.all([
-        fetch(`${API_BASE}/hospitals/`),
-      ]);
-      if (hRes.ok) setHospitalOptions((await hRes.json()).map((h: Record<string, unknown>) => h.name as string));
-    } catch { /* leave options as-is */ }
-  };
-
-  useEffect(() => { fetchCashCounters(); fetchLookups(); }, []);
+  useEffect(() => { fetchCashCounters(); }, []);
 
   const fetchNextCode = async () => {
     setNextCode('');
@@ -145,7 +132,6 @@ export const CashCounterMaster = () => {
     setErrors({});
     setIsFormOpen(true);
     fetchNextCode();
-    fetchLookups();
   };
 
   const handleEdit = (record: CashCounterRecord) => {
@@ -154,7 +140,6 @@ export const CashCounterMaster = () => {
     setFormData(rest);
     setErrors({});
     setIsFormOpen(true);
-    fetchLookups();
   };
 
   const handleDeleteRequest = (record: CashCounterRecord) => {
@@ -223,8 +208,6 @@ export const CashCounterMaster = () => {
     }
   };
 
-  const allHospitals = Array.from(new Set([...hospitalOptions, ...records.map(r => r.hospital)].filter(Boolean))).sort();
-
   const filteredRecords = records.filter(record => {
     const matchesSearch =
       record.counterName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -239,7 +222,6 @@ export const CashCounterMaster = () => {
   const _page = Math.min(currentPage, _totalPages);
   const pagedRecords = filteredRecords.slice((_page - 1) * itemsPerPage, _page * itemsPerPage);
 
-  const { page, setPage, pageSize, total, paged } = usePagination(allHospitals);
 
   return (
     <motion.div
@@ -317,7 +299,59 @@ export const CashCounterMaster = () => {
               )}
             </AnimatePresence>
 
-        <Pagination page={page} pageSize={pageSize} totalItems={total} onPageChange={setPage} />
+            <div className="flex-1 overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-600">
+                  <tr>
+                    <th className="px-4 py-3 font-medium">Counter Code</th>
+                    <th className="px-4 py-3 font-medium">Counter Name</th>
+                    <th className="px-4 py-3 font-medium">Branch</th>
+                    <th className="px-4 py-3 font-medium">Assigned Cashier</th>
+                    <th className="px-4 py-3 font-medium text-center">Status</th>
+                    <th className="px-4 py-3 font-medium text-center">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {isLoading ? (
+                    <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500">Loading cash counters...</td></tr>
+                  ) : filteredRecords.length > 0 ? (
+                    pagedRecords.map((record) => (
+                      <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-4 py-3 font-medium text-slate-800">{record.counterCode}</td>
+                        <td className="px-4 py-3 font-medium text-primary">{record.counterName}</td>
+                        <td className="px-4 py-3 text-slate-600">{record.branch}</td>
+                        <td className="px-4 py-3 text-slate-600 font-medium">{record.assignedUser}</td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
+                            record.status === 'Active'
+                              ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                              : 'bg-red-50 text-red-600 border border-red-200'
+                          }`}>
+                            {record.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            <button onClick={() => handleEdit(record)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors" title="Edit">
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => handleDeleteRequest(record)} className="p-1.5 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
+                        No cash counters found matching your criteria.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
             <div className="flex flex-wrap items-center justify-between gap-3 p-4 border-t border-slate-100 text-sm text-slate-500">
               <div className="flex items-center gap-2">
                 <span>Show</span>

@@ -151,4 +151,23 @@ with engine.connect() as conn:
         except Exception as e:
             print("ERR:", str(e)[:120])
 
+    # The seeds above only set CategoryName, because on a fresh database that
+    # is the only column the table has. Once medicine_category_master.sql has
+    # added CategoryCode, re-running this script leaves those rows with a blank
+    # code and the Category Code column renders empty in the UI. Fill them in
+    # when the column exists. This mirrors SpMasterMedicineCategory GETNEXTCODE,
+    # which derives the code from CategoryId the same way.
+    has_code = conn.execute(text(
+        "SELECT COUNT(*) FROM information_schema.COLUMNS "
+        "WHERE TABLE_SCHEMA = DATABASE() "
+        "AND TABLE_NAME = 'Master_MedicineCategory' "
+        "AND COLUMN_NAME = 'CategoryCode'")).scalar()
+    if has_code:
+        filled = conn.execute(text(
+            "UPDATE Master_MedicineCategory "
+            "SET CategoryCode = CONCAT('CAT-', LPAD(CategoryId, 3, '0')) "
+            "WHERE CategoryCode IS NULL OR CategoryCode = ''")).rowcount
+        conn.commit()
+        print(f"OK: backfilled CategoryCode on {filled} row(s)")
+
 print("\nAll done.")

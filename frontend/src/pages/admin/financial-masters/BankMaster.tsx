@@ -1,6 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Pagination } from '@/components/ui/Pagination';
-import { usePagination } from '@/hooks/usePagination';
 import {
   Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle,
   Save, RefreshCw, X
@@ -256,7 +254,6 @@ export const BankMaster = () => {
   const _page = Math.min(currentPage, _totalPages);
   const pagedRecords = filteredRecords.slice((_page - 1) * itemsPerPage, _page * itemsPerPage);
 
-  const { page, setPage, pageSize, total, paged } = usePagination(allCurrencies);
 
   return (
     <motion.div
@@ -342,7 +339,61 @@ export const BankMaster = () => {
               )}
             </AnimatePresence>
 
-        <Pagination page={page} pageSize={pageSize} totalItems={total} onPageChange={setPage} />
+            <div className="flex-1 overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-600">
+                  <tr>
+                    <th className="px-4 py-3 font-medium">Bank Code</th>
+                    <th className="px-4 py-3 font-medium">Bank Name</th>
+                    <th className="px-4 py-3 font-medium">Account Number</th>
+                    <th className="px-4 py-3 font-medium">Branch</th>
+                    <th className="px-4 py-3 font-medium">IFSC Code</th>
+                    <th className="px-4 py-3 font-medium text-center">Status</th>
+                    <th className="px-4 py-3 font-medium text-center">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {isLoading ? (
+                    <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500">Loading bank accounts...</td></tr>
+                  ) : filteredRecords.length > 0 ? (
+                    pagedRecords.map((record) => (
+                      <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-4 py-3 font-medium text-slate-800">{record.bankCode}</td>
+                        <td className="px-4 py-3 font-medium text-primary">{record.bankName}</td>
+                        <td className="px-4 py-3 text-slate-600 font-mono text-xs">{record.accountNumber}</td>
+                        <td className="px-4 py-3 text-slate-600">{record.branch}</td>
+                        <td className="px-4 py-3 text-slate-600 font-mono text-xs">{record.ifscCode}</td>
+                        <td className="px-4 py-3 text-center">
+                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
+                            record.status === 'Active'
+                              ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                              : 'bg-red-50 text-red-600 border border-red-200'
+                          }`}>
+                            {record.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            <button onClick={() => handleEdit(record)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors" title="Edit">
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => handleDeleteRequest(record)} className="p-1.5 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
+                        No bank accounts found matching your criteria.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
             <div className="flex flex-wrap items-center justify-between gap-3 p-4 border-t border-slate-100 text-sm text-slate-500">
               <div className="flex items-center gap-2">
                 <span>Show</span>
@@ -430,7 +481,7 @@ export const BankMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Currency</label>
                     <select value={formData.currency} onChange={e => setFormData({...formData, currency: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
                       {allCurrencies.length === 0 && <option value="INR">INR</option>}
-                      {paged.map(cur => <option key={cur} value={cur}>{cur}</option>)}
+                      {allCurrencies.map(cur => <option key={cur} value={cur}>{cur}</option>)}
                     </select>
                   </div>
                   <div>

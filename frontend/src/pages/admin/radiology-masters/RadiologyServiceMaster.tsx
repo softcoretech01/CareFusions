@@ -14,7 +14,6 @@ interface RadiologyServiceRecord {
   id: number;
   serviceCode: string;
   serviceName: string;
-  department: string;
   description: string;
   serviceCategory: string;
   estimatedDuration: string;
@@ -40,7 +39,6 @@ type RadiologyServiceForm = Omit<RadiologyServiceRecord, 'id' | 'serviceCode' | 
 
 const emptyData: RadiologyServiceForm = {
   serviceName: '',
-  department: '',
   description: '',
   serviceCategory: '',
   estimatedDuration: '',
@@ -62,7 +60,6 @@ const mapApiToRecord = (item: Record<string, unknown>): RadiologyServiceRecord =
   id:                   item.id                   as number,
   serviceCode:          item.serviceCode          as string,
   serviceName:          item.serviceName          as string,
-  department:           item.department           as string,
   description:          (item.description         as string) ?? '',
   serviceCategory:      item.serviceCategory      as string,
   estimatedDuration:    String(item.estimatedDuration ?? ''),
@@ -105,7 +102,6 @@ const blockDecimalKeys = (e: KeyboardEvent<HTMLInputElement>) => {
 
 export const RadiologyServiceMaster = () => {
   const [records, setRecords] = useState<RadiologyServiceRecord[]>([]);
-  const [departments, setDepartments] = useState<{id: number, departmentName: string}[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -116,7 +112,6 @@ export const RadiologyServiceMaster = () => {
 
   // Filter States
   const [showFilters, setShowFilters] = useState(false);
-  const [filterDepartment, setFilterDepartment] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
 
@@ -143,28 +138,13 @@ export const RadiologyServiceMaster = () => {
     }
   };
 
-  // ── Fetch departments ────────────────────────────────────────
-  const fetchDepartments = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/departments/`);
-      if (res.ok) {
-        const data = await res.json();
-        setDepartments(data.filter((d: any) => d.status === 'Active'));
-      }
-    } catch (err) {
-      console.error('Failed to fetch departments', err);
-    }
-  };
-
   useEffect(() => { 
     fetchRadiologyServices(); 
-    fetchDepartments();
   }, []);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
     if (!formData.serviceName.trim()) newErrors.serviceName = 'Service Name is required';
-    if (!formData.department) newErrors.department = 'Department is required';
     if (!formData.serviceCategory) newErrors.serviceCategory = 'Service Category is required';
 
     if (!formData.estimatedDuration.trim()) newErrors.estimatedDuration = 'Estimated Duration is required';
@@ -233,7 +213,6 @@ export const RadiologyServiceMaster = () => {
     try {
       const body = {
         serviceName:          formData.serviceName.trim(),
-        department:           formData.department,
         description:          formData.description || null,
         serviceCategory:      formData.serviceCategory,
         estimatedDuration:    Number(formData.estimatedDuration),
@@ -296,12 +275,10 @@ export const RadiologyServiceMaster = () => {
     const matchesSearch =
       record.serviceName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       record.serviceCode.toLowerCase().includes(searchTerm.toLowerCase());
-
-    const matchesDepartment = !filterDepartment || record.department === filterDepartment;
     const matchesCategory = !filterCategory || record.serviceCategory === filterCategory;
     const matchesStatus = !filterStatus || record.status === filterStatus;
 
-    return matchesSearch && matchesDepartment && matchesCategory && matchesStatus;
+    return matchesSearch && matchesCategory && matchesStatus;
   });
 
   const _totalPages = Math.max(1, Math.ceil(filteredRecords.length / itemsPerPage));
@@ -352,7 +329,7 @@ export const RadiologyServiceMaster = () => {
               <button onClick={() => setShowFilters(!showFilters)} title="Filters" className={showFilters ? "p-2 border rounded-lg transition-colors border-primary bg-primary/5 text-primary" : "p-2 border rounded-lg transition-colors border-slate-200 text-slate-500 hover:bg-slate-50"}>
                 <Filter className="w-4 h-4" />
               </button>
-              <button onClick={() => { setSearchTerm(''); setFilterCategory(''); setFilterDepartment(''); setFilterStatus(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
+              <button onClick={() => { setSearchTerm(''); setFilterCategory(''); setFilterStatus(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
                 <X className="w-4 h-4" />
               </button>
               <button onClick={() => exportToExcel(records, 'RadiologyServiceMaster')} title="Export to Excel" className="p-2 border border-emerald-200 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 transition-colors">
@@ -370,14 +347,6 @@ export const RadiologyServiceMaster = () => {
                   className="border-b border-slate-200 bg-slate-50/50 p-4"
                 >
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <select
-                      value={filterDepartment}
-                      onChange={(e) => setFilterDepartment(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    >
-                      <option value="">All Departments</option>
-                      {departments.map(d => <option key={d.id} value={d.departmentName}>{d.departmentName}</option>)}
-                    </select>
                     <select
                       value={filterCategory}
                       onChange={(e) => setFilterCategory(e.target.value)}
@@ -406,7 +375,6 @@ export const RadiologyServiceMaster = () => {
                   <tr>
                     <th className="px-4 py-3 font-medium">Service Code</th>
                     <th className="px-4 py-3 font-medium">Service Name</th>
-                    <th className="px-4 py-3 font-medium">Department</th>
                     <th className="px-4 py-3 font-medium text-right">Price (₹)</th>
                     <th className="px-4 py-3 font-medium text-center">Action</th>
                   </tr>
@@ -427,7 +395,6 @@ export const RadiologyServiceMaster = () => {
                           {record.requiresAppointment && <span className="ml-2 px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px] font-bold" title="Appointment Required">APP</span>}
                           {record.requiresContrast && <span className="ml-1 px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded text-[10px] font-bold" title="Contrast Required">CON</span>}
                         </td>
-                        <td className="px-4 py-3 text-slate-600">{record.department}</td>
                         <td className="px-4 py-3 text-right font-medium text-slate-700">{record.servicePrice}</td>
                         <td className="px-4 py-3 text-center">
                           <div className="flex items-center justify-center gap-2">
@@ -508,14 +475,6 @@ export const RadiologyServiceMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Service Name <span className="text-red-500">*</span></label>
                     <input type="text" maxLength={LIMITS.serviceName} value={formData.serviceName} onChange={e => setFormData({...formData, serviceName: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.serviceName ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
                     {errors.serviceName && <p className="text-red-500 text-xs mt-1">{errors.serviceName}</p>}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Department <span className="text-red-500">*</span></label>
-                    <select value={formData.department} onChange={e => setFormData({...formData, department: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.department ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
-                      <option value="">Select Department</option>
-                      {departments.map(d => <option key={d.id} value={d.departmentName}>{d.departmentName}</option>)}
-                    </select>
-                    {errors.department && <p className="text-red-500 text-xs mt-1">{errors.department}</p>}
                   </div>
                   <div className="lg:col-span-2">
                     <label className="block text-sm font-medium text-slate-700 mb-1">Description (Optional)</label>

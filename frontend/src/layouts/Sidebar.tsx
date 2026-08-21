@@ -24,7 +24,6 @@ const navigation = [
       { name: 'Pharmacist', to: '/admin/masters/pharmacist' },
       { name: 'Lab Technician', to: '/admin/masters/lab-technician' },
       { name: 'Receptionist', to: '/admin/masters/receptionist' },
-      { name: 'Facility Management', to: '/admin/masters/facility-management' },
     ]
   },
 
