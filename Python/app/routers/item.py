@@ -35,11 +35,8 @@ def _call_sp(db: Session, opt: str, **kwargs):
         "p_ExpiryRequired":  kwargs.get("expiry_required"),
         "p_Barcode":         kwargs.get("barcode"),
         "p_ItemDescription": kwargs.get("item_description"),
-<<<<<<< HEAD
-=======
         # Added to the SP; not yet on ItemCreate/ItemUpdate, so these bind
         # as NULL until the pricing fields are added to the schema.
->>>>>>> origin/main
         "p_StandardRate":    kwargs.get("standard_rate"),
         "p_SellingPrice":    kwargs.get("selling_price"),
         "p_Status":          kwargs.get("status"),
@@ -48,10 +45,7 @@ def _call_sp(db: Session, opt: str, **kwargs):
         "p_Search":          kwargs.get("search"),
         "p_CategoryFilter":  kwargs.get("category_filter"),
         "p_StatusFilter":    kwargs.get("status_filter"),
-<<<<<<< HEAD
-=======
         # Added to the SP after this router was written.
->>>>>>> origin/main
         "p_InventoryTypeFilter": kwargs.get("inventory_type_filter"),
     }
     sql = text(f"""
