@@ -197,6 +197,7 @@ export const InvestigationProvider = ({ children }: { children: ReactNode }) => 
         tests: (order.tests || []).map((test: any) => ({
           id: `TEST-${test.order_test_id}`,
           name: test.test_name,
+          bodyPart: test.body_part || '',   // ← carry the specific area/note from the doctor
           status: test.status,
           resultValue: test.result_value || '',
           resultFile: test.result_file || '',
@@ -212,6 +213,7 @@ export const InvestigationProvider = ({ children }: { children: ReactNode }) => 
       console.error('[Investigations] radiology orders load failed', e);
     }
   }, []);
+
 
   // Lab orders are loaded by refresh() (called in the mount effect below), so a
   // separate fetchLabOrders is redundant — removed to keep one source of truth.
@@ -278,7 +280,8 @@ export const InvestigationProvider = ({ children }: { children: ReactNode }) => 
           priority: 'Routine',
           tests: order.tests.map(t => ({
             testName: t.name,
-            testCode: t.name
+            testCode: t.testCode || t.name,
+            body_part: t.bodyPart || null,   // ← pass the specific scan area the doctor entered
           }))
         });
         fetchRadiologyOrders();

@@ -1,7 +1,13 @@
 USE hospital;
 
--- Create Rad_Order Table
-CREATE TABLE IF NOT EXISTS Rad_Order (
+-- Every table reference below is schema-qualified on purpose. The bare names
+-- used to resolve against whatever schema the session happened to be on, and
+-- running this from an `admin` connection built a second, orphaned copy of
+-- Rad_Order/Rad_OrderTest there. SpRadOrders only ever reads hospital.*, so
+-- the seeded orders were invisible to the RIS worklist.
+
+-- Create hospital.Rad_Order Table
+CREATE TABLE IF NOT EXISTS hospital.Rad_Order (
     OrderId INT AUTO_INCREMENT PRIMARY KEY,
     OrderNumber VARCHAR(20) NOT NULL UNIQUE,
     Category VARCHAR(20) NOT NULL DEFAULT 'Radiology',
@@ -17,8 +23,8 @@ CREATE TABLE IF NOT EXISTS Rad_Order (
     ModifiedDate DATETIME ON UPDATE CURRENT_TIMESTAMP
 );
 
--- Create Rad_OrderTest Table
-CREATE TABLE IF NOT EXISTS Rad_OrderTest (
+-- Create hospital.Rad_OrderTest Table
+CREATE TABLE IF NOT EXISTS hospital.Rad_OrderTest (
     OrderTestId INT AUTO_INCREMENT PRIMARY KEY,
     OrderId INT NOT NULL,
     TestId INT, -- References admin.Master_RadiologyService (RadiologyServiceId)
@@ -34,7 +40,7 @@ CREATE TABLE IF NOT EXISTS Rad_OrderTest (
     VerifiedBy VARCHAR(150),
     AcknowledgedAt DATETIME,
     AcknowledgedBy VARCHAR(150),
-    FOREIGN KEY (OrderId) REFERENCES Rad_Order(OrderId) ON DELETE CASCADE
+    FOREIGN KEY (OrderId) REFERENCES hospital.Rad_Order(OrderId) ON DELETE CASCADE
 );
 
 -- Drop Stored Procedure if exists
@@ -77,26 +83,26 @@ BEGIN
             rt.OrderTestId, rt.TestId, rt.TestCode, rt.TestName, rt.BodyPart, rt.Status AS TestStatus,
             rt.ResultValue, rt.ResultFile, rt.IsCritical, rt.CompletedAt, rt.VerifiedAt, rt.VerifiedBy,
             rt.AcknowledgedAt, rt.AcknowledgedBy
-        FROM Rad_Order ro
-        LEFT JOIN Rad_OrderTest rt ON ro.OrderId = rt.OrderId
+        FROM hospital.Rad_Order ro
+        LEFT JOIN hospital.Rad_OrderTest rt ON ro.OrderId = rt.OrderId
         LEFT JOIN registration.PatientRegistration pr ON pr.Uhid = ro.Uhid
         LEFT JOIN registration.QuickRegistration   qr ON qr.Uhid = ro.Uhid
         ORDER BY ro.OrderedAt DESC;
 
     ELSEIF p_Action = 'INSERT_ORDER' THEN
-        INSERT INTO Rad_Order (OrderNumber, VisitType, Uhid, PatientName, OrderedBy, CreatedBy)
+        INSERT INTO hospital.Rad_Order (OrderNumber, VisitType, Uhid, PatientName, OrderedBy, CreatedBy)
         VALUES (p_OrderNumber, p_VisitType, p_Uhid, p_PatientName, p_OrderedBy, p_UserId);
         
         SET v_OrderId = LAST_INSERT_ID();
         
-        INSERT INTO Rad_OrderTest (OrderId, TestId, TestCode, TestName, BodyPart, Status)
+        INSERT INTO hospital.Rad_OrderTest (OrderId, TestId, TestCode, TestName, BodyPart, Status)
         VALUES (v_OrderId, p_TestId, p_TestCode, p_TestName, p_BodyPart, 'Pending');
         
         SELECT v_OrderId AS OrderId;
 
     ELSEIF p_Action = 'UPDATE_RESULT' THEN
         -- Update the test status and results
-        UPDATE Rad_OrderTest
+        UPDATE hospital.Rad_OrderTest
         SET 
             ResultValue = p_ResultValue,
             ResultFile = p_ResultFile,
@@ -106,14 +112,14 @@ BEGIN
         WHERE OrderTestId = p_OrderTestId;
         
         -- Check if all tests for this order are completed
-        SET v_OrderId = (SELECT OrderId FROM Rad_OrderTest WHERE OrderTestId = p_OrderTestId);
+        SET v_OrderId = (SELECT OrderId FROM hospital.Rad_OrderTest WHERE OrderTestId = p_OrderTestId);
         
-        IF (SELECT COUNT(*) FROM Rad_OrderTest WHERE OrderId = v_OrderId AND Status != 'Completed') = 0 THEN
-            UPDATE Rad_Order
+        IF (SELECT COUNT(*) FROM hospital.Rad_OrderTest WHERE OrderId = v_OrderId AND Status != 'Completed') = 0 THEN
+            UPDATE hospital.Rad_Order
             SET Status = 'Completed'
             WHERE OrderId = v_OrderId;
-        ELSEIF (SELECT COUNT(*) FROM Rad_OrderTest WHERE OrderId = v_OrderId AND Status = 'Completed') > 0 THEN
-            UPDATE Rad_Order
+        ELSEIF (SELECT COUNT(*) FROM hospital.Rad_OrderTest WHERE OrderId = v_OrderId AND Status = 'Completed') > 0 THEN
+            UPDATE hospital.Rad_Order
             SET Status = 'Partial'
             WHERE OrderId = v_OrderId;
         END IF;
@@ -126,17 +132,17 @@ END //
 DELIMITER ;
 
 -- Insert Seed Data
-TRUNCATE TABLE Rad_OrderTest;
+TRUNCATE TABLE hospital.Rad_OrderTest;
 SET FOREIGN_KEY_CHECKS = 0;
-TRUNCATE TABLE Rad_Order;
+TRUNCATE TABLE hospital.Rad_Order;
 SET FOREIGN_KEY_CHECKS = 1;
 
-INSERT INTO Rad_Order (OrderNumber, Category, VisitType, Uhid, PatientName, OrderedBy, OrderedAt, Status) VALUES
+INSERT INTO hospital.Rad_Order (OrderNumber, Category, VisitType, Uhid, PatientName, OrderedBy, OrderedAt, Status) VALUES
 ('RAD-2026-001', 'Radiology', 'OP', 'UHID-2026-0001', 'John Doe', 'Dr. Smith', DATE_SUB(NOW(), INTERVAL 2 HOUR), 'Pending'),
 ('RAD-2026-002', 'Radiology', 'IP', 'UHID-2026-0002', 'Jane Smith', 'Dr. Adams', DATE_SUB(NOW(), INTERVAL 24 HOUR), 'Partial'),
 ('RAD-2026-003', 'Radiology', 'IP', 'UHID-2026-0008', 'Sneha Gupta', 'Dr. Emily Brown', DATE_SUB(NOW(), INTERVAL 48 HOUR), 'Completed');
 
-INSERT INTO Rad_OrderTest (OrderId, TestId, TestCode, TestName, BodyPart, Status, ResultValue, ResultFile, IsCritical, CompletedAt) VALUES
+INSERT INTO hospital.Rad_OrderTest (OrderId, TestId, TestCode, TestName, BodyPart, Status, ResultValue, ResultFile, IsCritical, CompletedAt) VALUES
 (1, 1, 'XRY01', 'Chest X-Ray', NULL, 'Pending', NULL, NULL, 0, NULL),
 (2, 2, 'USG01', 'Ultrasound Abdomen', NULL, 'Completed', 'Mild fatty liver', 'report_1.pdf', 0, DATE_SUB(NOW(), INTERVAL 12 HOUR)),
 (2, 3, 'CT01', 'CT Head', NULL, 'Pending', NULL, NULL, 0, NULL),

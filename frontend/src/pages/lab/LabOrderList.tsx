@@ -263,7 +263,7 @@ export const LabOrderList = () => {
                       order.status === 'Partial' ? 'bg-amber-100 text-amber-700' :
                         'bg-slate-100 text-slate-600'
                     }`}>
-                    {order.status}
+                    {order.status === 'Verified' ? 'Completed' : order.status === 'Completed' ? 'Result Entered' : order.status}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-center">
@@ -327,7 +327,7 @@ export const LabOrderList = () => {
                                 test.status === 'Verified' ? 'bg-green-100 text-green-700' :
                                   'bg-slate-100 text-slate-600'
                         }`}>
-                        {test.status}
+                        {test.status === 'Verified' ? 'Completed' : test.status === 'Completed' ? 'Result Entered' : test.status}
                       </span>
                     </div>
                   </div>

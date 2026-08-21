@@ -95,7 +95,7 @@ export const ResultViewer: React.FC<ResultViewerProps> = ({ patientId, category,
                     </p>
                   </div>
                   <span className="px-2 py-1 bg-green-100 text-green-700 text-[10px] font-bold rounded-md uppercase flex items-center gap-1 print:hidden">
-                    <CheckCircle className="w-3 h-3" /> {order.status}
+                    <CheckCircle className="w-3 h-3" /> {order.status === 'Verified' ? 'Completed' : order.status}
                   </span>
                 </div>
                 
@@ -107,8 +107,6 @@ export const ResultViewer: React.FC<ResultViewerProps> = ({ patientId, category,
                           <tr>
                             <th className="px-5 py-3 print:py-3 print:px-2">Test Name</th>
                             <th className="px-5 py-3 print:py-3 print:px-2">Result</th>
-                            <th className="px-5 py-3 print:py-3 print:px-2">Reference Range</th>
-                            <th className="px-5 py-3 print:py-3 print:px-2">Unit</th>
                             <th className="px-5 py-3 print:py-3 print:px-2">Status</th>
                             <th className="px-5 py-3 text-center print:hidden">Attachment</th>
                           </tr>
@@ -121,11 +119,9 @@ export const ResultViewer: React.FC<ResultViewerProps> = ({ patientId, category,
                                 {test.resultValue || '-'}
                                 {test.isCritical && <span className="ml-2 text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded uppercase print:bg-transparent print:border print:border-red-600 print:text-red-700">Critical</span>}
                               </td>
-                              <td className="px-5 py-3 text-slate-500 font-mono print:py-3 print:px-2 print:text-slate-700">{test.normalRange || TEST_DEFAULTS[test.name]?.range || '-'}</td>
-                              <td className="px-5 py-3 text-slate-500 print:py-3 print:px-2 print:text-slate-700">{test.unit || TEST_DEFAULTS[test.name]?.unit || '-'}</td>
                               <td className="px-5 py-3 print:py-3 print:px-2">
                                 <span className="text-xs font-bold text-green-600 flex items-center gap-1 print:text-slate-800 print:font-semibold">
-                                  <CheckCircle className="w-3 h-3 print:hidden" /> {test.status}
+                                  <CheckCircle className="w-3 h-3 print:hidden" /> {test.status === 'Verified' ? 'Completed' : test.status}
                                 </span>
                               </td>
                               <td className="px-5 py-3 text-center print:hidden">
