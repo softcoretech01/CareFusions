@@ -213,6 +213,25 @@ def get_doctor_by_id(doctor_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def _default_hospital(db: Session) -> str:
+    """The hospital a new doctor belongs to.
+
+    Hospital and Branch were dropped from the Doctor form, but
+    Master_DoctorProfessional_Detail still declares both columns NOT NULL, so
+    something has to go in. A single-hospital install has exactly one active
+    row; anything else falls back to an empty string rather than failing save.
+    """
+    try:
+        row = db.execute(text(
+            "SELECT HospitalName FROM Master_Hospital "
+            "WHERE IsDeleted = 0 AND Status = 'Active' "
+            "ORDER BY HospitalId LIMIT 1")).fetchone()
+        return row.HospitalName if row else ""
+    except Exception as e:
+        logger.warning(f"[doctors] could not resolve default hospital: {e}")
+        return ""
+
+
 @router.post("/", response_model=DoctorResponse, status_code=status.HTTP_201_CREATED)
 def create_doctor(payload: DoctorCreate, db: Session = Depends(get_db)):
     try:
@@ -234,8 +253,8 @@ def create_doctor(payload: DoctorCreate, db: Session = Depends(get_db)):
             
             "qualification": kwargs["qualification"],
             "specialization": kwargs["specialization"],
-            "hospital": kwargs["hospital"],
-            "branch": kwargs["branch"],
+            "hospital": kwargs["hospital"] or _default_hospital(db),
+            "branch": kwargs["branch"] or "",
             "department": kwargs["department"],
             "designation": kwargs["designation"],
             "experience": kwargs["experience"],
@@ -305,8 +324,8 @@ def update_doctor(doctor_id: int, payload: DoctorUpdate, db: Session = Depends(g
             
             "qualification": kwargs["qualification"],
             "specialization": kwargs["specialization"],
-            "hospital": kwargs["hospital"],
-            "branch": kwargs["branch"],
+            "hospital": kwargs["hospital"] or _default_hospital(db),
+            "branch": kwargs["branch"] or "",
             "department": kwargs["department"],
             "designation": kwargs["designation"],
             "experience": kwargs["experience"],

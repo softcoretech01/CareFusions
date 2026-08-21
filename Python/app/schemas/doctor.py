@@ -30,8 +30,11 @@ class DoctorCreate(BaseModel):
 
     qualification:      str
     specialization:     str
-    hospital:           str
-    branch:             str
+    # The Doctor form no longer collects Hospital or Branch, so both arrive as
+    # null on create. The router fills them in before they reach the SP, where
+    # the columns are still NOT NULL.
+    hospital:           Optional[str]       = None
+    branch:             Optional[str]       = None
     department:         str
     designation:        str
     experience:         Optional[int]       = None
