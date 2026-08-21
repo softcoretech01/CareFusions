@@ -73,12 +73,15 @@ def _call_sp(db: Session, opt: str, medicine_id: int = 0, **kwargs):
         "p_CreatedBy":      safe_value(kwargs.get("created_by")),
         "p_ModifiedBy":     safe_value(kwargs.get("modified_by")),
         "p_Search":         safe_value(kwargs.get("search")),
+        # p_Manufacturer was replaced by p_SubCategory in the SP; the field
+        # is not on MedicineCreate yet, so it binds as NULL for now.
+        "p_SubCategory":    safe_value(kwargs.get("sub_category")),
     }
 
     sql = text(f"""
         CALL {SP_NAME}(
             :p_Opt, :p_MedicineId,
-            :p_MedicineCode, :p_GenericName, :p_Category,
+            :p_MedicineCode, :p_GenericName, :p_Category, :p_SubCategory,
             :p_Strength, :p_DosageForm, :p_Unit,
             :p_BatchTracking, :p_ExpiryRequired, :p_ControlledDrug, :p_ReorderLevel, :p_Barcode,
             :p_PurchasePrice, :p_SellingPrice, :p_Gst,

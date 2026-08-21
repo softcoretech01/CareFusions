@@ -35,6 +35,10 @@ def _call_sp(db: Session, opt: str, **kwargs):
         "p_ExpiryRequired":  kwargs.get("expiry_required"),
         "p_Barcode":         kwargs.get("barcode"),
         "p_ItemDescription": kwargs.get("item_description"),
+        # Added to the SP; not yet on ItemCreate/ItemUpdate, so these bind
+        # as NULL until the pricing fields are added to the schema.
+        "p_StandardRate":    kwargs.get("standard_rate"),
+        "p_SellingPrice":    kwargs.get("selling_price"),
         "p_Status":          kwargs.get("status"),
         "p_CreatedBy":       kwargs.get("created_by"),
         "p_UpdatedBy":       kwargs.get("updated_by"),
@@ -49,7 +53,8 @@ def _call_sp(db: Session, opt: str, **kwargs):
             :p_Opt, :p_ItemId, :p_ItemName, :p_Category, :p_SubCategory, :p_Department,
             :p_Brand, :p_Manufacturer, :p_Vendor, :p_Uom, :p_HsnCode, :p_GstPercentage,
             :p_ReorderLevel, :p_MinStock, :p_MaxStock, :p_ShelfLife, :p_BatchRequired,
-            :p_ExpiryRequired, :p_Barcode, :p_ItemDescription, :p_Status,
+            :p_ExpiryRequired, :p_Barcode, :p_ItemDescription,
+            :p_StandardRate, :p_SellingPrice, :p_Status,
             :p_CreatedBy, :p_UpdatedBy, :p_Search, :p_CategoryFilter, :p_StatusFilter,
             :p_InventoryTypeFilter
         )
