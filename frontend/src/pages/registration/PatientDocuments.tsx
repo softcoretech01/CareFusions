@@ -343,12 +343,21 @@ export const PatientDocuments = () => {
                     type="file"
                     required
                     onChange={(e) => setNewDocFile(e.target.files?.[0] || null)}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-0"
                   />
                   {newDocFile ? (
-                    <div className="text-primary font-medium flex items-center justify-center gap-2">
-                      <FileText className="w-5 h-5" />
-                      {newDocFile.name}
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <div className="text-primary font-medium flex items-center justify-center gap-2 relative z-10 pointer-events-none">
+                        <FileText className="w-5 h-5" />
+                        {newDocFile.name}
+                      </div>
+                      <button 
+                        type="button" 
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.open(URL.createObjectURL(newDocFile), '_blank'); }} 
+                        className="relative z-20 mt-2 px-3 py-1 bg-primary text-white rounded-lg hover:bg-primary/90 text-sm flex items-center gap-2 transition-colors"
+                      >
+                        <Eye className="w-4 h-4" /> View Selected File
+                      </button>
                     </div>
                   ) : (
                     <div className="text-slate-500">

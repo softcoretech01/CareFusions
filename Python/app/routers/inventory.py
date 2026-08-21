@@ -22,13 +22,16 @@ _DOC = ("CALL inventory.SpInvDocument(:p_Opt, :p_DocId, :p_DocType, :p_FromStore
         ":p_DepartmentName, :p_VendorName, :p_ReferenceNo, :p_RequestedBy, :p_ApprovedBy, "
         ":p_Reason, :p_Remarks, :p_Items, :p_FromDate, :p_ToDate, :p_User)")
 
-_STOCK = "CALL inventory.SpInvStock(:p_Opt, :p_StoreId, :p_ItemId, :p_Days, :p_FromDate, :p_ToDate)"
+_STOCK = ("CALL inventory.SpInvStock(:p_Opt, :p_StoreId, :p_ItemId, :p_Days, "
+          ":p_FromDate, :p_ToDate, :p_ItemType)")
 
 _DOC_D = {k: None for k in (
     "p_Opt p_DocId p_DocType p_FromStoreId p_ToStoreId p_DepartmentName p_VendorName "
     "p_ReferenceNo p_RequestedBy p_ApprovedBy p_Reason p_Remarks p_Items p_FromDate "
     "p_ToDate p_User").split()}
-_STOCK_D = {k: None for k in "p_Opt p_StoreId p_ItemId p_Days p_FromDate p_ToDate".split()}
+# p_ItemType was added to the SP after this router was written.
+_STOCK_D = {k: None for k in
+            "p_Opt p_StoreId p_ItemId p_Days p_FromDate p_ToDate p_ItemType".split()}
 
 
 def _doc_sp(db: Session, opt: str, **kw):

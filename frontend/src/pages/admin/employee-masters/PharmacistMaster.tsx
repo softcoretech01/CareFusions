@@ -132,8 +132,7 @@ export const PharmacistMaster = () => {
     if (!formData.pharmacistId.trim()) newErrors.pharmacistId = 'Pharmacist ID is required';    if (!formData.name.trim()) newErrors.name = 'Name is required';
     if (!formData.licenseNumber.trim()) newErrors.licenseNumber = 'License Number is required';
     if (!formData.qualification.trim()) newErrors.qualification = 'Qualification is required';
-    if (!formData.branch) newErrors.branch = 'Branch is required';
-    if (!formData.pharmacy) newErrors.pharmacy = 'Pharmacy is required';
+        if (!formData.pharmacy) newErrors.pharmacy = 'Pharmacy is required';
     if (!formData.mobile.trim()) newErrors.mobile = 'Mobile is required';
 
     // Uniqueness checks
@@ -568,7 +567,7 @@ export const PharmacistMaster = () => {
                           type="file"
                           accept="image/*,.pdf"
                           onChange={(e) => handleFileUpload(e, doc.field)}
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-0"
                         />
                       </div>
                     </div>

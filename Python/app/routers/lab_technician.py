@@ -132,26 +132,26 @@ def create_lab_technician(technician: LabTechnicianCreate, db: Session = Depends
     try:
         kwargs = technician.model_dump(by_alias=False)
         mapped = {
-            "employee_code": kwargs["employeeCode"],
-            "name": kwargs["name"],
-            "qualification": kwargs["qualification"],
-            "department": kwargs["department"],
-            "laboratory": kwargs["laboratory"],
-            "hospital": kwargs["hospital"],
-            "branch": kwargs["branch"],
-            "mobile": kwargs["mobile"],
-            "email": kwargs["email"],
-            "address": kwargs["address"],
-            "joining_date": kwargs["joiningDate"],
-            "experience": kwargs["experience"],
-            "shift": kwargs["shift"],
-            "manager": kwargs["manager"],
-            "profilePhoto": kwargs["profilePhoto"],
-            "qualificationCertificate": kwargs["qualificationCertificate"],
-            "idProof": kwargs["idProof"],
-            "status": kwargs["status"],
-            "remarks": kwargs["remarks"],
-            "created_by": kwargs["createdBy"]
+            "employee_code": kwargs.get("employeeCode"),
+            "name": kwargs.get("name"),
+            "qualification": kwargs.get("qualification"),
+            "department": kwargs.get("department"),
+            "laboratory": kwargs.get("laboratory"),
+            "hospital": kwargs.get("hospital"),
+            "branch": kwargs.get("branch"),
+            "mobile": kwargs.get("mobile"),
+            "email": kwargs.get("email"),
+            "address": kwargs.get("address"),
+            "joining_date": kwargs.get("joiningDate"),
+            "experience": kwargs.get("experience"),
+            "shift": kwargs.get("shift"),
+            "manager": kwargs.get("manager"),
+            "profilePhoto": kwargs.get("profilePhoto"),
+            "qualificationCertificate": kwargs.get("qualificationCertificate"),
+            "idProof": kwargs.get("idProof"),
+            "status": kwargs.get("status"),
+            "remarks": kwargs.get("remarks"),
+            "created_by": kwargs.get("createdBy")
         }
         
         result = _call_sp(db, "INSERT", **mapped)
@@ -172,26 +172,26 @@ def update_lab_technician(technician_id: int, technician: LabTechnicianUpdate, d
     try:
         kwargs = technician.model_dump(by_alias=False)
         mapped = {
-            "employee_code": kwargs["employeeCode"],
-            "name": kwargs["name"],
-            "qualification": kwargs["qualification"],
-            "department": kwargs["department"],
-            "laboratory": kwargs["laboratory"],
-            "hospital": kwargs["hospital"],
-            "branch": kwargs["branch"],
-            "mobile": kwargs["mobile"],
-            "email": kwargs["email"],
-            "address": kwargs["address"],
-            "joining_date": kwargs["joiningDate"],
-            "experience": kwargs["experience"],
-            "shift": kwargs["shift"],
-            "manager": kwargs["manager"],
-            "profilePhoto": kwargs["profilePhoto"],
-            "qualificationCertificate": kwargs["qualificationCertificate"],
-            "idProof": kwargs["idProof"],
-            "status": kwargs["status"],
-            "remarks": kwargs["remarks"],
-            "modified_by": kwargs["modifiedBy"]
+            "employee_code": kwargs.get("employeeCode"),
+            "name": kwargs.get("name"),
+            "qualification": kwargs.get("qualification"),
+            "department": kwargs.get("department"),
+            "laboratory": kwargs.get("laboratory"),
+            "hospital": kwargs.get("hospital"),
+            "branch": kwargs.get("branch"),
+            "mobile": kwargs.get("mobile"),
+            "email": kwargs.get("email"),
+            "address": kwargs.get("address"),
+            "joining_date": kwargs.get("joiningDate"),
+            "experience": kwargs.get("experience"),
+            "shift": kwargs.get("shift"),
+            "manager": kwargs.get("manager"),
+            "profilePhoto": kwargs.get("profilePhoto"),
+            "qualificationCertificate": kwargs.get("qualificationCertificate"),
+            "idProof": kwargs.get("idProof"),
+            "status": kwargs.get("status"),
+            "remarks": kwargs.get("remarks"),
+            "modified_by": kwargs.get("modifiedBy")
         }
         
         _call_sp(db, "UPDATE", technician_id=technician_id, **mapped)

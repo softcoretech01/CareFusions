@@ -41,6 +41,8 @@ def _call_sp(db: Session, opt: str, **kwargs):
         "p_Search":          kwargs.get("search"),
         "p_CategoryFilter":  kwargs.get("category_filter"),
         "p_StatusFilter":    kwargs.get("status_filter"),
+        # Added to the SP after this router was written.
+        "p_InventoryTypeFilter": kwargs.get("inventory_type_filter"),
     }
     sql = text(f"""
         CALL {SP_NAME}(
@@ -48,7 +50,8 @@ def _call_sp(db: Session, opt: str, **kwargs):
             :p_Brand, :p_Manufacturer, :p_Vendor, :p_Uom, :p_HsnCode, :p_GstPercentage,
             :p_ReorderLevel, :p_MinStock, :p_MaxStock, :p_ShelfLife, :p_BatchRequired,
             :p_ExpiryRequired, :p_Barcode, :p_ItemDescription, :p_Status,
-            :p_CreatedBy, :p_UpdatedBy, :p_Search, :p_CategoryFilter, :p_StatusFilter
+            :p_CreatedBy, :p_UpdatedBy, :p_Search, :p_CategoryFilter, :p_StatusFilter,
+            :p_InventoryTypeFilter
         )
     """)
     return db.execute(sql, params)

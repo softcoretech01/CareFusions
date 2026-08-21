@@ -6,6 +6,7 @@ class RadiologyTestBase(BaseModel):
     test_id: Optional[int] = None
     test_code: Optional[str] = None
     test_name: str
+    body_part: Optional[str] = None
     status: str
     result_value: Optional[str] = None
     result_file: Optional[str] = None

@@ -40,33 +40,44 @@ const TestResultEditor = ({ test, handleSaveResult, patientId }: any) => {
           <input
             type="file"
             accept=".pdf,.png,.jpg,.jpeg"
-            disabled={test.status === 'Verified'}
-            className={`w-full px-3 py-1.5 border rounded-lg text-sm focus:outline-none focus:border-blue-500 file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 ${test.status === 'Verified' ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-white border-slate-200'}`}
-            onChange={async (e) => {
-              if (e.target.files && e.target.files.length > 0) {
-                const file = e.target.files[0];
-                if (patientId) {
-                  const formData = new FormData();
-                  formData.append('uhid', patientId);
-                  formData.append('documentType', 'Lab Result');
-                  formData.append('file', file);
-                  try {
-                    await axios.post(`${API_BASE}/documents/`, formData, {
-                      headers: { 'Content-Type': 'multipart/form-data' }
-                    });
-                    toast.success('File uploaded successfully');
+              disabled={test.status === 'Verified'}
+              className={`w-full px-3 py-1.5 border rounded-lg text-sm focus:outline-none focus:border-blue-500 file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 ${test.status === 'Verified' ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-white border-slate-200'}`}
+              onChange={async (e) => {
+                if (e.target.files && e.target.files.length > 0) {
+                  const file = e.target.files[0];
+                  if (patientId) {
+                    const formData = new FormData();
+                    formData.append('uhid', patientId);
+                    formData.append('documentType', 'Lab Result');
+                    formData.append('file', file);
+                    try {
+                      await axios.post(`${API_BASE}/documents/`, formData, {
+                        headers: { 'Content-Type': 'multipart/form-data' }
+                      });
+                      toast.success('File uploaded successfully');
+                      handleSaveResult(test.id, localValue, file.name);
+                    } catch (err) {
+                      toast.error('Failed to upload file');
+                    }
+                  } else {
                     handleSaveResult(test.id, localValue, file.name);
-                  } catch (err) {
-                    toast.error('Failed to upload file');
-                    handleSaveResult(test.id, localValue, file.name); // save the name anyway if it fails
                   }
-                } else {
-                  handleSaveResult(test.id, localValue, file.name);
                 }
-              }
             }}
           />
-          {test.resultFile && <p className="text-xs text-blue-600 mt-1 font-medium">Uploaded: {test.resultFile}</p>}
+          {test.resultFile && (
+            <div className="flex items-center gap-2 mt-1">
+              <p className="text-xs text-blue-600 font-medium">Uploaded: {test.resultFile}</p>
+              <button
+                type="button"
+                onClick={() => window.open(`${API_BASE.replace('/api/v1', '')}/media/documents/${test.resultFile}`, '_blank')}
+                className="p-1 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition-colors"
+                title="View Result File"
+              >
+                <Eye className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

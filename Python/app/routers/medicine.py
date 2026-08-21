@@ -79,7 +79,7 @@ def _call_sp(db: Session, opt: str, medicine_id: int = 0, **kwargs):
         CALL {SP_NAME}(
             :p_Opt, :p_MedicineId,
             :p_MedicineCode, :p_GenericName, :p_Category,
-            :p_Manufacturer, :p_Strength, :p_DosageForm, :p_Unit,
+            :p_Strength, :p_DosageForm, :p_Unit,
             :p_BatchTracking, :p_ExpiryRequired, :p_ControlledDrug, :p_ReorderLevel, :p_Barcode,
             :p_PurchasePrice, :p_SellingPrice, :p_Gst,
             :p_Status, :p_Remarks,

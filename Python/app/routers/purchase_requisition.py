@@ -30,6 +30,8 @@ def _call_sp(db: Session, action: str, **kwargs):
         "p_PrNo": kwargs.get("pr_no"),
         "p_RequisitionDate": kwargs.get("requisition_date"),
         "p_Department": kwargs.get("department"),
+        # Added to the SP after this router was written.
+        "p_InventoryType": kwargs.get("inventory_type"),
         "p_RequestedBy": kwargs.get("requested_by"),
         "p_Priority": kwargs.get("priority"),
         "p_RequiredDate": kwargs.get("required_date"),
@@ -45,7 +47,8 @@ def _call_sp(db: Session, action: str, **kwargs):
 
     sql = text(f"""
         CALL {SP_NAME}(
-            :p_Action, :p_PrId, :p_PrNo, :p_RequisitionDate, :p_Department, :p_RequestedBy, :p_Priority,
+            :p_Action, :p_PrId, :p_PrNo, :p_RequisitionDate, :p_Department, :p_InventoryType,
+            :p_RequestedBy, :p_Priority,
             :p_RequiredDate, :p_Purpose, :p_Remarks, :p_TotalItems, :p_EstimatedCost,
             :p_ApprovalStatus, :p_CurrentStage, :p_CreatedBy, :p_ItemsJSON
         )
