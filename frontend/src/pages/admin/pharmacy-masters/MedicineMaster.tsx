@@ -193,11 +193,24 @@ export const MedicineMaster = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleCreateNew = () => {
+  const handleCreateNew = async () => {
     setSelectedRecord(null);
-    // Auto-generate next MED-XXX code
-    const nextNum = records.length + 1;
-    const nextCode = `MED-${String(nextNum).padStart(3, '0')}`;
+    // Fetch the real next code from the backend so it matches the DB sequence
+    let nextCode = 'MED-001';
+    try {
+      const res = await fetch(`${API_BASE}/medicines/next-code`);
+      if (res.ok) {
+        const data = await res.json();
+        nextCode = data.medicineCode || nextCode;
+      }
+    } catch {
+      // fallback: compute locally if the endpoint is unreachable
+      const maxNum = records.reduce((max, r) => {
+        const m = r.medicineCode.match(/(\d+)$/);
+        return m ? Math.max(max, parseInt(m[1])) : max;
+      }, 0);
+      nextCode = `MED-${String(maxNum + 1).padStart(3, '0')}`;
+    }
     setFormData({ ...emptyData, medicineCode: nextCode });
     setErrors({});
     setIsFormOpen(true);

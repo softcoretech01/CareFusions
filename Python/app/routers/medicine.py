@@ -119,6 +119,24 @@ def get_all(search: Optional[str] = None, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ─── NEXT CODE ────────────────────────────────────────────────────────────────
+# NOTE: declared BEFORE /{medicine_id} so "next-code" is not swallowed as an ID.
+@router.get("/next-code")
+def get_next_code(db: Session = Depends(get_db)):
+    """Return the next auto-generated MedicineCode so the UI shows a preview."""
+    try:
+        row = db.execute(text(
+            "SELECT CONCAT('MED-', LPAD(COALESCE(MAX(CAST(SUBSTRING_INDEX(MedicineCode, '-', -1) AS UNSIGNED)), 0) + 1, 3, '0')) AS medicineCode "
+            "FROM hospital.Master_Medicine"
+        )).fetchone()
+        return {"medicineCode": row.medicineCode if row and row.medicineCode else "MED-001"}
+    except Exception as e:
+        logger.error(f"[GET /medicines/next-code] {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
+
 # ─── GET BY ID ────────────────────────────────────────────────────────────────
 @router.get("/{medicine_id}", response_model=MedicineResponse)
 def get_by_id(medicine_id: int, db: Session = Depends(get_db)):

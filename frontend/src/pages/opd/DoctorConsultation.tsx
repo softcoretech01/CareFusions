@@ -60,7 +60,7 @@ export const DoctorConsultation = () => {
 
   const { appointments, updateAppointmentStatus } = useAppointments();
   const { requestAdmission, patients } = useIPD();
-  const { addOrder: addGlobalInvestigationOrder } = useInvestigations();
+  const { addOrder: addGlobalInvestigationOrder, orders: globalOrders } = useInvestigations();
 
   const navigate = useNavigate();
 
@@ -176,10 +176,16 @@ export const DoctorConsultation = () => {
 
   // Prescription State
   const [rxForm, setRxForm] = useState({
-    type: 'Tablet' as PrescriptionItem['type'],
+    type: '' as PrescriptionItem['type'],
     medicineId: '' as number | '',
     medicineName: '',
     quantity: '',
+    freqM: false,
+    freqA: false,
+    freqN: false,
+    duration: '',
+    instructions: '',
+    uom: '',   // auto-filled from medicine master unit
   });
 
   // Lab local state (checked IDs)
@@ -246,20 +252,53 @@ export const DoctorConsultation = () => {
       toast.error('Select a medicine');
       return;
     }
+
+    let finalQty = rxForm.quantity.trim();
+    let freqParts = [];
+    if (rxForm.freqM || rxForm.freqA || rxForm.freqN) {
+      const m = rxForm.freqM ? '1' : '0';
+      const a = rxForm.freqA ? '1' : '0';
+      const n = rxForm.freqN ? '1' : '0';
+      freqParts.push(`${m}-${a}-${n}`);
+    }
+    
+    if (rxForm.duration) {
+      freqParts.push(`(${rxForm.duration})`);
+    }
+    
+    if (freqParts.length > 0) {
+      finalQty += finalQty ? ` | ${freqParts.join(' ')}` : freqParts.join(' ');
+    }
+    
+    if (rxForm.instructions) {
+      finalQty += finalQty ? ` - ${rxForm.instructions}` : rxForm.instructions;
+    }
+
+    if (!finalQty.trim()) {
+      finalQty = 'As directed';
+    }
+
     const item: PrescriptionItem = {
       id: Date.now().toString(),
       type: rxForm.type,
-      // Persisted alongside the name so the line can be dispensed and priced
-      // reliably; the name stays as the snapshot of what was written.
       medicineId: typeof rxForm.medicineId === 'number' ? rxForm.medicineId : undefined,
       medicineName: rxForm.medicineName,
-      quantity: rxForm.quantity,
+      quantity: finalQty.trim(),
       alerts: [],
     };
+    
     addPrescription(visit.id, item);
-    setRxForm({ type: 'Tablet', medicineId: '', medicineName: '', quantity: '1' });
+    setRxForm({ 
+      type: '' as PrescriptionItem['type'], 
+      medicineId: '', 
+      medicineName: '', 
+      quantity: '',
+      freqM: false, freqA: false, freqN: false, 
+      duration: '', instructions: '', uom: '' 
+    });
     toast.success('Added to prescription');
   };
+
 
   const toggleLabOrder = (test: ApiLabTest) => {
     const isSelected = selectedLabs.includes(test.code);
@@ -355,6 +394,45 @@ export const DoctorConsultation = () => {
   };
 
   const handleUpdateEMR = () => {
+    // Find tests that aren't in globalOrders yet
+    const existingRadOrders = globalOrders.filter(o => o.category === 'Radiology' && o.patientId === visit.uhid);
+    const existingRadTestNames = new Set(existingRadOrders.flatMap(o => o.tests.map(t => t.name)));
+
+    const newRadTests = visit.radiologyOrders.filter(r => !existingRadTestNames.has(r.serviceName || r.bodyPart));
+
+    if (newRadTests.length > 0) {
+      addGlobalInvestigationOrder({
+        id: `RAD-${Date.now().toString().slice(-6)}`,
+        type: 'OP',
+        category: 'Radiology',
+        patientId: visit.uhid,
+        patientName: visit.patientName,
+        orderedBy: visit.doctorName || 'Unknown',
+        orderedAt: new Date().toISOString(),
+        tests: newRadTests.map(r => ({ id: Math.random().toString(36).substring(2, 10) + Date.now().toString(36), name: r.serviceName || r.bodyPart, bodyPart: r.bodyPart, status: 'Pending' })),
+        status: 'Pending'
+      });
+    }
+
+    const existingLabOrders = globalOrders.filter(o => o.category === 'Lab' && o.patientId === visit.uhid);
+    const existingLabTestNames = new Set(existingLabOrders.flatMap(o => o.tests.map(t => t.name)));
+
+    const newLabTests = visit.labOrders.filter(l => !existingLabTestNames.has(l.testName));
+
+    if (newLabTests.length > 0) {
+      addGlobalInvestigationOrder({
+        id: `LAB-${Date.now().toString().slice(-6)}`,
+        type: 'OP',
+        category: 'Lab',
+        patientId: visit.uhid,
+        patientName: visit.patientName,
+        orderedBy: visit.doctorName || 'Unknown',
+        orderedAt: new Date().toISOString(),
+        tests: newLabTests.map(l => ({ id: Math.random().toString(36).substring(2, 10) + Date.now().toString(36), name: l.testName, status: 'Pending' })),
+        status: 'Pending'
+      });
+    }
+
     toast.success('EMR Updated Successfully');
     navigate(-1);
   };
@@ -564,43 +642,13 @@ export const DoctorConsultation = () => {
             <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6">
               <h3 className="font-bold text-slate-800 mb-4">Add Medicine</h3>
 
-              <div className="flex items-end gap-3 mb-6 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                <div className="w-1/4">
-                  <label className={labelCls}>Type</label>
-                  <select
-                    value={rxForm.type}
-                    onChange={e => {
-                      const newType = e.target.value as any;
-                      setRxForm(f => {
-                        const newState = { ...f, type: newType };
-                        // If type is selected, filter medicines. If current medicine doesn't match, clear it (or select first)
-                        if (newType) {
-                          // Drop the current pick when it is not of the newly
-                          // chosen form; the picker is then filtered to it.
-                          const current = apiMedicines.find(m => m.id === f.medicineId);
-                          if (current && current.dosageForm !== newType) {
-                            newState.medicineId = '';
-                            newState.medicineName = '';
-                          }
-                        }
-                        return newState;
-                      });
-                    }}
-                    className={inputCls}
-                  >
-                    <option value="">Select Type</option>
-                    {(uniqueDosageForms.length > 0 ? uniqueDosageForms : ['Tablet', 'Injection', 'Syrup', 'Capsule', 'Ointment', 'Drops']).map((t: any) => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex-1">
+              <div className="flex items-start gap-4 mb-6 bg-slate-50 p-4 pb-8 rounded-2xl border border-slate-100">
+                <div className="flex-1 relative">
                   <label className={labelCls}>Medicine</label>
                   <MedicineSearch
                     value={rxForm.medicineId}
-                    dosageForm={rxForm.type || undefined}
                     hint={selectedStock === undefined ? null : (
-                      <div className="mt-1 flex items-center gap-2 text-xs">
+                      <div className="absolute top-full mt-1.5 left-0 flex items-center gap-2 text-xs">
                         <span className={`px-2 py-0.5 rounded-full font-medium ${
                           selectedStock <= 0 ? 'bg-red-50 text-red-600'
                             : selectedStock < 10 ? 'bg-amber-50 text-amber-700'
@@ -609,40 +657,84 @@ export const DoctorConsultation = () => {
                             ? 'Out of stock at pharmacy'
                             : `${selectedStock} in stock at pharmacy`}
                         </span>
-                        {selectedStock <= 0 && typeof rxForm.medicineId === 'number' && (
-                          <button
-                            type="button"
-                            onClick={() => raisePrFor(rxForm.medicineId as number)}
-                            className="px-2 py-0.5 rounded-full border border-primary/30 text-primary font-medium hover:bg-primary/5"
-                          >
-                            Raise PR
-                          </button>
-                        )}
                       </div>
                     )}
                     onSelect={m => setRxForm(f => ({
                       ...f,
                       medicineId: m ? m.id : '',
                       medicineName: m ? medicineLabel(m) : '',
-                      // Selecting a medicine settles its form, so the Type box
-                      // follows the master rather than the doctor re-picking it.
-                      ...(m?.dosageForm ? { type: m.dosageForm as PrescriptionItem['type'] } : {}),
+                      type: m?.dosageForm ? (m.dosageForm as PrescriptionItem['type']) : f.type,
+                      uom: m?.unit || '',
                     }))}
                   />
                 </div>
-                <div className="w-36">
-                  <label className={labelCls}>{UOM_MAP[rxForm.type] || 'QTY'}</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 1-0-1 or 2"
-                    value={rxForm.quantity}
-                    onChange={e => setRxForm(f => ({ ...f, quantity: e.target.value }))}
-                    className={`${inputCls} w-full`}
-                  />
+                
+                <div className="w-[420px] shrink-0">
+                  <label className={labelCls}>
+                    {rxForm.uom ? `Dosage Frequency (${rxForm.uom})` : 'Dosage Frequency'}
+                  </label>
+                  
+                  <div className="flex items-center gap-3 mb-2">
+                    <input
+                      type="text"
+                      placeholder="Qty (e.g. 10 or 1 Strip)"
+                      value={rxForm.quantity}
+                      onChange={e => setRxForm(f => ({ ...f, quantity: e.target.value }))}
+                      className="w-[140px] px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary h-[42px]"
+                    />
+                    
+                    <div className="flex-1 flex items-center justify-between bg-white border border-slate-200 rounded-xl px-4 py-2.5 h-[42px]">
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          checked={rxForm.freqM}
+                          onChange={e => setRxForm(f => ({ ...f, freqM: e.target.checked }))}
+                          className="w-4 h-4 rounded text-primary focus:ring-primary border-slate-300" 
+                        />
+                        <span className="text-sm font-bold text-slate-700">Mor</span>
+                      </label>
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          checked={rxForm.freqA}
+                          onChange={e => setRxForm(f => ({ ...f, freqA: e.target.checked }))}
+                          className="w-4 h-4 rounded text-primary focus:ring-primary border-slate-300" 
+                        />
+                        <span className="text-sm font-bold text-slate-700">Aft</span>
+                      </label>
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          checked={rxForm.freqN}
+                          onChange={e => setRxForm(f => ({ ...f, freqN: e.target.checked }))}
+                          className="w-4 h-4 rounded text-primary focus:ring-primary border-slate-300" 
+                        />
+                        <span className="text-sm font-bold text-slate-700">Night</span>
+                      </label>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-2 mt-2">
+                    <input
+                      type="text"
+                      placeholder="Duration (e.g. 5 Days)"
+                      value={rxForm.duration}
+                      onChange={e => setRxForm(f => ({ ...f, duration: e.target.value }))}
+                      className="w-[140px] px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-primary"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Instructions (e.g. After Food)"
+                      value={rxForm.instructions}
+                      onChange={e => setRxForm(f => ({ ...f, instructions: e.target.value }))}
+                      className="flex-1 px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-primary"
+                    />
+                  </div>
                 </div>
+
                 <button
                   onClick={handleAddPrescription}
-                  className="px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors h-[42px] flex items-center justify-center shrink-0"
+                  className="px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors h-[42px] flex items-center justify-center shrink-0 mt-[26px]"
                 >
                   <Plus className="w-4 h-4 mr-1" /> Add
                 </button>

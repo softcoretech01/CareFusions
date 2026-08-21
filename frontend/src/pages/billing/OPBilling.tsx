@@ -215,14 +215,13 @@ export const OPBilling = () => {
       book[String(name ?? '').trim().toLowerCase()];
 
     const consultFee =
-      lookup(doctorFees, visit.doctorName)
-      ?? lookup(deptFees, visit.department)
+      lookup(deptFees, visit.department)
       ?? DEFAULT_CONSULT_FEE;
 
     const newItems: BillItem[] = [
       {
         id: 'ITM-CONSULT',
-        description: `Consultation Fee (${visit.doctorName || 'General'})`,
+        description: `Consultation Fee (${visit.department || 'General'})`,
         price: consultFee,
         qty: 1,
         total: consultFee,
@@ -261,7 +260,7 @@ export const OPBilling = () => {
         const itemPrice = pres.price || 0;
         newItems.push({
           id: `PRES-${idx}`,
-          description: `Medicine: ${pres.medicineName || 'Prescription'}`,
+          description: `Medicine: ${pres.medicineName || 'Prescription'} (${pres.quantity || ''})`.trim(),
           price: itemPrice,
           qty: isNaN(itemQty) ? 1 : itemQty,
           total: itemPrice * (isNaN(itemQty) ? 1 : itemQty)

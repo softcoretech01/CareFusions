@@ -49,10 +49,10 @@ export const DepartmentConsultations = () => {
     return defaultStatus;
   };
 
-  const getRadStatus = (uhid: string, testName: string, defaultStatus: string) => {
+  const getRadStatus = (uhid: string, serviceName: string, bodyPart: string, defaultStatus: string) => {
     const patientOrders = globalOrders.filter((o: any) => o.patientId === uhid && o.category === 'Radiology');
     for (const o of patientOrders) {
-      const t = o.tests.find((x: any) => x.name === testName);
+      const t = o.tests.find((x: any) => x.name === (serviceName || bodyPart) || x.bodyPart === bodyPart);
       if (t && (t.status === 'Completed' || t.status === 'Verified')) {
         return 'Completed';
       }
@@ -223,9 +223,9 @@ export const DepartmentConsultations = () => {
                         {visit.radiologyOrders && visit.radiologyOrders.length > 0 && (
                           <button
                             onClick={() => setViewerState({ patientId: visit.uhid, category: 'Radiology' })}
-                            disabled={!visit.radiologyOrders.some((o: any) => getRadStatus(visit.uhid, o.bodyPart, o.status) === 'Completed')}
+                            disabled={!visit.radiologyOrders.some((o: any) => getRadStatus(visit.uhid, o.serviceName, o.bodyPart, o.status) === 'Completed')}
                             className={`flex items-center justify-center w-7 h-7 rounded-lg transition-colors ${
-                              visit.radiologyOrders.some((o: any) => getRadStatus(visit.uhid, o.bodyPart, o.status) === 'Completed')
+                              visit.radiologyOrders.some((o: any) => getRadStatus(visit.uhid, o.serviceName, o.bodyPart, o.status) === 'Completed')
                                 ? 'bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white'
                                 : 'bg-slate-50 text-slate-300 cursor-not-allowed'
                             }`}

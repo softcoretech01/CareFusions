@@ -1,6 +1,7 @@
 
 import { X, User, Hash, Activity } from 'lucide-react';
 import type { OPDVisit } from '../../contexts/OPDVisitContext';
+import { useInvestigations } from '../../contexts/InvestigationContext';
 
 interface VisitDetailsModalProps {
   visit: OPDVisit | null;
@@ -9,7 +10,31 @@ interface VisitDetailsModalProps {
 }
 
 export const VisitDetailsModal = ({ visit, onClose, type }: VisitDetailsModalProps) => {
+  const { orders: globalOrders } = useInvestigations();
+
   if (!visit) return null;
+
+  const getRadStatus = (uhid: string, serviceName: string, bodyPart: string, defaultStatus: string) => {
+    const patientOrders = globalOrders.filter((o: any) => o.patientId === uhid && o.category === 'Radiology');
+    for (const o of patientOrders) {
+      const t = o.tests.find((x: any) => x.name === (serviceName || bodyPart) || x.bodyPart === bodyPart);
+      if (t && (t.status === 'Completed' || t.status === 'Verified')) {
+        return 'Completed';
+      }
+    }
+    return defaultStatus;
+  };
+
+  const getLabStatus = (uhid: string, testName: string, defaultStatus: string) => {
+    const patientOrders = globalOrders.filter((o: any) => o.patientId === uhid && o.category === 'Lab');
+    for (const o of patientOrders) {
+      const t = o.tests.find((x: any) => x.name === testName);
+      if (t && (t.status === 'Completed' || t.status === 'Verified')) {
+        return 'Completed';
+      }
+    }
+    return defaultStatus;
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
@@ -64,7 +89,11 @@ export const VisitDetailsModal = ({ visit, onClose, type }: VisitDetailsModalPro
             <div className="mb-6">
               <h4 className="text-sm font-bold text-slate-700 mb-2">Lab Orders</h4>
               <ul className="list-disc pl-5 text-sm text-slate-600">
-                {visit.labOrders.map((l, idx) => <li key={l.id || idx}>{l.testName} <span className="text-xs text-slate-400">({l.status})</span></li>)}
+                {visit.labOrders.map((l, idx) => (
+                  <li key={l.id || idx}>
+                    {l.testName} <span className="text-xs text-slate-400">({getLabStatus(visit.uhid, l.testName, l.status)})</span>
+                  </li>
+                ))}
               </ul>
             </div>
           )}
@@ -73,7 +102,11 @@ export const VisitDetailsModal = ({ visit, onClose, type }: VisitDetailsModalPro
             <div className="mb-6">
               <h4 className="text-sm font-bold text-slate-700 mb-2">Radiology Orders</h4>
               <ul className="list-disc pl-5 text-sm text-slate-600">
-                {visit.radiologyOrders.map((r, idx) => <li key={r.id || idx}>{r.bodyPart} - {r.modality} <span className="text-xs text-slate-400">({r.status})</span></li>)}
+                {visit.radiologyOrders.map((r, idx) => (
+                  <li key={r.id || idx}>
+                    {r.bodyPart} - {r.modality} <span className="text-xs text-slate-400">({getRadStatus(visit.uhid, r.serviceName, r.bodyPart, r.status)})</span>
+                  </li>
+                ))}
               </ul>
             </div>
           )}
