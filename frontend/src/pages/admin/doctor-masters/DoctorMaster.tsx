@@ -8,6 +8,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
 import { exportToExcel } from '../../../utils/exportToExcel';
+import { fileUrl } from '../../../utils/fileUrl';
+import { DocPreview } from '../../../components/ui/DocPreview';
 
 interface DoctorRecord {
   id: number;
@@ -1087,12 +1089,7 @@ export const DoctorMaster = () => {
                         {formData[doc.field as keyof typeof formData] ? (
                           <div className="flex flex-col items-center gap-2">
                             <span className="text-sm font-medium text-emerald-600">File Uploaded</span>
-                            <img
-                              src={`http://localhost:8000${formData[doc.field as keyof typeof formData]}`}
-                              alt="preview"
-                              className="h-16 object-contain"
-                              onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                            />
+                            <DocPreview path={formData[doc.field as keyof typeof formData]} />
                             <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-2 transition-opacity z-10 pointer-events-none">
                               <span className="text-white text-xs font-medium">Click to change</span>
                             </div>
@@ -1101,9 +1098,9 @@ export const DoctorMaster = () => {
                               onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                window.open(`http://localhost:8000${formData[doc.field as keyof typeof formData]}`, '_blank');
+                                window.open(fileUrl(formData[doc.field as keyof typeof formData]), '_blank');
                               }}
-                              className="absolute top-2 right-2 p-1.5 bg-white/90 hover:bg-white text-primary rounded-lg shadow-sm opacity-0 group-hover:opacity-100 transition-all z-20"
+                              className="absolute top-2 right-2 p-1.5 bg-white/90 hover:bg-white text-primary rounded-lg shadow-sm border border-slate-200 transition-all z-20"
                               title="View Document"
                             >
                               <Eye className="w-4 h-4" />
@@ -1202,13 +1199,8 @@ export const DoctorMaster = () => {
                   <div key={doc.label} className="border border-slate-200 rounded-xl p-3 text-center">
                     <span className="text-xs text-slate-400 block mb-2">{doc.label}</span>
                     {doc.file ? (
-                      <a href={`http://localhost:8000${doc.file}`} target="_blank" rel="noreferrer" className="block">
-                        <img
-                          src={`http://localhost:8000${doc.file}`}
-                          alt={doc.label}
-                          className="h-16 mx-auto object-contain"
-                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                        />
+                      <a href={fileUrl(doc.file)} target="_blank" rel="noreferrer" className="block">
+                        <div className="flex justify-center"><DocPreview path={doc.file} /></div>
                         <span className="text-xs text-primary font-medium">Open</span>
                       </a>
                     ) : (
