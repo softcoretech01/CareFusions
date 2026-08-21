@@ -779,21 +779,12 @@ export const Discharges = () => {
             
             <div className="p-6 space-y-6">
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Discharge Summary</label>
-                <textarea
-                  value={editSummary}
-                  onChange={(e) => setEditSummary(e.target.value)}
-                  rows={4}
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-primary focus:bg-white transition-colors"
-                  placeholder="Enter discharge summary, diagnosis, and post-discharge instructions..."
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Discharge Medicines</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Discharge Medicines & Summary</label>
                 <DischargePrescription
-                  medicines={editMedicines}
-                  onChange={setEditMedicines}
+                  items={editMedicines}
+                  onItemsChange={setEditMedicines}
+                  dischargeSummary={editSummary}
+                  onSummaryChange={setEditSummary}
                 />
               </div>
 

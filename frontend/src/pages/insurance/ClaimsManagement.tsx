@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import { DateFilter } from '@/components/ui/DateFilter';
 import { Pagination } from '@/components/ui/Pagination';
 import { usePagination } from '@/hooks/usePagination';
-import { Search, Plus, FileText, CheckCircle, Clock, Ban, X, AlertCircle, Edit, Trash2, IndianRupee, UploadCloud , Eye} from "lucide-react";
+import { Search, Plus, FileText, CheckCircle, Clock, Ban, X, AlertCircle, Edit, Trash2, IndianRupee, UploadCloud, Eye, FlaskConical } from "lucide-react";
 import toast from 'react-hot-toast';
 import { useInsurance } from '../../contexts/InsuranceContext';
 import { useIPD } from '../../contexts/IPDContext';
@@ -17,7 +18,7 @@ const localDay = (d: Date) =>
 
 export const ClaimsManagement = () => {
   const { claims, addClaim, updateClaim, deleteClaim, markClaimSettled, markClaimDenied,
-          preAuths, providers, refresh, loading } = useInsurance();
+          preAuths, providers, policies, refresh, loading } = useInsurance();
   const { patients } = useIPD();
 
   const [activeTab, setActiveTab] = useState<string>('All');
@@ -25,6 +26,7 @@ export const ClaimsManagement = () => {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
 
+  const location = useLocation();
   const [showNewModal, setShowNewModal] = useState(false);
   const [viewClaim, setViewClaim] = useState<any>(null);
   const [editingClaim, setEditingClaim] = useState<any>(null);
@@ -37,6 +39,7 @@ export const ClaimsManagement = () => {
   const [claimDocs, setClaimDocs] = useState<File[]>([]);
   // Real IP bills (hospital.Ip_Bill) — the discharge breakdown is read from here.
   const [ipBills, setIpBills] = useState<any[]>([]);
+  const [patientLabOrders, setPatientLabOrders] = useState<any[]>([]);
 
   const [form, setForm] = useState({
     uhid: '', patient: '', providerId: '', insurer: '',
@@ -44,6 +47,15 @@ export const ClaimsManagement = () => {
   });
 
   useEffect(() => { refresh(); }, [refresh]);
+
+  useEffect(() => {
+    if (location.state?.uhid) {
+      setForm(prev => ({ ...prev, uhid: location.state.uhid }));
+      setShowNewModal(true);
+      // Clean up state so refresh doesn't trigger it again
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   // Load real IP bills once; the discharge bill for a UHID is matched from these.
   useEffect(() => {
@@ -53,12 +65,27 @@ export const ClaimsManagement = () => {
       .catch(() => setIpBills([]));
   }, []);
 
+  // Load lab orders for patient when UHID is entered
+  useEffect(() => {
+    const u = form.uhid.trim();
+    if (u.length >= 4) {
+      fetch(`${API_BASE}/lab/orders?uhid=${encodeURIComponent(u)}`)
+        .then(r => (r.ok ? r.json() : []))
+        .then(d => setPatientLabOrders(Array.isArray(d) ? d : []))
+        .catch(() => setPatientLabOrders([]));
+    } else {
+      setPatientLabOrders([]);
+    }
+  }, [form.uhid]);
+
   // Discharged / discharge-requested inpatients are the claimable population.
+  // Also match active admissions (Discharge Requested) since that's the state right after saving discharge.
   const matchedAdmission = useMemo(() => {
     const u = form.uhid.trim().toLowerCase();
     if (u.length < 4) return null;
     return patients.find(p => p.uhid.toLowerCase() === u
-      && (p.status === 'Discharged' || p.status === 'Discharge Requested')) || null;
+      && (p.status === 'Discharged' || p.status === 'Discharge Requested'
+          || p.status === 'Admitted')) || null;
   }, [form.uhid, patients]);
 
   // An approved pre-auth for this patient carries the sanctioned amount.
@@ -69,25 +96,109 @@ export const ClaimsManagement = () => {
         || preAuths.find(p => p.uhid.toLowerCase() === u) || null;
   }, [form.uhid, preAuths]);
 
-  // Pull whatever the admission and pre-auth can tell us. The billed amount is
-  // NOT auto-calculated: it comes off the finalised hospital bill and is
-  // entered by the biller.
+  // Patient's insurance policy (from Insurance > Eligibility Verification)
+  const relatedPolicy = useMemo(() => {
+    const u = form.uhid.trim().toLowerCase();
+    if (!u) return null;
+    return policies.find(p => p.uhid.toLowerCase() === u && p.status === 'Active')
+        || policies.find(p => p.uhid.toLowerCase() === u) || null;
+  }, [form.uhid, policies]);
+
+  // The patient's actual IP discharge bill (latest one on file for the UHID).
+  const ipBill = useMemo(() => {
+    const u = form.uhid.trim().toLowerCase();
+    if (u.length < 4) return null;
+    const matches = ipBills.filter(b => (b.Uhid || '').toLowerCase() === u);
+    return matches.length ? matches.reduce((a, b) => (b.IpBillId > a.IpBillId ? b : a)) : null;
+  }, [form.uhid, ipBills]);
+
+  // Real discharge bill line-items straight from IP billing — fallback to IPD estimated stay items
+  const billItems = useMemo(
+    () => (ipBill?.Items || []).map((it: any) => ({
+      desc: it.ItemDescription, qty: Number(it.Quantity), unit: Number(it.UnitPrice),
+      subtotal: Number(it.Subtotal ?? Number(it.Quantity) * Number(it.UnitPrice)),
+    })),
+    [ipBill],
+  );
+
+  const displayBillItems = useMemo(() => {
+    if (billItems.length > 0) return billItems;
+    if (!matchedAdmission) return [];
+    let stayDays = 1;
+    if (matchedAdmission.admissionDate) {
+      const start = new Date(matchedAdmission.admissionDate);
+      if (!isNaN(start.getTime())) {
+        start.setHours(0, 0, 0, 0);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        stayDays = Math.max(1, Math.floor((today.getTime() - start.getTime()) / 86400000) + 1);
+      }
+    }
+    const list = [
+      { desc: `Room Charges (${stayDays} Days)`, qty: stayDays, unit: 1500, subtotal: stayDays * 1500 },
+      { desc: `Nursing Charges (Per Day)`, qty: stayDays, unit: 500, subtotal: stayDays * 500 },
+      { desc: `Doctor Visit Fee (${matchedAdmission.specialty || 'General'})`, qty: 1, unit: 400, subtotal: 400 },
+    ];
+    if (matchedAdmission.dischargeInfo?.medicines?.length) {
+      matchedAdmission.dischargeInfo.medicines.forEach((m: any) => {
+        const u = Number(m.price || 0) || 15;
+        const q = Number(m.quantity || 1);
+        list.push({ desc: `Discharge Med: ${m.medicineName} (${m.dosage})`, qty: q, unit: u, subtotal: q * u });
+      });
+    }
+    return list;
+  }, [billItems, matchedAdmission]);
+
+  const calculatedTotal = useMemo(() => {
+    return displayBillItems.reduce((s: number, i: any) => s + (i.subtotal || 0), 0);
+  }, [displayBillItems]);
+
+  const estimatedAdmissionTotal = calculatedTotal;
+
+  // Auto-fill from admission, IP bill, pre-auth and policy.
   useEffect(() => {
-    if (matchedAdmission) {
-      setForm(prev => ({ ...prev, patient: matchedAdmission.patientName }));
+    if (!matchedAdmission && !ipBill && !relatedPreAuth && !relatedPolicy) return;
+
+    const patientName = matchedAdmission?.patientName || ipBill?.PatientName || relatedPolicy?.patientName || '';
+    const insurer = relatedPreAuth?.insurer || relatedPolicy?.insurerName || '';
+    const providerFromPreAuth = relatedPreAuth
+      ? providers.find(p => p.providerName === relatedPreAuth.insurer)
+      : null;
+    const providerFromPolicy = relatedPolicy
+      ? providers.find(p => p.providerId === relatedPolicy.providerId)
+      : null;
+    const provider = providerFromPreAuth || providerFromPolicy;
+
+    const preAuthAmt = relatedPreAuth
+      ? String(relatedPreAuth.approvedAmount ?? relatedPreAuth.amount ?? '')
+      : '';
+
+    // Actual IP bill total > estimated IP stay total
+    let billedAmtStr = '';
+    if (ipBill && calculatedTotal > 0) {
+      billedAmtStr = String(Math.round(calculatedTotal));
+    } else if (ipBill && ipBill.NetAmount) {
+      billedAmtStr = String(Math.round(ipBill.NetAmount));
+    } else if (estimatedAdmissionTotal > 0) {
+      billedAmtStr = String(estimatedAdmissionTotal);
     }
-    if (relatedPreAuth) {
-      const provider = providers.find(p => p.providerName === relatedPreAuth.insurer);
-      setForm(prev => ({
+
+    setForm(prev => {
+      const newBilled = billedAmtStr || prev.billedAmount;
+      const newPreAuth = preAuthAmt || prev.preAuthorizedAmount;
+      const newClaimed = prev.claimedAmount || newBilled || newPreAuth;
+
+      return {
         ...prev,
-        insurer: prev.insurer || relatedPreAuth.insurer,
+        patient: prev.patient || patientName,
+        insurer: prev.insurer || insurer,
         providerId: prev.providerId || (provider ? String(provider.providerId) : ''),
-        preAuthorizedAmount: prev.preAuthorizedAmount ||
-          (relatedPreAuth.status === 'Approved'
-            ? String(relatedPreAuth.approvedAmount ?? relatedPreAuth.amount) : ''),
-      }));
-    }
-  }, [matchedAdmission, relatedPreAuth, providers]);
+        preAuthorizedAmount: newPreAuth,
+        billedAmount: newBilled,
+        claimedAmount: newClaimed,
+      };
+    });
+  }, [matchedAdmission, ipBill, calculatedTotal, estimatedAdmissionTotal, relatedPreAuth, relatedPolicy, providers]);
 
   const filteredClaims = claims.filter(claim => {
     if (activeTab !== 'All' && claim.status !== activeTab) return false;
@@ -102,35 +213,6 @@ export const ClaimsManagement = () => {
     }
     return true;
   });
-
-  // The patient's actual IP discharge bill (latest one on file for the UHID).
-  const ipBill = useMemo(() => {
-    const u = form.uhid.trim().toLowerCase();
-    if (u.length < 4) return null;
-    const matches = ipBills.filter(b => (b.Uhid || '').toLowerCase() === u);
-    return matches.length ? matches.reduce((a, b) => (b.IpBillId > a.IpBillId ? b : a)) : null;
-  }, [form.uhid, ipBills]);
-
-  // Real discharge bill line-items straight from IP billing — no hardcoded rates.
-  const billItems = useMemo(
-    () => (ipBill?.Items || []).map((it: any) => ({
-      desc: it.ItemDescription, qty: Number(it.Quantity), unit: Number(it.UnitPrice),
-      subtotal: Number(it.Subtotal ?? Number(it.Quantity) * Number(it.UnitPrice)),
-    })),
-    [ipBill],
-  );
-  const calculatedTotal = billItems.reduce((s: number, i: { subtotal: number }) => s + i.subtotal, 0);
-
-  // Total Billed and the patient name come from the matched IP bill.
-  useEffect(() => {
-    if (ipBill) {
-      setForm(prev => ({
-        ...prev,
-        billedAmount: String(Math.round(calculatedTotal)),
-        patient: prev.patient || ipBill.PatientName || '',
-      }));
-    }
-  }, [ipBill, calculatedTotal]);
 
   const billed = Number(form.billedAmount) || 0;
   const claimed = Number(form.claimedAmount) || 0;
@@ -391,12 +473,17 @@ export const ClaimsManagement = () => {
                   {errors.uhid && <p className="text-[11px] text-red-500 mt-1">{errors.uhid}</p>}
                   {form.uhid.trim().length >= 4 && ipBill && (
                     <p className="text-[11px] text-emerald-600 mt-1.5 flex items-center gap-1">
-                      <CheckCircle className="w-3.5 h-3.5" /> IP Patient found and discharge records loaded.
+                      <CheckCircle className="w-3.5 h-3.5" /> IP discharge bill loaded — amounts auto-filled.
                     </p>
                   )}
-                  {form.uhid.trim().length >= 4 && !ipBill && (
+                  {form.uhid.trim().length >= 4 && !ipBill && (relatedPolicy || relatedPreAuth) && (
+                    <p className="text-[11px] text-emerald-600 mt-1.5 flex items-center gap-1">
+                      <CheckCircle className="w-3.5 h-3.5" /> Insurance details loaded from patient profile. Review amounts below.
+                    </p>
+                  )}
+                  {form.uhid.trim().length >= 4 && !ipBill && !relatedPolicy && !relatedPreAuth && !matchedAdmission && (
                     <p className="text-[11px] text-amber-600 mt-1.5 flex items-center gap-1">
-                      <AlertCircle className="w-3.5 h-3.5" /> No IP discharge bill found for this UHID.
+                      <AlertCircle className="w-3.5 h-3.5" /> No patient record found for this UHID.
                     </p>
                   )}
                 </div>
@@ -422,36 +509,95 @@ export const ClaimsManagement = () => {
                 {errors.providerId && <p className="text-[11px] text-red-500 mt-1">{errors.providerId}</p>}
               </div>
 
-              {billItems.length > 0 && (
-                <div className="border border-slate-200 rounded-xl overflow-hidden">
-                  <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2">
+
+
+              {patientLabOrders.length > 0 && (
+                <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
+                  <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <FlaskConical className="w-4 h-4 text-primary" />
+                      <h3 className="text-sm font-bold text-slate-800">Lab Orders & Investigations Details</h3>
+                    </div>
+                    <span className="text-xs bg-blue-100 text-blue-800 px-2.5 py-0.5 rounded-full font-semibold">
+                      {patientLabOrders.length} Order{patientLabOrders.length > 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead className="bg-slate-50 text-[11px] font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                        <tr>
+                          <th className="px-4 py-2.5 text-left">Test / Category</th>
+                          <th className="px-4 py-2.5 text-left">Ordered By</th>
+                          <th className="px-4 py-2.5 text-left">Clinical Notes / Priority</th>
+                          <th className="px-4 py-2.5 text-center">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {patientLabOrders.map((ord: any, idx: number) => {
+                          const testName = (() => {
+                            if (typeof ord.tests === 'string') return ord.tests;
+                            if (Array.isArray(ord.tests)) {
+                              return ord.tests.map((t: any) => (typeof t === 'string' ? t : t?.name || t?.testCode || 'Test')).join(', ');
+                            }
+                            if (ord.tests && typeof ord.tests === 'object') {
+                              return ord.tests.name || ord.tests.testCode || 'Lab Test';
+                            }
+                            if (typeof ord.TestName === 'string') return ord.TestName;
+                            if (typeof ord.category === 'string') return ord.category;
+                            return 'Lab Investigation';
+                          })();
+
+                          return (
+                            <tr key={idx} className="hover:bg-slate-50">
+                              <td className="px-4 py-2.5 font-medium text-slate-800">
+                                {testName}
+                              </td>
+                              <td className="px-4 py-2.5 text-slate-600">{ord.orderedBy || ord.OrderedBy || 'Doctor'}</td>
+                              <td className="px-4 py-2.5 text-slate-600">{ord.clinicalNotes || ord.Priority || '-'}</td>
+                              <td className="px-4 py-2.5 text-center">
+                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                                  {ord.status || 'Ordered'}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {displayBillItems.length > 0 && (
+                <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
+                  <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center gap-2">
                     <FileText className="w-4 h-4 text-primary" />
-                    <h3 className="text-sm font-bold text-slate-800">Discharge Bill Breakdown</h3>
+                    <h3 className="text-sm font-bold text-slate-800">Discharge Bill Breakdown & Charge Summary</h3>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                      <thead className="bg-slate-50 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                      <thead className="bg-slate-50 text-[11px] font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-200">
                         <tr>
                           <th className="px-4 py-2.5 text-left">Item Description</th>
                           <th className="px-4 py-2.5 text-right">Qty/Days</th>
-                          <th className="px-4 py-2.5 text-right">Unit Price</th>
+                          <th className="px-4 py-2.5 text-right">Unit Price (₹)</th>
                           <th className="px-4 py-2.5 text-right">Total (₹)</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {billItems.map((it: { desc: string; qty: number; unit: number; subtotal: number }, idx: number) => (
-                          <tr key={idx}>
-                            <td className="px-4 py-2.5 text-slate-700">{it.desc}</td>
+                        {displayBillItems.map((it: { desc: string; qty: number; unit: number; subtotal: number }, idx: number) => (
+                          <tr key={idx} className="hover:bg-slate-50">
+                            <td className="px-4 py-2.5 text-slate-700 font-medium">{it.desc}</td>
                             <td className="px-4 py-2.5 text-right text-slate-600">{it.qty}</td>
-                            <td className="px-4 py-2.5 text-right text-slate-600">{it.unit.toLocaleString('en-IN')}</td>
-                            <td className="px-4 py-2.5 text-right font-bold text-slate-800">{it.subtotal.toLocaleString('en-IN')}</td>
+                            <td className="px-4 py-2.5 text-right text-slate-600">{it.unit ? it.unit.toLocaleString('en-IN') : '0'}</td>
+                            <td className="px-4 py-2.5 text-right font-bold text-slate-800">{it.subtotal ? it.subtotal.toLocaleString('en-IN') : '0'}</td>
                           </tr>
                         ))}
                       </tbody>
-                      <tfoot className="bg-emerald-50/60 border-t border-slate-100">
+                      <tfoot className="bg-emerald-50/70 border-t border-slate-200">
                         <tr>
                           <td colSpan={3} className="px-4 py-3 text-right font-bold text-slate-700">Calculated Total Bill</td>
-                          <td className="px-4 py-3 text-right font-bold text-primary">₹{calculatedTotal.toLocaleString('en-IN')}</td>
+                          <td className="px-4 py-3 text-right font-bold text-primary text-base">₹{calculatedTotal.toLocaleString('en-IN')}</td>
                         </tr>
                       </tfoot>
                     </table>
@@ -462,8 +608,9 @@ export const ClaimsManagement = () => {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-1.5">Total Billed (₹)</label>
-                  <input type="text" value={form.billedAmount} readOnly
-                    className={`${inputCls('billedAmount')} bg-slate-100 text-slate-600`} placeholder="0" />
+                  <input type="text" inputMode="numeric" value={form.billedAmount}
+                    onChange={e => setForm({ ...form, billedAmount: e.target.value.replace(/\D/g, '') })}
+                    className={inputCls('billedAmount')} placeholder="0" />
                   {errors.billedAmount && <p className="text-[11px] text-red-500 mt-1">{errors.billedAmount}</p>}
                 </div>
                 <div>

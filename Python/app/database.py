@@ -8,7 +8,14 @@ from app.config import DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME
 encoded_password = urllib.parse.quote_plus(DB_PASSWORD) if DB_PASSWORD else ""
 DATABASE_URL = f"mysql+pymysql://{DB_USER}:{encoded_password}@{DB_HOST}:{DB_PORT}/{DB_NAME}?charset=utf8mb4&collation=utf8mb4_general_ci"
 
-engine = create_engine(DATABASE_URL)
+engine = create_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,      # Test connection before use — prevents "gone away"
+    pool_recycle=1800,        # Recycle connections every 30 min (before MySQL drops them)
+    pool_size=10,
+    max_overflow=20,
+    pool_timeout=30,
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 

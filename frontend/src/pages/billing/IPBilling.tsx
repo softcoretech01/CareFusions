@@ -43,6 +43,9 @@ export const IPBilling = () => {
   // Consultation fees come from the Department master, so changing a fee there
   // changes what IP bills charge. The visit fee used to be a hardcoded 900.
   const [deptFees, setDeptFees] = useState<Record<string, number>>({});
+  const [medicinePrices, setMedicinePrices] = useState<Record<string, number>>({});
+  const [labPrices, setLabPrices] = useState<Record<string, number>>({});
+  const [radPrices, setRadPrices] = useState<Record<string, number>>({});
 
   useEffect(() => {
     fetch(`${API_BASE}/departments/`)
@@ -58,6 +61,49 @@ export const IPBilling = () => {
         setDeptFees(map);
       })
       .catch(e => console.error('[IPBilling] department fees load failed', e));
+
+    axios.get(`${API_BASE}/medicines/`).then(res => {
+      if (Array.isArray(res.data)) {
+        const m: Record<string, number> = {};
+        res.data.forEach((r: any) => {
+          const price = Number(r.sellingPrice || r.unitPrice || r.mrp || 0);
+          if (price > 0) {
+            if (r.id) m[String(r.id)] = price;
+            if (r.genericName) m[r.genericName.trim().toLowerCase()] = price;
+            if (r.genericName && r.strength) m[`${r.genericName} ${r.strength}`.trim().toLowerCase()] = price;
+          }
+        });
+        setMedicinePrices(m);
+      }
+    }).catch(() => {});
+
+    axios.get(`${API_BASE}/tests/`).then(res => {
+      if (Array.isArray(res.data)) {
+        const m: Record<string, number> = {};
+        res.data.forEach((r: any) => {
+          const price = Number(r.testPrice || r.price || 0);
+          if (price > 0) {
+            if (r.id) m[String(r.id)] = price;
+            if (r.testName) m[r.testName.trim().toLowerCase()] = price;
+          }
+        });
+        setLabPrices(m);
+      }
+    }).catch(() => {});
+
+    axios.get(`${API_BASE}/radiology-services/`).then(res => {
+      if (Array.isArray(res.data)) {
+        const m: Record<string, number> = {};
+        res.data.forEach((r: any) => {
+          const price = Number(r.servicePrice || r.price || 0);
+          if (price > 0) {
+            if (r.id) m[String(r.id)] = price;
+            if (r.serviceName) m[r.serviceName.trim().toLowerCase()] = price;
+          }
+        });
+        setRadPrices(m);
+      }
+    }).catch(() => {});
   }, []);
 
   /** Consultation fee for the admitting department; 0 when the master has none. */
@@ -146,6 +192,105 @@ export const IPBilling = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [state, patientName]);
 
+  const loadPatientBillingItems = async (foundIPD: any) => {
+    const stayDays = daysAdmitted(foundIPD.admissionDate);
+    const visitFee = consultationFeeFor(foundIPD.specialty || foundIPD.department) || 400;
+    const isFromOP = foundIPD.admissionType === 'OPD';
+    const feeQty = isFromOP ? Math.max(0, stayDays - 1) : stayDays;
+    
+    const newItems: BillItem[] = [
+      { id: 'ITM-001', description: `Room Charges (${stayDays} Days)`, price: 1500, qty: stayDays, total: 1500 * stayDays },
+      { id: 'ITM-002', description: 'Nursing Charges (Per Day)', price: 500, qty: stayDays, total: 500 * stayDays },
+    ];
+
+    if (feeQty > 0) {
+      newItems.push({ 
+        id: 'ITM-003', 
+        description: `Doctor Visit Fee (Per Day)${foundIPD.specialty ? ` - ${foundIPD.specialty}` : ''}`, 
+        price: visitFee, 
+        qty: feeQty, 
+        total: visitFee * feeQty 
+      });
+    }
+    
+    // 1. Add medicines from discharge summary with selling price lookup
+    if (foundIPD.dischargeInfo?.medicines?.length > 0) {
+      foundIPD.dischargeInfo.medicines.forEach((med: any, index: number) => {
+         let price = Number(med.price || 0);
+         if (price === 0) {
+           const medKey = (med.medicineName || '').trim().toLowerCase();
+           price = medicinePrices[medKey] || medicinePrices[String(med.medicineId)] || 15;
+         }
+         const qty = Number(med.quantity || 1);
+         newItems.push({
+            id: `MED-${index+1}`,
+            description: med.medicineName,
+            price: price,
+            qty: qty,
+            total: price * qty
+         });
+      });
+    }
+
+    // 2. Add Lab Orders for this patient
+    try {
+      const labRes = await axios.get(`${API_BASE}/lab/orders?uhid=${encodeURIComponent(foundIPD.uhid)}`);
+      if (Array.isArray(labRes.data)) {
+        labRes.data.forEach((ord: any, index: number) => {
+          let testNameStr = 'Lab Test';
+          if (typeof ord.tests === 'string') testNameStr = ord.tests;
+          else if (Array.isArray(ord.tests)) {
+            testNameStr = ord.tests.map((t: any) => typeof t === 'string' ? t : t?.name || t?.test_name || t?.testCode).filter(Boolean).join(', ');
+          } else if (ord.TestName) {
+            testNameStr = ord.TestName;
+          } else if (ord.category) {
+            testNameStr = ord.category;
+          }
+
+          const price = labPrices[testNameStr.trim().toLowerCase()] || 250;
+          newItems.push({
+            id: `LAB-${index + 1}`,
+            description: `Lab Test: ${testNameStr}`,
+            price: price,
+            qty: 1,
+            total: price
+          });
+        });
+      }
+    } catch (e) {
+      console.error("Failed to fetch lab orders for billing", e);
+    }
+
+    // 3. Add Radiology Orders for this patient
+    try {
+      const radRes = await axios.get(`${API_BASE}/radiology/orders`);
+      if (Array.isArray(radRes.data)) {
+        const patientRad = radRes.data.filter((r: any) => (r.uhid || r.Uhid || '').toLowerCase() === foundIPD.uhid.toLowerCase());
+        patientRad.forEach((ord: any, index: number) => {
+          let radNameStr = 'Radiology Test';
+          if (Array.isArray(ord.tests)) {
+            radNameStr = ord.tests.map((t: any) => typeof t === 'string' ? t : t?.name || t?.test_name || 'X-Ray').filter(Boolean).join(', ');
+          } else if (ord.test_name) {
+            radNameStr = ord.test_name;
+          }
+
+          const price = radPrices[radNameStr.trim().toLowerCase()] || 500;
+          newItems.push({
+            id: `RAD-${index + 1}`,
+            description: `Radiology: ${radNameStr}`,
+            price: price,
+            qty: 1,
+            total: price
+          });
+        });
+      }
+    } catch (e) {
+      console.error("Failed to fetch radiology orders for billing", e);
+    }
+    
+    setItems(newItems);
+  };
+
   useEffect(() => {
     // If navigated from Discharges with a uhid, auto-select that patient once admissions load
     if (state?.uhid && !state?.claimData && admissions.length > 0 && !patientName) {
@@ -156,46 +301,12 @@ export const IPBilling = () => {
         setSelectedPatientId(foundIPD.uhid);
         fetchPatientMobile(foundIPD.uhid);
 
-        const stayDays = daysAdmitted(foundIPD.admissionDate);
-        const visitFee = consultationFeeFor(foundIPD.specialty || foundIPD.department);
-        const isFromOP = foundIPD.admissionType === 'OPD';
-        const feeQty = isFromOP ? Math.max(0, stayDays - 1) : stayDays;
-        
-        const newItems = [
-          { id: 'ITM-001', description: `Room Charges (${stayDays} Days)`, price: 1500, qty: stayDays, total: 1500 * stayDays },
-          { id: 'ITM-002', description: 'Nursing Charges (Per Day)', price: 500, qty: stayDays, total: 500 * stayDays },
-        ];
-
-        if (feeQty > 0) {
-          newItems.push({ 
-            id: 'ITM-003', 
-            description: `Doctor Visit Fee (Per Day)${foundIPD.specialty ? ` - ${foundIPD.specialty}` : ''}`, 
-            price: visitFee, 
-            qty: feeQty, 
-            total: visitFee * feeQty 
-          });
-        }
-        
-        // Add medicines from discharge summary if available
-        if (foundIPD.dischargeInfo?.medicines?.length > 0) {
-          foundIPD.dischargeInfo.medicines.forEach((med: any, index: number) => {
-             const price = med.price || 0;
-             newItems.push({
-                id: `MED-${index+1}`,
-                description: med.medicineName,
-                price: price,
-                qty: med.quantity || 1,
-                total: price * (med.quantity || 1)
-             });
-          });
-        }
-        
-        setItems(newItems);
+        loadPatientBillingItems(foundIPD);
         setIsInsurancePaid(false);
         setInsuranceDetails(null);
       }
     }
-  }, [state, admissions, patientName]);
+  }, [state, admissions, patientName, medicinePrices, labPrices, radPrices]);
 
   const fetchBills = async () => {
     try {
@@ -302,41 +413,7 @@ export const IPBilling = () => {
 
       fetchPatientMobile(foundIPD.uhid);
 
-      const stayDays = daysAdmitted(foundIPD.admissionDate);
-      const visitFee = consultationFeeFor(foundIPD.specialty || foundIPD.department);
-      const isFromOP = foundIPD.admissionType === 'OPD';
-      const feeQty = isFromOP ? Math.max(0, stayDays - 1) : stayDays;
-
-      const newItems = [
-        { id: 'ITM-001', description: `Room Charges (${stayDays} Days)`, price: 1500, qty: stayDays, total: 1500 * stayDays },
-        { id: 'ITM-002', description: 'Nursing Charges (Per Day)', price: 500, qty: stayDays, total: 500 * stayDays },
-      ];
-
-      if (feeQty > 0) {
-        newItems.push({ 
-          id: 'ITM-003', 
-          description: `Doctor Visit Fee (Per Day)${foundIPD.specialty ? ` - ${foundIPD.specialty}` : ''}`, 
-          price: visitFee, 
-          qty: feeQty, 
-          total: visitFee * feeQty 
-        });
-      }
-      
-      // Add medicines from discharge summary if available
-      if (foundIPD.dischargeInfo?.medicines?.length > 0) {
-        foundIPD.dischargeInfo.medicines.forEach((med: any, index: number) => {
-           const price = med.price || 0;
-           newItems.push({
-              id: `MED-${index+1}`,
-              description: med.medicineName,
-              price: price,
-              qty: med.quantity || 1,
-              total: price * (med.quantity || 1)
-           });
-        });
-      }
-      
-      setItems(newItems);
+      loadPatientBillingItems(foundIPD);
 
       setIsInsurancePaid(false);
       setInsuranceDetails(null);
