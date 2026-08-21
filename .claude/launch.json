@@ -2,11 +2,18 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "// ": "Attaches to the dev server already running on 5173. The app pins that port (frontend/.env VITE_FRONTEND_URL), so it must not be auto-assigned.",
       "name": "frontend",
+      "url": "http://localhost:5173"
+    },
+    {
+      "// ": "Use this only when nothing is serving 5173 yet.",
+      "name": "frontend-start",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "cwd": "frontend",
-      "port": 5173
+      "port": 5173,
+      "autoPort": false
     }
   ]
 }

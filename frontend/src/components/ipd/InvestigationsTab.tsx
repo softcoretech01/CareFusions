@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { FlaskConical, Plus, Loader2, CheckCircle, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useInvestigations } from '../../contexts/InvestigationContext';
+import { OrderSourceTag, orderSource } from '../investigations/OrderSourceTag';
 
 interface InvestigationsTabProps {
   admissionId: number;
@@ -46,7 +47,9 @@ export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({ patientNam
     })();
   }, []);
 
-  // This patient's lab + radiology orders (unified with the Lab/Radiology menus).
+  // A patient admitted after OPD work carries that history with them, so this
+  // list mixes both episodes. Each card is tagged with where it was requested
+  // rather than hiding or reordering anything.
   const orders = getOrdersByPatient(uhid);
 
   const toggle = (list: string[], set: (v: string[]) => void, val: string) =>
@@ -117,6 +120,48 @@ export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({ patientNam
       default:                  return 'bg-amber-100 text-amber-700 border-amber-200';
     }
   };
+
+  const renderOrderCard = (order: ReturnType<typeof getOrdersByPatient>[number]) => (
+    <div key={order.id} className="p-4 border border-slate-200 rounded-xl bg-white shadow-sm">
+      <div className="flex items-start justify-between mb-3 border-b border-slate-100 pb-3">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="font-mono text-xs font-bold text-slate-500">ID: {order.id}</span>
+            <span className={`px-2 py-0.5 text-[10px] font-bold rounded-md uppercase ${
+              order.category === 'Lab'
+                ? 'bg-blue-50 text-blue-600 border border-blue-200'
+                : 'bg-purple-50 text-purple-600 border border-purple-200'
+            }`}>
+              {order.category}
+            </span>
+            <OrderSourceTag source={orderSource(order.type)} />
+          </div>
+          <div className="text-xs text-slate-500">Ordered on {new Date(order.orderedAt).toLocaleString()}</div>
+        </div>
+        <div className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 border ${getStatusColor(order.status)}`}>
+          {order.status === 'Completed' || order.status === 'Verified'
+            ? <CheckCircle className="w-3.5 h-3.5" />
+            : <Clock className="w-3.5 h-3.5" />}
+          {order.status}
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        {order.tests.map(test => (
+          <div key={test.id} className="flex items-center justify-between text-sm py-1">
+            <span className="font-medium text-slate-700">{test.name}</span>
+            {test.status === 'Completed' || test.status === 'Verified' ? (
+              <span className="text-green-600 font-bold text-xs flex items-center gap-1">
+                <CheckCircle className="w-3.5 h-3.5" /> {test.resultValue ? `Result: ${test.resultValue}` : 'Completed'}
+              </span>
+            ) : (
+              <span className="text-slate-400 text-xs">{test.status}</span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 
   return (
     <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 space-y-6">
@@ -228,48 +273,7 @@ export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({ patientNam
           No investigations ordered yet.
         </div>
       ) : (
-        <div className="space-y-4">
-          {orders.map(order => (
-            <div key={order.id} className="p-4 border border-slate-200 rounded-xl bg-white shadow-sm">
-              <div className="flex items-start justify-between mb-3 border-b border-slate-100 pb-3">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-mono text-xs font-bold text-slate-500">ID: {order.id}</span>
-                    <span className={`px-2 py-0.5 text-[10px] font-bold rounded-md uppercase ${
-                      order.category === 'Lab'
-                        ? 'bg-blue-50 text-blue-600 border border-blue-200'
-                        : 'bg-purple-50 text-purple-600 border border-purple-200'
-                    }`}>
-                      {order.category}
-                    </span>
-                  </div>
-                  <div className="text-xs text-slate-500">Ordered on {new Date(order.orderedAt).toLocaleString()}</div>
-                </div>
-                <div className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 border ${getStatusColor(order.status)}`}>
-                  {order.status === 'Completed' || order.status === 'Verified'
-                    ? <CheckCircle className="w-3.5 h-3.5" />
-                    : <Clock className="w-3.5 h-3.5" />}
-                  {order.status}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                {order.tests.map(test => (
-                  <div key={test.id} className="flex items-center justify-between text-sm py-1">
-                    <span className="font-medium text-slate-700">{test.name}</span>
-                    {test.status === 'Completed' || test.status === 'Verified' ? (
-                      <span className="text-green-600 font-bold text-xs flex items-center gap-1">
-                        <CheckCircle className="w-3.5 h-3.5" /> {test.resultValue ? `Result: ${test.resultValue}` : 'Completed'}
-                      </span>
-                    ) : (
-                      <span className="text-slate-400 text-xs">{test.status}</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
+        <div className="space-y-4">{orders.map(renderOrderCard)}</div>
       )}
     </div>
   );

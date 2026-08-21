@@ -6,8 +6,6 @@ import toast from 'react-hot-toast';
 import { usePatients } from '../../contexts/PatientContext';
 import { useInsurance, type Policy } from '../../contexts/InsuranceContext';
 import { alphanumeric, upperCode, digitsOnly, decimalOnly, LIMITS } from '../../utils/inputRules';
-import { DateFilter } from '../../components/ui/DateFilter';
-
 const inr = (n: number) => `₹${(n ?? 0).toLocaleString('en-IN')}`;
 
 /** A policy is only usable if it is Active AND has not passed its validity date. */
@@ -18,16 +16,8 @@ export const EligibilityVerification = () => {
   const { policies, providers, savePolicy, loading } = useInsurance();
   const { patients } = usePatients();
 
-  const today = new Date().toISOString().split('T')[0];
-  const firstDay = `${today.split('-')[0]}-${today.split('-')[1]}-01`;
-
   const [search, setSearch] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
-  
-  const [dateFrom, setDateFrom] = useState(firstDay);
-  const [dateTo, setDateTo] = useState(today);
-  const [appliedDateFrom, setAppliedDateFrom] = useState(firstDay);
-  const [appliedDateTo, setAppliedDateTo] = useState(today);
 
   const [selected, setSelected] = useState<Policy | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -44,33 +34,21 @@ export const EligibilityVerification = () => {
 
   const handleSearch = () => {
     setAppliedSearch(search);
-    setAppliedDateFrom(dateFrom);
-    setAppliedDateTo(dateTo);
   };
 
   const handleReset = () => {
-    setDateFrom(firstDay);
-    setDateTo(today);
     setSearch('');
     setAppliedSearch('');
-    setAppliedDateFrom(firstDay);
-    setAppliedDateTo(today);
   };
 
-  // Table filter — matches name, UHID or policy number, and optionally validUntil date
+  // Table filter — matches name, UHID or policy number
   const filtered = policies.filter(p => {
     const s = appliedSearch.trim().toLowerCase();
     const matchesSearch = !s || p.patientName.toLowerCase().includes(s)
       || p.uhid.toLowerCase().includes(s)
       || p.policyNumber.toLowerCase().includes(s);
       
-    let matchesDate = true;
-    if (appliedDateFrom && appliedDateTo && p.validUntil) {
-      const pDate = p.validUntil.substring(0, 10);
-      matchesDate = pDate >= appliedDateFrom && pDate <= appliedDateTo;
-    }
-
-    return matchesSearch && matchesDate;
+    return matchesSearch;
   });
 
   // The Add-Insurance UHID field is a picker, not a free-text box: it lists
@@ -96,7 +74,8 @@ export const EligibilityVerification = () => {
       uhid, 
       name,
       providerId: autoProviderId || prev.providerId,
-      policyNumber: patient?.policyNumber || prev.policyNumber
+      policyNumber: patient?.policyNumber || prev.policyNumber,
+      validTill: patient?.validTill ? patient.validTill.split('T')[0] : prev.validTill
     }));
     setErrors(prev => ({ ...prev, uhid: '', name: '' }));
     setUhidOpen(false);
@@ -124,8 +103,16 @@ export const EligibilityVerification = () => {
     // Find the provider name based on the selected ID
     const selectedProvider = providers.find(p => p.providerId.toString() === form.providerId);
     
+    // savePolicy posts patientName/insurerName; this form calls them name and
+    // insurer. JSON.stringify drops the undefined keys, so the request reached
+    // the API without either field and came back 422.
     const policyPayload = {
       ...form,
+      // Policy.policyId is number | undefined; the form seeds it as null for
+      // "new policy". savePolicy only tests it for truthiness, so either works.
+      policyId: form.policyId ?? undefined,
+      patientName: form.name,
+      insurerName: selectedProvider?.providerName || form.insurer,
       insurer: selectedProvider?.providerName || form.insurer,
       providerId: parseInt(form.providerId),
       sumInsured: parseFloat(form.sumInsured),
@@ -191,14 +178,6 @@ export const EligibilityVerification = () => {
               className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary"
             />
           </div>
-          <DateFilter
-            dateFrom={dateFrom}
-            dateTo={dateTo}
-            onDateFromChange={setDateFrom}
-            onDateToChange={setDateTo}
-            onSearch={handleSearch}
-            onReset={handleReset}
-          />
         </div>
 
         <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between shrink-0">

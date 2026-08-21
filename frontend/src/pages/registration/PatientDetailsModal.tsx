@@ -1,4 +1,4 @@
-import { X, User, Phone, MapPin, FileText, Heart, Activity } from 'lucide-react';
+import { X, User, Phone, MapPin, FileText, Heart, Activity, Shield } from 'lucide-react';
 
 interface PatientDetailsModalProps {
   patient: any;
@@ -126,6 +126,35 @@ export const PatientDetailsModal = ({ patient, onClose }: PatientDetailsModalPro
                     {patient.emergencyMobile || 'N/A'}
                   </span>
                 </div>
+              </div>
+            </div>
+
+            {/* Insurance Information */}
+            <div className="bg-white rounded-xl border border-slate-100 p-5 shadow-sm md:col-span-2">
+              <h4 className="flex items-center gap-2 text-sm font-bold text-slate-800 mb-4 pb-2 border-b border-slate-100">
+                <Shield className="w-4 h-4 text-primary" /> Insurance Information
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-slate-50 rounded-lg p-3">
+                  <p className="text-xs text-slate-500 mb-1 uppercase tracking-wider font-bold">Insurance Required</p>
+                  <p className="text-sm font-semibold text-slate-800">{patient.insuranceRequired || 'No'}</p>
+                </div>
+                {(patient.insuranceRequired === 'Yes' || patient.insuranceRequired === 'Yes') && (
+                  <>
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-xs text-slate-500 mb-1 uppercase tracking-wider font-bold">Provider</p>
+                      <p className="text-sm font-semibold text-slate-800">{patient.insuranceProvider || 'N/A'}</p>
+                    </div>
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-xs text-slate-500 mb-1 uppercase tracking-wider font-bold">Policy Number</p>
+                      <p className="text-sm font-semibold text-slate-800">{patient.policyNumber || 'N/A'}</p>
+                    </div>
+                    <div className="bg-slate-50 rounded-lg p-3">
+                      <p className="text-xs text-slate-500 mb-1 uppercase tracking-wider font-bold">Valid Till</p>
+                      <p className="text-sm font-semibold text-slate-800">{patient.validTill || 'N/A'}</p>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 

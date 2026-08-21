@@ -188,6 +188,30 @@ def upsert_policy(payload: PolicyUpsert, db: Session = Depends(get_db)):
                   BalanceAmount=payload.balanceAmount, NetworkHospital=int(payload.networkHospital),
                   CopayPercentage=payload.copayPercentage, Deductible=payload.deductible,
                   User=payload.user or "Admin").fetchone()
+
+        db.execute(text("""
+            UPDATE registration.PatientRegistration
+            SET InsuranceRequired = 'Yes',
+                InsuranceProvider = :provider,
+                Tpa = :tpa,
+                PolicyNumber = :policy_no,
+                ValidTill = :valid_till
+            WHERE Uhid = :uhid
+        """), {
+            "provider": payload.insurerName,
+            "tpa": payload.tpaName or "",
+            "policy_no": payload.policyNumber,
+            "valid_till": payload.validUntil or None,
+            "uhid": payload.uhid
+        })
+
+        # Also update QuickRegistration if the patient was registered quickly
+        db.execute(text("""
+            UPDATE registration.QuickRegistration
+            SET InsuranceRequired = 'Yes'
+            WHERE Uhid = :uhid
+        """), {"uhid": payload.uhid})
+
         db.commit()
         return _map_policy(row)
     except Exception as e:
@@ -208,6 +232,30 @@ def update_policy(policy_id: int, payload: PolicyUpsert, db: Session = Depends(g
                   BalanceAmount=payload.balanceAmount, NetworkHospital=int(payload.networkHospital),
                   CopayPercentage=payload.copayPercentage, Deductible=payload.deductible,
                   User=payload.user or "Admin").fetchone()
+
+        db.execute(text("""
+            UPDATE registration.PatientRegistration
+            SET InsuranceRequired = 'Yes',
+                InsuranceProvider = :provider,
+                Tpa = :tpa,
+                PolicyNumber = :policy_no,
+                ValidTill = :valid_till
+            WHERE Uhid = :uhid
+        """), {
+            "provider": payload.insurerName,
+            "tpa": payload.tpaName or "",
+            "policy_no": payload.policyNumber,
+            "valid_till": payload.validUntil or None,
+            "uhid": payload.uhid
+        })
+
+        # Also update QuickRegistration if the patient was registered quickly
+        db.execute(text("""
+            UPDATE registration.QuickRegistration
+            SET InsuranceRequired = 'Yes'
+            WHERE Uhid = :uhid
+        """), {"uhid": payload.uhid})
+
         db.commit()
         return _map_policy(row)
     except Exception as e:
