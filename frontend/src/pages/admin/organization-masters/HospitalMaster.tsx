@@ -211,6 +211,10 @@ export const HospitalMaster = () => {
     if (!formData.name.trim()) errors.name = 'Hospital Name is required';
     if (!formData.legalName.trim()) errors.legalName = 'Legal Name is required';
     if (!formData.registrationNo.trim()) errors.registrationNo = 'Registration Number is required';
+    else if (formData.registrationNo.trim().length !== 15) errors.registrationNo = 'Registration Number must be 15 numbers';
+
+    if (formData.gstVatNo && formData.gstVatNo.trim().length !== 15) errors.gstVatNo = 'GST/VAT Number must be 15 characters';
+    if (formData.panTinNo && formData.panTinNo.trim().length !== 10) errors.panTinNo = 'PAN/TIN Number must be 10 characters';
     if (!formData.contactNumber.trim()) errors.contactNumber = 'Contact Number is required';
     if (!formData.email.trim()) errors.email = 'Email is required';
     else if (!/^\S+@\S+\.\S+$/.test(formData.email)) errors.email = 'Invalid email format';
@@ -536,8 +540,8 @@ export const HospitalMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Registration Number <span className="text-danger">*</span></label>
                     <input
                       type="text"
-                      value={formData.registrationNo} maxLength={50}
-                      onChange={(e) => setFormData({ ...formData, registrationNo: e.target.value })}
+                      value={formData.registrationNo} maxLength={15}
+                      onChange={(e) => setFormData({ ...formData, registrationNo: e.target.value.replace(/\D/g, '') })}
                       className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.registrationNo ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
                     />
                     {formErrors.registrationNo && <p className="text-xs text-danger mt-1">{formErrors.registrationNo}</p>}
@@ -546,19 +550,21 @@ export const HospitalMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">GST/VAT Number</label>
                     <input
                       type="text"
-                      value={formData.gstVatNo} maxLength={50}
+                      value={formData.gstVatNo} maxLength={15}
                       onChange={(e) => setFormData({ ...formData, gstVatNo: e.target.value })}
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                      className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.gstVatNo ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
                     />
+                    {formErrors.gstVatNo && <p className="text-xs text-danger mt-1">{formErrors.gstVatNo}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">PAN/TIN Number</label>
                     <input
                       type="text"
-                      value={formData.panTinNo} maxLength={50}
+                      value={formData.panTinNo} maxLength={10}
                       onChange={(e) => setFormData({ ...formData, panTinNo: e.target.value })}
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                      className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.panTinNo ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
                     />
+                    {formErrors.panTinNo && <p className="text-xs text-danger mt-1">{formErrors.panTinNo}</p>}
                   </div>
                 </div>
               </div>

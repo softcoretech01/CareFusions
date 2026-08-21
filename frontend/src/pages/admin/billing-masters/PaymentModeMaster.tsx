@@ -47,19 +47,19 @@ const LIMITS = {
 };
 
 const mapApiToRecord = (item: Record<string, unknown>): PaymentModeRecord => ({
-  id:                  item.id                  as number,
-  paymentCode:         item.paymentCode         as string,
-  paymentMode:         item.paymentMode         as string,
-  description:         (item.description        as string) ?? '',
+  id: item.id as number,
+  paymentCode: item.paymentCode as string,
+  paymentMode: item.paymentMode as string,
+  description: (item.description as string) ?? '',
   transactionRequired: Boolean(item.transactionRequired),
-  supportsRefund:      Boolean(item.supportsRefund),
-  isDefault:           Boolean(item.isDefault),
-  status:              item.status              as string,
-  remarks:             (item.remarks            as string) ?? '',
-  createdBy:           (item.createdBy          as string) ?? undefined,
-  createdDate:         item.createdDate ? String(item.createdDate).split('T')[0] : undefined,
-  updatedBy:           (item.updatedBy          as string) ?? undefined,
-  updatedDate:         item.updatedDate ? String(item.updatedDate).split('T')[0] : undefined,
+  supportsRefund: Boolean(item.supportsRefund),
+  isDefault: Boolean(item.isDefault),
+  status: item.status as string,
+  remarks: (item.remarks as string) ?? '',
+  createdBy: (item.createdBy as string) ?? undefined,
+  createdDate: item.createdDate ? String(item.createdDate).split('T')[0] : undefined,
+  updatedBy: (item.updatedBy as string) ?? undefined,
+  updatedDate: item.updatedDate ? String(item.updatedDate).split('T')[0] : undefined,
 });
 
 export const PaymentModeMaster = () => {
@@ -155,13 +155,13 @@ export const PaymentModeMaster = () => {
     setApiError(null);
     try {
       const body = {
-        paymentMode:         formData.paymentMode.trim(),
-        description:         formData.description || null,
+        paymentMode: formData.paymentMode.trim(),
+        description: formData.description || null,
         transactionRequired: formData.transactionRequired,
-        supportsRefund:      formData.supportsRefund,
-        isDefault:           formData.isDefault,
-        status:              formData.status,
-        remarks:             formData.remarks || null,
+        supportsRefund: formData.supportsRefund,
+        isDefault: formData.isDefault,
+        status: formData.status,
+        remarks: formData.remarks || null,
       };
 
       let res: Response;
@@ -264,16 +264,16 @@ export const PaymentModeMaster = () => {
                 />
               </div>
               <div className="flex items-center gap-2">
-              <button onClick={() => setShowFilters(!showFilters)} title="Filters" className={showFilters ? "p-2 border rounded-lg transition-colors border-primary bg-primary/5 text-primary" : "p-2 border rounded-lg transition-colors border-slate-200 text-slate-500 hover:bg-slate-50"}>
-                <Filter className="w-4 h-4" />
-              </button>
-              <button onClick={() => { setSearchTerm(''); setFilterStatus(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
-                <X className="w-4 h-4" />
-              </button>
-              <button onClick={() => exportToExcel(records, 'PaymentModeMaster')} title="Export to Excel" className="p-2 border border-emerald-200 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 transition-colors">
-                <Download className="w-4 h-4" />
-              </button>
-            </div>
+                <button onClick={() => setShowFilters(!showFilters)} title="Filters" className={showFilters ? "p-2 border rounded-lg transition-colors border-primary bg-primary/5 text-primary" : "p-2 border rounded-lg transition-colors border-slate-200 text-slate-500 hover:bg-slate-50"}>
+                  <Filter className="w-4 h-4" />
+                </button>
+                <button onClick={() => { setSearchTerm(''); setFilterStatus(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+                <button onClick={() => exportToExcel(records, 'PaymentModeMaster')} title="Export to Excel" className="p-2 border border-emerald-200 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 transition-colors">
+                  <Download className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
             <AnimatePresence>
@@ -306,14 +306,13 @@ export const PaymentModeMaster = () => {
                     <th className="px-4 py-3 font-medium">Payment Code</th>
                     <th className="px-4 py-3 font-medium">Payment Mode</th>
                     <th className="px-4 py-3 font-medium text-center">Transaction Required</th>
-                    <th className="px-4 py-3 font-medium text-center">Status</th>
                     <th className="px-4 py-3 font-medium text-center">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+                      <td colSpan={4} className="px-4 py-8 text-center text-slate-500">
                         Loading payment modes...
                       </td>
                     </tr>
@@ -328,21 +327,11 @@ export const PaymentModeMaster = () => {
                           )}
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <span className={`inline-flex px-2 py-1 rounded text-xs font-medium ${
-                            record.transactionRequired
+                          <span className={`inline-flex px-2 py-1 rounded text-xs font-medium ${record.transactionRequired
                               ? 'bg-amber-50 text-amber-600 border border-amber-200'
                               : 'bg-slate-50 text-slate-600 border border-slate-200'
-                          }`}>
+                            }`}>
                             {record.transactionRequired ? 'Yes' : 'No'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                            record.status === 'Active'
-                              ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
-                              : 'bg-red-50 text-red-600 border border-red-200'
-                          }`}>
-                            {record.status}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-center">
@@ -367,7 +356,7 @@ export const PaymentModeMaster = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
+                      <td colSpan={4} className="px-4 py-8 text-center text-slate-500">
                         No payment modes found matching your criteria.
                       </td>
                     </tr>
@@ -422,12 +411,12 @@ export const PaymentModeMaster = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Payment Mode <span className="text-red-500">*</span></label>
-                    <input type="text" maxLength={LIMITS.paymentMode} value={formData.paymentMode} onChange={e => setFormData({...formData, paymentMode: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.paymentMode ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
+                    <input type="text" maxLength={LIMITS.paymentMode} value={formData.paymentMode} onChange={e => setFormData({ ...formData, paymentMode: e.target.value })} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.paymentMode ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
                     {errors.paymentMode && <p className="text-red-500 text-xs mt-1">{errors.paymentMode}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
-                    <textarea maxLength={LIMITS.description} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} rows={1} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                    <textarea maxLength={LIMITS.description} value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} rows={1} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
                 </div>
               </section>
@@ -437,16 +426,16 @@ export const PaymentModeMaster = () => {
                 <h3 className="text-base font-bold text-slate-800 mb-3 border-b border-slate-100 pb-1.5">Configuration</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="flex items-center gap-2">
-                    <input type="checkbox" id="transactionRequired" checked={formData.transactionRequired} onChange={e => setFormData({...formData, transactionRequired: e.target.checked})} className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary" />
+                    <input type="checkbox" id="transactionRequired" checked={formData.transactionRequired} onChange={e => setFormData({ ...formData, transactionRequired: e.target.checked })} className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary" />
                     <label htmlFor="transactionRequired" className="text-sm font-medium text-slate-700">Transaction Required</label>
                   </div>
                   <div className="flex items-center gap-2">
-                    <input type="checkbox" id="supportsRefund" checked={formData.supportsRefund} onChange={e => setFormData({...formData, supportsRefund: e.target.checked})} className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary" />
+                    <input type="checkbox" id="supportsRefund" checked={formData.supportsRefund} onChange={e => setFormData({ ...formData, supportsRefund: e.target.checked })} className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary" />
                     <label htmlFor="supportsRefund" className="text-sm text-slate-700">Supports Refund</label>
                   </div>
                   <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-2">
-                      <input type="checkbox" id="isDefault" checked={formData.isDefault} onChange={e => setFormData({...formData, isDefault: e.target.checked})} className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary" />
+                      <input type="checkbox" id="isDefault" checked={formData.isDefault} onChange={e => setFormData({ ...formData, isDefault: e.target.checked })} className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary" />
                       <label htmlFor="isDefault" className="text-sm text-slate-700">Default Payment Mode</label>
                     </div>
                     {formData.isDefault && currentDefault && (
@@ -456,24 +445,7 @@ export const PaymentModeMaster = () => {
                 </div>
               </section>
 
-              {/* System */}
-              <section>
-                <h3 className="text-base font-bold text-slate-800 mb-3 border-b border-slate-100 pb-1.5">System</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Status <span className="text-red-500">*</span></label>
-                    <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
-                      <option value="Active">Active</option>
-                      <option value="Inactive">Inactive</option>
-                    </select>
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Remarks</label>
-                    <input type="text" maxLength={LIMITS.remarks} value={formData.remarks} onChange={e => setFormData({...formData, remarks: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
-                    <p className="text-slate-400 text-xs mt-1 text-right">{formData.remarks.length}/{LIMITS.remarks}</p>
-                  </div>
-                </div>
-              </section>
+
             </div>
 
             <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex justify-between items-center shrink-0">

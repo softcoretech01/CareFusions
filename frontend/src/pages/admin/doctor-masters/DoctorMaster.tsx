@@ -278,6 +278,7 @@ export const DoctorMaster = () => {
       ['name', 'gender', 'mobile', 'email', 'dob'].forEach(k => delete newErrors[k]);
       if (!formData.name.trim()) { newErrors.name = 'Name is required'; isValid = false; }
       if (!formData.gender) { newErrors.gender = 'Gender is required'; isValid = false; }
+      if (!formData.dob) { newErrors.dob = 'Date of Birth is required'; isValid = false; }
       if (!formData.mobile.trim()) {
         newErrors.mobile = 'Mobile is required'; isValid = false;
       } else if (!/^\d{10}$/.test(formData.mobile.replace(/\D/g, ''))) {
@@ -731,7 +732,7 @@ export const DoctorMaster = () => {
                       className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.gender ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
                         }`}
                     >
-                      <option value="">Select Gender</option>
+                      <option value="" disabled hidden>Select Gender</option>
                       <option value="Male">Male</option>
                       <option value="Female">Female</option>
                       <option value="Other">Other</option>
@@ -739,7 +740,9 @@ export const DoctorMaster = () => {
                     {errors.gender && <p className="text-red-500 text-xs mt-1">{errors.gender}</p>}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Date of Birth</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">
+                      Date of Birth <span className="text-red-500">*</span>
+                    </label>
                     <input
                       type="date"
                       value={formData.dob}

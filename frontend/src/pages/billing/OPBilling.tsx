@@ -156,22 +156,34 @@ export const OPBilling = () => {
       (p.patientName?.toLowerCase() || '').includes(sId);
   });
 
-  const pendingBills = patients.filter(p => {
-    const isPending = (p.status === 'Completed' || p.isFinalized) &&
+  const localDay = (value?: string) => {
+    if (!value) return '';
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return '';
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+
+  // Every finalized visit that has not been billed, regardless of date.
+  //
+  // This list used to honour the date filter, which defaults to today only, so
+  // a visit finalized yesterday disappeared from the billing screen entirely.
+  // Nobody could see it, so nobody billed it - that is why 21 of 23 finalized
+  // visits carried no bill. Unbilled work is not a historical view and must not
+  // be filtered away; the date filter still applies to Recent OP Bills below.
+  const pendingBills = patients
+    .filter(p =>
+      (p.status === 'Completed' || p.isFinalized) &&
       p.billingStatus !== 'Paid' &&
       p.billingStatus !== 'Billed' &&
-      p.billingStatus !== 'Completed';
+      p.billingStatus !== 'Completed')
+    // Oldest first: the longest-outstanding visit is the one most at risk of
+    // never being billed.
+    .sort((a, b) => localDay(a.date).localeCompare(localDay(b.date)));
 
-    if (!isPending) return false;
-    if (!dateFrom || !dateTo) return true;
-
-    if (p.date) {
-      const visitDate = new Date(p.date);
-      const localDateStr = visitDate.getFullYear() + '-' + String(visitDate.getMonth() + 1).padStart(2, '0') + '-' + String(visitDate.getDate()).padStart(2, '0');
-      return localDateStr >= dateFrom && localDateStr <= dateTo;
-    }
-    return true;
-  });
+  const olderThanToday = pendingBills.filter(p => {
+    const d = localDay(p.date);
+    return d !== '' && d < todayStr;
+  }).length;
 
   const selectPatient = (visit: OpdVisit) => {
     if (visit.billingStatus === 'Paid' || visit.billingStatus === 'Billed' || visit.billingStatus === 'Completed') {
@@ -437,9 +449,17 @@ export const OPBilling = () => {
             <div className="space-y-6">
               {pendingBills.length > 0 && (
                 <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider mb-3 flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4 text-green-500" /> Pending Finalized Visits
-                  </h3>
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                      Pending Finalized Visits ({pendingBills.length})
+                    </h3>
+                    {olderThanToday > 0 && (
+                      <span className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-3 py-1">
+                        {olderThanToday} from earlier days still unbilled
+                      </span>
+                    )}
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {pendingBills.map((visit, idx) => (
                       <div key={idx} onClick={() => selectPatient(visit)} className="border border-slate-200 rounded-xl p-4 bg-white hover:border-primary/30 hover:shadow-md transition-all cursor-pointer flex justify-between items-center group">
@@ -447,6 +467,14 @@ export const OPBilling = () => {
                           <p className="font-bold text-slate-800 group-hover:text-primary transition-colors">{visit.patientName}</p>
                           <p className="text-xs text-slate-500 mt-1">{visit.queueToken} • {visit.uhid}</p>
                           <p className="text-xs text-slate-400 mt-0.5">{visit.department} • {visit.doctorName}</p>
+                          {/* The visit date makes an ageing backlog visible. */}
+                          {localDay(visit.date) && (
+                            <p className={`text-xs mt-1 font-semibold ${localDay(visit.date) < todayStr ? 'text-amber-600' : 'text-slate-400'}`}>
+                              {localDay(visit.date) < todayStr
+                                ? `Visited ${localDay(visit.date)} · unbilled`
+                                : 'Visited today'}
+                            </p>
+                          )}
                         </div>
 
                         {/* <div className="w-10 h-10 rounded-full bg-primary/5 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
@@ -462,8 +490,8 @@ export const OPBilling = () => {
               {pendingBills.length === 0 && (
                 <div className="border-2 border-dashed border-slate-200 rounded-xl p-16 flex flex-col items-center justify-center text-slate-400 bg-slate-50/50">
                   <Search className="w-12 h-12 mb-3 opacity-30" />
-                  <p className="text-sm font-medium">Search for an OP ID above to load patient and prescription details.</p>
-                  <p className="text-xs mt-2 text-slate-400">Finalized visits will also appear here automatically.</p>
+                  <p className="text-sm font-medium">No finalized visits are waiting to be billed.</p>
+                  <p className="text-xs mt-2 text-slate-400">Search for an OP ID above, or finalize a visit in OPD and it will appear here.</p>
                 </div>
               )}
             </div>
