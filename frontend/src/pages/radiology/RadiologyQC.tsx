@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Pagination } from '@/components/ui/Pagination';
 import { usePagination } from '@/hooks/usePagination';
 import { useInvestigations, type QCLog } from '../../contexts/InvestigationContext';
@@ -8,8 +8,45 @@ import type { ApexOptions } from 'apexcharts';
 import toast from 'react-hot-toast';
 import { DateFilter } from '../../components/ui/DateFilter';
 
+const API_BASE = import.meta.env.VITE_API_URL as string || 'http://localhost:8000/api/v1';
+
+/** Sort a master list by the given label field so the dropdowns read alphabetically. */
+const byName = (field: string) => (a: any, b: any) =>
+  String(a?.[field] ?? '').localeCompare(String(b?.[field] ?? ''));
+
 export const RadiologyQC = () => {
   const { qcLogs, addRadiologyQCLog } = useInvestigations();
+
+  // Equipment comes from Admin > Equipment, test types from Admin > Radiology >
+  // Radiology Services. Only Active rows are offered, so a calibration cannot be
+  // logged against equipment or a service that has been retired.
+  const [equipmentList, setEquipmentList] = useState<any[]>([]);
+  const [serviceList, setServiceList] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchDropdowns = async () => {
+      try {
+        const [eqRes, srvRes] = await Promise.all([
+          fetch(`${API_BASE}/equipment/?status_filter=Active`),
+          fetch(`${API_BASE}/radiology-services/?status_filter=Active`),
+        ]);
+        if (eqRes.ok) {
+          const eqData = await eqRes.json();
+          if (Array.isArray(eqData)) {
+            const radEq = eqData.filter((eq: any) => eq.department === 'Radiology');
+            setEquipmentList(radEq.sort(byName('equipmentName')));
+          }
+        }
+        if (srvRes.ok) {
+          const srvData = await srvRes.json();
+          if (Array.isArray(srvData)) setServiceList(srvData.sort(byName('serviceName')));
+        }
+      } catch (err) {
+        console.error('[RadiologyQC] Failed to load equipment / service masters', err);
+      }
+    };
+    fetchDropdowns();
+  }, []);
   const [showAddForm, setShowAddForm] = useState(false);
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
@@ -25,12 +62,16 @@ export const RadiologyQC = () => {
 
   const [formData, setFormData] = useState<Partial<QCLog>>({
     date: new Date().toISOString().split('T')[0],
-    machineName: 'MRI Scanner (Suite A)',
-    testName: 'Daily Phantom Calibration',
+    machineName: '',
+    testName: '',
     status: 'Pass'
   });
 
   const handleSave = async () => {
+    if (!formData.machineName || !formData.testName) {
+      toast.error('Please select the equipment and the test type');
+      return;
+    }
     if (!formData.expectedValue || !formData.actualValue) {
       toast.error('Please fill all required fields');
       return;
@@ -123,11 +164,21 @@ export const RadiologyQC = () => {
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Equipment</label>
-              <input type="text" value={formData.machineName} onChange={e => setFormData({...formData, machineName: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm" maxLength={150} />
+              <select value={formData.machineName} onChange={e => setFormData({...formData, machineName: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm bg-white">
+                <option value="">{equipmentList.length ? 'Select Equipment' : 'No active equipment in master'}</option>
+                {equipmentList.map(eq => (
+                  <option key={eq.id} value={eq.equipmentName}>{eq.equipmentName}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Test Type</label>
-              <input type="text" value={formData.testName} onChange={e => setFormData({...formData, testName: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm" maxLength={200} />
+              <select value={formData.testName} onChange={e => setFormData({...formData, testName: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm bg-white">
+                <option value="">{serviceList.length ? 'Select Test Type' : 'No active radiology services in master'}</option>
+                {serviceList.map(srv => (
+                  <option key={srv.id} value={srv.serviceName}>{srv.serviceName}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Remarks</label>

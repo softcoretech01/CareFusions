@@ -105,8 +105,6 @@ export const UsersMaster = () => {
   const [records, setRecords] = useState<UserRecord[]>([]);
   const [roleOptions, setRoleOptions] = useState<RoleOption[]>([]);
   const [departmentOptions, setDepartmentOptions] = useState<string[]>([]);
-  const [hospitalOptions, setHospitalOptions] = useState<string[]>([]);
-  const [branchOptions, setBranchOptions] = useState<{ name: string; hospital: string }[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -148,11 +146,9 @@ export const UsersMaster = () => {
   // Roles + Department/Hospital/Branch come from the live masters
   const fetchLookups = async () => {
     try {
-      const [rRes, dRes, hRes, bRes] = await Promise.all([
+      const [rRes, dRes] = await Promise.all([
         fetch(`${API_BASE}/roles/`),
         fetch(`${API_BASE}/departments/`),
-        fetch(`${API_BASE}/hospitals/`),
-        fetch(`${API_BASE}/branches/`),
       ]);
       if (rRes.ok) {
         const roles: Record<string, unknown>[] = await rRes.json();
@@ -168,8 +164,6 @@ export const UsersMaster = () => {
         );
       }
       if (dRes.ok) setDepartmentOptions((await dRes.json()).map((d: Record<string, unknown>) => d.departmentName as string));
-      if (hRes.ok) setHospitalOptions((await hRes.json()).map((h: Record<string, unknown>) => h.name as string));
-      if (bRes.ok) setBranchOptions((await bRes.json()).map((b: Record<string, unknown>) => ({ name: b.name as string, hospital: (b.hospital as string) ?? '' })));
     } catch { /* leave options as-is */ }
   };
 
@@ -320,18 +314,8 @@ export const UsersMaster = () => {
   };
 
   const allDepartments = Array.from(new Set([...departmentOptions, ...records.map(r => r.department)].filter(Boolean))).sort();
-  const allHospitals = Array.from(new Set([...hospitalOptions, ...records.map(r => r.hospital)].filter(Boolean))).sort();
   const allRoles = Array.from(new Set([...roleOptions.map(r => r.roleName), ...records.map(r => r.role)].filter(Boolean))).sort();
 
-  // Branch cascades from the selected Hospital (branches carry their hospital).
-  // While editing, keep the record's own branch visible even if the option list hasn't loaded.
-  const availableBranches = Array.from(new Set(
-    branchOptions
-      .filter(b => b.hospital === formData.hospital)
-      .map(b => b.name)
-      .concat(selectedRecord && selectedRecord.hospital === formData.hospital && selectedRecord.branch ? [selectedRecord.branch] : [])
-      .filter(Boolean)
-  )).sort();
 
   const filteredRecords = records.filter(record => {
     const matchesSearch =
@@ -368,7 +352,7 @@ export const UsersMaster = () => {
         <>
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-3xl font-bold text-slate-800">User Master</h1>
+              <h1 className="text-3xl font-bold text-slate-800">User</h1>
               <p className="text-slate-500 mt-1"></p>
             </div>
             <div className="flex gap-3">
@@ -590,24 +574,10 @@ export const UsersMaster = () => {
                     {errors.role && <p className="text-red-500 text-xs mt-1">{errors.role}</p>}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Hospital</label>
-                    <select value={formData.hospital} onChange={e => setFormData({...formData, hospital: e.target.value, branch: ''})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
-                      <option value="">None</option>
-                      {allHospitals.map(h => <option key={h} value={h}>{h}</option>)}
-                    </select>
-                  </div>
-                  <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Department</label>
                     <select value={formData.department} onChange={e => setFormData({...formData, department: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
                       <option value="">None</option>
                       {allDepartments.map(d => <option key={d} value={d}>{d}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Branch</label>
-                    <select value={formData.branch} disabled={!formData.hospital} onChange={e => setFormData({...formData, branch: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed">
-                      <option value="">{formData.hospital ? 'None' : 'Select a hospital first'}</option>
-                      {availableBranches.map(b => <option key={b} value={b}>{b}</option>)}
                     </select>
                   </div>
                 </div>

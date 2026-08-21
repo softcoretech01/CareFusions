@@ -134,7 +134,7 @@ const MedicineCategoryMaster = lazy(() => import('../pages/admin/pharmacy-master
 const TestMaster = lazy(() => import('../pages/admin/laboratory-masters/TestMaster').then(m => ({ default: (m as any).TestMaster ?? (m as any).default })));
 const SampleTypeMaster = lazy(() => import('../pages/admin/laboratory-masters/SampleTypeMaster').then(m => ({ default: (m as any).SampleTypeMaster ?? (m as any).default })));
 const RadiologyServiceMaster = lazy(() => import('../pages/admin/radiology-masters/RadiologyServiceMaster').then(m => ({ default: (m as any).RadiologyServiceMaster ?? (m as any).default })));
-const EquipmentMaster = lazy(() => import('../pages/admin/radiology-masters/EquipmentMaster').then(m => ({ default: (m as any).EquipmentMaster ?? (m as any).default })));
+const EquipmentMaster = lazy(() => import('../pages/admin/equipment-masters/EquipmentMaster').then(m => ({ default: (m as any).EquipmentMaster ?? (m as any).default })));
 const ServiceMaster = lazy(() => import('../pages/admin/billing-masters/ServiceMaster').then(m => ({ default: (m as any).ServiceMaster ?? (m as any).default })));
 const TaxMaster = lazy(() => import('../pages/admin/billing-masters/TaxMaster').then(m => ({ default: (m as any).TaxMaster ?? (m as any).default })));
 const PaymentModeMaster = lazy(() => import('../pages/admin/billing-masters/PaymentModeMaster').then(m => ({ default: (m as any).PaymentModeMaster ?? (m as any).default })));

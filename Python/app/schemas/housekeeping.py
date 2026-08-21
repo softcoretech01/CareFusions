@@ -30,7 +30,6 @@ _EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 
 
 class _HousekeepingFields(BaseModel):
-    employeeCode:     str            = Field(max_length=EMPCODE_MAX)
     name:             str            = Field(max_length=NAME_MAX)
     gender:           Optional[GenderEnum] = None
     hospital:         Optional[str]  = Field(default=None, max_length=150)
@@ -46,8 +45,6 @@ class _HousekeepingFields(BaseModel):
 
     photo:            Optional[str]  = None
     idProof:          Optional[str]  = None
-
-    status:           StatusEnum     = StatusEnum.Active
     remarks:          Optional[str]  = None
 
     @field_validator("name", "manager")
@@ -112,7 +109,7 @@ class _HousekeepingFields(BaseModel):
             raise ValueError("Joining Date cannot be in the future")
         return v
 
-    @field_validator("employeeCode", "assignedArea", "shift")
+    @field_validator("assignedArea", "shift")
     @classmethod
     def required_text(cls, v: str) -> str:
         v = (v or "").strip()
@@ -140,7 +137,6 @@ class HousekeepingUpdate(_HousekeepingFields):
 class HousekeepingResponse(BaseModel):
     id:               int
     housekeepingCode: str
-    employeeCode:     str
     name:             str
     gender:           Optional[str] = None
     hospital:         Optional[str] = None
@@ -156,8 +152,6 @@ class HousekeepingResponse(BaseModel):
 
     photo:            Optional[str] = None
     idProof:          Optional[str] = None
-
-    status:           str
     remarks:          Optional[str] = None
 
     createdBy:        Optional[str] = None

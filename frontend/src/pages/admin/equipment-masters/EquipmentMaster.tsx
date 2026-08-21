@@ -342,7 +342,7 @@ export const EquipmentMaster = () => {
         <>
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-3xl font-bold text-slate-800">Equipment Master</h1>
+              <h1 className="text-3xl font-bold text-slate-800">Equipment</h1>
               <p className="text-slate-500 mt-1"></p>
             </div>
             <div className="flex gap-3">
@@ -594,18 +594,17 @@ export const EquipmentMaster = () => {
                 <h3 className="text-base font-bold text-slate-800 mb-3 border-b border-slate-100 pb-1.5">Location Details</h3>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Hospital <span className="text-red-500">*</span></label>
-                    <input type="text" maxLength={LIMITS.location} value={formData.hospital} onChange={e => setFormData({...formData, hospital: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.hospital ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
-                    {errors.hospital && <p className="text-red-500 text-xs mt-1">{errors.hospital}</p>}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Branch <span className="text-red-500">*</span></label>
-                    <input type="text" maxLength={LIMITS.location} value={formData.branch} onChange={e => setFormData({...formData, branch: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.branch ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
-                    {errors.branch && <p className="text-red-500 text-xs mt-1">{errors.branch}</p>}
-                  </div>
-                  <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Department <span className="text-red-500">*</span></label>
-                    <input type="text" maxLength={LIMITS.location} value={formData.department} onChange={e => setFormData({...formData, department: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.department ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
+                    <select value={formData.department} onChange={e => setFormData({...formData, department: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.department ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
+                      <option value="">Select Department</option>
+                      <option value="Radiology">Radiology</option>
+                      <option value="Laboratory">Laboratory</option>
+                      <option value="General Hospital">General Hospital</option>
+                      <option value="Pharmacy">Pharmacy</option>
+                      <option value="Operation Theatre (OT)">Operation Theatre (OT)</option>
+                      <option value="Intensive Care Unit (ICU)">Intensive Care Unit (ICU)</option>
+                      <option value="Emergency Room (ER)">Emergency Room (ER)</option>
+                    </select>
                     {errors.department && <p className="text-red-500 text-xs mt-1">{errors.department}</p>}
                   </div>
                   <div>

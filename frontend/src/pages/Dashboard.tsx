@@ -27,35 +27,12 @@ const KPI_DEFS: {
   cols: Col[];
 }[] = [
   {
-    label: 'Total Hospitals', icon: Building2, color: 'text-primary', bg: 'bg-primary/10',
-    apis: ['/hospitals/'],
-    cols: [
-      { key: 'code', label: 'Code', mono: true },
-      { key: 'name', label: 'Hospital', },
-      { key: 'city', label: 'City' },
-      { key: 'contactNumber', label: 'Contact', mono: true },
-      { key: 'status', label: 'Status' },
-    ],
-  },
-  {
-    label: 'Total Doctors', icon: Stethoscope, color: 'text-secondary', bg: 'bg-secondary/10',
-    apis: ['/doctors/'],
-    cols: [
-      { key: 'doctorId', label: 'Doctor ID', mono: true },
-      { key: 'name', label: 'Name' },
-      { key: 'specialization', label: 'Specialization' },
-      { key: 'department', label: 'Department' },
-      { key: 'mobile', label: 'Mobile', mono: true },
-      { key: 'status', label: 'Status' },
-    ],
-  },
-  {
     label: 'Employees', icon: Users, color: 'text-success', bg: 'bg-success/10',
-    apis: ['/nurses/', '/pharmacists/', '/lab-technicians/', '/receptionists/'],
-    sources: ['Nurse', 'Pharmacist', 'Lab Technician', 'Receptionist'],
+    apis: ['/doctors/', '/nurses/', '/pharmacists/', '/lab-technicians/', '/receptionists/'],
+    sources: ['Doctor', 'Nurse', 'Pharmacist', 'Lab Technician', 'Receptionist'],
     cols: [
       { key: '__source', label: 'Role' },
-      { key: 'employeeCode', label: 'Emp Code', mono: true },
+      { key: 'employeeCode|doctorId', label: 'Emp Code', mono: true },
       { key: 'name', label: 'Name' },
       { key: 'department|pharmacy|laboratory|counter', label: 'Assigned To' },
       { key: 'mobile', label: 'Mobile', mono: true },
@@ -107,18 +84,6 @@ const KPI_DEFS: {
       { key: 'role', label: 'Role' },
       { key: 'department', label: 'Department' },
       { key: 'email', label: 'Email' },
-      { key: 'status', label: 'Status' },
-    ],
-  },
-  {
-    label: 'Master Configs', icon: Settings, color: 'text-slate-500', bg: 'bg-slate-500/10',
-    apis: ['/sms-templates/', '/email-templates/', '/whatsapp-templates/', '/push-templates/', '/reminder-rules/'],
-    sources: ['SMS Template', 'Email Template', 'WhatsApp Template', 'Push Template', 'Reminder Rule'],
-    cols: [
-      { key: '__source', label: 'Type' },
-      { key: 'templateCode|ruleCode|code', label: 'Code', mono: true },
-      { key: 'templateName|ruleName|name', label: 'Name' },
-      { key: 'module|event|category', label: 'Module' },
       { key: 'status', label: 'Status' },
     ],
   },
@@ -392,7 +357,7 @@ export const Dashboard = () => {
       </div>
 
       {/* KPIs Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {KPI_DEFS.map((kpi, idx) => {
           const Icon = kpi.icon;
           const rows = kpiRows[idx];

@@ -16,7 +16,7 @@ export const PromptsMaster = () => (
     className="h-full flex flex-col"
   >
     <div className="mb-4">
-      <h1 className="text-2xl font-bold text-slate-800">Prompts Master</h1>
+      <h1 className="text-2xl font-bold text-slate-800">Prompts</h1>
       <p className="text-slate-500 text-xs">AI prompt templates</p>
     </div>
 

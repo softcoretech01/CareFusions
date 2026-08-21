@@ -100,14 +100,16 @@ def get_categories(db: Session = Depends(get_db)):
 
 @router.get("/sample-types", response_model=List[LookupResponse])
 def get_sample_types(db: Session = Depends(get_db)):
-    sql = text("SELECT SampleTypeId AS id, SampleTypeName AS name FROM Master_SampleType")
+    sql = text("SELECT SampleTypeId AS id, SampleTypeName AS name FROM Master_SampleType "
+               "WHERE IsDeleted = 0 AND Status = 'Active' ORDER BY SampleTypeName")
     result = db.execute(sql)
     return [dict(r._mapping) for r in result]
 
 
 @router.get("/departments", response_model=List[LookupResponse])
 def get_departments(db: Session = Depends(get_db)):
-    sql = text("SELECT DepartmentId AS id, DepartmentName AS name FROM Master_Department")
+    sql = text("SELECT DepartmentId AS id, DepartmentName AS name FROM Master_Department "
+               "WHERE IsDeleted = 0 AND Status = 'Active' ORDER BY DepartmentName")
     result = db.execute(sql)
     return [dict(r._mapping) for r in result]
 

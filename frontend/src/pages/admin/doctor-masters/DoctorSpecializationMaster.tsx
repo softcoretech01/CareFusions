@@ -213,7 +213,7 @@ export const DoctorSpecializationMaster = () => {
 
           <div className="flex justify-between items-center mb-4">
             <div>
-              <h1 className="text-2xl font-bold text-slate-800">Doctor Specialization Master</h1>
+              <h1 className="text-2xl font-bold text-slate-800">Doctor Specialization</h1>
               <p className="text-slate-500 text-xs">
                 The controlled list the Specialization field on Doctor Master picks from
               </p>

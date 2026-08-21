@@ -40,6 +40,44 @@ export const IPBilling = () => {
   // From IPD
   const [admissions, setAdmissions] = useState<any[]>([]);
 
+  // Consultation fees come from the Department master, so changing a fee there
+  // changes what IP bills charge. The visit fee used to be a hardcoded 900.
+  const [deptFees, setDeptFees] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    fetch(`${API_BASE}/departments/`)
+      .then(r => r.json())
+      .then((rows: any[]) => {
+        if (!Array.isArray(rows)) return;
+        const map: Record<string, number> = {};
+        rows.forEach(d => {
+          if (d.departmentName && d.consultationFee != null) {
+            map[d.departmentName] = Number(d.consultationFee);
+          }
+        });
+        setDeptFees(map);
+      })
+      .catch(e => console.error('[IPBilling] department fees load failed', e));
+  }, []);
+
+  /** Consultation fee for the admitting department; 0 when the master has none. */
+  const consultationFeeFor = (department?: string) =>
+    (department && deptFees[department]) || 0;
+
+  /** Days admitted, counted from the admission timestamp to today.
+   *  Previously this used expectedStayDays, which is a plan, not the actual
+   *  stay, so a bill raised on day 5 still charged for the expected 3. */
+  const daysAdmitted = (admissionDate?: string) => {
+    if (!admissionDate) return 1;
+    const start = new Date(admissionDate);
+    if (isNaN(start.getTime())) return 1;
+    start.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const days = Math.floor((today.getTime() - start.getTime()) / 86400000) + 1;
+    return days > 0 ? days : 1;
+  };
+
   const [searchId, setSearchId] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [items, setItems] = useState<BillItem[]>([]);
@@ -118,11 +156,12 @@ export const IPBilling = () => {
         setSelectedPatientId(foundIPD.uhid);
         fetchPatientMobile(foundIPD.uhid);
 
-        const stayDays = foundIPD.expectedStayDays || 1;
+        const stayDays = daysAdmitted(foundIPD.admissionDate);
+        const visitFee = consultationFeeFor(foundIPD.department);
         const newItems = [
           { id: 'ITM-001', description: `Room Charges (${stayDays} Days)`, price: 1500, qty: stayDays, total: 1500 * stayDays },
           { id: 'ITM-002', description: 'Nursing Charges (Per Day)', price: 500, qty: stayDays, total: 500 * stayDays },
-          { id: 'ITM-003', description: 'Doctor Visit Fees', price: 900, qty: stayDays, total: 900 * stayDays },
+          { id: 'ITM-003', description: `Consultation Fee${foundIPD.department ? ` (${foundIPD.department})` : ''}`, price: visitFee, qty: stayDays, total: visitFee * stayDays },
         ];
         
         // Add medicines from discharge summary if available
@@ -251,11 +290,12 @@ export const IPBilling = () => {
 
       fetchPatientMobile(foundIPD.uhid);
 
-      const stayDays = foundIPD.expectedStayDays || 1;
+      const stayDays = daysAdmitted(foundIPD.admissionDate);
+      const visitFee = consultationFeeFor(foundIPD.department);
       const newItems = [
         { id: 'ITM-001', description: `Room Charges (${stayDays} Days)`, price: 1500, qty: stayDays, total: 1500 * stayDays },
         { id: 'ITM-002', description: 'Nursing Charges (Per Day)', price: 500, qty: stayDays, total: 500 * stayDays },
-        { id: 'ITM-003', description: 'Doctor Visit Fees', price: 900, qty: stayDays, total: 900 * stayDays },
+        { id: 'ITM-003', description: `Consultation Fee${foundIPD.department ? ` (${foundIPD.department})` : ''}`, price: visitFee, qty: stayDays, total: visitFee * stayDays },
       ];
       
       // Add medicines from discharge summary if available

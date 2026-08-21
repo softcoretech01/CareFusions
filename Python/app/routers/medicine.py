@@ -58,7 +58,6 @@ def _call_sp(db: Session, opt: str, medicine_id: int = 0, **kwargs):
         "p_MedicineId":     medicine_id,
         "p_MedicineCode":   safe_value(kwargs.get("medicine_code")),
         "p_GenericName":    safe_value(kwargs.get("generic_name")),
-        "p_BrandName":      safe_value(kwargs.get("brand_name")),
         "p_Category":       safe_value(kwargs.get("category")),
         "p_Manufacturer":   safe_value(kwargs.get("manufacturer")),
         "p_Strength":       safe_value(kwargs.get("strength")),
@@ -82,7 +81,7 @@ def _call_sp(db: Session, opt: str, medicine_id: int = 0, **kwargs):
     sql = text(f"""
         CALL {SP_NAME}(
             :p_Opt, :p_MedicineId,
-            :p_MedicineCode, :p_GenericName, :p_BrandName, :p_Category,
+            :p_MedicineCode, :p_GenericName, :p_Category,
             :p_Manufacturer, :p_Strength, :p_DosageForm, :p_Unit,
             :p_BatchTracking, :p_ExpiryRequired, :p_ControlledDrug, :p_ReorderLevel, :p_Barcode,
             :p_PurchasePrice, :p_SellingPrice, :p_Gst,
