@@ -83,7 +83,6 @@ export const BankMaster = () => {
   // Filter States
   const [showFilters, setShowFilters] = useState(false);
   const [filterBankName, setFilterBankName] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
 
   // Form States
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -242,9 +241,8 @@ export const BankMaster = () => {
       record.accountNumber.includes(searchTerm);
 
     const matchesBank = !filterBankName || record.bankName === filterBankName;
-    const matchesStatus = !filterStatus || record.status === filterStatus;
 
-    return matchesSearch && matchesBank && matchesStatus;
+    return matchesSearch && matchesBank;
   });
 
   const uniqueBanks = Array.from(new Set(records.map(r => r.bankName)));
@@ -299,7 +297,7 @@ export const BankMaster = () => {
               <button onClick={() => setShowFilters(!showFilters)} title="Filters" className={showFilters ? "p-2 border rounded-lg transition-colors border-primary bg-primary/5 text-primary" : "p-2 border rounded-lg transition-colors border-slate-200 text-slate-500 hover:bg-slate-50"}>
                 <Filter className="w-4 h-4" />
               </button>
-              <button onClick={() => { setSearchTerm(''); setFilterBankName(''); setFilterStatus(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
+              <button onClick={() => { setSearchTerm(''); setFilterBankName(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
                 <X className="w-4 h-4" />
               </button>
               <button onClick={() => exportToExcel(records, 'BankMaster')} title="Export to Excel" className="p-2 border border-emerald-200 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 transition-colors">
@@ -325,15 +323,6 @@ export const BankMaster = () => {
                       <option value="">All Banks</option>
                       {uniqueBanks.map(b => <option key={b} value={b}>{b}</option>)}
                     </select>
-                    <select
-                      value={filterStatus}
-                      onChange={(e) => setFilterStatus(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    >
-                      <option value="">All Statuses</option>
-                      <option value="Active">Active</option>
-                      <option value="Inactive">Inactive</option>
-                    </select>
                   </div>
                 </motion.div>
               )}
@@ -348,13 +337,12 @@ export const BankMaster = () => {
                     <th className="px-4 py-3 font-medium">Account Number</th>
                     <th className="px-4 py-3 font-medium">Branch</th>
                     <th className="px-4 py-3 font-medium">IFSC Code</th>
-                    <th className="px-4 py-3 font-medium text-center">Status</th>
                     <th className="px-4 py-3 font-medium text-center">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {isLoading ? (
-                    <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500">Loading bank accounts...</td></tr>
+                    <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500">Loading bank accounts...</td></tr>
                   ) : filteredRecords.length > 0 ? (
                     pagedRecords.map((record) => (
                       <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
@@ -363,15 +351,6 @@ export const BankMaster = () => {
                         <td className="px-4 py-3 text-slate-600 font-mono text-xs">{record.accountNumber}</td>
                         <td className="px-4 py-3 text-slate-600">{record.branch}</td>
                         <td className="px-4 py-3 text-slate-600 font-mono text-xs">{record.ifscCode}</td>
-                        <td className="px-4 py-3 text-center">
-                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                            record.status === 'Active'
-                              ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
-                              : 'bg-red-50 text-red-600 border border-red-200'
-                          }`}>
-                            {record.status}
-                          </span>
-                        </td>
                         <td className="px-4 py-3 text-center">
                           <div className="flex items-center justify-center gap-2">
                             <button onClick={() => handleEdit(record)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors" title="Edit">
@@ -386,7 +365,7 @@ export const BankMaster = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
+                      <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
                         No bank accounts found matching your criteria.
                       </td>
                     </tr>
@@ -495,13 +474,6 @@ export const BankMaster = () => {
               <section>
                 <h3 className="text-base font-bold text-slate-800 mb-3 border-b border-slate-100 pb-1.5">System Information</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Status <span className="text-red-500">*</span></label>
-                    <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
-                      <option value="Active">Active</option>
-                      <option value="Inactive">Inactive</option>
-                    </select>
-                  </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Remarks</label>
                     <input type="text" maxLength={LIMITS.remarks} value={formData.remarks} onChange={e => setFormData({...formData, remarks: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />

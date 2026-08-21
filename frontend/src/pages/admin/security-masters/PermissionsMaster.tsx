@@ -87,7 +87,6 @@ export const PermissionsMaster = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [filterModule, setFilterModule] = useState('');
   const [filterRole, setFilterRole] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
 
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -195,7 +194,7 @@ export const PermissionsMaster = () => {
   const filteredRecords = records.filter(r => {
     const s = searchTerm.toLowerCase();
     const matchSearch = r.module.toLowerCase().includes(s) || r.role.toLowerCase().includes(s) || r.permissionCode.toLowerCase().includes(s);
-    return matchSearch && (!filterModule || r.module === filterModule) && (!filterRole || r.role === filterRole) && (!filterStatus || r.status === filterStatus);
+    return matchSearch && (!filterModule || r.module === filterModule) && (!filterRole || r.role === filterRole);
   });
 
   const allRoles = Array.from(new Set([...roleOptions, ...records.map(r => r.role)].filter(Boolean)));
@@ -238,7 +237,7 @@ export const PermissionsMaster = () => {
               <button onClick={() => setShowFilters(!showFilters)} title="Filters" className={showFilters ? "p-2 border rounded-lg transition-colors border-primary bg-primary/5 text-primary" : "p-2 border rounded-lg transition-colors border-slate-200 text-slate-500 hover:bg-slate-50"}>
                 <Filter className="w-4 h-4" />
               </button>
-              <button onClick={() => { setSearchTerm(''); setFilterModule(''); setFilterRole(''); setFilterStatus(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
+              <button onClick={() => { setSearchTerm(''); setFilterModule(''); setFilterRole(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
                 <X className="w-4 h-4" />
               </button>
               <button onClick={() => exportToExcel(records, 'PermissionsMaster')} title="Export to Excel" className="p-2 border border-emerald-200 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 transition-colors">
@@ -259,11 +258,6 @@ export const PermissionsMaster = () => {
                       <option value="">All Roles</option>
                       {paged.map(r => <option key={r} value={r}>{r}</option>)}
                     </select>
-                    <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
-                      <option value="">All Statuses</option>
-                      <option value="Active">Active</option>
-                      <option value="Inactive">Inactive</option>
-                    </select>
                   </div>
                 </motion.div>
               )}
@@ -277,13 +271,12 @@ export const PermissionsMaster = () => {
                     <th className="px-4 py-3 font-medium">Role</th>
                     <th className="px-4 py-3 font-medium">Module</th>
                     <th className="px-4 py-3 font-medium">Core Rights</th>
-                    <th className="px-4 py-3 font-medium text-center">Status</th>
                     <th className="px-4 py-3 font-medium text-center">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {isLoading ? (
-                    <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500">Loading permissions…</td></tr>
+                    <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-500">Loading permissions…</td></tr>
                   ) : filteredRecords.length > 0 ? (
                     pagedRecords.map((record) => (
                       <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
@@ -295,9 +288,6 @@ export const PermissionsMaster = () => {
                         </td>
                         <td className="px-4 py-3 text-slate-500 text-xs tracking-widest">{getSummary(record)}</td>
                         <td className="px-4 py-3 text-center">
-                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${record.status === 'Active' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-red-50 text-red-600 border border-red-200'}`}>{record.status}</span>
-                        </td>
-                        <td className="px-4 py-3 text-center">
                           <div className="flex items-center justify-center gap-2">
                             <button onClick={() => handleEdit(record)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors" title="Edit"><Edit2 className="w-4 h-4" /></button>
                             <button onClick={() => handleDeleteRequest(record)} className="p-1.5 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete"><Trash2 className="w-4 h-4" /></button>
@@ -306,7 +296,7 @@ export const PermissionsMaster = () => {
                       </tr>
                     ))
                   ) : (
-                    <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500">No permissions found. Click "Add Permission" to grant a role access.</td></tr>
+                    <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-500">No permissions found. Click "Add Permission" to grant a role access.</td></tr>
                   )}
                 </tbody>
               </table>
@@ -413,13 +403,6 @@ export const PermissionsMaster = () => {
               <section>
                 <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">System Information</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Status <span className="text-red-500">*</span></label>
-                    <select value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
-                      <option value="Active">Active</option>
-                      <option value="Inactive">Inactive</option>
-                    </select>
-                  </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Remarks</label>
                     <input type="text" maxLength={500} value={formData.remarks} onChange={e => setFormData({ ...formData, remarks: e.target.value })} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />

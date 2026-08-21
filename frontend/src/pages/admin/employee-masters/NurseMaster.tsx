@@ -461,7 +461,7 @@ export const NurseMaster = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={8} className="px-4 py-8 text-center text-slate-500">
+                      <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
                         {isLoading ? 'Loading records...' : 'No nurses found matching your criteria.'}
                       </td>
                     </tr>

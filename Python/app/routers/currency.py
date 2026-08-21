@@ -19,7 +19,6 @@ def _call_sp(db: Session, opt: str, **kwargs):
         "p_CurrencyId":   kwargs.get("currency_id"),
         "p_CurrencyCode": kwargs.get("currency_code"),
         "p_CurrencyName": kwargs.get("currency_name"),
-        "p_Symbol":       kwargs.get("symbol"),
         "p_ExchangeRate": kwargs.get("exchange_rate"),
         "p_IsBase":       kwargs.get("is_base"),
         "p_Status":       kwargs.get("status"),
@@ -30,7 +29,7 @@ def _call_sp(db: Session, opt: str, **kwargs):
     }
     sql = text(f"""
         CALL {SP_NAME}(
-            :p_Opt, :p_CurrencyId, :p_CurrencyCode, :p_CurrencyName, :p_Symbol,
+            :p_Opt, :p_CurrencyId, :p_CurrencyCode, :p_CurrencyName,
             :p_ExchangeRate, :p_IsBase, :p_Status, :p_CreatedBy, :p_UpdatedBy,
             :p_Search, :p_StatusFilter
         )
@@ -43,7 +42,6 @@ def _map_row(row) -> dict:
         "id":           row.CurrencyId,
         "currencyCode": row.CurrencyCode,
         "currencyName": row.CurrencyName,
-        "symbol":       row.Symbol,
         "exchangeRate": row.ExchangeRate,
         "baseCurrency": bool(row.IsBaseCurrency),
         "status":       row.Status,

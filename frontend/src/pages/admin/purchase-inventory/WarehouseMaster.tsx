@@ -71,7 +71,6 @@ export const WarehouseMaster = () => {
 
   // Filter States
   const [showFilters, setShowFilters] = useState(false);
-  const [filterStatus, setFilterStatus] = useState('');
 
   // Form States
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -224,8 +223,7 @@ export const WarehouseMaster = () => {
       const matchesSearch = Object.values(record).some(val =>
         String(val).toLowerCase().includes(searchTerm.toLowerCase())
       );
-      const matchesStatus = filterStatus ? record.status === filterStatus : true;
-      return matchesSearch && matchesStatus;
+      return matchesSearch;
     });
 
     if (sortConfig.key) {
@@ -241,7 +239,7 @@ export const WarehouseMaster = () => {
     }
 
     return result;
-  }, [records, searchTerm, filterStatus, sortConfig]);
+  }, [records, searchTerm, sortConfig]);
 
   const totalPages = Math.ceil(processedData.length / itemsPerPage);
   const paginatedData = processedData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -298,7 +296,7 @@ export const WarehouseMaster = () => {
             >
               <Filter className="w-4 h-4" />
             </button>
-            <button onClick={() => { setSearchTerm(''); setFilterStatus(''); setCurrentPage(1); }} className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors" title="Clear search & filters">
+            <button onClick={() => { setSearchTerm(''); setCurrentPage(1); }} className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors" title="Clear search & filters">
               <X className="w-4 h-4" />
             </button>
             <button onClick={() => exportToExcel(records, 'WarehouseMaster')} className="p-2 border border-emerald-200 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 transition-colors" title="Export to Excel">
@@ -330,15 +328,6 @@ export const WarehouseMaster = () => {
               className="border-b border-slate-100 bg-slate-50 overflow-hidden"
             >
               <div className="p-4 flex gap-4">
-                <select
-                  value={filterStatus}
-                  onChange={(e) => { setFilterStatus(e.target.value); setCurrentPage(1); }}
-                  className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-                >
-                  <option value="">All Statuses</option>
-                  <option value="Active">Active</option>
-                  <option value="Inactive">Inactive</option>
-                </select>
               </div>
             </motion.div>
           )}
@@ -357,9 +346,9 @@ export const WarehouseMaster = () => {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {isLoading ? (
-                <tr><td colSpan={6} className="py-8 text-center text-slate-500">Loading stores...</td></tr>
+                <tr><td colSpan={5} className="py-8 text-center text-slate-500">Loading stores...</td></tr>
               ) : paginatedData.length === 0 ? (
-                <tr><td colSpan={6} className="py-8 text-center text-slate-500">No records found</td></tr>
+                <tr><td colSpan={5} className="py-8 text-center text-slate-500">No records found</td></tr>
               ) : paginatedData.map((record) => (
                 <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="py-3 px-4 text-slate-800 font-medium">{record.storeCode}</td>

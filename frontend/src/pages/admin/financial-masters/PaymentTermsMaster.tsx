@@ -57,7 +57,6 @@ export const PaymentTermsMaster = () => {
 
   // Filter States
   const [showFilters, setShowFilters] = useState(false);
-  const [filterStatus, setFilterStatus] = useState('');
 
   // Form States
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -181,8 +180,7 @@ export const PaymentTermsMaster = () => {
     const matchesSearch = Object.values(record).some(val =>
       String(val).toLowerCase().includes(searchTerm.toLowerCase())
     );
-    const matchesStatus = filterStatus ? record.status === filterStatus : true;
-    return matchesSearch && matchesStatus;
+    return matchesSearch;
   });
 
   const _totalPages = Math.max(1, Math.ceil(filteredRecords.length / itemsPerPage));
@@ -236,7 +234,7 @@ export const PaymentTermsMaster = () => {
             >
               <Filter className="w-4 h-4" />
             </button>
-            <button onClick={() => { setSearchTerm(''); setFilterStatus(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
+            <button onClick={() => { setSearchTerm(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
               <X className="w-4 h-4" />
             </button>
             <button onClick={() => exportToExcel(records, 'PaymentTermsMaster')} title="Export to Excel" className="p-2 border border-emerald-200 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 transition-colors">
@@ -254,15 +252,6 @@ export const PaymentTermsMaster = () => {
               className="border-b border-slate-100 bg-slate-50 overflow-hidden"
             >
               <div className="p-4 flex gap-4">
-                <select
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
-                  className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-                >
-                  <option value="">All Status</option>
-                  <option value="Active">Active</option>
-                  <option value="Inactive">Inactive</option>
-                </select>
               </div>
             </motion.div>
           )}
@@ -276,28 +265,20 @@ export const PaymentTermsMaster = () => {
                 <th className="text-left py-4 px-6 font-medium text-slate-500 text-sm">Payment Term Name</th>
                 <th className="text-left py-4 px-6 font-medium text-slate-500 text-sm">Credit Days</th>
                 <th className="text-left py-4 px-6 font-medium text-slate-500 text-sm">Description</th>
-                <th className="text-left py-4 px-6 font-medium text-slate-500 text-sm">Status</th>
                 <th className="text-right py-4 px-6 font-medium text-slate-500 text-sm w-24">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {isLoading ? (
-                <tr><td colSpan={6} className="py-8 text-center text-slate-500">Loading payment terms...</td></tr>
+                <tr><td colSpan={5} className="py-8 text-center text-slate-500">Loading payment terms...</td></tr>
               ) : filteredRecords.length === 0 ? (
-                <tr><td colSpan={6} className="py-8 text-center text-slate-500">No records found</td></tr>
+                <tr><td colSpan={5} className="py-8 text-center text-slate-500">No records found</td></tr>
               ) : pagedRecords.map((record) => (
                 <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="py-4 px-6 text-slate-500 font-medium">{record.paymentTermCode || '-'}</td>
                   <td className="py-4 px-6 text-slate-800">{record.paymentTermName}</td>
                   <td className="py-4 px-6 text-slate-800">{record.creditDays}</td>
                   <td className="py-4 px-6 text-slate-600 max-w-xs truncate">{record.description}</td>
-                  <td className="py-4 px-6">
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                      record.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'
-                    }`}>
-                      {record.status}
-                    </span>
-                  </td>
                   <td className="py-4 px-6 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <button onClick={() => handleEdit(record)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors">
@@ -387,17 +368,6 @@ export const PaymentTermsMaster = () => {
               className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all resize-none"
               rows={3}
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
-            <select
-              value={formData.status}
-              onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-              className="w-full px-4 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
-            >
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
-            </select>
           </div>
         </div>
 

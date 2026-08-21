@@ -74,7 +74,6 @@ export const DepartmentMaster = () => {
 
   // Filter States
   const [showFilters, setShowFilters] = useState(false);
-  const [filterStatus, setFilterStatus] = useState('');
 
   // Form States
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -221,8 +220,7 @@ export const DepartmentMaster = () => {
       const matchesSearch = Object.values(record).some(val =>
         String(val).toLowerCase().includes(searchTerm.toLowerCase())
       );
-      const matchesStatus = filterStatus ? record.status === filterStatus : true;
-      return matchesSearch && matchesStatus;
+      return matchesSearch;
     });
 
     if (sortConfig.key) {
@@ -240,7 +238,7 @@ export const DepartmentMaster = () => {
     }
 
     return result;
-  }, [records, searchTerm, filterStatus, sortConfig]);
+  }, [records, searchTerm, sortConfig]);
 
   const totalPages = Math.ceil(processedData.length / itemsPerPage);
   const paginatedData = processedData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -295,7 +293,7 @@ export const DepartmentMaster = () => {
               <Filter className="w-4 h-4" />
             </button>
             <button
-              onClick={() => { setSearchTerm(''); setFilterStatus(''); setShowFilters(false); setCurrentPage(1); }}
+              onClick={() => { setSearchTerm(''); setShowFilters(false); setCurrentPage(1); }}
               className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors"
               title="Clear search & filters"
             >
@@ -320,15 +318,6 @@ export const DepartmentMaster = () => {
               className="border-b border-slate-100 bg-slate-50 overflow-hidden"
             >
               <div className="p-4 flex gap-4">
-                <select
-                  value={filterStatus}
-                  onChange={(e) => { setFilterStatus(e.target.value); setCurrentPage(1); }}
-                  className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-                >
-                  <option value="">All Statuses</option>
-                  <option value="Active">Active</option>
-                  <option value="Inactive">Inactive</option>
-                </select>
                 {/* Additional advanced filters can go here */}
               </div>
             </motion.div>

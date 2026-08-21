@@ -97,7 +97,6 @@ export const BranchMaster = () => {
 
   // Filter States
   const [showFilters, setShowFilters] = useState(false);
-  const [filterStatus, setFilterStatus] = useState('');
 
   // Modal States
   const [isFormOpen, setIsFormOpen]         = useState(false);
@@ -274,8 +273,7 @@ export const BranchMaster = () => {
       r.city.toLowerCase().includes(searchTerm.toLowerCase()) ||
       r.status.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesStatus = filterStatus ? r.status === filterStatus : true;
-    return matchesSearch && matchesStatus;
+    return matchesSearch;
   });
 
 
@@ -321,7 +319,7 @@ export const BranchMaster = () => {
                   <Filter className="w-4 h-4" />
                 </button>
                 <button 
-                  onClick={() => { setSearchTerm(''); setFilterStatus(''); setShowFilters(false); }} 
+                  onClick={() => { setSearchTerm(''); setShowFilters(false); }} 
                   title="Clear search & filters" 
                   className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors"
                 >
@@ -342,15 +340,6 @@ export const BranchMaster = () => {
                   className="border-b border-slate-100 bg-slate-50 overflow-hidden"
                 >
                   <div className="p-4 flex gap-4">
-                    <select
-                      value={filterStatus}
-                      onChange={(e) => setFilterStatus(e.target.value)}
-                      className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-                    >
-                      <option value="">All Statuses</option>
-                      <option value="Active">Active</option>
-                      <option value="Inactive">Inactive</option>
-                    </select>
                   </div>
                 </motion.div>
               )}
@@ -371,14 +360,13 @@ export const BranchMaster = () => {
                     <th className="px-6 py-2.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Hospital</th>
                     <th className="px-6 py-2.5 text-xs font-bold text-slate-500 uppercase tracking-wider">City</th>
                     <th className="px-6 py-2.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Working Hours</th>
-                    <th className="px-6 py-2.5 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
                     <th className="px-6 py-2.5 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={7} className="px-6 py-12 text-center text-slate-400">Loading...</td>
+                      <td colSpan={6} className="px-6 py-12 text-center text-slate-400">Loading...</td>
                     </tr>
                   ) : (
                     <>
@@ -389,11 +377,6 @@ export const BranchMaster = () => {
                           <td className="px-6 py-2.5 text-sm font-medium text-slate-500">{row.hospital}</td>
                           <td className="px-6 py-2.5 text-sm font-medium text-slate-500">{row.city}</td>
                           <td className="px-6 py-2.5 text-sm font-medium text-slate-500">{row.workingHours}</td>
-                          <td className="px-6 py-2.5">
-                            <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${row.status === 'Inactive' ? 'bg-warning/10 text-warning' : 'bg-success/10 text-success'}`}>
-                              {row.status}
-                            </span>
-                          </td>
                           <td className="px-6 py-2.5 text-right">
                             <div className="flex items-center justify-end gap-2 transition-opacity">
                               <Button variant="text" color="primary" icon={Edit2} className="!p-2" aria-label="Edit" onClick={() => handleEdit(row)} />
@@ -404,7 +387,7 @@ export const BranchMaster = () => {
                       ))}
                       {filteredRecords.length === 0 && (
                         <tr>
-                          <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
+                          <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
                             {searchTerm ? `No records found matching "${searchTerm}"` : 'No branch records found'}
                           </td>
                         </tr>
@@ -663,18 +646,6 @@ export const BranchMaster = () => {
               <div className="mb-4">
                 <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">System</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Status <span className="text-danger">*</span></label>
-                    <select
-                      value={formData.status}
-                      onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                      className={`w-full px-4 py-2.5 bg-slate-50 border ${formErrors.status ? 'border-danger focus:ring-danger/20' : 'border-slate-200 focus:ring-primary/20'} rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-primary transition-all`}
-                    >
-                      <option value="Active">Active</option>
-                      <option value="Inactive">Inactive</option>
-                    </select>
-                    {formErrors.status && <p className="text-xs text-danger mt-1">{formErrors.status}</p>}
-                  </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Remarks</label>
                     <textarea
