@@ -74,7 +74,12 @@ export const PatientIPDProfile = () => {
 
     requestDischarge(patient.id, dischargeInfo);
     toast.success('Discharge information saved. Patient moved to Discharge list.');
-    navigate('/ipd/discharges');
+    
+    if (patient.insuranceRequired === 'Yes') {
+      navigate('/insurance/claims', { state: { uhid: patient.uhid } });
+    } else {
+      navigate('/ipd/discharges');
+    }
   };
 
   return (
