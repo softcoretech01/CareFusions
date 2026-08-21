@@ -13,8 +13,8 @@ class NurseCreate(BaseModel):
     registrationNumber: str
     department:         str
     designation:        str
-    hospital:           str
-    branch:             str
+    hospital:           Optional[str]       = None
+    branch:             Optional[str]       = None
     mobile:             str
     alternateMobile:    Optional[str]       = None
     email:              Optional[EmailStr]  = None
