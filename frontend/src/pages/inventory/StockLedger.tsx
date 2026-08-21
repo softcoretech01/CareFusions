@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Pagination } from '../../components/ui/Pagination';
 import { PageHeader } from '../../components/inventory/PageHeader';
-import { DateFilter } from '@/components/ui/DateFilter';
+import { DateFilter, monthStart, today } from '@/components/ui/DateFilter';
 import { StatusBadge } from '../../components/inventory/StatusBadge';
 import { Search, Download, ScrollText, Eye, X } from 'lucide-react';
 import { useInventory } from '../../contexts/InventoryContext';
@@ -36,10 +36,10 @@ export const StockLedger = () => {
   const [storeId, setStoreId] = useState('');
   const [inout, setInout] = useState<'in' | 'out'>('in');
   // Draft vs applied date range so the header Search/Cancel buttons do real work.
-  const [draftFrom, setDraftFrom] = useState('');
-  const [draftTo, setDraftTo] = useState('');
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
+  const [draftFrom, setDraftFrom] = useState(monthStart());
+  const [draftTo, setDraftTo] = useState(today());
+  const [fromDate, setFromDate] = useState(monthStart());
+  const [toDate, setToDate] = useState(today());
 
   // Summary cards — live on-hand totals from the stock table.
   const totalInStock = useMemo(() => stock.reduce((s, r) => s + r.quantity, 0), [stock]);

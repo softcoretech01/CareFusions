@@ -7,7 +7,6 @@ class MedicineCreate(BaseModel):
     medicineCode:   str
     genericName:    str
     category:       str
-    manufacturer:   str
     strength:       str
     dosageForm:     str
     unit:           str
@@ -36,7 +35,6 @@ class MedicineResponse(BaseModel):
     medicineCode:   str
     genericName:    str
     category:       str
-    manufacturer:   str
     strength:       str
     dosageForm:     str
     unit:           str

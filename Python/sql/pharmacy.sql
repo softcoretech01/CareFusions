@@ -80,14 +80,14 @@ CREATE TABLE IF NOT EXISTS hospital.Pharmacy_SaleItem (
 -- ── Demo seed: realistic medicines (admin catalog) + stock (hospital) ──
 -- Idempotent: medicines keyed by unique MedicineCode, stock keyed by unique MedicineId.
 INSERT IGNORE INTO admin.Master_Medicine
-    (MedicineCode, GenericName, BrandName, Category, Manufacturer, Strength, DosageForm, Unit, PurchasePrice, SellingPrice, Gst, Status, CreatedBy)
+    (MedicineCode, GenericName, Category, Strength, DosageForm, Unit, PurchasePrice, SellingPrice, Gst, Status, CreatedBy)
 VALUES
-    ('PH-001','Paracetamol','Dolo 650','Tablets','Micro Labs Ltd','650mg','Tablet','Strip',18.00,30.00,12.00,'Active','Seed'),
-    ('PH-002','Amoxicillin','Amoxil','Capsules','GSK','500mg','Capsule','Strip',80.00,125.00,12.00,'Active','Seed'),
-    ('PH-003','Aspirin','Ecosprin','Tablets','USV','75mg','Tablet','Strip',6.00,12.00,5.00,'Active','Seed'),
-    ('PH-004','Cefixime','Suprax','Tablets','Lupin','200mg','Tablet','Strip',60.00,95.00,12.00,'Active','Seed'),
-    ('PH-005','Metformin','Glucophage','Tablets','USV','500mg','Tablet','Strip',28.00,45.00,5.00,'Active','Seed'),
-    ('PH-006','Omeprazole','Omez','Capsules','Dr Reddy''s','20mg','Capsule','Strip',34.00,55.00,12.00,'Active','Seed');
+    ('PH-001','Paracetamol','Tablets','650mg','Tablet','Strip',18.00,30.00,12.00,'Active','Seed'),
+    ('PH-002','Amoxicillin','Capsules','500mg','Capsule','Strip',80.00,125.00,12.00,'Active','Seed'),
+    ('PH-003','Aspirin','Tablets','75mg','Tablet','Strip',6.00,12.00,5.00,'Active','Seed'),
+    ('PH-004','Cefixime','Tablets','200mg','Tablet','Strip',60.00,95.00,12.00,'Active','Seed'),
+    ('PH-005','Metformin','Tablets','500mg','Tablet','Strip',28.00,45.00,5.00,'Active','Seed'),
+    ('PH-006','Omeprazole','Capsules','20mg','Capsule','Strip',34.00,55.00,12.00,'Active','Seed');
 
 INSERT INTO hospital.Pharmacy_Stock (MedicineId, BatchNo, Quantity, UnitPrice, ExpiryDate, MinStockLevel)
 SELECT m.MedicineId,
@@ -121,8 +121,8 @@ CREATE PROCEDURE hospital.SpPharmacyStock(
 )
 BEGIN
     IF p_Opt = 'LIST' THEN
-        SELECT m.MedicineId AS id, m.BrandName AS name, m.GenericName AS genericName,
-               m.Category AS category, m.Manufacturer AS manufacturer,
+        SELECT m.MedicineId AS id, m.GenericName AS name, m.GenericName AS genericName,
+               m.Category AS category, '' AS manufacturer,
                COALESCE(s.BatchNo, '') AS batchNo,
                COALESCE(s.Quantity, 0) AS quantity,
                COALESCE(s.UnitPrice, m.SellingPrice) AS unitPrice,
@@ -132,11 +132,11 @@ BEGIN
         FROM admin.Master_Medicine m
         LEFT JOIN hospital.Pharmacy_Stock s ON s.MedicineId = m.MedicineId
         WHERE m.IsDeleted = 0 AND m.Status = 'Active'
-        ORDER BY m.BrandName;
+        ORDER BY m.GenericName;
 
     ELSEIF p_Opt = 'GETBYID' THEN
-        SELECT m.MedicineId AS id, m.BrandName AS name, m.GenericName AS genericName,
-               m.Category AS category, m.Manufacturer AS manufacturer,
+        SELECT m.MedicineId AS id, m.GenericName AS name, m.GenericName AS genericName,
+               m.Category AS category, '' AS manufacturer,
                COALESCE(s.BatchNo, '') AS batchNo,
                COALESCE(s.Quantity, 0) AS quantity,
                COALESCE(s.UnitPrice, m.SellingPrice) AS unitPrice,
@@ -161,17 +161,17 @@ BEGIN
         SELECT p_MedicineId AS id;
 
     ELSEIF p_Opt = 'LOWSTOCK' THEN
-        SELECT m.MedicineId AS id, m.BrandName AS name, m.Category AS category,
+        SELECT m.MedicineId AS id, m.GenericName AS name, m.Category AS category,
                COALESCE(s.Quantity, 0) AS quantity,
                COALESCE(s.MinStockLevel, m.ReorderLevel) AS minStockLevel
         FROM admin.Master_Medicine m
         LEFT JOIN hospital.Pharmacy_Stock s ON s.MedicineId = m.MedicineId
         WHERE m.IsDeleted = 0 AND m.Status = 'Active'
           AND COALESCE(s.Quantity, 0) < COALESCE(s.MinStockLevel, m.ReorderLevel)
-        ORDER BY m.BrandName;
+        ORDER BY m.GenericName;
 
     ELSEIF p_Opt = 'EXPIRY' THEN
-        SELECT m.MedicineId AS id, m.BrandName AS name, m.Category AS category,
+        SELECT m.MedicineId AS id, m.GenericName AS name, m.Category AS category,
                s.BatchNo AS batchNo, s.ExpiryDate AS expiryDate, COALESCE(s.Quantity, 0) AS quantity
         FROM hospital.Pharmacy_Stock s
         JOIN admin.Master_Medicine m ON m.MedicineId = s.MedicineId

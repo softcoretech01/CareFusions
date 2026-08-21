@@ -136,7 +136,7 @@ BEGIN
             SELECT COALESCE(MAX(CAST(SUBSTRING_INDEX(AuditId, '-', -1) AS UNSIGNED)), 0) + 1
               INTO v_Seq
               FROM Audit_Log
-             WHERE AuditId LIKE CONCAT('ADT-', v_DateStr, '-%');
+             WHERE AuditId LIKE CONCAT('ADT-', v_DateStr, '-%') FOR UPDATE;
             SET v_Code = CONCAT('ADT-', v_DateStr, '-', LPAD(v_Seq, 3, '0'));
 
             INSERT INTO Audit_Log (

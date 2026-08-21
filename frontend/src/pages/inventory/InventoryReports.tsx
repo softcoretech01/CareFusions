@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { DateFilter } from '../../components/ui/DateFilter';
+import { DateFilter, monthStart, today } from '../../components/ui/DateFilter';
 import { Pagination } from '../../components/ui/Pagination';
 import {
   IndianRupee, TrendingUp, CalendarClock, Activity, Download, X, FileBarChart, Lock,
@@ -7,7 +7,7 @@ import {
 import { useInventory } from '../../contexts/InventoryContext';
 import { exportToExcel } from '../../utils/exportToExcel';
 
-const inr = (n: number) => `₹${(n ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+const inr = (n: number) => `â‚¹${(n ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 const localDay = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
@@ -19,10 +19,10 @@ export const InventoryReports = () => {
   const { stock, valuation, expiring, documents, ledger, stores, loading } = useInventory();
   const [open, setOpen] = useState<ReportKey | null>(null);
   const [storeId, setStoreId] = useState('');
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
-  const [draftFrom, setDraftFrom] = useState('');
-  const [draftTo, setDraftTo] = useState('');
+  const [fromDate, setFromDate] = useState(monthStart());
+  const [toDate, setToDate] = useState(today());
+  const [draftFrom, setDraftFrom] = useState(monthStart());
+  const [draftTo, setDraftTo] = useState(today());
 
   const applyDates = () => { setFromDate(draftFrom); setToDate(draftTo); };
   const clearDates = () => { setDraftFrom(''); setDraftTo(''); setFromDate(''); setToDate(''); };
@@ -37,7 +37,7 @@ export const InventoryReports = () => {
 
   const storeFilter = (id: number) => !storeId || String(id) === storeId;
 
-  // ── Stock valuation: category totals at moving-average cost ──
+  // â”€â”€ Stock valuation: category totals at moving-average cost â”€â”€
   const valuationRows = useMemo(() => {
     if (storeId) {
       const acc: Record<string, { category: string; itemCount: number; totalQty: number; totalValue: number }> = {};
@@ -53,7 +53,7 @@ export const InventoryReports = () => {
     return valuation;
   }, [valuation, stock, storeId]);
 
-  // ── Consumption: what departments took, valued at the rate actually posted ──
+  // â”€â”€ Consumption: what departments took, valued at the rate actually posted â”€â”€
   const consumptionRows = useMemo(() => {
     const rateFor = (docNumber: string, itemId: number) =>
       ledger.find(l => l.docNumber === docNumber && l.itemId === itemId)?.rate ?? 0;
@@ -72,14 +72,14 @@ export const InventoryReports = () => {
     return Object.values(acc).sort((a, b) => b.value - a.value);
   }, [documents, ledger, fromDate, toDate]);
 
-  // ── Expiry tracker ──
+  // â”€â”€ Expiry tracker â”€â”€
   const expiryRows = useMemo(() => expiring.map(e => ({
     itemCode: e.itemCode, itemName: e.itemName, store: e.storeName, batchNo: e.batchNo,
-    expiryDate: e.expiryDate ? new Date(e.expiryDate).toLocaleDateString('en-GB') : '—',
+    expiryDate: e.expiryDate ? new Date(e.expiryDate).toLocaleDateString('en-GB') : 'â€”',
     daysToExpiry: e.daysToExpiry, quantity: e.quantity,
   })), [expiring]);
 
-  // ── Fast / slow moving: ranked by quantity issued ──
+  // â”€â”€ Fast / slow moving: ranked by quantity issued â”€â”€
   const movementRows = useMemo(() => {
     const acc: Record<number, { itemName: string; movements: number; issued: number; received: number; onHand: number }> = {};
     ledger.filter(l => storeFilter(l.storeId) && inRange(l.txnDate)).forEach(l => {
@@ -151,10 +151,10 @@ export const InventoryReports = () => {
   };
 
   // These two need Procurement data (GRN vs PO, vendor lead times), which has no
-  // backend yet — shown as unavailable rather than faked with placeholder numbers.
+  // backend yet â€” shown as unavailable rather than faked with placeholder numbers.
   const BLOCKED = [
-    { title: 'Stock Reconciliation', description: 'Physical count vs system stock — needs Procurement GRN data' },
-    { title: 'Vendor Performance', description: 'Lead time and fill rate — needs Procurement purchase orders' },
+    { title: 'Stock Reconciliation', description: 'Physical count vs system stock â€” needs Procurement GRN data' },
+    { title: 'Vendor Performance', description: 'Lead time and fill rate â€” needs Procurement purchase orders' },
   ];
 
   const active = open ? REPORTS[open] : null;
@@ -173,7 +173,7 @@ export const InventoryReports = () => {
     const v = row[col.key];
     if (typeof v === 'number' && col.key.toLowerCase().includes('value')) return inr(v);
     if (col.key === 'daysToExpiry') return v < 0 ? `${Math.abs(v)} overdue` : v;
-    return v ?? '—';
+    return v ?? 'â€”';
   };
 
   return (
@@ -288,7 +288,7 @@ export const InventoryReports = () => {
                   {active.rows.length === 0 && (
                     <tr>
                       <td colSpan={active.columns.length} className="px-3 py-10 text-center text-slate-400">
-                        {loading ? 'Loading…' : 'No data for the selected filters.'}
+                        {loading ? 'Loadingâ€¦' : 'No data for the selected filters.'}
                       </td>
                     </tr>
                   )}
@@ -302,3 +302,4 @@ export const InventoryReports = () => {
     </div>
   );
 };
+

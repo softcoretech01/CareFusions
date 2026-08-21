@@ -177,10 +177,6 @@ export const AppointmentList = () => {
             <option value="">All Statuses</option>
             {Object.keys(STATUS_COLORS).map(s => <option key={s} value={s}>{s}</option>)}
           </select>
-
-          <button onClick={handleReset} className="px-4 py-2.5 bg-slate-200 text-slate-600 text-sm font-bold rounded-xl hover:bg-slate-300 transition-colors">
-            Reset
-          </button>
         </div>
 
         {/* Table */}

@@ -15,9 +15,10 @@ export const AdmissionDesk = () => {
   const navigate = useNavigate();
 
   const today = new Date().toISOString().split('T')[0];
-  const [dateFrom, setDateFrom] = useState(today);
+  const firstDay = `${today.split('-')[0]}-${today.split('-')[1]}-01`;
+  const [dateFrom, setDateFrom] = useState(firstDay);
   const [dateTo, setDateTo] = useState(today);
-  const [appliedDateFrom, setAppliedDateFrom] = useState(today);
+  const [appliedDateFrom, setAppliedDateFrom] = useState(firstDay);
   const [appliedDateTo, setAppliedDateTo] = useState(today);
 
   const handleSearch = () => {
@@ -26,10 +27,10 @@ export const AdmissionDesk = () => {
   };
 
   const handleReset = () => {
-    setDateFrom('');
-    setDateTo('');
-    setAppliedDateFrom('');
-    setAppliedDateTo('');
+    setDateFrom(firstDay);
+    setDateTo(today);
+    setAppliedDateFrom(firstDay);
+    setAppliedDateTo(today);
   };
 
   const pendingRequests = admissionRequests.filter(r => {

@@ -1,5 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAppointments } from '../../contexts/AppointmentContext';
+import { useDoctorSchedules } from '../../contexts/DoctorScheduleContext';
+import { useOPDVisits } from '../../contexts/OPDVisitContext';
+import { getBookedSlots } from '../../data/doctorSchedules';
 import {
   Search, CalendarX, CalendarClock, CheckCircle, X,
   Clock, User, Building2, AlertTriangle,
@@ -22,8 +25,40 @@ const STATUS_BADGE: Record<string, string> = {
   'No-Show':    'bg-slate-100 text-slate-400',
 };
 
+const timeToMin = (t: string) => {
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + m;
+};
+const minToLabel = (mins: number) => {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${String(h12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${ampm}`;
+};
+function buildSessionSlots(start: string, end: string, dur: number): string[] {
+  if (!start || !end || !dur || dur <= 0) return [];
+  const s = timeToMin(start), e = timeToMin(end);
+  const out: string[] = [];
+  for (let t = s; t + dur <= e; t += dur) out.push(minToLabel(t));
+  return out;
+}
+function isSlotInPast(dateStr: string, timeStr: string): boolean {
+  if (!dateStr) return false;
+  const [time, ampm] = timeStr.split(' ');
+  const [hRaw, m] = time.split(':').map(Number);
+  let h = hRaw;
+  if (ampm === 'PM' && h !== 12) h += 12;
+  if (ampm === 'AM' && h === 12) h = 0;
+  const slot = new Date(dateStr + 'T00:00:00');
+  slot.setHours(h, m, 0, 0);
+  return slot.getTime() < Date.now();
+}
+
 export const RescheduleCancel = () => {
-  const { updateAppointmentStatus, updateAppointment, queryAppointments, apiError, clearError } = useAppointments();
+  const { updateAppointmentStatus, updateAppointment, queryAppointments, appointments, apiError, clearError } = useAppointments();
+  const { doctorSchedules } = useDoctorSchedules();
+  const { visits, updateVisit } = useOPDVisits();
 
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -36,13 +71,6 @@ export const RescheduleCancel = () => {
   // Reschedule form state
   const [newDate, setNewDate] = useState('');
   const [newSlot, setNewSlot] = useState('');
-
-  const TIME_SLOTS = [
-    '09:00 AM', '09:15 AM', '09:30 AM', '09:45 AM',
-    '10:00 AM', '10:15 AM', '10:30 AM', '10:45 AM',
-    '11:00 AM', '11:15 AM', '11:30 AM', '11:45 AM',
-    '02:00 PM', '02:15 PM', '02:30 PM', '02:45 PM',
-  ];
 
   // Fetch from the backend (search server-side). Status is applied here because
   // the default view is a SET of active statuses the API can't express directly.
@@ -84,12 +112,31 @@ export const RescheduleCancel = () => {
   const confirmReschedule = () => {
     if (!actionModal || !newDate || !newSlot) return;
     updateAppointment(actionModal.item.id, { date: newDate, timeSlot: newSlot, status: 'Scheduled' });
+    const visit = visits.find(v => v.appointmentId === actionModal.item.id);
+    if (visit) {
+      updateVisit(visit.id, { date: newDate, timeSlot: newSlot, status: 'Scheduled' });
+    }
     setActionModal(null);
     setSelectedItem(null);
     setNewDate('');
     setNewSlot('');
     setTimeout(reload, 500);
   };
+
+  const selectedSchedule = actionModal?.item?.doctor
+    ? doctorSchedules.find(d => d.name === actionModal.item.doctor) ?? null
+    : null;
+
+  const timeSlots = selectedSchedule
+    ? [
+        ...buildSessionSlots(selectedSchedule.session1.start, selectedSchedule.session1.end, selectedSchedule.slotDuration),
+        ...buildSessionSlots(selectedSchedule.session2.start, selectedSchedule.session2.end, selectedSchedule.slotDuration),
+      ]
+    : [];
+
+  const bookedSlots = actionModal?.item?.doctor && newDate
+    ? getBookedSlots(actionModal.item.doctor, newDate, appointments)
+    : new Set<string>();
 
   return (
     <div className="flex flex-col relative">
@@ -157,21 +204,74 @@ export const RescheduleCancel = () => {
                       type="date"
                       value={newDate}
                       min={new Date().toISOString().split('T')[0]}
-                      onChange={e => setNewDate(e.target.value)}
+                      onChange={e => { setNewDate(e.target.value); setNewSlot(''); }}
                       className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                     />
                   </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">New Time Slot</label>
-                    <select
-                      value={newSlot}
-                      onChange={e => setNewSlot(e.target.value)}
-                      className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    >
-                      <option value="">Select a time slot</option>
-                      {TIME_SLOTS.map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </div>
+
+                  {newDate && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-4">
+                      <div>
+                        {/* Legend */}
+                        <div className="flex flex-col gap-2">
+                          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Slot Legend</p>
+                          <div className="flex items-center gap-2">
+                            <span className="w-4 h-4 rounded border border-slate-200 bg-white inline-block shrink-0"></span>
+                            <span className="text-xs text-slate-600">Available</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="w-4 h-4 rounded bg-green-600 inline-block shrink-0"></span>
+                            <span className="text-xs text-slate-600">Selected</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="w-4 h-4 rounded bg-red-700 inline-block shrink-0"></span>
+                            <span className="text-xs text-slate-600">Already booked</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="w-4 h-4 rounded bg-slate-100 border border-slate-200 inline-block shrink-0"></span>
+                            <span className="text-xs text-slate-600">Past / unavailable</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">New Time Slot</label>
+                        <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
+                          {timeSlots.length === 0 && (
+                            <p className="col-span-2 text-xs text-slate-400 text-center py-4 border-2 border-dashed border-slate-200 rounded-xl">
+                              No slots configured for this doctor.
+                            </p>
+                          )}
+                          {timeSlots.map(time => {
+                            const isBooked = bookedSlots.has(time);
+                            const isPast = isSlotInPast(newDate, time);
+                            const isSelected = newSlot === time;
+                            const disabled = isBooked || isPast;
+                            return (
+                              <div
+                                key={time}
+                                onClick={() => !disabled && setNewSlot(time)}
+                                title={isBooked ? 'Already booked' : isPast ? 'Time has passed' : ''}
+                                className={`py-1.5 px-1 text-center rounded-lg border-2 text-xs font-semibold transition-all duration-200 select-none ${
+                                  isBooked
+                                    ? 'bg-red-700 border-red-700 text-white cursor-not-allowed opacity-85'
+                                    : isPast
+                                    ? 'bg-slate-100 border-slate-200 text-slate-300 cursor-not-allowed line-through'
+                                    : isSelected
+                                    ? 'bg-green-600 border-green-600 text-white shadow-md cursor-pointer'
+                                    : 'bg-white border-slate-200 text-slate-700 hover:border-primary hover:shadow-sm cursor-pointer'
+                                }`}
+                              >
+                                <div className="flex flex-col items-center gap-0.5">
+                                  {time}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

@@ -23,9 +23,7 @@ CREATE TABLE IF NOT EXISTS Master_Medicine (
     MedicineId      INT AUTO_INCREMENT PRIMARY KEY,
     MedicineCode    VARCHAR(50) NOT NULL UNIQUE,
     GenericName     VARCHAR(200) NOT NULL,
-    BrandName       VARCHAR(200) NOT NULL,
     Category        VARCHAR(100) NOT NULL,
-    Manufacturer    VARCHAR(200) NOT NULL,
     Strength        VARCHAR(100) NOT NULL,
     DosageForm      VARCHAR(100) NOT NULL,
     Unit            VARCHAR(50) NOT NULL,
@@ -61,9 +59,7 @@ CREATE PROCEDURE SpMasterMedicine (
 
     IN p_MedicineCode       VARCHAR(50),
     IN p_GenericName        VARCHAR(200),
-    IN p_BrandName          VARCHAR(200),
     IN p_Category           VARCHAR(100),
-    IN p_Manufacturer       VARCHAR(200),
     IN p_Strength           VARCHAR(100),
     IN p_DosageForm         VARCHAR(100),
     IN p_Unit               VARCHAR(50),
@@ -92,8 +88,8 @@ BEGIN
     -- ==================================================================
     IF p_Opt = 'GET' THEN
         SELECT
-            MedicineId, MedicineCode, GenericName, BrandName, Category,
-            Manufacturer, Strength, DosageForm, Unit,
+            MedicineId, MedicineCode, GenericName, Category,
+            Strength, DosageForm, Unit,
             BatchTracking, ExpiryRequired, ControlledDrug, ReorderLevel, Barcode,
             PurchasePrice, SellingPrice, Gst,
             Status, Remarks,
@@ -107,8 +103,8 @@ BEGIN
     -- ==================================================================
     ELSEIF p_Opt = 'GETBYID' THEN
         SELECT
-            MedicineId, MedicineCode, GenericName, BrandName, Category,
-            Manufacturer, Strength, DosageForm, Unit,
+            MedicineId, MedicineCode, GenericName, Category,
+            Strength, DosageForm, Unit,
             BatchTracking, ExpiryRequired, ControlledDrug, ReorderLevel, Barcode,
             PurchasePrice, SellingPrice, Gst,
             Status, Remarks,
@@ -121,8 +117,8 @@ BEGIN
     -- ==================================================================
     ELSEIF p_Opt = 'SEARCH' THEN
         SELECT
-            MedicineId, MedicineCode, GenericName, BrandName, Category,
-            Manufacturer, Strength, DosageForm, Unit,
+            MedicineId, MedicineCode, GenericName, Category,
+            Strength, DosageForm, Unit,
             BatchTracking, ExpiryRequired, ControlledDrug, ReorderLevel, Barcode,
             PurchasePrice, SellingPrice, Gst,
             Status, Remarks,
@@ -131,9 +127,7 @@ BEGIN
         WHERE IsDeleted = 0
           AND (
             MedicineCode  LIKE CONCAT('%', p_Search, '%') OR
-            GenericName   LIKE CONCAT('%', p_Search, '%') OR
-            BrandName     LIKE CONCAT('%', p_Search, '%') OR
-            Manufacturer  LIKE CONCAT('%', p_Search, '%')
+            GenericName   LIKE CONCAT('%', p_Search, '%')
           )
         ORDER BY MedicineId DESC;
 
@@ -142,14 +136,14 @@ BEGIN
     -- ==================================================================
     ELSEIF p_Opt = 'INSERT' THEN
         INSERT INTO Master_Medicine (
-            MedicineCode, GenericName, BrandName, Category,
-            Manufacturer, Strength, DosageForm, Unit,
+            MedicineCode, GenericName, Category,
+            Strength, DosageForm, Unit,
             BatchTracking, ExpiryRequired, ControlledDrug, ReorderLevel, Barcode,
             PurchasePrice, SellingPrice, Gst,
             Status, Remarks, CreatedBy, CreatedDate, IsDeleted
         ) VALUES (
-            p_MedicineCode, p_GenericName, p_BrandName, p_Category,
-            p_Manufacturer, p_Strength, p_DosageForm, p_Unit,
+            p_MedicineCode, p_GenericName, p_Category,
+            p_Strength, p_DosageForm, p_Unit,
             p_BatchTracking, p_ExpiryRequired, p_ControlledDrug, p_ReorderLevel, p_Barcode,
             p_PurchasePrice, p_SellingPrice, p_Gst,
             p_Status, p_Remarks, p_CreatedBy, CURRENT_TIMESTAMP, 0
@@ -165,9 +159,7 @@ BEGIN
         SET
             MedicineCode    = p_MedicineCode,
             GenericName     = p_GenericName,
-            BrandName       = p_BrandName,
             Category        = p_Category,
-            Manufacturer    = p_Manufacturer,
             Strength        = p_Strength,
             DosageForm      = p_DosageForm,
             Unit            = p_Unit,

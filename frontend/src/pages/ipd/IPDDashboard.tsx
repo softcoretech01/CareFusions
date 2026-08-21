@@ -110,14 +110,15 @@ export const IPDDashboard = () => {
   const { patients, beds, admissionRequests, wards } = useIPD();
 
   const today = new Date().toISOString().split('T')[0];
-  const [dateFrom, setDateFrom] = useState(today);
+  const firstDay = `${today.split('-')[0]}-${today.split('-')[1]}-01`;
+  const [dateFrom, setDateFrom] = useState(firstDay);
   const [dateTo, setDateTo] = useState(today);
   const handleSearch = () => {
   };
 
   const handleReset = () => {
-    setDateFrom('');
-    setDateTo('');
+    setDateFrom(firstDay);
+    setDateTo(today);
   };
 
   const activePatients = patients.filter(p => p.status === 'Admitted' || p.status === 'Discharge Requested');

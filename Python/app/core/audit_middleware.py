@@ -115,23 +115,26 @@ def _parse_user_agent(ua: str):
 
 def _write_audit(params: dict):
     """Insert one audit row via the stored procedure on its own session."""
-    db = SessionLocal()
-    try:
-        db.execute(text("""
-            CALL SpAuditLog(
-                'INSERT', NULL, :p_UserName, :p_EmployeeName, :p_Role, :p_Department,
-                :p_Module, :p_ScreenName, :p_Action, :p_RecordId, :p_TransactionNumber,
-                :p_IpAddress, :p_Device, :p_Browser, :p_OperatingSystem, :p_SessionId,
-                :p_OldValues, :p_NewValues, :p_ChangeSummary, :p_Status, :p_FailureReason,
-                NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
-            )
-        """), params)
-        db.commit()
-    except Exception as e:
-        db.rollback()
-        logger.warning(f"[audit] failed to record entry: {e}")
-    finally:
-        db.close()
+    for attempt in range(3):
+        db = SessionLocal()
+        try:
+            db.execute(text("""
+                CALL SpAuditLog(
+                    'INSERT', NULL, :p_UserName, :p_EmployeeName, :p_Role, :p_Department,
+                    :p_Module, :p_ScreenName, :p_Action, :p_RecordId, :p_TransactionNumber,
+                    :p_IpAddress, :p_Device, :p_Browser, :p_OperatingSystem, :p_SessionId,
+                    :p_OldValues, :p_NewValues, :p_ChangeSummary, :p_Status, :p_FailureReason,
+                    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
+                )
+            """), params)
+            db.commit()
+            break
+        except Exception as e:
+            db.rollback()
+            if attempt == 2:
+                logger.warning(f"[audit] failed to record entry after 3 attempts: {e}")
+        finally:
+            db.close()
 
 
 class AuditLogMiddleware(BaseHTTPMiddleware):

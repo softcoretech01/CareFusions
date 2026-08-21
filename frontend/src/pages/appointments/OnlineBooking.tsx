@@ -8,6 +8,7 @@ import { useDepartments } from '../../hooks/useMasterOptions';
 import { exportToExcel } from '../../utils/exportToExcel';
 import { Pagination } from '../../components/ui/Pagination';
 import { AppointmentDetailsModal } from '../../components/appointments/AppointmentDetailsModal';
+import { DateFilter } from '../../components/ui/DateFilter';
 
 const PAGE_SIZE = 10;
 
@@ -36,9 +37,24 @@ export const OnlineBooking = () => {
   // Department options come from the backend master.
   const departmentOptions = departments.map(d => d.departmentName).sort();
 
+  const formatYYYYMMDD = (d: Date) => {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  const dToday = new Date();
+  const dFirstDay = new Date(dToday.getFullYear(), dToday.getMonth(), 1);
+
+  const todayStr = formatYYYYMMDD(dToday);
+  const firstDayStr = formatYYYYMMDD(dFirstDay);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDept, setFilterDept] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+  const [dateFrom, setDateFrom] = useState(firstDayStr);
+  const [dateTo, setDateTo] = useState(todayStr);
 
   // Server-filtered rows (online = everything that is NOT Walk-In).
   const [filtered, setFiltered] = useState<AppointmentRecord[]>([]);
@@ -57,14 +73,30 @@ export const OnlineBooking = () => {
       search: searchTerm.trim(),
       department: filterDept,
       status: filterStatus,
+      dateFrom,
+      dateTo,
       excludeType: 'Walk-In',
     }).then(setFiltered);
-  }, [queryAppointments, searchTerm, filterDept, filterStatus]);
+  }, [queryAppointments, searchTerm, filterDept, filterStatus, dateFrom, dateTo]);
 
   useEffect(() => {
     const t = setTimeout(reload, 300);
     return () => clearTimeout(t);
   }, [reload]);
+
+  const handleSearch = () => {
+    setPage(1);
+    reload();
+  };
+
+  const handleReset = () => {
+    setSearchTerm('');
+    setFilterDept('');
+    setFilterStatus('');
+    setDateFrom('');
+    setDateTo('');
+    setPage(1);
+  };
 
   useEffect(() => {
     const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -127,46 +159,53 @@ export const OnlineBooking = () => {
       <div className="bg-white rounded-3xl p-4 border border-slate-100 shadow-sm">
 
         {/* Search + Filters Row */}
-        <div className="flex flex-wrap items-center gap-3 mb-4">
-          <div className="relative flex-1 min-w-[220px] max-w-sm">
-            <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              placeholder="Search Name, UHID, Appt No, Mobile..."
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-11 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm font-medium transition-all"
+        <div className="flex flex-col gap-4 mb-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative flex-1 min-w-[220px] max-w-sm">
+              <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                placeholder="Search appointments..."
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-11 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm font-medium transition-all"
+              />
+            </div>
+
+            <div className="w-px h-6 bg-slate-200 hidden sm:block mx-1"></div>
+
+            <DateFilter
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              onDateFromChange={setDateFrom}
+              onDateToChange={setDateTo}
+              onSearch={handleSearch}
+              onReset={handleReset}
             />
+
+            {/* Department filter */}
+            <select
+              value={filterDept}
+              onChange={e => setFilterDept(e.target.value)}
+              className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all h-[42px]"
+            >
+              <option value="">All Departments</option>
+              {departmentOptions.map(d => <option key={d} value={d}>{d}</option>)}
+            </select>
           </div>
 
-          {/* Department filter */}
-          <select
-            value={filterDept}
-            onChange={e => setFilterDept(e.target.value)}
-            className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-          >
-            <option value="">All Departments</option>
-            {departmentOptions.map(d => <option key={d} value={d}>{d}</option>)}
-          </select>
-
-          {/* Status filter */}
-          <select
-            value={filterStatus}
-            onChange={e => setFilterStatus(e.target.value)}
-            className="px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-          >
-            <option value="">All Statuses</option>
-            {Object.keys(STATUS_COLORS).map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-
-          {(filterDept || filterStatus) && (
-            <button
-              onClick={() => { setFilterDept(''); setFilterStatus(''); }}
-              className="text-xs text-slate-400 hover:text-primary flex items-center gap-1 transition-colors"
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Status filter */}
+            <select
+              value={filterStatus}
+              onChange={e => setFilterStatus(e.target.value)}
+              className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all h-[42px]"
             >
-              <X className="w-3 h-3" /> Clear
-            </button>
-          )}
+              <option value="">All Statuses</option>
+              {Object.keys(STATUS_COLORS).map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
         </div>
 
         {/* Table */}

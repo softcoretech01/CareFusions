@@ -209,7 +209,7 @@ BEGIN
                         'medicineName', PR.MedicineName,
                         'quantity', PR.Quantity,
                         'alerts', PR.Alerts,
-                        'price', COALESCE((SELECT SellingPrice FROM admin.Master_Medicine WHERE BrandName = PR.MedicineName AND IsDeleted = 0 LIMIT 1), 0)
+                        'price', COALESCE((SELECT SellingPrice FROM admin.Master_Medicine WHERE GenericName = PR.MedicineName AND IsDeleted = 0 LIMIT 1), 0)
                     )
                 )
                 FROM hospital.Trn_OpdVisitPrescription PR

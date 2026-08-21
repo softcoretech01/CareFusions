@@ -3,7 +3,7 @@ import { Pill, Receipt, LayoutDashboard, FileText, AlertOctagon, TrendingUp } fr
 import { usePharmacyBilling } from '../../contexts/PharmacyBillingContext';
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
-import { DateFilter } from '../../components/ui/DateFilter';
+import { DateFilter, monthStart, today as todayInput } from '../../components/ui/DateFilter';
 
 export const PharmacySummary = () => {
   const { medicines, bills, checkLowStock, refresh } = usePharmacyBilling();
@@ -12,8 +12,9 @@ export const PharmacySummary = () => {
   // a bill or making a sale on another screen is reflected here immediately.
   useEffect(() => { refresh?.(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [activeTab, setActiveTab] = useState<'bills' | 'lowStock' | 'outOfStock'>('bills');
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
+  // Dashboard opens on "this month so far": 1st of the current month → today.
+  const [fromDate, setFromDate] = useState(monthStart);
+  const [toDate, setToDate] = useState(todayInput);
 
   // Compare on local calendar days (YYYY-MM-DD). Using Date objects here is
   // unsafe: `new Date('2026-08-05')` is parsed as UTC midnight while the bill
@@ -143,8 +144,10 @@ export const PharmacySummary = () => {
             dateTo={toDate}
             onDateFromChange={setFromDate}
             onDateToChange={setToDate}
+            defaultDateFrom={monthStart()}
+            defaultDateTo={todayInput()}
             onSearch={() => {}}
-            onReset={() => { setFromDate(''); setToDate(''); }}
+            onReset={() => { setFromDate(monthStart()); setToDate(todayInput()); }}
           />
         </div>
       </div>

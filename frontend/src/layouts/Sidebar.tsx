@@ -54,7 +54,6 @@ const navigation = [
   {
     name: 'Insurance', icon: ShieldCheck, children: [
       { name: 'Insurance Provider', to: '/admin/masters/insurance-provider' },
-      { name: 'TPA', to: '/admin/masters/tpa' },
     ]
   },
   {
@@ -64,9 +63,7 @@ const navigation = [
       { name: 'Sub Category', to: '/admin/masters/sub-category' },
       { name: 'UOM', to: '/admin/masters/uom' },
       { name: 'Item', to: '/admin/masters/item' },
-      { name: 'Brand', to: '/admin/masters/brand' },
-      { name: 'Manufacturer', to: '/admin/masters/manufacturer' },
-      { name: 'Warehouse', to: '/admin/masters/warehouse' },
+      { name: 'Stores', to: '/admin/masters/warehouse' },
     ]
   },
   {

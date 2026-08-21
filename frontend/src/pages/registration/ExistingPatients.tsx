@@ -128,7 +128,7 @@ export const ExistingPatients = () => {
   const [viewModalRecord, setViewModalRecord] = useState<any | null>(null);
 
   const filteredRecords = patients.filter(record => {
-    const sTerm = searchTerm.trim().toLowerCase();
+    const sTerm = appliedSearchTerm.trim().toLowerCase();
     const matchesSearch =
       !sTerm ||
       record.uhid.toLowerCase().includes(sTerm) ||
@@ -151,11 +151,11 @@ export const ExistingPatients = () => {
 
   const handleReset = () => {
     setSearchTerm('');
-    setDateFrom('');
-    setDateTo('');
+    setDateFrom(firstDayStr);
+    setDateTo(todayStr);
     setAppliedSearchTerm('');
-    setAppliedDateFrom('');
-    setAppliedDateTo('');
+    setAppliedDateFrom(firstDayStr);
+    setAppliedDateTo(todayStr);
   };
 
   return (

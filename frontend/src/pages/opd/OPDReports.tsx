@@ -47,13 +47,23 @@ export const OPDReports = () => {
 
   const departments = ['All', ...Array.from(new Set(masterDepts.map(d => d.departmentName))).sort()];
 
+  const parseDate = (dStr: string) => {
+    if (!dStr) return '';
+    const parts = dStr.split('-');
+    if (parts.length === 3 && parts[2].length === 4) {
+      return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    }
+    return dStr;
+  };
+
   const completedVisits = visits.filter(v => {
     // Only show completed
     if (v.status !== 'Completed') return false;
 
+    const vDate = parseDate(v.date);
     // Date filter
-    if (appliedDateFrom && v.date < appliedDateFrom) return false;
-    if (appliedDateTo && v.date > appliedDateTo) return false;
+    if (appliedDateFrom && vDate < appliedDateFrom) return false;
+    if (appliedDateTo && vDate > appliedDateTo) return false;
 
     // Dept filter
     if (appliedDept !== 'All' && v.department !== appliedDept) return false;
@@ -77,12 +87,12 @@ export const OPDReports = () => {
   };
 
   const handleReset = () => {
-    setDateFrom('');
-    setDateTo('');
+    setDateFrom(today);
+    setDateTo(today);
     setSearchQuery('');
     setDept('All');
-    setAppliedDateFrom('');
-    setAppliedDateTo('');
+    setAppliedDateFrom(today);
+    setAppliedDateTo(today);
     setAppliedSearchQuery('');
     setAppliedDept('All');
   };

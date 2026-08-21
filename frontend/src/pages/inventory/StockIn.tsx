@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { DateFilter } from '@/components/ui/DateFilter';
+import { DateFilter, monthStart, today } from '@/components/ui/DateFilter';
 import { Pagination } from '../../components/ui/Pagination';
 import { Search, Download, PackageCheck, Eye, RefreshCw, CheckCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -57,10 +57,10 @@ export const StockIn = () => {
   const [loading, setLoading] = useState(false);
   const [stockingId, setStockingId] = useState<number | null>(null);
   const [search, setSearch] = useState('');
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
-  const [draftFrom, setDraftFrom] = useState('');
-  const [draftTo, setDraftTo] = useState('');
+  const [fromDate, setFromDate] = useState(monthStart());
+  const [toDate, setToDate] = useState(today());
+  const [draftFrom, setDraftFrom] = useState(monthStart());
+  const [draftTo, setDraftTo] = useState(today());
 
   const applyDates = () => { setFromDate(draftFrom); setToDate(draftTo); };
   const clearDates = () => { setDraftFrom(''); setDraftTo(''); setFromDate(''); setToDate(''); };
@@ -349,3 +349,4 @@ export const StockIn = () => {
     </div>
   );
 };
+

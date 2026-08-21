@@ -72,8 +72,28 @@ export const EmergencyRegistration = () => {
   const [formData, setFormData] = useState<Partial<GlobalPatientRecord>>(initialFormState);
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [appliedSearchTerm, setAppliedSearchTerm] = useState('');
+  const today = new Date().toISOString().split('T')[0];
+  const firstDay = `${today.split('-')[0]}-${today.split('-')[1]}-01`;
+  const [dateFrom, setDateFrom] = useState(firstDay);
+  const [dateTo, setDateTo] = useState(today);
+  const [appliedDateFrom, setAppliedDateFrom] = useState(firstDay);
+  const [appliedDateTo, setAppliedDateTo] = useState(today);
+
+  const handleSearch = () => {
+    setAppliedSearchTerm(searchTerm);
+    setAppliedDateFrom(dateFrom);
+    setAppliedDateTo(dateTo);
+  };
+
+  const handleDateReset = () => {
+    setSearchTerm('');
+    setAppliedSearchTerm('');
+    setDateFrom(firstDay);
+    setDateTo(today);
+    setAppliedDateFrom(firstDay);
+    setAppliedDateTo(today);
+  };
 
   const handleCreateNew = () => {
     setFormData({
@@ -149,11 +169,11 @@ export const EmergencyRegistration = () => {
   };
 
   const filteredRecords = records.filter(record => {
-    const matchesSearch = record.uhid.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          record.patientName?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = record.uhid.toLowerCase().includes(appliedSearchTerm.toLowerCase()) ||
+                          record.patientName?.toLowerCase().includes(appliedSearchTerm.toLowerCase());
     
     const recordDate = record.registrationDate ? record.registrationDate.substring(0, 10) : '';
-    const matchesDate = (!dateFrom || recordDate >= dateFrom) && (!dateTo || recordDate <= dateTo);
+    const matchesDate = (!appliedDateFrom || recordDate >= appliedDateFrom) && (!appliedDateTo || recordDate <= appliedDateTo);
     
     return matchesSearch && matchesDate;
   });
@@ -191,7 +211,8 @@ export const EmergencyRegistration = () => {
                 dateTo={dateTo}
                 onDateFromChange={setDateFrom}
                 onDateToChange={setDateTo}
-                onReset={() => { setDateFrom(''); setDateTo(''); }}
+                onSearch={handleSearch}
+                onReset={handleDateReset}
               />
             </div>
 

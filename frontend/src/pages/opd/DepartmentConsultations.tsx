@@ -24,12 +24,12 @@ export const DepartmentConsultations = () => {
   const todayStr = formatYYYYMMDD(todayDate);
   const firstDayStr = formatYYYYMMDD(firstDay);
 
-  const [dateFrom, setDateFrom] = useState(firstDayStr);
+  const [dateFrom, setDateFrom] = useState(todayStr);
   const [dateTo, setDateTo] = useState(todayStr);
 
   const [viewerState, setViewerState] = useState<{ patientId: string; category: 'Lab' | 'Radiology' } | null>(null);
 
-  const [appliedDateFrom, setAppliedDateFrom] = useState(firstDayStr);
+  const [appliedDateFrom, setAppliedDateFrom] = useState(todayStr);
   const [appliedDateTo, setAppliedDateTo] = useState(todayStr);
 
   // Convert the URL param back to the proper department name for filtering
@@ -60,10 +60,20 @@ export const DepartmentConsultations = () => {
     return defaultStatus;
   };
 
+  const parseDate = (dStr: string) => {
+    if (!dStr) return '';
+    const parts = dStr.split('-');
+    if (parts.length === 3 && parts[2].length === 4) {
+      return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    }
+    return dStr;
+  };
+
   const deptVisits = visits.filter(v => {
     if (v.department.toLowerCase() !== formattedDept?.toLowerCase()) return false;
-    if (appliedDateFrom && v.date < appliedDateFrom) return false;
-    if (appliedDateTo && v.date > appliedDateTo) return false;
+    const vDate = parseDate(v.date);
+    if (appliedDateFrom && vDate < appliedDateFrom) return false;
+    if (appliedDateTo && vDate > appliedDateTo) return false;
     return true;
   }).sort((a, b) => b.id - a.id);
 
@@ -73,10 +83,10 @@ export const DepartmentConsultations = () => {
   };
 
   const handleReset = () => {
-    setDateFrom('');
-    setDateTo('');
-    setAppliedDateFrom('');
-    setAppliedDateTo('');
+    setDateFrom(todayStr);
+    setDateTo(todayStr);
+    setAppliedDateFrom(todayStr);
+    setAppliedDateTo(todayStr);
   };
 
   const pending = deptVisits.filter(v => ['Nursing Assessment', 'Waiting for Doctor', 'Investigation Pending'].includes(v.status));
@@ -192,7 +202,7 @@ export const DepartmentConsultations = () => {
                           }`}
                         >
                           <Edit2 className="w-3.5 h-3.5" /> 
-                          {visit.status === 'Scheduled' ? 'Open EMR' : 'Edit EMR'}
+                          {visit.status === 'Completed' ? 'Edit EMR' : 'Open EMR'}
                         </button>
                         
                         {visit.labOrders && visit.labOrders.length > 0 && (

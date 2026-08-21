@@ -80,7 +80,7 @@ export const AppointmentSidebar = () => {
               ) : (
                 <NavLink
                   to={item.to!}
-                  end={item.to === '/appointments/dashboard'}
+                  end={item.to === '/appointments'}
                   className={({ isActive }) =>
                     `flex items-center justify-between px-3 py-3 rounded-xl transition-all duration-200 group ${isActive
                       ? 'bg-white/10 text-white shadow-lg shadow-black/10 font-semibold'

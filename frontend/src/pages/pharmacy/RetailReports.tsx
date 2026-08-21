@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FileText, Download, Printer, CreditCard, X, Eye } from 'lucide-react';
 import { usePharmacyBilling } from '../../contexts/PharmacyBillingContext';
-import { DateFilter } from '../../components/ui/DateFilter';
+import { DateFilter, monthStart, today as todayInput } from '../../components/ui/DateFilter';
 
 export const RetailReports = () => {
   const navigate = useNavigate();
@@ -10,8 +10,9 @@ export const RetailReports = () => {
 
   useEffect(() => { refresh?.(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [viewingBill, setViewingBill] = useState<any | null>(null);
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
+  // Report opens on "this month so far": 1st of the current month → today.
+  const [fromDate, setFromDate] = useState(monthStart);
+  const [toDate, setToDate] = useState(todayInput);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Compare on local calendar days (YYYY-MM-DD) so the range is inclusive of
@@ -86,8 +87,10 @@ export const RetailReports = () => {
               onDateToChange={setToDate}
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
+              defaultDateFrom={monthStart()}
+              defaultDateTo={todayInput()}
               onSearch={() => { }}
-              onReset={() => { setFromDate(''); setToDate(''); setSearchQuery(''); }}
+              onReset={() => { setFromDate(monthStart()); setToDate(todayInput()); setSearchQuery(''); }}
             />
             <button
               onClick={exportToCSV}

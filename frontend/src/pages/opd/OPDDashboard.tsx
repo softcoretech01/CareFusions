@@ -21,7 +21,19 @@ export const OPDDashboard = () => {
 
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
 
-  const todaysVisits = visits.filter(v => (!appliedDateFrom || v.date >= appliedDateFrom) && (!appliedDateTo || v.date <= appliedDateTo));
+  const parseDate = (dStr: string) => {
+    if (!dStr) return '';
+    const parts = dStr.split('-');
+    if (parts.length === 3 && parts[2].length === 4) {
+      return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    }
+    return dStr;
+  };
+
+  const todaysVisits = visits.filter(v => {
+    const vDate = parseDate(v.date);
+    return (!appliedDateFrom || vDate >= appliedDateFrom) && (!appliedDateTo || vDate <= appliedDateTo);
+  });
 
   const handleSearch = () => {
     setAppliedDateFrom(dateFrom);
@@ -29,10 +41,10 @@ export const OPDDashboard = () => {
   };
 
   const handleReset = () => {
-    setDateFrom('');
-    setDateTo('');
-    setAppliedDateFrom('');
-    setAppliedDateTo('');
+    setDateFrom(today);
+    setDateTo(today);
+    setAppliedDateFrom(today);
+    setAppliedDateTo(today);
   };
 
   const stats = {
