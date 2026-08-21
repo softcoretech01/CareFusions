@@ -65,6 +65,7 @@ export interface LabOrder {
 
 export interface RadiologyOrder {
   id: string;
+  serviceName?: string;
   modality: 'X-Ray' | 'CT Scan' | 'MRI' | 'Ultrasound' | 'Echo' | 'ECG' | 'Mammography' | 'PET Scan';
   bodyPart: string;
   indication: string;

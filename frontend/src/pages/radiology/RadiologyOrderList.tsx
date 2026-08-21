@@ -182,7 +182,7 @@ export const RadiologyOrderList = () => {
                 <div key={test.id} className="p-4 border border-slate-200 rounded-xl bg-slate-50/50">
                   <div className="flex items-center justify-between mb-3">
                     <h4 className="font-bold text-slate-700 text-sm flex items-center gap-2">
-                      <FileText className="w-4 h-4 text-purple-500" /> {test.name}
+                      <FileText className="w-4 h-4 text-purple-500" /> {test.name} {test.bodyPart && test.bodyPart !== test.name && `- ${test.bodyPart}`}
                     </h4>
                     {test.status === 'Completed' && (
                       <span className="text-green-600 text-xs font-bold flex items-center gap-1"><CheckCircle className="w-3.5 h-3.5" /> Completed</span>

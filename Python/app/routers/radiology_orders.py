@@ -44,6 +44,7 @@ def get_radiology_orders(db: Session = Depends(get_db)):
                     "test_id": row.TestId,
                     "test_code": row.TestCode,
                     "test_name": row.TestName,
+                    "body_part": row.BodyPart,
                     "status": row.TestStatus,
                     "result_value": row.ResultValue,
                     "result_file": row.ResultFile,
@@ -82,13 +83,14 @@ def create_radiology_order(order_data: RadiologyOrderCreate, db: Session = Depen
         
         for test in order_data.tests:
             test_query = text("""
-                INSERT INTO hospital.Rad_OrderTest (OrderId, TestCode, TestName, Status)
-                VALUES (:order_id, :test_code, :test_name, 'Pending')
+                INSERT INTO hospital.Rad_OrderTest (OrderId, TestCode, TestName, BodyPart, Status)
+                VALUES (:order_id, :test_code, :test_name, :body_part, 'Pending')
             """)
             db.execute(test_query, {
                 "order_id": order_id,
                 "test_code": test.testCode or test.testName,
-                "test_name": test.testName
+                "test_name": test.testName,
+                "body_part": test.body_part
             })
             
         db.commit()
