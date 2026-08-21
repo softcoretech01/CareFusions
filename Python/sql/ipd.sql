@@ -301,7 +301,7 @@ BEGIN
 
     ELSEIF p_Opt = 'DISCHARGEMEDS' THEN
         SELECT DM.DischargeMedId, DM.AdmissionId, DM.MedicineName, DM.Dosage, DM.Frequency, DM.Duration, DM.Quantity, DM.Notes,
-               COALESCE((SELECT SellingPrice FROM admin.Master_Medicine WHERE BrandName = SUBSTRING_INDEX(DM.MedicineName, ' (', 1) AND IsDeleted = 0 LIMIT 1), 0) AS Price
+               COALESCE((SELECT SellingPrice FROM admin.Master_Medicine WHERE GenericName = SUBSTRING_INDEX(DM.MedicineName, ' (', 1) AND IsDeleted = 0 LIMIT 1), 0) AS Price
         FROM IPD_DischargeMedicine DM
         ORDER BY DM.AdmissionId, DM.DischargeMedId;
 

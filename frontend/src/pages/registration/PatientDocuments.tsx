@@ -66,6 +66,22 @@ export const PatientDocuments = () => {
         })));
       }
 
+      // Deduplicate by UHID
+      const uniquePatients = new Map();
+      allPatients.forEach(p => {
+        if (!uniquePatients.has(p.uhid)) {
+          uniquePatients.set(p.uhid, p);
+        }
+      });
+      allPatients = Array.from(uniquePatients.values());
+
+      // Sort by UHID descending to show latest records first
+      allPatients.sort((a, b) => {
+        if (a.uhid < b.uhid) return 1;
+        if (a.uhid > b.uhid) return -1;
+        return 0;
+      });
+
       setPatients(allPatients);
     } catch (e) {
       console.error('Failed to fetch patients', e);

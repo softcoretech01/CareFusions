@@ -23,31 +23,36 @@ export const ActiveInpatients = () => {
   const [activeViewer, setActiveViewer] = useState<{ patientId: string; category: 'Lab' | 'Radiology' } | null>(null);
 
   const [search, setSearch] = useState('');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
-  const [appliedDateFrom, setAppliedDateFrom] = useState('');
-  const [appliedDateTo, setAppliedDateTo] = useState('');
+  const [appliedSearch, setAppliedSearch] = useState('');
+  const today = new Date().toISOString().split('T')[0];
+  const firstDay = `${today.split('-')[0]}-${today.split('-')[1]}-01`;
+  const [dateFrom, setDateFrom] = useState(firstDay);
+  const [dateTo, setDateTo] = useState(today);
+  const [appliedDateFrom, setAppliedDateFrom] = useState(firstDay);
+  const [appliedDateTo, setAppliedDateTo] = useState(today);
   const [selectedRoom, setSelectedRoom] = useState<string>('All');
 
   const handleSearch = () => {
+    setAppliedSearch(search);
     setAppliedDateFrom(dateFrom);
     setAppliedDateTo(dateTo);
   };
 
   const handleReset = () => {
     setSearch('');
-    setDateFrom('');
-    setDateTo('');
-    setAppliedDateFrom('');
-    setAppliedDateTo('');
+    setAppliedSearch('');
+    setDateFrom(firstDay);
+    setDateTo(today);
+    setAppliedDateFrom(firstDay);
+    setAppliedDateTo(today);
     setSelectedRoom('All');
   };
 
   const activePatients = patients.filter(p => p.status === 'Admitted' || p.status === 'Discharge Requested');
 
   const filteredPatients = activePatients.filter(p => {
-    const matchesSearch = p.patientName.toLowerCase().includes(search.toLowerCase()) ||
-      p.uhid.toLowerCase().includes(search.toLowerCase());
+    const matchesSearch = p.patientName.toLowerCase().includes(appliedSearch.toLowerCase()) ||
+      p.uhid.toLowerCase().includes(appliedSearch.toLowerCase());
 
     let matchesDate = true;
     if (appliedDateFrom && appliedDateTo) {

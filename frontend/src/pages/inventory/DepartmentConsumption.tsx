@@ -1,20 +1,20 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Pagination } from '../../components/ui/Pagination';
-import { DateFilter } from '@/components/ui/DateFilter';
+import { DateFilter, monthStart, today } from '@/components/ui/DateFilter';
 import { Search, Building2 } from 'lucide-react';
 import { useInventory } from '../../contexts/InventoryContext';
 
-const inr = (n: number) => `₹${(n ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+const inr = (n: number) => `â‚¹${(n ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 const localDay = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 export const DepartmentConsumption = () => {
   const { documents, ledger, loading } = useInventory();
   const [search, setSearch] = useState('');
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
-  const [draftFrom, setDraftFrom] = useState('');
-  const [draftTo, setDraftTo] = useState('');
+  const [fromDate, setFromDate] = useState(monthStart());
+  const [toDate, setToDate] = useState(today());
+  const [draftFrom, setDraftFrom] = useState(monthStart());
+  const [draftTo, setDraftTo] = useState(today());
 
   const applyDates = () => { setFromDate(draftFrom); setToDate(draftTo); };
   const clearDates = () => { setDraftFrom(''); setDraftTo(''); setFromDate(''); setToDate(''); };
@@ -58,7 +58,7 @@ export const DepartmentConsumption = () => {
   const [page, setPage] = useState(1);
   const totalRows = summary.length;
   const totalPages = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
-  // Filters can shrink the list under the current page — snap back into range.
+  // Filters can shrink the list under the current page â€” snap back into range.
   useEffect(() => { if (page > totalPages) setPage(1); }, [page, totalPages]);
   const paged = summary.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
@@ -117,7 +117,7 @@ export const DepartmentConsumption = () => {
               {summary.length === 0 && (
                 <tr><td colSpan={5} className="px-3 py-8 text-center text-slate-400">
                   <Building2 className="w-8 h-8 mx-auto text-slate-200 mb-2" />
-                  {loading ? 'Loading…' : 'No stock has been issued to departments yet.'}
+                  {loading ? 'Loadingâ€¦' : 'No stock has been issued to departments yet.'}
                 </td></tr>
               )}
             </tbody>
@@ -128,3 +128,4 @@ export const DepartmentConsumption = () => {
     </div>
   );
 };
+

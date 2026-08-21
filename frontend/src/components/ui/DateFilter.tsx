@@ -1,5 +1,21 @@
 import { useEffect } from 'react';
 
+// Format a local date as YYYY-MM-DD (what <input type="date"> expects).
+// Doing this manually avoids the UTC offset shift of toISOString().
+export const toInputDate = (d: Date) => {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+};
+
+// Shared defaults for screens that open on a "this month so far" range.
+export const monthStart = () => {
+  const d = new Date();
+  return toInputDate(new Date(d.getFullYear(), d.getMonth(), 1));
+};
+export const today = () => toInputDate(new Date());
+
 interface DateFilterProps {
   dateFrom: string;
   dateTo: string;
@@ -23,18 +39,8 @@ export const DateFilter = ({
   defaultDateFrom,
   defaultDateTo,
 }: DateFilterProps) => {
-  // Format local date manually to avoid UTC offset issues
-  const formatYYYYMMDD = (d: Date) => {
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
-  };
-
-  const today = new Date();
-  const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-  const defaultFrom = defaultDateFrom || formatYYYYMMDD(firstDay);
-  const defaultTo = defaultDateTo || formatYYYYMMDD(today);
+  const defaultFrom = defaultDateFrom || toInputDate(new Date());
+  const defaultTo = defaultDateTo || toInputDate(new Date());
 
   // Seed a default range (this month → today) ONLY if the parent hasn't set
   // one. This is a controlled component: the inputs reflect the parent's

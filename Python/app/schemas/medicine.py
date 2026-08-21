@@ -6,9 +6,7 @@ from datetime import datetime
 class MedicineCreate(BaseModel):
     medicineCode:   str
     genericName:    str
-    brandName:      str
     category:       str
-    manufacturer:   str
     strength:       str
     dosageForm:     str
     unit:           str
@@ -36,9 +34,7 @@ class MedicineResponse(BaseModel):
     id:             int
     medicineCode:   str
     genericName:    str
-    brandName:      str
     category:       str
-    manufacturer:   str
     strength:       str
     dosageForm:     str
     unit:           str

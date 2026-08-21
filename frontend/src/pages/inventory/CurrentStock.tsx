@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Pagination } from '../../components/ui/Pagination';
 import { PageHeader } from '../../components/inventory/PageHeader';
-import { DateFilter } from '@/components/ui/DateFilter';
+import { DateFilter, monthStart, today } from '@/components/ui/DateFilter';
 import { AutoStatusBadge } from '../../components/inventory/StatusBadge';
 import { Search, Download, Package } from 'lucide-react';
 import { useInventory } from '../../contexts/InventoryContext';
@@ -16,7 +16,7 @@ const statusOf = (qty: number, reorder: number | null) => {
   return 'In Stock';
 };
 
-const dateOnly = (s: string | null) => (s ? s.slice(0, 10) : '—');
+const dateOnly = (s: string | null) => (s ? s.slice(0, 10) : 'â€”');
 
 export const CurrentStock = () => {
   const { stock, stores, loading } = useInventory();
@@ -24,10 +24,10 @@ export const CurrentStock = () => {
   const [storeId, setStoreId] = useState('');
   const [status, setStatus] = useState('');
 
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
-  const [draftFrom, setDraftFrom] = useState('');
-  const [draftTo, setDraftTo] = useState('');
+  const [fromDate, setFromDate] = useState(monthStart());
+  const [toDate, setToDate] = useState(today());
+  const [draftFrom, setDraftFrom] = useState(monthStart());
+  const [draftTo, setDraftTo] = useState(today());
 
   const applyDates = () => { setFromDate(draftFrom); setToDate(draftTo); };
   const clearDates = () => { setDraftFrom(''); setDraftTo(''); setFromDate(''); setToDate(''); };
@@ -53,7 +53,7 @@ export const CurrentStock = () => {
   const [page, setPage] = useState(1);
   const totalRows = rows.length;
   const totalPages = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
-  // Filters can shrink the list under the current page — snap back into range.
+  // Filters can shrink the list under the current page â€” snap back into range.
   useEffect(() => { if (page > totalPages) setPage(1); }, [page, totalPages]);
   const paged = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
@@ -129,9 +129,9 @@ export const CurrentStock = () => {
                       <div className="font-bold text-slate-800">{r.itemName}</div>
                       {r.manufacturer && <div className="text-xs italic text-slate-400 mt-0.5">{r.manufacturer}</div>}
                     </td>
-                    <td className="px-4 py-3 text-slate-600">{r.category || '—'}</td>
+                    <td className="px-4 py-3 text-slate-600">{r.category || 'â€”'}</td>
                     <td className="px-4 py-3 text-slate-600">{r.storeName}</td>
-                    <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{r.batchNo || '—'}</td>
+                    <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{r.batchNo || 'â€”'}</td>
                     <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{dateOnly(r.expiryDate)}</td>
                     <td className="px-4 py-3">
                       <div className="font-bold text-slate-800">
@@ -139,7 +139,7 @@ export const CurrentStock = () => {
                       </div>
                       {hasLimits && (
                         <div className="text-[11px] font-semibold text-slate-400 mt-0.5">
-                          MIN: {r.minStock ?? '—'} | MAX: {r.maxStock ?? '—'}
+                          MIN: {r.minStock ?? 'â€”'} | MAX: {r.maxStock ?? 'â€”'}
                         </div>
                       )}
                     </td>
@@ -151,7 +151,7 @@ export const CurrentStock = () => {
                 <tr>
                   <td colSpan={8} className="px-3 py-12 text-center text-slate-400">
                     <Package className="w-9 h-9 mx-auto text-slate-200 mb-2" />
-                    {loading ? 'Loading stock…' : stock.length === 0
+                    {loading ? 'Loading stockâ€¦' : stock.length === 0
                       ? 'No stock yet. Receive goods under Stock In to get started.'
                       : 'No stock matches the current filters.'}
                   </td>
@@ -165,3 +165,4 @@ export const CurrentStock = () => {
     </div>
   );
 };
+

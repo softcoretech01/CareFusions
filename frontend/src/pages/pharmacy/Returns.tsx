@@ -1,168 +1,183 @@
 import { useState } from 'react';
-import { Search, RotateCcw, FileText, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Search, RotateCcw, FileText, CheckCircle2, AlertCircle, X } from 'lucide-react';
 import { usePharmacyBilling } from '../../contexts/PharmacyBillingContext';
 import type { Bill } from '../../contexts/PharmacyBillingContext';
+import { DateFilter } from '../../components/ui/DateFilter';
+import toast from 'react-hot-toast';
 
 export const Returns = () => {
   const { bills, refundBill } = usePharmacyBilling();
   
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchedBill, setSearchedBill] = useState<Bill | null>(null);
-  const [searchAttempted, setSearchAttempted] = useState(false);
+  const today = new Date().toISOString().split('T')[0];
+  const firstDay = `${today.split('-')[0]}-${today.split('-')[1]}-01`;
+  
+  const [search, setSearch] = useState('');
+  const [appliedSearch, setAppliedSearch] = useState('');
+  
+  const [dateFrom, setDateFrom] = useState(firstDay);
+  const [dateTo, setDateTo] = useState(today);
+  const [appliedDateFrom, setAppliedDateFrom] = useState(firstDay);
+  const [appliedDateTo, setAppliedDateTo] = useState(today);
+
+  const [selectedBill, setSelectedBill] = useState<Bill | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!searchQuery.trim()) return;
-    
-    const found = bills.find(b => b.billId.toLowerCase() === searchQuery.toLowerCase());
-    setSearchedBill(found || null);
-    setSearchAttempted(true);
-    setIsSuccess(false); // Reset success state if searching again
+  const handleSearch = () => {
+    setAppliedSearch(search);
+    setAppliedDateFrom(dateFrom);
+    setAppliedDateTo(dateTo);
+  };
+
+  const handleReset = () => {
+    setDateFrom(firstDay);
+    setDateTo(today);
+    setSearch('');
+    setAppliedSearch('');
+    setAppliedDateFrom(firstDay);
+    setAppliedDateTo(today);
   };
 
   const handleProcessReturn = () => {
-    if (!searchedBill) return;
+    if (!selectedBill) return;
 
-    // Refund the bill via Context (restores stock, marks as Refunded)
-    refundBill(searchedBill.billId);
+    refundBill(selectedBill.billId);
     
     setIsSuccess(true);
+    toast.success(`Refund processed for ${selectedBill.billId}`);
     
-    // Update local state to reflect the refund immediately
-    setSearchedBill(prev => prev ? { ...prev, paymentStatus: 'Refunded' } : null);
-
     setTimeout(() => {
       setIsSuccess(false);
-      setSearchedBill(null);
-      setSearchQuery('');
-      setSearchAttempted(false);
-    }, 3000);
+      setSelectedBill(null);
+    }, 2000);
   };
 
+  // Filter bills (maybe only Paid and Refunded?)
+  const filteredBills = bills.filter(b => {
+    const s = appliedSearch.toLowerCase();
+    const matchesSearch = !s || 
+      b.billId.toLowerCase().includes(s) || 
+      (b.patientName && b.patientName.toLowerCase().includes(s));
+      
+    let matchesDate = true;
+    if (appliedDateFrom && appliedDateTo) {
+      const bDate = b.date.substring(0, 10);
+      matchesDate = bDate >= appliedDateFrom && bDate <= appliedDateTo;
+    }
+    
+    return matchesSearch && matchesDate;
+  });
+
   return (
-    <div className="h-full flex flex-col max-w-5xl mx-auto">
-      {/* Primary Color Header */}
-      <div className="bg-primary rounded-t-xl p-5 flex items-center justify-between text-white shadow-md z-10 relative">
-        <div className="flex items-center gap-3">
-          <RotateCcw className="w-6 h-6" />
-          <div>
-            <h2 className="text-xl font-bold tracking-tight">Pharmacy Returns & Refunds</h2>
-            <p className="text-white/80 text-xs mt-0.5">Search by Invoice number to process returns and restore stock.</p>
-          </div>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800">Pharmacy Returns & Refunds</h1>
         </div>
       </div>
 
-      <div className="flex-1 bg-white border-x border-b border-slate-200 rounded-b-xl flex flex-col overflow-hidden shadow-sm p-6">
-        
-        {/* Search Bar */}
-        <form onSubmit={handleSearch} className="mb-8">
-          <label className="block text-sm font-bold text-slate-700 mb-2">Search Invoice / Bill ID</label>
-          <div className="flex gap-3">
-            <div className="relative flex-1 max-w-md">
-              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <Search className="h-5 w-5 text-slate-400" />
-              </div>
-              <input 
-                type="text"
-                placeholder="e.g. INV-123456"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-11 pr-4 text-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all shadow-sm"
-              />
-            </div>
-            <button 
-              type="submit"
-              className="px-6 py-3 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl shadow-sm transition-colors"
-            >
-              Search
-            </button>
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden flex flex-col h-[calc(100vh-10rem)]">
+        <div className="px-4 py-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+          <div className="relative w-64">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search Invoice or Patient..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary"
+            />
           </div>
-        </form>
+          <DateFilter
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            onDateFromChange={setDateFrom}
+            onDateToChange={setDateTo}
+            onSearch={handleSearch}
+            onReset={handleReset}
+          />
+        </div>
 
-        {/* Results Area */}
-        <div className="flex-1 overflow-y-auto">
-          {!searchAttempted ? (
-            <div className="h-full flex flex-col">
-              <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Recent Returns</h3>
-              {bills.filter(b => b.paymentStatus === 'Refunded').length > 0 ? (
-                <div className="border border-slate-200 rounded-lg overflow-hidden">
-                  <table className="w-full text-left text-sm whitespace-nowrap">
-                    <thead className="bg-slate-50 text-slate-500 border-b border-slate-200">
-                      <tr>
-                        <th className="px-4 py-3 font-bold">Invoice</th>
-                        <th className="px-4 py-3 font-bold">Date</th>
-                        <th className="px-4 py-3 font-bold">Customer</th>
-                        <th className="px-4 py-3 font-bold text-right">Refund Amount</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {bills.filter(b => b.paymentStatus === 'Refunded').map(bill => (
-                        <tr key={bill.billId} className="hover:bg-slate-50">
-                          <td className="px-4 py-3 font-bold text-slate-700">{bill.billId}</td>
-                          <td className="px-4 py-3 text-slate-500">{new Date(bill.date).toLocaleDateString()}</td>
-                          <td className="px-4 py-3 font-medium text-slate-800">{bill.patientName || 'Walk-in'}</td>
-                          <td className="px-4 py-3 text-right font-extrabold text-primary">₹{bill.netAmount.toFixed(2)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+        <div className="flex-1 overflow-auto">
+          <table className="w-full text-left text-sm whitespace-nowrap">
+            <thead className="bg-white text-xs font-semibold text-slate-500 uppercase tracking-wider sticky top-0 shadow-sm z-10 border-b border-slate-100">
+              <tr>
+                <th className="px-4 py-3">Invoice</th>
+                <th className="px-4 py-3">Date</th>
+                <th className="px-4 py-3">Customer</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3 text-right">Amount</th>
+                <th className="px-4 py-3 text-center">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {filteredBills.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
+                    No matching invoices found.
+                  </td>
+                </tr>
               ) : (
-                <div className="flex-1 flex flex-col items-center justify-center text-slate-400 py-12">
-                  <FileText className="w-16 h-16 mb-4 opacity-30" />
-                  <p className="text-lg font-medium text-slate-500">No returns recorded yet.</p>
-                  <p className="text-sm mt-1">Search for an invoice above to process a new return.</p>
-                </div>
+                filteredBills.map(bill => (
+                  <tr key={bill.billId} className="hover:bg-slate-50">
+                    <td className="px-4 py-3 font-bold text-slate-700">{bill.billId}</td>
+                    <td className="px-4 py-3 text-slate-500">{new Date(bill.date).toLocaleDateString()}</td>
+                    <td className="px-4 py-3 font-medium text-slate-800">{bill.patientName || 'Walk-in'}</td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-1 text-xs font-bold rounded-lg ${
+                        bill.paymentStatus === 'Refunded' ? 'bg-slate-100 text-slate-600' :
+                        bill.paymentStatus === 'Paid' ? 'bg-emerald-100 text-emerald-700' :
+                        'bg-amber-100 text-amber-700'
+                      }`}>
+                        {bill.paymentStatus}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right font-bold text-slate-800">₹{bill.netAmount.toFixed(2)}</td>
+                    <td className="px-4 py-3 text-center">
+                      <button
+                        onClick={() => setSelectedBill(bill)}
+                        className="px-3 py-1.5 text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors"
+                      >
+                        View
+                      </button>
+                    </td>
+                  </tr>
+                ))
               )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {selectedBill && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl overflow-hidden relative">
+            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-bold text-slate-800">Invoice: {selectedBill.billId}</h3>
+                <p className="text-sm text-slate-500">{new Date(selectedBill.date).toLocaleString()}</p>
+              </div>
+              <button onClick={() => setSelectedBill(null)} className="text-slate-400 hover:text-slate-600 p-2">
+                <X className="w-5 h-5" />
+              </button>
             </div>
-          ) : !searchedBill ? (
-            <div className="h-full flex flex-col items-center justify-center text-red-400">
-              <AlertCircle className="w-16 h-16 mb-4 opacity-50" />
-              <p className="text-lg font-medium text-red-500">No bill found with ID "{searchQuery}"</p>
-              <p className="text-sm mt-1 text-slate-500">Please check the invoice number and try again.</p>
-            </div>
-          ) : (
-            <div className="max-w-3xl animate-in fade-in slide-in-from-bottom-4 duration-300">
-              
-              {/* Bill Details Card */}
-              <div className="border border-slate-200 rounded-xl overflow-hidden mb-4">
-                <div className="bg-slate-50 p-4 border-b border-slate-200 flex justify-between items-center">
-                  <div>
-                    <h3 className="text-lg font-extrabold text-slate-800">{searchedBill.billId}</h3>
-                    <p className="text-sm text-slate-500">{new Date(searchedBill.date).toLocaleString()}</p>
-                  </div>
-                  <div className="text-right">
-                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
-                      searchedBill.paymentStatus === 'Refunded' 
-                        ? 'bg-slate-200 text-slate-600'
-                        : searchedBill.paymentStatus === 'Paid'
-                          ? 'bg-emerald-100 text-emerald-700'
-                          : 'bg-amber-100 text-amber-700'
-                    }`}>
-                      {searchedBill.paymentStatus}
-                    </span>
-                  </div>
+            
+            <div className="p-6">
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Patient / Customer</p>
+                  <p className="font-semibold text-slate-800">{selectedBill.patientName || 'Walk-in'}</p>
+                  <p className="text-sm text-slate-500">{selectedBill.patientId}</p>
                 </div>
-                
-                <div className="p-5 grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Patient / Customer</p>
-                    <p className="font-semibold text-slate-800">{searchedBill.patientName || 'Walk-in'}</p>
-                    <p className="text-sm text-slate-500">{searchedBill.patientId}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Total Amount</p>
-                    <p className="text-2xl font-extrabold text-primary">₹{searchedBill.netAmount.toFixed(2)}</p>
-                  </div>
+                <div className="text-right">
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Total Amount</p>
+                  <p className="text-2xl font-extrabold text-primary">₹{selectedBill.netAmount.toFixed(2)}</p>
                 </div>
               </div>
 
-              {/* Items List */}
               <h4 className="font-bold text-slate-700 mb-3 uppercase tracking-wider text-sm border-b border-slate-100 pb-2">Billed Items</h4>
-              <div className="border border-slate-200 rounded-lg overflow-hidden mb-8">
+              <div className="border border-slate-200 rounded-lg overflow-hidden mb-8 max-h-[30vh] overflow-y-auto">
                 <table className="w-full text-left text-sm">
-                  <thead className="bg-slate-50 text-slate-500 border-b border-slate-200">
+                  <thead className="bg-slate-50 text-slate-500 border-b border-slate-200 sticky top-0">
                     <tr>
                       <th className="px-4 py-3 font-bold">Medicine</th>
                       <th className="px-4 py-3 font-bold text-center">Qty</th>
@@ -171,7 +186,7 @@ export const Returns = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {searchedBill.items.map((item, idx) => (
+                    {selectedBill.items.map((item, idx) => (
                       <tr key={idx}>
                         <td className="px-4 py-3 font-semibold text-slate-800">{item.medicineName}</td>
                         <td className="px-4 py-3 text-center">{item.quantity}</td>
@@ -183,8 +198,7 @@ export const Returns = () => {
                 </table>
               </div>
 
-              {/* Action Button */}
-              {searchedBill.paymentStatus === 'Refunded' ? (
+              {selectedBill.paymentStatus === 'Refunded' ? (
                 <div className="bg-slate-100 text-slate-500 p-4 rounded-xl text-center font-bold flex items-center justify-center gap-2 border border-slate-200">
                   <CheckCircle2 className="w-5 h-5" />
                   This bill has already been refunded
@@ -192,31 +206,30 @@ export const Returns = () => {
               ) : (
                 <button
                   onClick={handleProcessReturn}
-                  disabled={isSuccess}
+                  disabled={isSuccess || selectedBill.paymentStatus !== 'Paid'}
                   className={`w-full py-4 rounded-xl flex items-center justify-center gap-2 font-bold text-white transition-all shadow-md ${
                     isSuccess 
                       ? 'bg-emerald-500' 
-                      : 'bg-red-500 hover:bg-red-600 shadow-red-500/20 hover:-translate-y-0.5'
+                      : selectedBill.paymentStatus !== 'Paid' ? 'bg-slate-400 cursor-not-allowed' : 'bg-red-500 hover:bg-red-600 shadow-red-500/20 hover:-translate-y-0.5'
                   }`}
                 >
                   {isSuccess ? (
                     <>
                       <CheckCircle2 className="w-5 h-5" />
-                      Return Processed Successfully
+                      Refund Successful
                     </>
                   ) : (
                     <>
                       <RotateCcw className="w-5 h-5" />
-                      Process Full Return & Refund
+                      {selectedBill.paymentStatus !== 'Paid' ? 'Cannot refund unpaid bill' : 'Process Full Refund'}
                     </>
                   )}
                 </button>
               )}
-
             </div>
-          )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

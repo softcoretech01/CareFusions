@@ -8,14 +8,12 @@ export const RegistrationReports = () => {
   const todayDate = new Date();
   const today = todayDate.toISOString().split('T')[0];
 
-  const lastWeekDate = new Date();
-  lastWeekDate.setDate(todayDate.getDate() - 7);
-  const lastWeek = lastWeekDate.toISOString().split('T')[0];
+  const firstDayStr = `${today.split('-')[0]}-${today.split('-')[1]}-01`;
 
-  const [dateFrom, setDateFrom] = useState(lastWeek);
+  const [dateFrom, setDateFrom] = useState(firstDayStr);
   const [dateTo, setDateTo] = useState(today);
 
-  const [appliedDateFrom, setAppliedDateFrom] = useState(lastWeek);
+  const [appliedDateFrom, setAppliedDateFrom] = useState(firstDayStr);
   const [appliedDateTo, setAppliedDateTo] = useState(today);
 
   const [reportData, setReportData] = useState<any>(null);
@@ -53,10 +51,10 @@ export const RegistrationReports = () => {
   };
 
   const handleReset = () => {
-    setDateFrom('');
-    setDateTo('');
-    setAppliedDateFrom('');
-    setAppliedDateTo('');
+    setDateFrom(firstDayStr);
+    setDateTo(today);
+    setAppliedDateFrom(firstDayStr);
+    setAppliedDateTo(today);
   };
 
   const totalPatients = reportData?.kpis?.totalRegistrations || 0;

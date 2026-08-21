@@ -15,7 +15,6 @@ const navigation: NavItem[] = [
   { name: 'Patient Registration', to: '/registration/new', icon: UserPlus },
   { name: 'Quick Registration', to: '/registration/quick', icon: Zap },
   { name: 'Emergency Registration', to: '/registration/emergency', icon: Activity },
-  { name: 'Existing Patients', to: '/registration/patients', icon: Users },
   { name: "Today's Registrations", to: '/registration/today', icon: CalendarDays },
   { name: 'Patient Documents', to: '/registration/documents', icon: FolderOpen },
   { name: 'Duplicate Patient Check', to: '/registration/duplicate', icon: CopyX },

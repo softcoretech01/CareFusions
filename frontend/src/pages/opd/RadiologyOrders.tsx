@@ -39,12 +39,22 @@ export const RadiologyOrders = () => {
     return defaultStatus;
   };
 
+  const parseDate = (dStr: string) => {
+    if (!dStr) return '';
+    const parts = dStr.split('-');
+    if (parts.length === 3 && parts[2].length === 4) {
+      return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    }
+    return dStr;
+  };
+
   const visitsWithRadiology = visits.filter(v => {
     if (v.radiologyOrders.length === 0) return false;
     
+    const vDate = parseDate(v.date);
     // Date filter
-    if (appliedDateFrom && v.date < appliedDateFrom) return false;
-    if (appliedDateTo && v.date > appliedDateTo) return false;
+    if (appliedDateFrom && vDate < appliedDateFrom) return false;
+    if (appliedDateTo && vDate > appliedDateTo) return false;
 
     if (appliedSearchQuery) {
       const q = appliedSearchQuery.toLowerCase();
@@ -63,11 +73,11 @@ export const RadiologyOrders = () => {
   };
 
   const handleReset = () => {
-    setDateFrom('');
-    setDateTo('');
+    setDateFrom(today);
+    setDateTo(today);
     setSearchQuery('');
-    setAppliedDateFrom('');
-    setAppliedDateTo('');
+    setAppliedDateFrom(today);
+    setAppliedDateTo(today);
     setAppliedSearchQuery('');
   };
 
@@ -79,9 +89,11 @@ export const RadiologyOrders = () => {
         <div>
           <h1 className="text-3xl font-bold text-slate-800">Radiology Orders</h1>
         </div>
-        
-        <div className="flex items-center gap-4 flex-wrap">
-          <div className="relative w-64">
+      </div>
+
+      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex flex-col h-[calc(100vh-10rem)]">
+        <div className="p-4 border-b border-slate-100 flex flex-wrap gap-4 items-center justify-between bg-slate-50/50">
+          <div className="relative flex-1 max-w-md">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input 
               type="text" 
@@ -92,20 +104,18 @@ export const RadiologyOrders = () => {
             />
           </div>
           
-          <div className="h-8 w-px bg-slate-200 mx-2" />
-
-          <DateFilter
-            dateFrom={dateFrom}
-            dateTo={dateTo}
-            onDateFromChange={setDateFrom}
-            onDateToChange={setDateTo}
-            onSearch={handleSearch}
-            onReset={handleReset}
-          />
+          <div className="ml-auto">
+            <DateFilter
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              onDateFromChange={setDateFrom}
+              onDateToChange={setDateTo}
+              onSearch={handleSearch}
+              onReset={handleReset}
+            />
+          </div>
         </div>
-      </div>
-
-      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex flex-col h-[calc(100vh-10rem)]">
+        
         <div className="flex-1 overflow-auto custom-scrollbar">
           <table className="w-full">
             <thead className="bg-white sticky top-0 z-10 shadow-sm outline outline-1 outline-slate-100 text-xs font-semibold text-slate-500 uppercase tracking-wider">

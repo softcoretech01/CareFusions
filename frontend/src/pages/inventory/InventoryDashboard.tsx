@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from 'react';
 import { Pagination } from '../../components/ui/Pagination';
-import { DateFilter } from '../../components/ui/DateFilter';
+import { DateFilter, monthStart, today } from '../../components/ui/DateFilter';
 import { Package, IndianRupee, PackageX, CalendarClock, ArrowDownToLine, ArrowUpFromLine, X, Search } from 'lucide-react';
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
@@ -102,20 +102,18 @@ export const InventoryDashboard = () => {
   // Movement figures follow this range. Stock position (items, value, out of
   // stock, expiry) is always "as of now" - a range cannot change what is on
   // the shelf right now, so those tiles say so rather than pretending.
-  const iso = (d: Date) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  const todayKey = iso(new Date());
-  const weekAgoKey = (() => { const d = new Date(); d.setDate(d.getDate() - 6); return iso(d); })();
+  const todayKey = today();
+  const monthStartKey = monthStart();
 
-  const [dateFrom, setDateFrom] = useState(weekAgoKey);
+  const [dateFrom, setDateFrom] = useState(monthStartKey);
   const [dateTo, setDateTo] = useState(todayKey);
-  const [appliedFrom, setAppliedFrom] = useState(weekAgoKey);
+  const [appliedFrom, setAppliedFrom] = useState(monthStartKey);
   const [appliedTo, setAppliedTo] = useState(todayKey);
 
   const applyRange = () => { setAppliedFrom(dateFrom); setAppliedTo(dateTo); };
   const resetRange = () => {
-    setDateFrom(weekAgoKey); setDateTo(todayKey);
-    setAppliedFrom(weekAgoKey); setAppliedTo(todayKey);
+    setDateFrom(monthStartKey); setDateTo(todayKey);
+    setAppliedFrom(monthStartKey); setAppliedTo(todayKey);
   };
 
   const short = (k: string) =>
@@ -390,7 +388,7 @@ export const InventoryDashboard = () => {
           onDateToChange={setDateTo}
           onSearch={applyRange}
           onReset={resetRange}
-          defaultDateFrom={weekAgoKey}
+          defaultDateFrom={monthStartKey}
           defaultDateTo={todayKey}
         />
       </div>
