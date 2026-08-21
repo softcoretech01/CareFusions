@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-  Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle, Save, RefreshCw, Upload, CheckCircle2, X
+  Plus, Search, Filter, Download, Eye, Edit2, Trash2, AlertTriangle, Save, RefreshCw, Upload, CheckCircle2, X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
@@ -171,8 +171,7 @@ export const NurseMaster = () => {
     if (!formData.registrationNumber.trim()) newErrors.registrationNumber = 'Registration Number is required';
     if (!formData.department) newErrors.department = 'Department is required';
     if (!formData.designation.trim()) newErrors.designation = 'Designation is required';
-    if (!formData.branch) newErrors.branch = 'Branch is required';
-    if (!formData.mobile.trim()) newErrors.mobile = 'Mobile is required';
+        if (!formData.mobile.trim()) newErrors.mobile = 'Mobile is required';
     if (!formData.joiningDate) newErrors.joiningDate = 'Joining Date is required';
     if (!formData.shift) newErrors.shift = 'Shift is required';
 
@@ -658,9 +657,21 @@ export const NurseMaster = () => {
                               className="h-16 object-contain"
                               onError={(e) => { e.currentTarget.style.display = 'none'; }}
                             />
-                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-2 transition-opacity z-10 pointer-events-none">
                               <span className="text-white text-xs font-medium">Click to change</span>
                             </div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                window.open(`http://localhost:8000${formData[doc.field as keyof typeof formData]}`, '_blank');
+                              }}
+                              className="absolute top-2 right-2 p-1.5 bg-white/90 hover:bg-white text-primary rounded-lg shadow-sm opacity-0 group-hover:opacity-100 transition-all z-20"
+                              title="View Document"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
                           </div>
                         ) : (
                           <>
@@ -670,7 +681,7 @@ export const NurseMaster = () => {
                         )}
                         <input
                           type="file"
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-0"
                           onChange={(e) => handleFileUpload(e, doc.field as keyof NurseRecord)}
                           accept="image/*,.pdf"
                         />

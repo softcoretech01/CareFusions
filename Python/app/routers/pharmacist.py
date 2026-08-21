@@ -116,26 +116,26 @@ def create_pharmacist(pharmacist: PharmacistCreate, db: Session = Depends(get_db
     try:
         kwargs = pharmacist.model_dump(by_alias=False)
         mapped = {
-            "employee_code": kwargs["employeeCode"],
-            "name": kwargs["name"],
-            "license_number": kwargs["licenseNumber"],
-            "qualification": kwargs["qualification"],
-            "hospital": kwargs["hospital"],
-            "branch": kwargs["branch"],
-            "pharmacy": kwargs["pharmacy"],
-            "mobile": kwargs["mobile"],
-            "email": kwargs["email"],
-            "address": kwargs["address"],
-            "joining_date": kwargs["joiningDate"],
-            "experience": kwargs["experience"],
-            "shift": kwargs["shift"],
-            "employment_type": kwargs["employmentType"],
-            "photo": kwargs["photo"],
-            "licenseCertificate": kwargs["licenseCertificate"],
-            "idProof": kwargs["idProof"],
-            "status": kwargs["status"],
-            "remarks": kwargs["remarks"],
-            "created_by": kwargs["createdBy"]
+            "employee_code": kwargs.get("employeeCode"),
+            "name": kwargs.get("name"),
+            "license_number": kwargs.get("licenseNumber"),
+            "qualification": kwargs.get("qualification"),
+            "hospital": kwargs.get("hospital"),
+            "branch": kwargs.get("branch"),
+            "pharmacy": kwargs.get("pharmacy"),
+            "mobile": kwargs.get("mobile"),
+            "email": kwargs.get("email"),
+            "address": kwargs.get("address"),
+            "joining_date": kwargs.get("joiningDate"),
+            "experience": kwargs.get("experience"),
+            "shift": kwargs.get("shift"),
+            "employment_type": kwargs.get("employmentType"),
+            "photo": kwargs.get("photo"),
+            "licenseCertificate": kwargs.get("licenseCertificate"),
+            "idProof": kwargs.get("idProof"),
+            "status": kwargs.get("status"),
+            "remarks": kwargs.get("remarks"),
+            "created_by": kwargs.get("createdBy")
         }
         
         result = _call_sp(db, "INSERT", **mapped)
@@ -156,26 +156,26 @@ def update_pharmacist(pharmacist_id: int, pharmacist: PharmacistUpdate, db: Sess
     try:
         kwargs = pharmacist.model_dump(by_alias=False)
         mapped = {
-            "employee_code": kwargs["employeeCode"],
-            "name": kwargs["name"],
-            "license_number": kwargs["licenseNumber"],
-            "qualification": kwargs["qualification"],
-            "hospital": kwargs["hospital"],
-            "branch": kwargs["branch"],
-            "pharmacy": kwargs["pharmacy"],
-            "mobile": kwargs["mobile"],
-            "email": kwargs["email"],
-            "address": kwargs["address"],
-            "joining_date": kwargs["joiningDate"],
-            "experience": kwargs["experience"],
-            "shift": kwargs["shift"],
-            "employment_type": kwargs["employmentType"],
-            "photo": kwargs["photo"],
-            "licenseCertificate": kwargs["licenseCertificate"],
-            "idProof": kwargs["idProof"],
-            "status": kwargs["status"],
-            "remarks": kwargs["remarks"],
-            "modified_by": kwargs["modifiedBy"]
+            "employee_code": kwargs.get("employeeCode"),
+            "name": kwargs.get("name"),
+            "license_number": kwargs.get("licenseNumber"),
+            "qualification": kwargs.get("qualification"),
+            "hospital": kwargs.get("hospital"),
+            "branch": kwargs.get("branch"),
+            "pharmacy": kwargs.get("pharmacy"),
+            "mobile": kwargs.get("mobile"),
+            "email": kwargs.get("email"),
+            "address": kwargs.get("address"),
+            "joining_date": kwargs.get("joiningDate"),
+            "experience": kwargs.get("experience"),
+            "shift": kwargs.get("shift"),
+            "employment_type": kwargs.get("employmentType"),
+            "photo": kwargs.get("photo"),
+            "licenseCertificate": kwargs.get("licenseCertificate"),
+            "idProof": kwargs.get("idProof"),
+            "status": kwargs.get("status"),
+            "remarks": kwargs.get("remarks"),
+            "modified_by": kwargs.get("modifiedBy")
         }
         
         _call_sp(db, "UPDATE", pharmacist_id=pharmacist_id, **mapped)

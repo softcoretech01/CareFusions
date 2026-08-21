@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Pagination } from '@/components/ui/Pagination';
 import { usePagination } from '@/hooks/usePagination';
 import {
-  Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle, Save, RefreshCw, Upload, CheckCircle2, X
+  Plus, Search, Filter, Download, Eye, Edit2, Trash2, AlertTriangle, Save, RefreshCw, Upload, CheckCircle2, X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
@@ -73,6 +73,22 @@ const MIN_DOB = yearsAgo(100);
 // Used when a doctor is saved without an OP consultation duration, which is
 // every new doctor now that the Consultation & Billing tab is gone.
 const DEFAULT_OP_DURATION = 15;
+
+/** One label/value pair in the read-only view. A blank renders as a dash so
+ *  an empty field keeps its slot instead of collapsing the grid. */
+const Field = ({ label, value, span }: { label: string; value?: string; span?: boolean }) => (
+  <div className={span ? 'col-span-2' : ''}>
+    <span className="text-xs text-slate-400 block">{label}</span>
+    <span className="text-sm font-medium text-slate-700 break-words">{value || '-'}</span>
+  </div>
+);
+
+const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
+  <div>
+    <h4 className="text-sm font-bold text-slate-800 mb-3 pb-2 border-b border-slate-100">{title}</h4>
+    <div className="grid grid-cols-2 gap-4">{children}</div>
+  </div>
+);
 
 const emptyDoctorData: Omit<DoctorRecord, 'id'> = {
   doctorId: '',
@@ -233,6 +249,7 @@ export const DoctorMaster = () => {
   const [filterStatus, setFilterStatus] = useState('');
 
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isViewOpen, setIsViewOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
@@ -350,6 +367,11 @@ export const DoctorMaster = () => {
     setErrors({});
     setActiveTab('general');
     setIsFormOpen(true);
+  };
+
+  const handleView = (record: DoctorRecord) => {
+    setSelectedRecord(record);
+    setIsViewOpen(true);
   };
 
   const handleDeleteRequest = (record: DoctorRecord) => {
@@ -616,6 +638,13 @@ export const DoctorMaster = () => {
                         <td className="px-4 py-2 text-slate-600">{record.mobile}</td>
                         <td className="px-4 py-2 text-center">
                           <div className="flex items-center justify-center gap-2">
+                            <button
+                              onClick={() => handleView(record)}
+                              className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                              title="View Details"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
                             <button
                               onClick={() => handleEdit(record)}
                               className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"
@@ -1064,9 +1093,21 @@ export const DoctorMaster = () => {
                               className="h-16 object-contain"
                               onError={(e) => { e.currentTarget.style.display = 'none'; }}
                             />
-                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-2 transition-opacity z-10 pointer-events-none">
                               <span className="text-white text-xs font-medium">Click to change</span>
                             </div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                window.open(`http://localhost:8000${formData[doc.field as keyof typeof formData]}`, '_blank');
+                              }}
+                              className="absolute top-2 right-2 p-1.5 bg-white/90 hover:bg-white text-primary rounded-lg shadow-sm opacity-0 group-hover:opacity-100 transition-all z-20"
+                              title="View Document"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
                           </div>
                         ) : (
                           <>
@@ -1077,7 +1118,7 @@ export const DoctorMaster = () => {
                         )}
                         <input
                           type="file"
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-0"
                           onChange={(e) => handleFileUpload(e, doc.field as keyof DoctorRecord)}
                           accept="image/*,.pdf"
                         />
@@ -1104,6 +1145,88 @@ export const DoctorMaster = () => {
           </div>
         </>
       )}
+
+      {/* View Details Modal */}
+      <Modal
+        isOpen={isViewOpen}
+        onClose={() => setIsViewOpen(false)}
+        title="Doctor Details"
+        maxWidth="3xl"
+      >
+        {selectedRecord && (
+          <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-1">
+            <Section title="General Information">
+              <Field label="Doctor ID" value={selectedRecord.doctorId} />
+              <Field label="Name" value={selectedRecord.name} />
+              <Field label="Gender" value={selectedRecord.gender} />
+              <Field label="Date of Birth" value={selectedRecord.dob} />
+              <Field label="Mobile" value={selectedRecord.mobile} />
+              <Field label="Alternate Mobile" value={selectedRecord.alternateMobile} />
+              <Field label="Email" value={selectedRecord.email} />
+              <Field label="Status" value={selectedRecord.status} />
+              <Field label="Address" value={[selectedRecord.address1, selectedRecord.address2].filter(Boolean).join(', ')} span />
+              <Field label="City" value={selectedRecord.city} />
+              <Field label="State" value={selectedRecord.state} />
+              <Field label="Country" value={selectedRecord.country} />
+              <Field label="Postal Code" value={selectedRecord.postalCode} />
+            </Section>
+
+            <Section title="Professional Details">
+              <Field label="Qualification" value={selectedRecord.qualification} />
+              <Field label="Specialization" value={selectedRecord.specialization} />
+              <Field label="Department" value={selectedRecord.department} />
+              <Field label="Designation" value={selectedRecord.designation} />
+              <Field label="Experience" value={selectedRecord.experience ? `${selectedRecord.experience} years` : ''} />
+              <Field label="Languages" value={selectedRecord.languages} />
+              <Field label="Joining Date" value={selectedRecord.joiningDate} />
+            </Section>
+
+            <Section title="Schedule & Availability">
+              <Field label="Available Days" value={(selectedRecord.availableDays || []).join(', ')} span />
+              <Field label="Consulting Hours" value={selectedRecord.fromTime && selectedRecord.toTime ? `${selectedRecord.fromTime} - ${selectedRecord.toTime}` : ''} />
+              <Field label="Break" value={selectedRecord.breakFrom && selectedRecord.breakTo ? `${selectedRecord.breakFrom} - ${selectedRecord.breakTo}` : ''} />
+              <Field label="Slot Duration" value={selectedRecord.slotDuration ? `${selectedRecord.slotDuration} min` : ''} />
+              <Field label="Online Booking" value={selectedRecord.allowOnlineBooking ? 'Yes' : 'No'} />
+              <Field label="Emergency Available" value={selectedRecord.availableEmergency ? 'Yes' : 'No'} />
+              <Field label="Teleconsultation" value={selectedRecord.availableTele ? 'Yes' : 'No'} />
+            </Section>
+
+            <Section title="Documents">
+              <div className="col-span-2 grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[
+                  { label: 'Doctor Photo', file: selectedRecord.doctorPhoto },
+                  { label: 'Signature Image', file: selectedRecord.signatureImage },
+                  { label: 'Aadhaar Card', file: selectedRecord.aadhaarCard },
+                  { label: 'Registration Certificate', file: selectedRecord.registrationCertificate },
+                ].map((doc) => (
+                  <div key={doc.label} className="border border-slate-200 rounded-xl p-3 text-center">
+                    <span className="text-xs text-slate-400 block mb-2">{doc.label}</span>
+                    {doc.file ? (
+                      <a href={`http://localhost:8000${doc.file}`} target="_blank" rel="noreferrer" className="block">
+                        <img
+                          src={`http://localhost:8000${doc.file}`}
+                          alt={doc.label}
+                          className="h-16 mx-auto object-contain"
+                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                        />
+                        <span className="text-xs text-primary font-medium">Open</span>
+                      </a>
+                    ) : (
+                      <span className="text-xs text-slate-400">Not uploaded</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </Section>
+
+            {selectedRecord.remarks && (
+              <Section title="Remarks">
+                <Field label="Remarks" value={selectedRecord.remarks} span />
+              </Section>
+            )}
+          </div>
+        )}
+      </Modal>
 
       {/* Delete Confirmation Modal */}
       <Modal

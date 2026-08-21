@@ -148,41 +148,58 @@ def get_nurse(nurse_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def _next_employee_code(db: Session) -> str:
+    """The code a new nurse gets when the form does not supply one.
+
+    Master_Nurse.EmployeeCode is NOT NULL, but the Nurse form only shows the
+    generated Nurse ID, so a create sent nothing and the insert failed with
+    "Column 'EmployeeCode' cannot be null".
+    """
+    row = _call_sp(db, "GETNEXTCODE").fetchone()
+    return row[0] if row else "NUR-001"
+
+
+def _existing_employee_code(db: Session, nurse_id: int):
+    """Keep the stored code on an update that does not send one."""
+    row = _call_sp(db, "GETBYID", nurse_id=nurse_id).fetchone()
+    return row.EmployeeCode if row else None
+
+
 @router.post("/", response_model=NurseResponse, status_code=status.HTTP_201_CREATED)
 def create_nurse(nurse: NurseCreate, db: Session = Depends(get_db)):
     try:
         kwargs = nurse.model_dump(by_alias=False)
         mapped = {
-            "employee_code": kwargs["employeeCode"],
-            "name": kwargs["name"],
-            "gender": kwargs["gender"],
-            "dob": kwargs["dob"],
-            "qualification": kwargs["qualification"],
-            "registration_number": kwargs["registrationNumber"],
-            "department": kwargs["department"],
-            "designation": kwargs["designation"],
-            "hospital": kwargs["hospital"],
-            "branch": kwargs["branch"],
-            "mobile": kwargs["mobile"],
-            "alternate_mobile": kwargs["alternateMobile"],
-            "email": kwargs["email"],
-            "address": kwargs["address"],
-            "city": kwargs["city"],
-            "state": kwargs["state"],
-            "country": kwargs["country"],
-            "postal_code": kwargs["postalCode"],
-            "joining_date": kwargs["joiningDate"],
-            "shift": kwargs["shift"],
-            "manager": kwargs["manager"],
-            "employment_type": kwargs["employmentType"],
-            "experience": kwargs["experience"],
-            "profilePhoto": kwargs["profilePhoto"],
-            "nursingLicense": kwargs["nursingLicense"],
-            "qualificationCertificate": kwargs["qualificationCertificate"],
-            "idProof": kwargs["idProof"],
-            "status": kwargs["status"],
-            "remarks": kwargs["remarks"],
-            "created_by": kwargs["createdBy"]
+            "employee_code": kwargs.get("employeeCode") or _next_employee_code(db),
+            "name": kwargs.get("name"),
+            "gender": kwargs.get("gender"),
+            "dob": kwargs.get("dob"),
+            "qualification": kwargs.get("qualification"),
+            "registration_number": kwargs.get("registrationNumber"),
+            "department": kwargs.get("department"),
+            "designation": kwargs.get("designation"),
+            "hospital": kwargs.get("hospital"),
+            "branch": kwargs.get("branch"),
+            "mobile": kwargs.get("mobile"),
+            "alternate_mobile": kwargs.get("alternateMobile"),
+            "email": kwargs.get("email"),
+            "address": kwargs.get("address"),
+            "city": kwargs.get("city"),
+            "state": kwargs.get("state"),
+            "country": kwargs.get("country"),
+            "postal_code": kwargs.get("postalCode"),
+            "joining_date": kwargs.get("joiningDate"),
+            "shift": kwargs.get("shift"),
+            "manager": kwargs.get("manager"),
+            "employment_type": kwargs.get("employmentType"),
+            "experience": kwargs.get("experience"),
+            "profilePhoto": kwargs.get("profilePhoto"),
+            "nursingLicense": kwargs.get("nursingLicense"),
+            "qualificationCertificate": kwargs.get("qualificationCertificate"),
+            "idProof": kwargs.get("idProof"),
+            "status": kwargs.get("status"),
+            "remarks": kwargs.get("remarks"),
+            "created_by": kwargs.get("createdBy")
         }
         
         result = _call_sp(db, "INSERT", **mapped)
@@ -203,36 +220,37 @@ def update_nurse(nurse_id: int, nurse: NurseUpdate, db: Session = Depends(get_db
     try:
         kwargs = nurse.model_dump(by_alias=False)
         mapped = {
-            "employee_code": kwargs["employeeCode"],
-            "name": kwargs["name"],
-            "gender": kwargs["gender"],
-            "dob": kwargs["dob"],
-            "qualification": kwargs["qualification"],
-            "registration_number": kwargs["registrationNumber"],
-            "department": kwargs["department"],
-            "designation": kwargs["designation"],
-            "hospital": kwargs["hospital"],
-            "branch": kwargs["branch"],
-            "mobile": kwargs["mobile"],
-            "alternate_mobile": kwargs["alternateMobile"],
-            "email": kwargs["email"],
-            "address": kwargs["address"],
-            "city": kwargs["city"],
-            "state": kwargs["state"],
-            "country": kwargs["country"],
-            "postal_code": kwargs["postalCode"],
-            "joining_date": kwargs["joiningDate"],
-            "shift": kwargs["shift"],
-            "manager": kwargs["manager"],
-            "employment_type": kwargs["employmentType"],
-            "experience": kwargs["experience"],
-            "profilePhoto": kwargs["profilePhoto"],
-            "nursingLicense": kwargs["nursingLicense"],
-            "qualificationCertificate": kwargs["qualificationCertificate"],
-            "idProof": kwargs["idProof"],
-            "status": kwargs["status"],
-            "remarks": kwargs["remarks"],
-            "modified_by": kwargs["modifiedBy"]
+            "employee_code": (kwargs.get("employeeCode")
+                              or _existing_employee_code(db, nurse_id)),
+            "name": kwargs.get("name"),
+            "gender": kwargs.get("gender"),
+            "dob": kwargs.get("dob"),
+            "qualification": kwargs.get("qualification"),
+            "registration_number": kwargs.get("registrationNumber"),
+            "department": kwargs.get("department"),
+            "designation": kwargs.get("designation"),
+            "hospital": kwargs.get("hospital"),
+            "branch": kwargs.get("branch"),
+            "mobile": kwargs.get("mobile"),
+            "alternate_mobile": kwargs.get("alternateMobile"),
+            "email": kwargs.get("email"),
+            "address": kwargs.get("address"),
+            "city": kwargs.get("city"),
+            "state": kwargs.get("state"),
+            "country": kwargs.get("country"),
+            "postal_code": kwargs.get("postalCode"),
+            "joining_date": kwargs.get("joiningDate"),
+            "shift": kwargs.get("shift"),
+            "manager": kwargs.get("manager"),
+            "employment_type": kwargs.get("employmentType"),
+            "experience": kwargs.get("experience"),
+            "profilePhoto": kwargs.get("profilePhoto"),
+            "nursingLicense": kwargs.get("nursingLicense"),
+            "qualificationCertificate": kwargs.get("qualificationCertificate"),
+            "idProof": kwargs.get("idProof"),
+            "status": kwargs.get("status"),
+            "remarks": kwargs.get("remarks"),
+            "modified_by": kwargs.get("modifiedBy")
         }
         
         _call_sp(db, "UPDATE", nurse_id=nurse_id, **mapped)

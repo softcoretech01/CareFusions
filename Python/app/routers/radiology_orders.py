@@ -11,12 +11,49 @@ router = APIRouter(
     tags=["Radiology Orders"]
 )
 
+
+# SpRadOrders takes 17 positional parameters. Every call site used to spell out
+# its own run of NULLs, so when p_BodyPart was added at position 12 the counts
+# silently went stale and SELECT_ALL started failing with "expected 17, got 16".
+# Naming the parameters here means the next signature change is a one-line edit
+# instead of counting commas at three call sites.
+SP_RAD_PARAMS = [
+    "action", "order_id", "order_test_id", "order_number", "visit_type",
+    "uhid", "patient_name", "ordered_by", "test_id", "test_code", "test_name",
+    "body_part", "result_value", "result_file", "is_critical", "status",
+    "user_id",
+]
+
+SP_RAD_CALL = text(
+    "CALL hospital.SpRadOrders(" + ", ".join(f":{n}" for n in SP_RAD_PARAMS) + ")"
+)
+
+
+def _col(row, name):
+    """Read a column the SP may or may not return; missing means None.
+
+    Rad_Order has no Age/Gender/MobileNumber columns at all, and SELECT_ALL
+    currently omits AcknowledgedAt/AcknowledgedBy even though Rad_OrderTest
+    stores them. Reading them positionally turned that mismatch into a 500.
+    """
+    return row._mapping.get(name)
+
+
+def _call_sp(db: Session, action: str, **kwargs):
+    """Invoke SpRadOrders with every parameter bound, defaulting to NULL."""
+    unknown = set(kwargs) - set(SP_RAD_PARAMS)
+    if unknown:
+        raise ValueError(f"unknown SpRadOrders parameter(s): {sorted(unknown)}")
+    params = {name: None for name in SP_RAD_PARAMS}
+    params["action"] = action
+    params.update(kwargs)
+    return db.execute(SP_RAD_CALL, params)
+
+
 @router.get("", response_model=List[RadiologyOrderResponse])
 def get_radiology_orders(db: Session = Depends(get_db)):
     try:
-        # Call SpRadOrders with 'SELECT_ALL'
-        query = text("CALL hospital.SpRadOrders('SELECT_ALL', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)")
-        result = db.execute(query).fetchall()
+        result = _call_sp(db, "SELECT_ALL").fetchall()
 
         orders_dict = {}
         for row in result:
@@ -32,9 +69,9 @@ def get_radiology_orders(db: Session = Depends(get_db)):
                     "ordered_by": row.OrderedBy,
                     "ordered_at": row.OrderedAt,
                     "status": row.OrderStatus,
-                    "age": str(row.Age) if row.Age is not None else None,
-                    "gender": row.Gender,
-                    "mobile_number": row.MobileNumber,
+                    "age": str(_col(row, "Age")) if _col(row, "Age") is not None else None,
+                    "gender": _col(row, "Gender"),
+                    "mobile_number": _col(row, "MobileNumber"),
                     "tests": []
                 }
             
@@ -44,7 +81,7 @@ def get_radiology_orders(db: Session = Depends(get_db)):
                     "test_id": row.TestId,
                     "test_code": row.TestCode,
                     "test_name": row.TestName,
-                    "body_part": row.BodyPart,
+                    "body_part": _col(row, "BodyPart"),
                     "status": row.TestStatus,
                     "result_value": row.ResultValue,
                     "result_file": row.ResultFile,
@@ -52,8 +89,8 @@ def get_radiology_orders(db: Session = Depends(get_db)):
                     "completed_at": row.CompletedAt,
                     "verified_at": row.VerifiedAt,
                     "verified_by": row.VerifiedBy,
-                    "acknowledged_at": row.AcknowledgedAt,
-                    "acknowledged_by": row.AcknowledgedBy
+                    "acknowledged_at": _col(row, "AcknowledgedAt"),
+                    "acknowledged_by": _col(row, "AcknowledgedBy")
                 })
         
         return list(orders_dict.values())
@@ -107,27 +144,15 @@ def update_radiology_test(order_id: int, test_id: str, test_data: RadiologyTestU
         # We will assume test_id passed here is order_test_id.
         order_test_id_int = int(test_id.replace("TEST-", "")) if isinstance(test_id, str) and test_id.startswith("TEST-") else int(test_id)
         
-        query = text("""
-            CALL hospital.SpRadOrders(
-                'UPDATE_RESULT', 
-                :order_id, 
-                :order_test_id, 
-                NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 
-                :result_value, 
-                :result_file, 
-                :is_critical, 
-                NULL, 
-                'Admin'
-            )
-        """)
-        
-        result = db.execute(query, {
-            "order_id": order_id,
-            "order_test_id": order_test_id_int,
-            "result_value": test_data.result_value,
-            "result_file": test_data.result_file,
-            "is_critical": 1 if test_data.is_critical else 0
-        }).fetchone()
+        result = _call_sp(
+            db, "UPDATE_RESULT",
+            order_id=order_id,
+            order_test_id=order_test_id_int,
+            result_value=test_data.result_value,
+            result_file=test_data.result_file,
+            is_critical=1 if test_data.is_critical else 0,
+            user_id="Admin",
+        ).fetchone()
         
         db.commit()
         
@@ -141,17 +166,11 @@ def acknowledge_radiology_alert(test_id: str, db: Session = Depends(get_db)):
     try:
         order_test_id_int = int(test_id.replace("TEST-", "")) if isinstance(test_id, str) and test_id.startswith("TEST-") else int(test_id)
         
-        query = text("""
-            CALL hospital.SpRadOrders(
-                'ACKNOWLEDGE_ALERT', 
-                NULL, 
-                :order_test_id, 
-                NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 
-                'Admin'
-            )
-        """)
-        
-        db.execute(query, {"order_test_id": order_test_id_int})
+        _call_sp(
+            db, "ACKNOWLEDGE_ALERT",
+            order_test_id=order_test_id_int,
+            user_id="Admin",
+        )
         db.commit()
         
         return {"message": "Alert acknowledged successfully"}
