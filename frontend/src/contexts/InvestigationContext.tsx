@@ -9,6 +9,7 @@ export interface InvestigationTest {
   name: string;
   testId?: number;
   testCode?: string;
+  bodyPart?: string;
   resultValue?: string;
   resultFile?: string;
   status: 'Pending' | 'Sample Collected' | 'Sample Accepted' | 'Processing' | 'Completed' | 'Verified';

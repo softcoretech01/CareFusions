@@ -25,6 +25,7 @@ class RadiologyTestUpdate(BaseModel):
 class RadiologyTestCreate(BaseModel):
     testName: str
     testCode: Optional[str] = None
+    body_part: Optional[str] = None
 
 class RadiologyTestResponse(RadiologyTestBase):
     order_test_id: int

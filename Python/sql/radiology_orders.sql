@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS Rad_OrderTest (
     TestId INT, -- References admin.Master_RadiologyService (RadiologyServiceId)
     TestCode VARCHAR(50),
     TestName VARCHAR(200) NOT NULL,
+    BodyPart VARCHAR(150),
     Status VARCHAR(30) NOT NULL DEFAULT 'Pending',
     ResultValue TEXT,
     ResultFile VARCHAR(500),
@@ -53,6 +54,7 @@ CREATE PROCEDURE SpRadOrders(
     IN p_TestId INT,
     IN p_TestCode VARCHAR(50),
     IN p_TestName VARCHAR(200),
+    IN p_BodyPart VARCHAR(150),
     IN p_ResultValue TEXT,
     IN p_ResultFile VARCHAR(500),
     IN p_IsCritical BOOLEAN,
@@ -66,7 +68,7 @@ BEGIN
         SELECT 
             ro.OrderId, ro.OrderNumber, ro.Category, ro.VisitType, ro.Uhid,
             ro.PatientName, ro.OrderedBy, ro.OrderedAt, ro.Status AS OrderStatus,
-            rt.OrderTestId, rt.TestId, rt.TestCode, rt.TestName, rt.Status AS TestStatus,
+            rt.OrderTestId, rt.TestId, rt.TestCode, rt.TestName, rt.BodyPart, rt.Status AS TestStatus,
             rt.ResultValue, rt.ResultFile, rt.IsCritical, rt.CompletedAt, rt.VerifiedAt, rt.VerifiedBy
         FROM Rad_Order ro
         LEFT JOIN Rad_OrderTest rt ON ro.OrderId = rt.OrderId
@@ -78,8 +80,8 @@ BEGIN
         
         SET v_OrderId = LAST_INSERT_ID();
         
-        INSERT INTO Rad_OrderTest (OrderId, TestId, TestCode, TestName, Status)
-        VALUES (v_OrderId, p_TestId, p_TestCode, p_TestName, 'Pending');
+        INSERT INTO Rad_OrderTest (OrderId, TestId, TestCode, TestName, BodyPart, Status)
+        VALUES (v_OrderId, p_TestId, p_TestCode, p_TestName, p_BodyPart, 'Pending');
         
         SELECT v_OrderId AS OrderId;
 
@@ -125,8 +127,8 @@ INSERT INTO Rad_Order (OrderNumber, Category, VisitType, Uhid, PatientName, Orde
 ('RAD-2026-002', 'Radiology', 'IP', 'UHID-2026-0002', 'Jane Smith', 'Dr. Adams', DATE_SUB(NOW(), INTERVAL 24 HOUR), 'Partial'),
 ('RAD-2026-003', 'Radiology', 'IP', 'UHID-2026-0008', 'Sneha Gupta', 'Dr. Emily Brown', DATE_SUB(NOW(), INTERVAL 48 HOUR), 'Completed');
 
-INSERT INTO Rad_OrderTest (OrderId, TestId, TestCode, TestName, Status, ResultValue, ResultFile, IsCritical, CompletedAt) VALUES
-(1, 1, 'XRY01', 'Chest X-Ray', 'Pending', NULL, NULL, 0, NULL),
-(2, 2, 'USG01', 'Ultrasound Abdomen', 'Completed', 'Mild fatty liver', 'report_1.pdf', 0, DATE_SUB(NOW(), INTERVAL 12 HOUR)),
-(2, 3, 'CT01', 'CT Head', 'Pending', NULL, NULL, 0, NULL),
-(3, 4, 'MRI01', 'MRI Brain', 'Completed', 'No acute infarct or hemorrhage', 'mri_report.pdf', 0, DATE_SUB(NOW(), INTERVAL 24 HOUR));
+INSERT INTO Rad_OrderTest (OrderId, TestId, TestCode, TestName, BodyPart, Status, ResultValue, ResultFile, IsCritical, CompletedAt) VALUES
+(1, 1, 'XRY01', 'Chest X-Ray', NULL, 'Pending', NULL, NULL, 0, NULL),
+(2, 2, 'USG01', 'Ultrasound Abdomen', NULL, 'Completed', 'Mild fatty liver', 'report_1.pdf', 0, DATE_SUB(NOW(), INTERVAL 12 HOUR)),
+(2, 3, 'CT01', 'CT Head', NULL, 'Pending', NULL, NULL, 0, NULL),
+(3, 4, 'MRI01', 'MRI Brain', NULL, 'Completed', 'No acute infarct or hemorrhage', 'mri_report.pdf', 0, DATE_SUB(NOW(), INTERVAL 24 HOUR));
