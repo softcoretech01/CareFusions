@@ -66,6 +66,7 @@ export const OPBilling = () => {
   const [deptFees, setDeptFees] = useState<Record<string, number>>({});
   const [testPrices, setTestPrices] = useState<Record<string, number>>({});
   const [radPrices, setRadPrices] = useState<Record<string, number>>({});
+  const [medicinePrices, setMedicinePrices] = useState<Record<string, number>>({});
   const [patients, setPatients] = useState<OpdVisit[]>([]);
   const [searchId, setSearchId] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -114,11 +115,12 @@ export const OPBilling = () => {
   const fetchPriceBooks = async () => {
     const key = (v: unknown) => String(v ?? '').trim().toLowerCase();
     try {
-      const [docs, tests, rads, depts] = await Promise.all([
+      const [docs, tests, rads, depts, meds] = await Promise.all([
         axios.get(`${API_BASE}/doctors/`).catch(() => ({ data: [] })),
         axios.get(`${API_BASE}/tests/`).catch(() => ({ data: [] })),
         axios.get(`${API_BASE}/radiology-services/`).catch(() => ({ data: [] })),
         axios.get(`${API_BASE}/departments/`).catch(() => ({ data: [] })),
+        axios.get(`${API_BASE}/medicines/`).catch(() => ({ data: [] })),
       ]);
 
       const toMap = (rows: any[], nameKey: string, priceKey: string) => {
@@ -131,10 +133,29 @@ export const OPBilling = () => {
         return m;
       };
 
+      const toMapMedicine = (rows: any[]) => {
+        const m: Record<string, number> = {};
+        (Array.isArray(rows) ? rows : []).forEach(r => {
+          const price = Number(r?.sellingPrice);
+          if (Number.isFinite(price) && price > 0) {
+            const genericName = r?.genericName;
+            const strength = r?.strength;
+            if (genericName) {
+              m[key(genericName)] = price;
+              if (strength) m[key(`${genericName} ${strength}`)] = price;
+            }
+            if (r?.medicineCode) m[key(r.medicineCode)] = price;
+            if (r?.id) m[String(r.id)] = price;
+          }
+        });
+        return m;
+      };
+
       setDoctorFees(toMap(docs.data, 'name', 'consultationFee'));
       setTestPrices(toMap(tests.data, 'testName', 'testPrice'));
       setRadPrices(toMap(rads.data, 'serviceName', 'servicePrice'));
       setDeptFees(toMap(depts.data, 'departmentName', 'consultationFee'));
+      setMedicinePrices(toMapMedicine(meds.data));
     } catch (error) {
       console.error('Failed to load price masters', error);
     }
@@ -257,7 +278,21 @@ export const OPBilling = () => {
     if (visit.prescriptions && visit.prescriptions.length > 0) {
       visit.prescriptions.forEach((pres, idx) => {
         const itemQty = pres.quantity ? parseFloat(pres.quantity) : 1;
-        const itemPrice = pres.price || 0;
+        
+        // 1. Try matching by exact medicineId
+        // 2. Fallback to full string match (e.g. "Omeprazole 20mg")
+        // 3. Fallback to core name (e.g. "Omeprazole")
+        let itemPrice = pres.medicineId ? (medicinePrices[String(pres.medicineId)] ?? undefined) : undefined;
+        
+        if (itemPrice === undefined) {
+          itemPrice = lookup(medicinePrices, pres.medicineName);
+        }
+        
+        if (itemPrice === undefined) {
+            const coreName = pres.medicineName ? pres.medicineName.split(' ')[0] : '';
+            itemPrice = lookup(medicinePrices, coreName) ?? pres.price ?? 0;
+        }
+
         newItems.push({
           id: `PRES-${idx}`,
           description: `Medicine: ${pres.medicineName || 'Prescription'} (${pres.quantity || ''})`.trim(),
@@ -514,7 +549,6 @@ export const OPBilling = () => {
                       <th className="px-5 py-4 w-36 text-right">Price (₹)</th>
                       <th className="px-5 py-4 w-24 text-center">Qty</th>
                       <th className="px-5 py-4 w-36 text-right">Total (₹)</th>
-                      <th className="px-5 py-4 w-16 text-center">Del</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -527,20 +561,18 @@ export const OPBilling = () => {
                           <input type="number" className="w-full text-right bg-transparent border-0 p-1 focus:ring-1 focus:ring-primary/30 rounded text-sm" value={item.price} onChange={e => handleItemChange(item.id, 'price', Number(e.target.value))} />
                         </td>
                         <td className="px-5 py-3">
-                          <input type="number" className="w-full text-center bg-transparent border-0 p-1 focus:ring-1 focus:ring-primary/30 rounded text-sm" value={item.qty} onChange={e => handleItemChange(item.id, 'qty', Number(e.target.value))} />
+                          {item.description.toLowerCase().includes('consultation fee') || item.description.toLowerCase().includes('doctor visit fee') ? (
+                            <div className="w-full text-center text-slate-400">-</div>
+                          ) : (
+                            <input type="number" className="w-full text-center bg-transparent border-0 p-1 focus:ring-1 focus:ring-primary/30 rounded text-sm" value={item.qty} onChange={e => handleItemChange(item.id, 'qty', Number(e.target.value))} />
+                          )}
                         </td>
                         <td className="px-5 py-3 text-right font-semibold text-slate-800">₹{item.total.toFixed(2)}</td>
-                        <td className="px-5 py-3 text-center">
-                          <button onClick={() => handleRemoveItem(item.id)} className="text-red-400 hover:text-red-600 p-1 rounded hover:bg-red-50 transition-colors">
-                            <X className="w-4 h-4" />
-                          </button>
-                        </td>
                       </tr>
                     ))}
                     <tr className="bg-primary/5 border-t-2 border-primary/20 font-bold">
                       <td colSpan={3} className="px-5 py-4 text-right text-slate-700">Total Amount:</td>
                       <td className="px-5 py-4 text-right text-primary text-lg">₹{totalAmount.toFixed(2)}</td>
-                      <td></td>
                     </tr>
                   </tbody>
                 </table>
