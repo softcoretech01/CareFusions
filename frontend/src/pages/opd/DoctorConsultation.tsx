@@ -169,16 +169,15 @@ export const DoctorConsultation = () => {
     quantity: '',
   });
 
-  // Lab & Radiology local state (checked IDs)
+  // Lab local state (checked IDs)
   const [selectedLabs, setSelectedLabs] = useState<string[]>([]);
-  const [selectedRadiology, setSelectedRadiology] = useState<string[]>([]);
+  const [radForm, setRadForm] = useState({ serviceName: '', bodyPart: '' });
   const [showAdmitModal, setShowAdmitModal] = useState(false);
   const [admitForm, setAdmitForm] = useState({ specialty: 'General Medicine', type: 'General', priority: 'Normal' });
 
   useEffect(() => {
     if (visit) {
       setSelectedLabs(visit.labOrders.map(l => l.testCode));
-      setSelectedRadiology(visit.radiologyOrders.map(r => r.bodyPart));
     }
   }, [visit]);
 
@@ -241,26 +240,28 @@ export const DoctorConsultation = () => {
     }
   };
 
-  const toggleRadiologyOrder = (svc: ApiRadiologyService) => {
-    const isSelected = selectedRadiology.includes(svc.name);
-    if (isSelected) {
-      const order = visit.radiologyOrders.find(o => o.bodyPart === svc.name);
-      if (order) removeRadiologyOrder(visit.id, order.id);
-      setSelectedRadiology(prev => prev.filter(c => c !== svc.name));
-    } else {
-      const order: RadiologyOrder = {
-        id: Date.now().toString(),
-        modality: svc.modality as RadiologyOrder['modality'],
-        bodyPart: svc.name,
-        indication: '',
-        priority: 'Routine',
-        contrastRequired: false,
-        specialInstructions: '',
-        status: 'Ordered',
-      };
-      addRadiologyOrder(visit.id, order);
-      setSelectedRadiology(prev => [...prev, svc.name]);
+  const handleAddRadiology = () => {
+    if (!radForm.serviceName) {
+      toast.error('Select a radiology service');
+      return;
     }
+    const svc = apiRadiologyServices.find(s => s.name === radForm.serviceName);
+    if (!svc) return;
+
+    const order: RadiologyOrder = {
+      id: Date.now().toString(),
+      serviceName: svc.name,
+      modality: svc.modality as RadiologyOrder['modality'],
+      bodyPart: radForm.bodyPart || svc.name,
+      indication: '',
+      priority: 'Routine',
+      contrastRequired: false,
+      specialInstructions: '',
+      status: 'Ordered',
+    };
+    addRadiologyOrder(visit.id, order);
+    setRadForm({ serviceName: '', bodyPart: '' });
+    toast.success('Added radiology order');
   };
 
 
@@ -292,7 +293,7 @@ export const DoctorConsultation = () => {
         patientName: visit.patientName,
         orderedBy: visit.doctorName,
         orderedAt: new Date().toISOString(),
-        tests: visit.radiologyOrders.map(r => ({ id: Math.random().toString(36).substring(2, 10) + Date.now().toString(36), name: r.bodyPart, status: 'Pending' })),
+        tests: visit.radiologyOrders.map(r => ({ id: Math.random().toString(36).substring(2, 10) + Date.now().toString(36), name: r.serviceName || r.bodyPart, bodyPart: r.bodyPart, status: 'Pending' })),
         status: 'Pending'
       });
     }
@@ -664,38 +665,58 @@ export const DoctorConsultation = () => {
           {/* ── RADIOLOGY TAB (Simplified) ── */}
           {activeTab === 'radiology' && (
             <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6">
-              <h3 className="font-bold text-slate-800 mb-4 flex items-center justify-between">
-                <span>Radiology Services Master</span>
-                <span className="text-xs bg-primary text-white px-2 py-1 rounded-lg">{selectedRadiology.length} Selected</span>
-              </h3>
+              <h3 className="font-bold text-slate-800 mb-4">Add Radiology Order</h3>
 
-              {radServicesLoading ? (
-                <div className="text-sm text-slate-400 py-6 text-center">Loading radiology services...</div>
-              ) : apiRadiologyServices.length === 0 ? (
-                <div className="text-sm text-slate-400 py-6 text-center">No active radiology services found. Please add services in Radiology Master.</div>
-              ) : (
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {apiRadiologyServices.map(svc => {
-                    const checked = selectedRadiology.includes(svc.name);
-                    return (
-                      <label
-                        key={svc.name}
-                        className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${checked ? 'bg-purple-50 border-purple-300' : 'bg-slate-50 border-slate-200 hover:border-purple-300'
-                          }`}
-                      >
-                        <input
-                          type="checkbox"
-                          className="mt-0.5 w-4 h-4 accent-purple-600 rounded"
-                          checked={checked}
-                          onChange={() => toggleRadiologyOrder(svc)}
-                        />
-                        <div className="flex-1">
-                          <div className={`text-sm font-bold ${checked ? 'text-purple-700' : 'text-slate-700'}`}>{svc.name}</div>
-                          <div className="text-[10px] text-slate-400 mt-0.5">{svc.modality}</div>
+              <div className="flex items-end gap-3 mb-6 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                <div className="w-1/3">
+                  <label className={labelCls}>Service</label>
+                  <select
+                    value={radForm.serviceName}
+                    onChange={e => setRadForm(f => ({ ...f, serviceName: e.target.value }))}
+                    className={inputCls}
+                  >
+                    <option value="">Select Service...</option>
+                    {apiRadiologyServices.map((svc, i) => (
+                      <option key={i} value={svc.name}>{svc.name} ({svc.modality})</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex-1">
+                  <label className={labelCls}>Specific Parts / Notes</label>
+                  <input
+                    type="text"
+                    placeholder="e.g., Head and Neck"
+                    value={radForm.bodyPart}
+                    onChange={e => setRadForm(f => ({ ...f, bodyPart: e.target.value }))}
+                    className={`${inputCls} w-full`}
+                  />
+                </div>
+                <button
+                  onClick={handleAddRadiology}
+                  className="px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors h-[42px] flex items-center justify-center shrink-0"
+                >
+                  <Plus className="w-4 h-4 mr-1" /> Add
+                </button>
+              </div>
+
+              {visit.radiologyOrders.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-bold text-slate-600 mb-3">Ordered Scans</h4>
+                  <div className="space-y-2">
+                    {visit.radiologyOrders.map((r, i) => (
+                      <div key={r.id || i} className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-200">
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs font-bold bg-purple-50 text-purple-700 px-2.5 py-1 rounded-lg">
+                            {r.modality}
+                          </span>
+                          <span className="font-bold text-slate-800">{r.bodyPart}</span>
                         </div>
-                      </label>
-                    );
-                  })}
+                        <button onClick={() => removeRadiologyOrder(visit.id, r.id)} className="p-1.5 hover:bg-red-50 rounded-lg transition-colors">
+                          <Trash2 className="w-4 h-4 text-red-400" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
