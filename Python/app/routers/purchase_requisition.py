@@ -30,10 +30,7 @@ def _call_sp(db: Session, action: str, **kwargs):
         "p_PrNo": kwargs.get("pr_no"),
         "p_RequisitionDate": kwargs.get("requisition_date"),
         "p_Department": kwargs.get("department"),
-<<<<<<< HEAD
-=======
         # Added to the SP after this router was written.
->>>>>>> origin/main
         "p_InventoryType": kwargs.get("inventory_type"),
         "p_RequestedBy": kwargs.get("requested_by"),
         "p_Priority": kwargs.get("priority"),
