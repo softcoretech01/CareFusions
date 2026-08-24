@@ -1,14 +1,16 @@
 import { useEffect } from 'react';
-import { Outlet, Navigate } from 'react-router-dom';
+import { Outlet } from 'react-router-dom';
 import { AppointmentSidebar } from './AppointmentSidebar';
 import { AppointmentTopNavigation } from './AppointmentTopNavigation';
 import { useAppSelector } from '../hooks/redux';
 import { usePermissions } from '../hooks/usePermissions';
 import { AccessDenied } from '../pages/AccessDenied';
+import { useAuthRedirect } from '../components/auth/ModuleGuard';
 
 export const AppointmentLayout = () => {
   const themeMode = useAppSelector((state) => state.theme.mode);
-  const { isAuthenticated, permissions, canView } = usePermissions();
+  const { permissions, canView } = usePermissions();
+  const authRedirect = useAuthRedirect();
 
   // Apply theme to document element
   useEffect(() => {
@@ -23,9 +25,7 @@ export const AppointmentLayout = () => {
     }
   }, [themeMode]);
 
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
+  if (authRedirect) return authRedirect;
   const denied = permissions.length > 0 && !canView('Appointments');
 
   return (

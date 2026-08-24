@@ -55,9 +55,8 @@ export const Login = () => {
   const location = useLocation();
   const dispatch = useAppDispatch();
 
-  // Where the module guard bounced us from, if anywhere. Sending the user
-  // back to the page they actually asked for beats dumping them on the
-  // portal's landing page every time their session expires mid-task.
+  // Where the module guard bounced us from, if anywhere. Used only when it
+  // belongs to the portal the user actually selected — see landingRoute below.
   const redirectTo = (location.state as { from?: string } | null)?.from;
 
   // Role cards are a visual hint only — actual access comes from real credentials.
@@ -97,7 +96,17 @@ export const Login = () => {
         permissions: data.permissions,
         rememberMe,
       }));
-      navigate(redirectTo || ROLE_ROUTES[selectedRole] || '/admin', { replace: true });
+      // The selected role decides where the user lands. `from` is only honoured
+      // when it sits INSIDE that portal, so returning to an interrupted page
+      // still works (session expires on /ipd/discharges -> log back in as IPD ->
+      // land back on /ipd/discharges) while an explicit role choice is never
+      // overridden. Previously `from` won unconditionally: being bounced off
+      // /pharmacy and then logging in as Admin dropped you on Pharmacy.
+      const roleHome = ROLE_ROUTES[selectedRole] || '/admin';
+      const returnsToSamePortal =
+        !!redirectTo && (redirectTo === roleHome || redirectTo.startsWith(`${roleHome}/`));
+
+      navigate(returnsToSamePortal ? redirectTo! : roleHome, { replace: true });
     } catch {
       setError('Cannot reach the server. Please ensure the API is running.');
     } finally {
