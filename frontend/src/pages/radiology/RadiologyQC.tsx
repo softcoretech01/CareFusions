@@ -6,7 +6,7 @@ import { Plus, Check, Activity, Settings2, X } from 'lucide-react';
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
 import toast from 'react-hot-toast';
-import { DateFilter } from '../../components/ui/DateFilter';
+import { DateFilter, monthStart, today } from '../../components/ui/DateFilter';
 
 const API_BASE = import.meta.env.VITE_API_URL as string || 'http://localhost:8000/api/v1';
 
@@ -48,8 +48,8 @@ export const RadiologyQC = () => {
     fetchDropdowns();
   }, []);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
+  const [fromDate, setFromDate] = useState(monthStart());
+  const [toDate, setToDate] = useState(today());
   
   // Filter for Radiology-specific QC mock data if we had it, for now we filter all or just show a separate prefix. 
   // For this mock, we'll just show logs that have "MRI" or "CT" in them, or all logs if none exist.
@@ -140,7 +140,7 @@ export const RadiologyQC = () => {
             onDateFromChange={setFromDate}
             onDateToChange={setToDate}
             onSearch={() => {}}
-            onReset={() => { setFromDate(''); setToDate(''); }}
+            onReset={() => { setFromDate(monthStart()); setToDate(today()); }}
           />
           <button 
             onClick={() => setShowAddForm(true)}

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useInvestigations, type InvestigationOrder, type InvestigationTest } from '../../contexts/InvestigationContext';
 import { Upload, FileText, X, Beaker, CheckSquare, AlertTriangle, ShieldCheck, Search, Eye, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { DateFilter } from '../../components/ui/DateFilter';
+import { DateFilter, monthStart, today } from '../../components/ui/DateFilter';
 import { Pagination } from '../../components/ui/Pagination';
 import { usePagination } from '../../hooks/usePagination';
 import axios from 'axios';
@@ -70,7 +70,7 @@ const TestResultEditor = ({ test, handleSaveResult, patientId }: any) => {
               <p className="text-xs text-blue-600 font-medium">Uploaded: {test.resultFile}</p>
               <button
                 type="button"
-                onClick={() => window.open(`${API_BASE.replace('/api/v1', '')}/media/documents/${test.resultFile}`, '_blank')}
+                onClick={() => window.open(`${API_BASE.replace('/api/v1', '')}/uploads/${patientId}_${test.resultFile}`, '_blank')}
                 className="p-1 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition-colors"
                 title="View Result File"
               >
@@ -104,8 +104,8 @@ export const LabOrderList = () => {
     if (fresh && fresh !== activeOrder) setActiveOrder(fresh);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orders]);
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
+  const [fromDate, setFromDate] = useState(monthStart());
+  const [toDate, setToDate] = useState(today());
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredOrders = labOrders.filter(order => {
@@ -217,7 +217,7 @@ export const LabOrderList = () => {
               onDateFromChange={setFromDate}
               onDateToChange={setToDate}
               onSearch={() => {}}
-              onReset={() => { setFromDate(''); setToDate(''); }}
+              onReset={() => { setFromDate(monthStart()); setToDate(today()); }}
             />
           </div>
         </div>

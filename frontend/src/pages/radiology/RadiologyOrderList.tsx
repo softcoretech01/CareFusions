@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useInvestigations, type InvestigationOrder } from '../../contexts/InvestigationContext';
-import { Upload, FileText, CheckCircle, X, Search, MapPin, RefreshCw } from 'lucide-react';
+import { Upload, FileText, CheckCircle, X, Search, MapPin, RefreshCw, Eye } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { DateFilter, monthStart, today } from '../../components/ui/DateFilter';
 
@@ -276,9 +276,14 @@ export const RadiologyOrderList = () => {
                       <div>
                         <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Upload Report / Images</label>
                         <div className="flex items-center gap-2">
-                          <label className="flex-1 cursor-pointer bg-slate-50 border border-slate-200 hover:bg-white px-3 py-2 rounded-lg text-sm text-slate-600 flex items-center justify-between transition-colors">
-                            <span className="truncate">{tempResults[test.id]?.resultFile || 'Choose file...'}</span>
-                            <Upload className="w-4 h-4 text-slate-400 shrink-0" />
+                          <label className="flex-1 cursor-pointer bg-slate-50 border border-slate-200 hover:bg-white px-3 py-2 rounded-lg text-sm text-slate-600 flex items-center justify-between transition-colors group overflow-hidden">
+                            <div className="flex items-center gap-2 overflow-hidden flex-1">
+                              <FileText className="w-4 h-4 text-purple-400 shrink-0 group-hover:text-purple-500" />
+                              <span className="truncate flex-1" title={tempResults[test.id]?.resultFile || 'Choose file...'}>
+                                {tempResults[test.id]?.resultFile || 'Choose file...'}
+                              </span>
+                            </div>
+                            <Upload className="w-4 h-4 text-slate-400 shrink-0 ml-2 group-hover:text-purple-500" />
                             <input
                               type="file"
                               className="hidden"
@@ -299,23 +304,35 @@ export const RadiologyOrderList = () => {
                                       handleTempChange(test.id, 'resultFile', file.name);
                                     } catch (err) {
                                       toast.error('Failed to upload file');
-                                      handleTempChange(test.id, 'resultFile', file.name);
+                                      handleTempChange(test.id, 'resultFile', file.name); // Keep for UI mockup
                                     }
                                   } else {
-                                    handleTempChange(test.id, 'resultFile', file.name);
+                                    handleTempChange(test.id, 'resultFile', file.name); // Keep for UI mockup
                                   }
                                 }
                               }}
                             />
                           </label>
+
                           {tempResults[test.id]?.resultFile && (
-                            <button
-                              type="button"
-                              onClick={() => handleTempChange(test.id, 'resultFile', '')}
-                              className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => window.open(`${API_BASE.replace('/api/v1', '')}/uploads/${activeOrder?.patientId}_${tempResults[test.id].resultFile}`, '_blank')}
+                                title="View Uploaded File"
+                                className="p-2.5 bg-purple-50 border border-purple-200 text-purple-600 hover:bg-purple-100 hover:border-purple-300 rounded-lg transition-colors flex items-center justify-center shadow-sm"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleTempChange(test.id, 'resultFile', '')}
+                                title="Clear Selection"
+                                className="p-2.5 border border-transparent text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors flex items-center justify-center"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
                           )}
                         </div>
                       </div>

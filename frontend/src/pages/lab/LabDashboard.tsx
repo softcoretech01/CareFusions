@@ -3,7 +3,7 @@ import { useInvestigations } from '../../contexts/InvestigationContext';
 import { FlaskConical, Clock, CheckCircle, AlertTriangle } from 'lucide-react';
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
-import { DateFilter } from '../../components/ui/DateFilter';
+import { DateFilter, monthStart, today } from '../../components/ui/DateFilter';
 
 export const LabDashboard = () => {
   const { orders, refresh } = useInvestigations();
@@ -12,14 +12,21 @@ export const LabDashboard = () => {
   useEffect(() => { refresh(); }, [refresh]);
 
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
+  const [fromDate, setFromDate] = useState(monthStart());
+  const [toDate, setToDate] = useState(today());
 
   const labOrders = orders.filter(o => o.category === 'Lab');
   
-  const totalOrders = labOrders.length;
-  const completedOrders = labOrders.filter(o => o.status === 'Completed').length;
-  const pendingOrders = labOrders.filter(o => o.status !== 'Completed').length;
+  // Base dataset filtered by the selected date range
+  const dateFilteredOrders = labOrders.filter(order => {
+    if (fromDate && new Date(order.orderedAt) < new Date(fromDate)) return false;
+    if (toDate && new Date(order.orderedAt) > new Date(toDate + 'T23:59:59')) return false;
+    return true;
+  });
+  
+  const totalOrders = dateFilteredOrders.length;
+  const completedOrders = dateFilteredOrders.filter(o => o.status === 'Completed').length;
+  const pendingOrders = dateFilteredOrders.filter(o => o.status !== 'Completed').length;
 
   const donutOptions: ApexOptions = {
     chart: { type: 'donut', fontFamily: 'inherit' },
@@ -32,10 +39,10 @@ export const LabDashboard = () => {
   };
 
   const donutSeries = [
-    labOrders.filter(o => o.status === 'Pending').length,
+    dateFilteredOrders.filter(o => o.status === 'Pending').length,
     completedOrders,
-    labOrders.filter(o => o.status === 'Partial').length,
-    labOrders.filter(o => o.status === 'Sample Collected' || o.status === 'Sample Accepted').length
+    dateFilteredOrders.filter(o => o.status === 'Partial').length,
+    dateFilteredOrders.filter(o => o.status === 'Sample Collected' || o.status === 'Sample Accepted').length
   ];
 
   const tatOptions: ApexOptions = {
@@ -58,7 +65,7 @@ export const LabDashboard = () => {
   };
   const volumeSeries = [{ name: 'Test Volume', data: [15, 25, 20, 30, 45, 35, 10] }];
 
-  const criticalAlerts = labOrders.flatMap(order => 
+  const criticalAlerts = dateFilteredOrders.flatMap(order => 
     order.tests.filter(test => test.isCritical).map(test => ({
       orderId: order.id,
       patientName: order.patientName,
@@ -75,14 +82,11 @@ export const LabDashboard = () => {
     { label: 'Critical Alerts', value: criticalAlerts.length, icon: AlertTriangle, color: 'bg-red-100 text-red-600' },
   ];
 
-  const filteredOrders = labOrders.filter(order => {
+  const filteredOrders = dateFilteredOrders.filter(order => {
     if (activeFilter === 'Completed' && order.status !== 'Completed') return false;
     if (activeFilter === 'Pending/Processing' && order.status === 'Completed') return false;
     if (activeFilter === 'Critical Alerts' && !order.tests.some(t => t.isCritical)) return false;
     
-    if (fromDate && new Date(order.orderedAt) < new Date(fromDate)) return false;
-    if (toDate && new Date(order.orderedAt) > new Date(toDate + 'T23:59:59')) return false;
-
     return true;
   });
 
@@ -100,7 +104,7 @@ export const LabDashboard = () => {
             onDateFromChange={setFromDate}
             onDateToChange={setToDate}
             onSearch={() => {}}
-            onReset={() => { setFromDate(''); setToDate(''); }}
+            onReset={() => { setFromDate(monthStart()); setToDate(today()); }}
           />
         </div>
       </div>

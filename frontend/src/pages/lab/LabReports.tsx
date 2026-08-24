@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useInvestigations } from '../../contexts/InvestigationContext';
 import { Download, Search, X, Eye } from 'lucide-react';
-import { DateFilter } from '../../components/ui/DateFilter';
+import { DateFilter, monthStart, today } from '../../components/ui/DateFilter';
 import { Pagination } from '../../components/ui/Pagination';
 import { usePagination } from '../../hooks/usePagination';
 
@@ -12,8 +12,8 @@ export const LabReports = () => {
   // Load orders on open; no-op once the shared context already has them.
   useEffect(() => { refresh(); }, [refresh]);
 
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
+  const [fromDate, setFromDate] = useState(monthStart());
+  const [toDate, setToDate] = useState(today());
   const [searchQuery, setSearchQuery] = useState('');
 
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
@@ -90,7 +90,7 @@ export const LabReports = () => {
             onDateFromChange={setFromDate}
             onDateToChange={setToDate}
             onSearch={() => { }}
-            onReset={() => { setFromDate(''); setToDate(''); }}
+            onReset={() => { setFromDate(monthStart()); setToDate(today()); }}
           />
         </div>
       </div>

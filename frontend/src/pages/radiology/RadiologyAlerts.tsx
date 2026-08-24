@@ -2,13 +2,13 @@ import { useState } from 'react';
 import { useInvestigations } from '../../contexts/InvestigationContext';
 import { AlertTriangle, Check, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { DateFilter } from '../../components/ui/DateFilter';
+import { DateFilter, monthStart, today } from '../../components/ui/DateFilter';
 
 export const RadiologyAlerts = () => {
   const { orders, acknowledgeRadiologyAlert } = useInvestigations();
 
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
+  const [fromDate, setFromDate] = useState(monthStart());
+  const [toDate, setToDate] = useState(today());
 
   // Extract critical alerts from all radiology orders
   const criticalAlerts = orders
@@ -50,7 +50,7 @@ export const RadiologyAlerts = () => {
             onDateFromChange={setFromDate}
             onDateToChange={setToDate}
             onSearch={() => {}}
-            onReset={() => { setFromDate(''); setToDate(''); }}
+            onReset={() => { setFromDate(monthStart()); setToDate(today()); }}
           />
         </div>
       </div>

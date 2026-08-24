@@ -169,3 +169,53 @@ export function getBookedSlots(
   });
   return booked;
 }
+
+
+// ── Slot helpers ─────────────────────────────────────────────
+// These lived as private copies inside NewOnlineBooking.tsx and
+// NewAppointment.tsx. The Edit Online Booking modal needs the same slot grid,
+// so rather than add a third copy they live here once.
+
+const timeToMin = (t: string) => {
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + m;
+};
+
+const minToLabel = (mins: number) => {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${String(h12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${ampm}`;
+};
+
+/** Slot labels for one session [start, end) at the given duration, minus the break. */
+export function buildSessionSlots(
+  start: string, end: string, dur: number,
+  breakStart?: string, breakEnd?: string
+): string[] {
+  if (!start || !end || !dur || dur <= 0) return [];
+  const s = timeToMin(start), e = timeToMin(end);
+  const bs = breakStart ? timeToMin(breakStart) : null;
+  const be = breakEnd ? timeToMin(breakEnd) : null;
+
+  const out: string[] = [];
+  for (let t = s; t + dur <= e; t += dur) {
+    if (bs !== null && be !== null && t + dur > bs && t < be) continue;
+    out.push(minToLabel(t));
+  }
+  return out;
+}
+
+/** True when the slot's date+time is already behind us. Future dates never are. */
+export function isSlotInPast(dateStr: string, timeStr: string): boolean {
+  if (!dateStr || !timeStr) return false;
+  const [time, ampm] = timeStr.split(' ');
+  const [hRaw, m] = time.split(':').map(Number);
+  let h = hRaw;
+  if (ampm === 'PM' && h !== 12) h += 12;
+  if (ampm === 'AM' && h === 12) h = 0;
+  const slot = new Date(dateStr + 'T00:00:00');
+  slot.setHours(h, m, 0, 0);
+  return slot.getTime() < Date.now();
+}
