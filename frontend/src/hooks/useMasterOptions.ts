@@ -141,3 +141,15 @@ export interface DepartmentOption {
 
 export const useDepartments = () =>
   useMasterList<DepartmentOption>('/departments/');
+
+export interface DoctorOption {
+  id: number;
+  doctorId: string;
+  name: string;
+  department?: string;
+  specialization?: string;
+  status: string;
+}
+
+export const useDoctors = () =>
+  useMasterList<DoctorOption>('/doctors/');

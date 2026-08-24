@@ -3,31 +3,33 @@ import { useInvestigations } from '../../contexts/InvestigationContext';
 import { ScanLine, Clock, CheckCircle, AlertTriangle } from 'lucide-react';
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
-import { DateFilter } from '../../components/ui/DateFilter';
+import { DateFilter, monthStart, today } from '../../components/ui/DateFilter';
 
 export const RadiologyDashboard = () => {
   const { orders } = useInvestigations();
 
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
+  const [fromDate, setFromDate] = useState(monthStart());
+  const [toDate, setToDate] = useState(today());
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
 
   const radOrders = orders.filter(o => o.category === 'Radiology');
 
-  const filteredOrders = radOrders.filter(order => {
-    if (activeFilter === 'Completed' && order.status !== 'Completed') return false;
-    if (activeFilter === 'Pending' && order.status === 'Completed') return false;
-    if (activeFilter === 'Critical Findings' && !order.tests.some(t => t.isCritical)) return false;
-
+  const dateFilteredOrders = radOrders.filter(order => {
     if (fromDate && new Date(order.orderedAt) < new Date(fromDate)) return false;
     if (toDate && new Date(order.orderedAt) > new Date(toDate + 'T23:59:59')) return false;
-
     return true;
   });
 
-  const totalOrders = filteredOrders.length;
-  const completedOrders = filteredOrders.filter(o => o.status === 'Completed').length;
-  const pendingOrders = filteredOrders.filter(o => o.status !== 'Completed').length;
+  const filteredOrders = dateFilteredOrders.filter(order => {
+    if (activeFilter === 'Completed' && order.status !== 'Completed') return false;
+    if (activeFilter === 'Pending' && order.status === 'Completed') return false;
+    if (activeFilter === 'Critical Findings' && !order.tests.some(t => t.isCritical)) return false;
+    return true;
+  });
+
+  const totalOrders = dateFilteredOrders.length;
+  const completedOrders = dateFilteredOrders.filter(o => o.status === 'Completed').length;
+  const pendingOrders = dateFilteredOrders.filter(o => o.status !== 'Completed').length;
 
   const criticalFindings = filteredOrders.reduce((sum, order) => {
     return sum + order.tests.filter(test => test.isCritical).length;
@@ -70,7 +72,7 @@ export const RadiologyDashboard = () => {
             onDateFromChange={setFromDate}
             onDateToChange={setToDate}
             onSearch={() => { }}
-            onReset={() => { setFromDate(''); setToDate(''); setActiveFilter(null); }}
+            onReset={() => { setFromDate(monthStart()); setToDate(today()); setActiveFilter(null); }}
           />
         </div>
       </div>

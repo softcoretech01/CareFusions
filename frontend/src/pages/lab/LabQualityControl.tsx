@@ -4,7 +4,7 @@ import { Plus, Check, Beaker, FileSpreadsheet, X } from 'lucide-react';
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
 import toast from 'react-hot-toast';
-import { DateFilter } from '../../components/ui/DateFilter';
+import { DateFilter, monthStart, today } from '../../components/ui/DateFilter';
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
 
@@ -41,8 +41,8 @@ export const LabQualityControl = () => {
   }, []);
 
   const [showAddForm, setShowAddForm] = useState(false);
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
+  const [fromDate, setFromDate] = useState(monthStart());
+  const [toDate, setToDate] = useState(today());
   
   const filteredLogs = qcLogs.filter(log => {
     if (fromDate && new Date(log.date) < new Date(fromDate)) return false;
@@ -121,7 +121,7 @@ export const LabQualityControl = () => {
             onDateFromChange={setFromDate}
             onDateToChange={setToDate}
             onSearch={() => {}}
-            onReset={() => { setFromDate(''); setToDate(''); }}
+            onReset={() => { setFromDate(monthStart()); setToDate(today()); }}
           />
           <button 
             onClick={() => setShowAddForm(true)}

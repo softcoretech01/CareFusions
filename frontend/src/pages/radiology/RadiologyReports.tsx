@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { useInvestigations } from '../../contexts/InvestigationContext';
 import { Download, X, Eye, Search } from 'lucide-react';
-import { DateFilter } from '../../components/ui/DateFilter';
+import { DateFilter, monthStart, today } from '../../components/ui/DateFilter';
 
 export const RadiologyReports = () => {
   const { orders } = useInvestigations();
   const radOrders = orders.filter(o => o.category === 'Radiology');
 
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
+  const [fromDate, setFromDate] = useState(monthStart());
+  const [toDate, setToDate] = useState(today());
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
 
@@ -78,7 +78,7 @@ export const RadiologyReports = () => {
             onDateFromChange={setFromDate}
             onDateToChange={setToDate}
             onSearch={() => { }}
-            onReset={() => { setFromDate(''); setToDate(''); }}
+            onReset={() => { setFromDate(monthStart()); setToDate(today()); }}
           />
         </div>
       </div>

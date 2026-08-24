@@ -65,8 +65,22 @@ export const DepartmentConsultations = () => {
     return dStr;
   };
 
+  // A booking is not the doctor's work until the patient actually turns up.
+  // 'Scheduled' is what every appointment starts as (online bookings included),
+  // and it stays that way until reception moves the patient onto the Waiting
+  // List. Showing those here meant a doctor's list was full of people who might
+  // arrive days later, or never. Cancelled and No-Show are excluded for the
+  // same reason.
+  //
+  // Everything past that point stays visible: Waiting / Checked-In while the
+  // patient is in the department, then the in-visit statuses (Nursing
+  // Assessment, Waiting for Doctor, Investigation Pending), Consulting, and
+  // Completed so the day's finished consultations can still be reviewed.
+  const NOT_YET_ARRIVED = ['Scheduled', 'Cancelled', 'No-Show'];
+
   const deptVisits = visits.filter(v => {
     if (v.department.toLowerCase() !== formattedDept?.toLowerCase()) return false;
+    if (NOT_YET_ARRIVED.includes(v.status)) return false;
     const vDate = parseDate(v.date);
     if (appliedDateFrom && vDate < appliedDateFrom) return false;
     if (appliedDateTo && vDate > appliedDateTo) return false;
@@ -85,7 +99,7 @@ export const DepartmentConsultations = () => {
     setAppliedDateTo(todayStr);
   };
 
-  const pending = deptVisits.filter(v => ['Nursing Assessment', 'Waiting for Doctor', 'Investigation Pending'].includes(v.status));
+  const pending = deptVisits.filter(v => ['Waiting', 'Checked-In', 'Nursing Assessment', 'Waiting for Doctor', 'Investigation Pending'].includes(v.status));
   const consulting = deptVisits.filter(v => v.status === 'Consulting');
   const completed = deptVisits.filter(v => v.status === 'Completed');
 
@@ -157,7 +171,10 @@ export const DepartmentConsultations = () => {
               {deptVisits.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-slate-400">
-                    No patients scheduled for {formattedDept} today.
+                    <p>No patients waiting for {formattedDept} today.</p>
+                    <p className="text-xs mt-1">
+                      Booked patients appear here once reception moves them to the Waiting List.
+                    </p>
                   </td>
                 </tr>
               ) : (

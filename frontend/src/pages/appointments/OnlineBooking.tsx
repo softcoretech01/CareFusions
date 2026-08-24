@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Globe, CalendarPlus, Calendar, Clock, Edit2, Eye, Download, X, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Search, Globe, CalendarPlus, Calendar, Clock, Edit2, Eye, Download, X, CheckCircle, AlertTriangle, Building2, Stethoscope, AlertCircle } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { useAppointments } from '../../contexts/AppointmentContext';
 import type { AppointmentRecord } from '../../contexts/AppointmentContext';
@@ -9,6 +9,8 @@ import { exportToExcel } from '../../utils/exportToExcel';
 import { Pagination } from '../../components/ui/Pagination';
 import { AppointmentDetailsModal } from '../../components/appointments/AppointmentDetailsModal';
 import { DateFilter } from '../../components/ui/DateFilter';
+import { useDoctorSchedules } from '../../contexts/DoctorScheduleContext';
+import { getBookedSlots, buildSessionSlots, isSlotInPast } from '../../data/doctorSchedules';
 
 const PAGE_SIZE = 10;
 
@@ -22,17 +24,12 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 
-const TIME_SLOTS = [
-  '09:00 AM', '09:15 AM', '09:30 AM', '09:45 AM',
-  '10:00 AM', '10:15 AM', '10:30 AM', '10:45 AM',
-  '11:00 AM', '11:15 AM', '11:30 AM', '11:45 AM',
-  '02:00 PM', '02:15 PM', '02:30 PM', '02:45 PM',
-];
 
 export const OnlineBooking = () => {
   const navigate = useNavigate();
-  const { updateAppointment, queryAppointments, apiError, clearError } = useAppointments();
+  const { updateAppointment, queryAppointments, apiError, clearError, appointments } = useAppointments();
   const { options: departments } = useDepartments();
+  const { getDoctorsWithAvailability, doctorSchedules } = useDoctorSchedules();
 
   // Department options come from the backend master.
   const departmentOptions = departments.map(d => d.departmentName).sort();
@@ -64,6 +61,42 @@ export const OnlineBooking = () => {
   // Edit modal state
   const [editItem, setEditItem] = useState<AppointmentRecord | null>(null);
   const [editForm, setEditForm] = useState<Partial<AppointmentRecord>>({});
+
+  // Doctors offered for the selected department. This must sit AFTER editForm is
+  // declared: computing it above the useState read `editForm` inside a filter
+  // callback that runs immediately, which throws
+  //   ReferenceError: Cannot access 'editForm' before initialization
+  // on first render and blanks the page. TypeScript does not flag it because it
+  // cannot tell when a callback executes.
+  //
+  // Department names on Master_Doctor match Master_Department exactly, so a
+  // direct comparison is right; trimming guards against stray whitespace from
+  // older rows. With no department chosen yet, every active doctor is offered.
+  const selectedDepartment = (editForm.department || '').trim();
+
+  // Doctors for the chosen department, flagged with whether they actually work
+  // on the chosen weekday — the same source the New Online Booking page uses,
+  // so both screens agree on who can be booked.
+  const editDoctors = selectedDepartment
+    ? getDoctorsWithAvailability(selectedDepartment, editForm.date || '')
+    : [];
+
+  // Slots come from the selected doctor's own schedule (session times, slot
+  // duration and break), not a fixed list.
+  const editSchedule = doctorSchedules.find(d => d.name === editForm.doctor) ?? null;
+  const editSlots = editSchedule
+    ? buildSessionSlots(
+        editSchedule.timings.start,
+        editSchedule.timings.end,
+        editSchedule.slotDuration,
+        editSchedule.breakTimings?.start,
+        editSchedule.breakTimings?.end
+      )
+    : [];
+
+  const editBookedSlots = editForm.doctor && editForm.date
+    ? getBookedSlots(editForm.doctor, editForm.date, appointments)
+    : new Set<string>();
 
   // Read-only details modal state
   const [viewItem, setViewItem] = useState<AppointmentRecord | null>(null);
@@ -333,56 +366,137 @@ export const OnlineBooking = () => {
                     className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5">Department</label>
-                  <select
-                    value={editForm.department || ''}
-                    onChange={e => setEditForm({ ...editForm, department: e.target.value })}
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  >
-                    {departmentOptions.map(d => <option key={d} value={d}>{d}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5">Doctor</label>
-                  <input
-                    type="text"
-                    value={editForm.doctor || ''}
-                    onChange={e => setEditForm({ ...editForm, doctor: e.target.value })}
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  />
-                </div>
-                <div>
+                <div className="col-span-2">
                   <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5">Appointment Date</label>
                   <input
                     type="date"
                     value={editForm.date || ''}
-                    onChange={e => setEditForm({ ...editForm, date: e.target.value })}
+                    onChange={e => setEditForm({ ...editForm, date: e.target.value, timeSlot: '' })}
                     className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                   />
                 </div>
+
+                {/* Department + Doctor + Slots, matching the New Online Booking
+                    pickers. These used to be plain selects: the doctor list was
+                    unfiltered and the slot list was a hardcoded TIME_SLOTS array
+                    that ignored the doctor's real schedule and existing bookings. */}
                 <div>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5">Department</label>
+                  <div className="space-y-2 max-h-52 overflow-y-auto pr-1 custom-scrollbar">
+                    {departmentOptions.length === 0 && (
+                      <p className="text-sm text-slate-400 border-2 border-dashed border-slate-200 rounded-xl p-4 text-center">
+                        No departments configured.
+                      </p>
+                    )}
+                    {departmentOptions.map(dept => (
+                      <div
+                        key={dept}
+                        onClick={() => setEditForm({ ...editForm, department: dept, doctor: '', timeSlot: '' })}
+                        className={`p-3 rounded-xl border-2 cursor-pointer transition-all flex items-center gap-3 ${
+                          editForm.department === dept
+                            ? 'border-primary bg-primary/5 text-primary'
+                            : 'border-slate-100 hover:border-slate-200 text-slate-600'
+                        }`}
+                      >
+                        <Building2 className={`w-4 h-4 shrink-0 ${editForm.department === dept ? 'text-primary' : 'text-slate-400'}`} />
+                        <span className="font-semibold text-sm">{dept}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5">
+                    Doctor
+                    {editForm.department && editForm.date && (
+                      <span className="ml-2 text-[10px] text-slate-400 font-normal normal-case">
+                        available on {new Date(editForm.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' })}
+                      </span>
+                    )}
+                  </label>
+                  <div className="space-y-2 max-h-52 overflow-y-auto pr-1 custom-scrollbar">
+                    {!editForm.department ? (
+                      <div className="min-h-[100px] border-2 border-dashed border-slate-200 rounded-xl flex items-center justify-center text-slate-400 text-sm font-medium">
+                        Select a department first
+                      </div>
+                    ) : editDoctors.length === 0 ? (
+                      <div className="min-h-[100px] border-2 border-dashed border-slate-200 rounded-xl flex items-center justify-center text-center text-slate-400 text-sm font-medium p-4">
+                        No doctors in this department. Add them in Doctor Master.
+                      </div>
+                    ) : (
+                      editDoctors.map(({ name, available }) => (
+                        <div
+                          key={name}
+                          onClick={() => available && setEditForm({ ...editForm, doctor: name, timeSlot: '' })}
+                          className={`p-3 rounded-xl border-2 transition-all flex items-center gap-3 ${
+                            !available
+                              ? 'border-slate-100 bg-slate-50 text-slate-400 cursor-not-allowed opacity-60'
+                              : editForm.doctor === name
+                              ? 'border-primary bg-primary/5 text-primary cursor-pointer'
+                              : 'border-slate-100 hover:border-slate-200 text-slate-600 cursor-pointer'
+                          }`}
+                        >
+                          <Stethoscope className={`w-4 h-4 shrink-0 ${
+                            !available ? 'text-slate-300' : editForm.doctor === name ? 'text-primary' : 'text-slate-400'
+                          }`} />
+                          <span className="font-semibold text-sm flex-1">{name}</span>
+                          {!available && (
+                            <span className="flex items-center gap-1 text-[10px] font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full shrink-0">
+                              <AlertCircle className="w-3 h-3" /> Not available
+                            </span>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                <div className="col-span-2">
                   <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5">Time Slot</label>
-                  <select
-                    value={editForm.timeSlot || ''}
-                    onChange={e => setEditForm({ ...editForm, timeSlot: e.target.value })}
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  >
-                    <option value="">Select slot</option>
-                    {TIME_SLOTS.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
+                  {!editForm.doctor ? (
+                    <div className="py-6 border-2 border-dashed border-slate-200 rounded-xl text-center text-slate-400 text-sm font-medium">
+                      Select a doctor to see their slots
+                    </div>
+                  ) : editSlots.length === 0 ? (
+                    <div className="py-6 border-2 border-dashed border-slate-200 rounded-xl text-center text-slate-400 text-sm font-medium px-4">
+                      No slots — this doctor has no session times configured. Set them in Doctor Schedules.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-4 gap-2">
+                      {editSlots.map(time => {
+                        // The slot this booking already holds stays selectable,
+                        // otherwise reopening an appointment shows its own slot
+                        // as taken and the user cannot save without moving it.
+                        const isBooked = editBookedSlots.has(time) && time !== editItem.timeSlot;
+                        const isPast = isSlotInPast(editForm.date || '', time);
+                        const isSelected = editForm.timeSlot === time;
+                        const disabled = isBooked || isPast;
+                        return (
+                          <div
+                            key={time}
+                            onClick={() => !disabled && setEditForm({ ...editForm, timeSlot: time })}
+                            title={isBooked ? 'Already booked' : isPast ? 'This time has passed' : ''}
+                            className={`py-2 px-1 text-center rounded-lg border-2 text-xs font-semibold transition-all select-none ${
+                              isBooked
+                                ? 'bg-red-700 border-red-700 text-white cursor-not-allowed opacity-85'
+                                : isPast
+                                ? 'bg-slate-100 border-slate-200 text-slate-300 cursor-not-allowed line-through'
+                                : isSelected
+                                ? 'bg-green-600 border-green-600 text-white shadow-md cursor-pointer scale-105'
+                                : 'bg-white border-slate-200 text-slate-700 hover:border-primary hover:shadow-sm cursor-pointer'
+                            }`}
+                          >
+                            <div className="flex flex-col items-center gap-0.5">
+                              <Clock className="w-3 h-3 opacity-70" />
+                              {time}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5">Status</label>
-                  <select
-                    value={editForm.status || ''}
-                    onChange={e => setEditForm({ ...editForm, status: e.target.value as AppointmentRecord['status'] })}
-                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  >
-                    {Object.keys(STATUS_COLORS).map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </div>
-                <div>
+                <div className="col-span-2">
                   <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5">Priority</label>
                   <select
                     value={editForm.priority || ''}
