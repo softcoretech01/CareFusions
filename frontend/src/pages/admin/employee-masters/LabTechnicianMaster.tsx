@@ -199,7 +199,7 @@ export const LabTechnicianMaster = () => {
 
     try {
       const payload = {
-        employeeCode: formData.employeeCode,
+        employeeCode: formData.employeeCode || formData.technicianId,
         name: formData.name,
         qualification: formData.qualification,
         department: formData.department,

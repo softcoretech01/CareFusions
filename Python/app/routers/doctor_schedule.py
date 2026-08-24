@@ -13,10 +13,9 @@ router = APIRouter(prefix="/doctor-schedules", tags=["Doctor Schedule"])
 
 SP_NAME = "SpDoctorSchedule"
 
-# Full parameter list of SpDoctorSchedule, in order.
 _PARAMS = [
     "p_Opt", "p_DoctorId", "p_AvailableDays", "p_FromTime", "p_ToTime",
-    "p_Session2From", "p_Session2To", "p_SlotDuration", "p_MaxPatients",
+    "p_BreakFrom", "p_BreakTo", "p_SlotDuration", "p_MaxPatients",
     "p_LeaveDate", "p_Reason",
 ]
 
@@ -28,8 +27,8 @@ def _call_sp(db: Session, opt: str, **kw):
         "p_AvailableDays": kw.get("available_days"),
         "p_FromTime":      kw.get("from_time"),
         "p_ToTime":        kw.get("to_time"),
-        "p_Session2From":  kw.get("session2_from"),
-        "p_Session2To":    kw.get("session2_to"),
+        "p_BreakFrom":     kw.get("break_from"),
+        "p_BreakTo":       kw.get("break_to"),
         "p_SlotDuration":  kw.get("slot_duration"),
         "p_MaxPatients":   kw.get("max_patients"),
         "p_LeaveDate":     kw.get("leave_date"),
@@ -76,8 +75,8 @@ def list_schedules(db: Session = Depends(get_db)):
                 "name":         r.DoctorName,
                 "dept":         r.Department or "",
                 "workingDays":  r.AvailableDays.split(",") if r.AvailableDays else [],
-                "session1":     {"start": _hhmm(r.FromTime), "end": _hhmm(r.ToTime)},
-                "session2":     {"start": _hhmm(r.Session2From), "end": _hhmm(r.Session2To)},
+                "timings":      {"start": _hhmm(r.FromTime), "end": _hhmm(r.ToTime)},
+                "breakTimings": {"start": _hhmm(r.BreakFrom), "end": _hhmm(r.BreakTo)} if _hhmm(r.BreakFrom) and _hhmm(r.BreakTo) else None,
                 "slotDuration": r.SlotDuration if r.SlotDuration is not None else 15,
                 "maxPatients":  r.MaxPatients if r.MaxPatients is not None else 30,
                 "exceptions":   leaves_by_doc.get(r.DoctorId, []),
@@ -93,19 +92,19 @@ def list_schedules(db: Session = Depends(get_db)):
 @router.put("/{doctor_id}")
 def save_schedule(doctor_id: int, payload: ScheduleSave, db: Session = Depends(get_db)):
     """Save one doctor's schedule (timings + capacity) and replace their leaves."""
-    if not payload.session1.start or not payload.session1.end:
+    if not payload.timings.start or not payload.timings.end:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                            detail="Morning session start and end times are required")
+                            detail="Timings start and end times are required")
     try:
         # 1) Upsert the schedule row
         _call_sp(
             db, "SAVE",
             doctor_id=doctor_id,
             available_days=",".join(payload.workingDays),
-            from_time=payload.session1.start,
-            to_time=payload.session1.end,
-            session2_from=(payload.session2.start if payload.session2 else ""),
-            session2_to=(payload.session2.end if payload.session2 else ""),
+            from_time=payload.timings.start,
+            to_time=payload.timings.end,
+            break_from=(payload.breakTimings.start if payload.breakTimings else ""),
+            break_to=(payload.breakTimings.end if payload.breakTimings else ""),
             slot_duration=payload.slotDuration,
             max_patients=payload.maxPatients,
         )

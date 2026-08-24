@@ -156,7 +156,7 @@ export const ReceptionistMaster = () => {
     setIsSaving(true);
     try {
       const payload = {
-        employeeCode: formData.employeeCode,
+        employeeCode: formData.employeeCode || formData.receptionistId,
         name:         formData.name,
         hospital:     formData.hospital || null,
         branch:       formData.branch || null,

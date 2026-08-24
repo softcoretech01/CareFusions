@@ -25,12 +25,18 @@ const minToLabel = (mins: number) => {
   const h12 = h % 12 === 0 ? 12 : h % 12;
   return `${String(h12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${ampm}`;
 };
-// Slot labels for one session [start, end) at the given slot duration (minutes).
-function buildSessionSlots(start: string, end: string, dur: number): string[] {
+// Slot labels for one session [start, end) at the given slot duration (minutes), excluding break time.
+function buildSessionSlots(start: string, end: string, dur: number, breakStart?: string, breakEnd?: string): string[] {
   if (!start || !end || !dur || dur <= 0) return [];
   const s = timeToMin(start), e = timeToMin(end);
+  const bs = breakStart ? timeToMin(breakStart) : null;
+  const be = breakEnd ? timeToMin(breakEnd) : null;
+
   const out: string[] = [];
-  for (let t = s; t + dur <= e; t += dur) out.push(minToLabel(t));
+  for (let t = s; t + dur <= e; t += dur) {
+    if (bs !== null && be !== null && t + dur > bs && t < be) continue;
+    out.push(minToLabel(t));
+  }
   return out;
 }
 
@@ -248,10 +254,13 @@ export const NewAppointment = () => {
   // Slots come from the selected doctor's schedule (Standard Timings + Slot Duration)
   const selectedSchedule = doctorSchedules.find(d => d.name === formData.doctor) ?? null;
   const timeSlots = selectedSchedule
-    ? [
-        ...buildSessionSlots(selectedSchedule.session1.start, selectedSchedule.session1.end, selectedSchedule.slotDuration),
-        ...buildSessionSlots(selectedSchedule.session2.start, selectedSchedule.session2.end, selectedSchedule.slotDuration),
-      ]
+    ? buildSessionSlots(
+        selectedSchedule.timings.start,
+        selectedSchedule.timings.end,
+        selectedSchedule.slotDuration,
+        selectedSchedule.breakTimings?.start,
+        selectedSchedule.breakTimings?.end
+      )
     : [];
 
   // Booked slots for Step 3 (shared pool with online bookings)

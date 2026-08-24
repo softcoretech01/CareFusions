@@ -221,7 +221,7 @@ export const NurseMaster = () => {
 
     try {
       const payload = {
-        employeeCode: formData.employeeCode,
+        employeeCode: formData.employeeCode || formData.nurseId,
         name: formData.name,
         gender: formData.gender || null,
         dob: formData.dob || null,

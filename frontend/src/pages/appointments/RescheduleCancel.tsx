@@ -36,11 +36,17 @@ const minToLabel = (mins: number) => {
   const h12 = h % 12 === 0 ? 12 : h % 12;
   return `${String(h12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${ampm}`;
 };
-function buildSessionSlots(start: string, end: string, dur: number): string[] {
+function buildSessionSlots(start: string, end: string, dur: number, breakStart?: string, breakEnd?: string): string[] {
   if (!start || !end || !dur || dur <= 0) return [];
   const s = timeToMin(start), e = timeToMin(end);
+  const bs = breakStart ? timeToMin(breakStart) : null;
+  const be = breakEnd ? timeToMin(breakEnd) : null;
+
   const out: string[] = [];
-  for (let t = s; t + dur <= e; t += dur) out.push(minToLabel(t));
+  for (let t = s; t + dur <= e; t += dur) {
+    if (bs !== null && be !== null && t + dur > bs && t < be) continue;
+    out.push(minToLabel(t));
+  }
   return out;
 }
 function isSlotInPast(dateStr: string, timeStr: string): boolean {
@@ -128,10 +134,13 @@ export const RescheduleCancel = () => {
     : null;
 
   const timeSlots = selectedSchedule
-    ? [
-        ...buildSessionSlots(selectedSchedule.session1.start, selectedSchedule.session1.end, selectedSchedule.slotDuration),
-        ...buildSessionSlots(selectedSchedule.session2.start, selectedSchedule.session2.end, selectedSchedule.slotDuration),
-      ]
+    ? buildSessionSlots(
+        selectedSchedule.timings.start,
+        selectedSchedule.timings.end,
+        selectedSchedule.slotDuration,
+        selectedSchedule.breakTimings?.start,
+        selectedSchedule.breakTimings?.end
+      )
     : [];
 
   const bookedSlots = actionModal?.item?.doctor && newDate

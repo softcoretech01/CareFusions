@@ -17,7 +17,7 @@ def _to_min(t: str) -> Optional[int]:
 VALID_DAYS = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"}
 
 
-class Session(BaseModel):
+class Timing(BaseModel):
     start: str = Field(max_length=8)   # "HH:MM"
     end:   str = Field(max_length=8)
 
@@ -29,8 +29,8 @@ class Leave(BaseModel):
 
 class ScheduleSave(BaseModel):
     workingDays:  List[str]
-    session1:     Session
-    session2:     Optional[Session] = None
+    timings:      Timing
+    breakTimings: Optional[Timing] = None
     slotDuration: int = 15
     maxPatients:  int = 30
     exceptions:   List[Leave] = []
@@ -65,15 +65,17 @@ class ScheduleSave(BaseModel):
         return v
 
     @model_validator(mode="after")
-    def sessions_sensible(self):
-        s1s, s1e = _to_min(self.session1.start), _to_min(self.session1.end)
+    def timings_sensible(self):
+        s1s, s1e = _to_min(self.timings.start), _to_min(self.timings.end)
         if s1s is not None and s1e is not None and s1s >= s1e:
-            raise ValueError("Morning session end time must be after its start time")
-        if self.session2:
-            s2s, s2e = _to_min(self.session2.start), _to_min(self.session2.end)
+            raise ValueError("End time must be after start time")
+        if self.breakTimings:
+            s2s, s2e = _to_min(self.breakTimings.start), _to_min(self.breakTimings.end)
             if s2s is not None and s2e is not None:
                 if s2s >= s2e:
-                    raise ValueError("Evening session end time must be after its start time")
-                if s1e is not None and s2s < s1e:
-                    raise ValueError("Evening session must start after the morning session ends")
+                    raise ValueError("Break end time must be after break start time")
+                if s1s is not None and s2s < s1s:
+                    raise ValueError("Break must start after shift starts")
+                if s1e is not None and s2e > s1e:
+                    raise ValueError("Break must end before shift ends")
         return self
