@@ -57,6 +57,8 @@ export interface PrescriptionItem {
 
 export interface LabOrder {
   id: string;
+  /** Master_LabTest.TestId. Needed downstream to resolve NormalRange/Unit. */
+  testId?: number;
   testName: string;
   testCode: string;
   priority: 'Routine' | 'Urgent' | 'STAT';

@@ -1,21 +1,28 @@
 import { Printer } from 'lucide-react';
-import type { IPDPatient } from '../../contexts/IPDContext';
-import type { DischargeItem } from './DischargePrescription';
+import type { DischargeInfo, IPDPatient } from '../../contexts/IPDContext';
+
+/**
+ * Structural row type. It used to be DischargeItem (from DischargePrescription),
+ * which carries an extra `id`; the stored DischargeInfo.medicines rows do not
+ * have one, so the two shapes could not be passed interchangeably.
+ */
+type DischargeMedicine = DischargeInfo['medicines'][number] & { id?: string };
 
 interface DischargePrintTemplateProps {
   patient: IPDPatient;
-  medicines: DischargeItem[];
-  dischargeSummary: string;
-  dischargeDate: string;
-  dischargedBy: string;
+  /** Defaults cover a patient printed before any discharge details were saved. */
+  medicines?: DischargeMedicine[];
+  dischargeSummary?: string;
+  dischargeDate?: string;
+  dischargedBy?: string;
 }
 
 export const DischargePrintTemplate = ({
   patient,
-  medicines,
-  dischargeSummary,
-  dischargeDate,
-  dischargedBy
+  medicines = [],
+  dischargeSummary = '',
+  dischargeDate = '',
+  dischargedBy = ''
 }: DischargePrintTemplateProps) => {
   const handlePrint = () => {
     window.print();
@@ -113,7 +120,7 @@ export const DischargePrintTemplate = ({
                 </thead>
                 <tbody>
                   {medicines.map((medicine, idx) => (
-                    <tr key={medicine.id}>
+                    <tr key={medicine.id ?? medicine.medicineId ?? idx}>
                       <td className="border border-slate-300 px-3 py-2 text-center text-slate-500 font-bold">{idx + 1}</td>
                       <td className="border border-slate-300 px-3 py-2 font-bold text-slate-900">{medicine.medicineName}</td>
                       <td className="border border-slate-300 px-3 py-2">{medicine.dosage} - {medicine.frequency}</td>

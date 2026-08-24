@@ -61,7 +61,10 @@ CREATE TABLE IF NOT EXISTS PatientRegistration (
 );
 
 DELIMITER //
-DROP PROCEDURE IF EXISTS SpPatientRegistration;
+-- Terminated with the ACTIVE delimiter. Ending it with ';' while '//' is in
+-- force made init_db.py buffer this DROP together with the CREATE that follows
+-- and send both as one malformed statement, so this file could never deploy.
+DROP PROCEDURE IF EXISTS SpPatientRegistration //
 CREATE PROCEDURE SpPatientRegistration(
     IN p_Opt VARCHAR(20),
     IN p_Uhid VARCHAR(20),
@@ -122,7 +125,10 @@ CREATE PROCEDURE SpPatientRegistration(
 )
 BEGIN
     IF p_Opt = 'SELECT_ALL' THEN
-        SELECT * FROM PatientRegistration ORDER BY PatientId DESC;
+        -- Merged duplicates are soft deleted and must drop out of the directory.
+        -- SELECT_BY_ID deliberately still returns them, so an old reference to a
+        -- merged UHID resolves and can show where it went.
+        SELECT * FROM PatientRegistration WHERE COALESCE(IsDeleted, 0) = 0 ORDER BY PatientId DESC;
         
     ELSEIF p_Opt = 'SELECT_BY_ID' THEN
         SELECT * FROM PatientRegistration WHERE PatientId = p_PatientId;

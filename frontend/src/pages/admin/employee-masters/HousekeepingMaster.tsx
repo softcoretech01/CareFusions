@@ -7,8 +7,7 @@ import { Pagination } from '../../../components/ui/Pagination';
 import { usePagination } from '../../../hooks/usePagination';
 import { exportToExcel } from '../../../utils/exportToExcel';
 import {
-  lettersOnly, digitsOnly, freeText, emailChars, alphanumeric,
-  isValidEmail, isValidPhone, LIMITS,
+  lettersOnly, digitsOnly, freeText, emailChars, isValidEmail, isValidPhone, LIMITS,
 } from '../../../utils/inputRules';
 
 export interface HousekeepingRecord {

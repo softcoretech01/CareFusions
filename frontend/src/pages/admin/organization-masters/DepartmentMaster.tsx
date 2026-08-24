@@ -1,9 +1,9 @@
 import { useState, useMemo, useEffect } from 'react';
 import {
-  Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle,
-  Save, ChevronLeft, ChevronRight, Eye, Power, CheckCircle2, X
+  Plus, Search, Download, Edit2, Trash2, AlertTriangle,
+  Save, ChevronLeft, ChevronRight, Eye, CheckCircle2, X
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
 import { exportToExcel } from '../../../utils/exportToExcel';

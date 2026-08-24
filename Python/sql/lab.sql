@@ -236,9 +236,25 @@ BEGIN
 
         -- Lines come from a JSON array; NormalRange/Unit fall back to the
         -- master so result flagging works even when the caller omits them.
+        --
+        -- The master used to be joined on TestId alone. Callers that place an
+        -- order from a name-only picker (the OPD consultation did exactly this,
+        -- and even put the test NAME in the testCode field) send no TestId, so
+        -- the join matched nothing and every line landed with NormalRange = NULL
+        -- — which is what drives abnormal/critical flagging. Results were then
+        -- verified against no range at all and always came back "normal".
+        --
+        -- Resolution is now TestId -> TestCode -> TestName, via a scalar
+        -- subquery so at most ONE master row can ever match (a plain OR-join on
+        -- the non-unique TestName could fan out and duplicate order lines).
         INSERT INTO hospital.Lab_OrderTest (OrderId, TestId, TestCode, TestName, NormalRange, Unit, Status)
-        SELECT @oid, jt.TestId, COALESCE(jt.TestCode, m.TestCode), jt.TestName,
-               COALESCE(jt.NormalRange, m.NormalRange), COALESCE(jt.Unit, m.Unit), 'Pending'
+        SELECT @oid,
+               COALESCE(jt.TestId, m.TestId),
+               COALESCE(m.TestCode, jt.TestCode),
+               COALESCE(jt.TestName, m.TestName),
+               COALESCE(jt.NormalRange, m.NormalRange),
+               COALESCE(jt.Unit, m.Unit),
+               'Pending'
         FROM JSON_TABLE(p_Tests, '$[*]' COLUMNS (
             TestId      INT          PATH '$.testId',
             TestCode    VARCHAR(50)  PATH '$.testCode',
@@ -246,7 +262,21 @@ BEGIN
             NormalRange VARCHAR(100) PATH '$.normalRange',
             Unit        VARCHAR(50)  PATH '$.unit'
         )) jt
-        LEFT JOIN admin.Master_LabTest m ON m.TestId = jt.TestId;
+        LEFT JOIN admin.Master_LabTest m ON m.TestId = (
+            SELECT x.TestId
+            FROM admin.Master_LabTest x
+            WHERE x.IsDeleted = 0
+              AND (   (jt.TestId   IS NOT NULL AND x.TestId   = jt.TestId)
+                   OR (jt.TestId   IS NULL AND jt.TestCode IS NOT NULL
+                       AND x.TestCode = jt.TestCode COLLATE utf8mb4_general_ci)
+                   OR (jt.TestId   IS NULL
+                       AND x.TestName = COALESCE(jt.TestName, jt.TestCode) COLLATE utf8mb4_general_ci)
+              )
+            -- Prefer the strongest match when more than one rule could fire.
+            ORDER BY (x.TestId = jt.TestId) DESC,
+                     (x.TestCode = jt.TestCode COLLATE utf8mb4_general_ci) DESC
+            LIMIT 1
+        );
 
         SELECT @oid AS OrderId, @ordno AS OrderNumber;
 

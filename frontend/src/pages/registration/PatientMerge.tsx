@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Search, Merge, ArrowRight, ShieldAlert, CheckCircle2 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
+import toast from 'react-hot-toast';
 import { useEffect } from 'react';
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
@@ -21,8 +22,9 @@ export const PatientMerge = () => {
   const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
   const [mergeSuccess, setMergeSuccess] = useState(false);
 
-  useEffect(() => {
-    const fetchPatients = async () => {
+  // Hoisted out of the effect so a completed merge can refresh the directory —
+  // the merged duplicate is soft deleted server-side and must disappear here.
+  const fetchPatients = async () => {
       try {
         const [patientsRes, quickRes, emergencyRes] = await Promise.all([
           fetch(`${API_BASE}/patients/`),
@@ -90,9 +92,11 @@ export const PatientMerge = () => {
       } catch (e) {
         console.error('Failed to fetch patients', e);
       }
-    };
+  };
+
+  useEffect(() => {
     fetchPatients();
-  }, [mergeSuccess]); // Re-fetch when a merge completes
+  }, []);
 
 
   const handleSearchPrimary = () => {
@@ -107,29 +111,49 @@ export const PatientMerge = () => {
 
 
   const handleMerge = async () => {
-    if (primaryPatient && secondaryPatient) {
-      try {
-        const res = await fetch(`${API_BASE}/${secondaryPatient.source}/${secondaryPatient.id}`, {
-          method: 'DELETE'
-        });
+    if (!primaryPatient || !secondaryPatient) return;
 
-        if (res.ok) {
-          setIsMergeModalOpen(false);
-          setMergeSuccess(true);
-          setTimeout(() => setMergeSuccess(false), 5000);
-          
-          // Clear forms
-          setPrimaryUhid('');
-          setSecondaryUhid('');
-          setPrimaryPatient(null);
-          setSecondaryPatient(null);
-        } else {
-          alert('Merge failed - Database error');
-        }
-      } catch (e) {
-        console.error('Merge failed', e);
-        alert('Merge failed - Network error');
+    // This used to DELETE the duplicate and nothing else. That ran a hard
+    // `DELETE FROM PatientRegistration`, and since no foreign key referenced
+    // that table the duplicate's appointments, visits, lab and radiology
+    // orders, admissions, insurance records, bills and documents were left
+    // pointing at a patient that no longer existed — while the screen said the
+    // merge had succeeded. /patients/merge re-points all of them onto the
+    // surviving UHID in one transaction and soft-deletes the duplicate.
+    try {
+      const res = await fetch(`${API_BASE}/patients/merge`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          primaryUhid: primaryPatient.uhid,
+          secondaryUhid: secondaryPatient.uhid,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        toast.error(
+          (data && typeof data.detail === 'string' ? data.detail : null) ?? 'Merge failed'
+        );
+        return;
       }
+
+      setIsMergeModalOpen(false);
+      setMergeSuccess(true);
+      setTimeout(() => setMergeSuccess(false), 5000);
+      toast.success(
+        `Merged ${secondaryPatient.uhid} into ${primaryPatient.uhid} — ` +
+        `${data?.recordsMoved ?? 0} record(s) moved.`
+      );
+
+      setPrimaryUhid('');
+      setSecondaryUhid('');
+      setPrimaryPatient(null);
+      setSecondaryPatient(null);
+      await fetchPatients();
+    } catch (e) {
+      console.error('Merge failed', e);
+      toast.error('Merge failed — could not reach the server.');
     }
   };
 

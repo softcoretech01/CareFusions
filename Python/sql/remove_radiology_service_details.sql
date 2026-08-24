@@ -185,7 +185,34 @@ END //
 
 DELIMITER ;
 
-ALTER TABLE Master_RadiologyService
-    DROP COLUMN ServiceCategory,
-    DROP COLUMN EstimatedDuration,
-    DROP COLUMN ReportTat;
+-- Idempotent: this is a one-way migration, but init_db.py replays every .sql in
+-- the folder, so a second run used to fail with "Can't DROP ...; check that
+-- column/key exists" and abort the rest of the deployment.
+DROP PROCEDURE IF EXISTS SpTmpDropRadiologyServiceCols;
+DELIMITER $$
+CREATE PROCEDURE SpTmpDropRadiologyServiceCols()
+BEGIN
+    DECLARE v_schema VARCHAR(64);
+    SET v_schema = DATABASE();
+
+    IF EXISTS (SELECT 1 FROM information_schema.COLUMNS
+               WHERE TABLE_SCHEMA = v_schema AND TABLE_NAME = 'Master_RadiologyService'
+                 AND COLUMN_NAME = 'ServiceCategory') THEN
+        ALTER TABLE Master_RadiologyService DROP COLUMN ServiceCategory;
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM information_schema.COLUMNS
+               WHERE TABLE_SCHEMA = v_schema AND TABLE_NAME = 'Master_RadiologyService'
+                 AND COLUMN_NAME = 'EstimatedDuration') THEN
+        ALTER TABLE Master_RadiologyService DROP COLUMN EstimatedDuration;
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM information_schema.COLUMNS
+               WHERE TABLE_SCHEMA = v_schema AND TABLE_NAME = 'Master_RadiologyService'
+                 AND COLUMN_NAME = 'ReportTat') THEN
+        ALTER TABLE Master_RadiologyService DROP COLUMN ReportTat;
+    END IF;
+END$$
+DELIMITER ;
+CALL SpTmpDropRadiologyServiceCols();
+DROP PROCEDURE IF EXISTS SpTmpDropRadiologyServiceCols;

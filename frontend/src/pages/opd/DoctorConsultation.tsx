@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useOPDVisits } from '../../contexts/OPDVisitContext';
 import { useAppointments } from '../../contexts/AppointmentContext';
@@ -10,6 +10,8 @@ const API_BASE = import.meta.env.VITE_API_URL as string;
 
 // Types for live master data
 interface ApiLabTest {
+  /** Master_LabTest.TestId — carried so the placed order can link to the master. */
+  testId: number;
   code: string;
   name: string;
   category: string;
@@ -78,10 +80,10 @@ export const DoctorConsultation = () => {
 
   // ── Radiology Services from Master API ──
   const [apiRadiologyServices, setApiRadiologyServices] = useState<ApiRadiologyService[]>([]);
-  const [radServicesLoading, setRadServicesLoading] = useState(true);
+  const [, setRadServicesLoading] = useState(true);
 
   // ── Medicine Data from API ──
-  const [apiMedicines, setApiMedicines] = useState<any[]>([]);
+  const [, setApiMedicines] = useState<any[]>([]);
 
   useEffect(() => {
     // Fetch Lab Tests from Master_LabTest
@@ -93,6 +95,7 @@ export const DoctorConsultation = () => {
           const active = data
             .filter((item: any) => item.status === 'Active')
             .map((item: any): ApiLabTest => ({
+              testId: item.testId,
               code: item.testCode,
               name: item.testName,
               category: item.testCategory || '',
@@ -157,12 +160,6 @@ export const DoctorConsultation = () => {
       .catch(() => { /* the badge simply does not render */ });
     return () => { alive = false; };
   }, []);
-
-  // Compute unique types (Dosage Forms) from live medicines to populate the Type dropdown
-  const uniqueDosageForms = Array.from(
-    new Set(apiMedicines.map(m => m.dosageForm).filter(Boolean))
-  ).sort();
-
   // Sync Global Queue Status to 'Consulting'
   useEffect(() => {
     if (visit && visit.appointmentId && visit.status !== 'Consulting' && visit.status !== 'Completed') {
@@ -191,29 +188,6 @@ export const DoctorConsultation = () => {
   // Lab local state (checked IDs)
   const selectedStock = typeof rxForm.medicineId === 'number'
     ? counterStock[rxForm.medicineId] : undefined;
-
-  /**
-   * Opens a pharmacy purchase requisition pre-filled with this medicine.
-   * Nothing is submitted from here - the buyer completes and submits the PR.
-   */
-  const raisePrFor = (medicineId: number) => {
-    const med = apiMedicines.find(m => m.id === medicineId);
-    if (!med) return;
-    navigate('/procurement/pr', {
-      state: {
-        raisePr: {
-          inventoryType: 'MEDICINE',
-          itemId: med.id,
-          itemCode: med.medicineCode,
-          itemName: medicineLabel(med),
-          category: med.category,
-          uom: med.unit,
-          requestedQty: Math.max(1, Number(med.reorderLevel) || 10),
-        },
-      },
-    });
-  };
-
   const [selectedLabs, setSelectedLabs] = useState<string[]>([]);
   const [radForm, setRadForm] = useState({ serviceName: '', bodyPart: '' });
   const [showAdmitModal, setShowAdmitModal] = useState(false);
@@ -309,6 +283,7 @@ export const DoctorConsultation = () => {
     } else {
       const order: LabOrder = {
         id: Date.now().toString(),
+        testId: test.testId,
         testName: test.name,
         testCode: test.code,
         priority: 'Routine',
@@ -345,12 +320,44 @@ export const DoctorConsultation = () => {
   };
 
 
-  const handleFinalizeVisit = () => {
-    finalizeVisit(visit.id, 'Dr. on duty');
+  /**
+   * Push this visit's lab / radiology orders into the shared Investigation
+   * system (hospital.Lab_Order), which is what the Lab and Radiology worklists
+   * actually read. The OPD visit's own Trn_OpdVisitLabOrder rows are a record of
+   * what the doctor wrote — they are NOT the lab's queue.
+   *
+   * Three things this fixes:
+   *  - Orders used to be pushed ONLY from handleFinalizeVisit. A consultation
+   *    saved without finalising left them sitting in the visit, invisible to
+   *    the lab, while the OPD screen still showed them as ordered.
+   *  - The push was fire-and-forget, so a failed POST was silent.
+   *  - handleRecommendAdmission called finalize unconditionally, so finalising
+   *    and then admitting pushed every order a second time.
+   *
+   * Dedupe is scoped to orders raised for this patient on this visit's date, so
+   * re-running is harmless while a genuine repeat of the same test on another
+   * day still goes through.
+   */
+  const syncInvestigationOrders = async (): Promise<boolean> => {
+    const sameVisitDay = (iso?: string) => !!iso && iso.slice(0, 10) === visit.date?.slice(0, 10);
+    const sentFor = (category: 'Lab' | 'Radiology') =>
+      new Set(
+        globalOrders
+          .filter(o => o.category === category && o.patientId === visit.uhid && sameVisitDay(o.orderedAt))
+          .flatMap(o => o.tests.map(t => t.name))
+      );
 
-    // Push Labs to Global Investigation Context
-    if (visit.labOrders.length > 0) {
-      addGlobalInvestigationOrder({
+    const newLabs = visit.labOrders.filter(l => !sentFor('Lab').has(l.testName));
+    const newRads = visit.radiologyOrders.filter(r => !sentFor('Radiology').has(r.serviceName || r.bodyPart));
+
+    const mkId = () => Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
+    let ok = true;
+
+    if (newLabs.length > 0) {
+      // testId/testCode are what link the order line to Master_LabTest, which is
+      // where NormalRange and Unit come from. Sending only the name left every
+      // line without a reference range for the lab to report against.
+      ok = await addGlobalInvestigationOrder({
         id: `LAB-${Date.now().toString().slice(-6)}`,
         type: 'OP',
         category: 'Lab',
@@ -358,14 +365,19 @@ export const DoctorConsultation = () => {
         patientName: visit.patientName,
         orderedBy: visit.doctorName,
         orderedAt: new Date().toISOString(),
-        tests: visit.labOrders.map(l => ({ id: Math.random().toString(36).substring(2, 10) + Date.now().toString(36), name: l.testName, status: 'Pending' })),
-        status: 'Pending'
-      });
+        tests: newLabs.map(l => ({
+          id: mkId(),
+          testId: l.testId,
+          testCode: l.testCode,
+          name: l.testName,
+          status: 'Pending' as const,
+        })),
+        status: 'Pending',
+      }) && ok;
     }
 
-    // Push Radiology to Global Investigation Context
-    if (visit.radiologyOrders.length > 0) {
-      addGlobalInvestigationOrder({
+    if (newRads.length > 0) {
+      ok = await addGlobalInvestigationOrder({
         id: `RAD-${Date.now().toString().slice(-6)}`,
         type: 'OP',
         category: 'Radiology',
@@ -373,10 +385,43 @@ export const DoctorConsultation = () => {
         patientName: visit.patientName,
         orderedBy: visit.doctorName,
         orderedAt: new Date().toISOString(),
-        tests: visit.radiologyOrders.map(r => ({ id: Math.random().toString(36).substring(2, 10) + Date.now().toString(36), name: r.serviceName || r.bodyPart, bodyPart: r.bodyPart, status: 'Pending' })),
-        status: 'Pending'
-      });
+        tests: newRads.map(r => ({ id: mkId(), name: r.serviceName || r.bodyPart, bodyPart: r.bodyPart, status: 'Pending' as const })),
+        status: 'Pending',
+      }) && ok;
     }
+
+    if (!ok) toast.error('Some orders could not be sent to the Lab/Radiology worklist. Please retry.');
+    return ok;
+  };
+
+  // Backstop so an order can never be stranded. Both explicit exits (Finalize
+  // and Update EMR) sync, but a doctor who simply navigates away would still
+  // have left the lab unaware of the tests they ordered. This pushes anything
+  // outstanding a couple of seconds after the last change; the dedupe inside
+  // syncInvestigationOrders makes repeat runs no-ops, and the delay is long
+  // enough that ticking a test and immediately un-ticking it sends nothing.
+  const syncingRef = useRef(false);
+  useEffect(() => {
+    if (visit.isFinalized) return;
+    if (visit.labOrders.length === 0 && visit.radiologyOrders.length === 0) return;
+
+    const t = setTimeout(async () => {
+      if (syncingRef.current) return;
+      syncingRef.current = true;
+      try { await syncInvestigationOrders(); } finally { syncingRef.current = false; }
+    }, 2000);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visit.labOrders, visit.radiologyOrders, visit.isFinalized]);
+
+  const handleFinalizeVisit = async () => {
+    // Send the orders BEFORE closing the visit, and stop if they did not land —
+    // finalising a visit whose orders never reached the lab is the failure this
+    // whole path exists to prevent.
+    const sent = await syncInvestigationOrders();
+    if (!sent) return;
+
+    finalizeVisit(visit.id, 'Dr. on duty');
 
     // Find corresponding appointment
     let apptId = visit.appointmentId;
@@ -393,45 +438,13 @@ export const DoctorConsultation = () => {
     navigate(-1);
   };
 
-  const handleUpdateEMR = () => {
-    // Find tests that aren't in globalOrders yet
-    const existingRadOrders = globalOrders.filter(o => o.category === 'Radiology' && o.patientId === visit.uhid);
-    const existingRadTestNames = new Set(existingRadOrders.flatMap(o => o.tests.map(t => t.name)));
-
-    const newRadTests = visit.radiologyOrders.filter(r => !existingRadTestNames.has(r.serviceName || r.bodyPart));
-
-    if (newRadTests.length > 0) {
-      addGlobalInvestigationOrder({
-        id: `RAD-${Date.now().toString().slice(-6)}`,
-        type: 'OP',
-        category: 'Radiology',
-        patientId: visit.uhid,
-        patientName: visit.patientName,
-        orderedBy: visit.doctorName || 'Unknown',
-        orderedAt: new Date().toISOString(),
-        tests: newRadTests.map(r => ({ id: Math.random().toString(36).substring(2, 10) + Date.now().toString(36), name: r.serviceName || r.bodyPart, bodyPart: r.bodyPart, status: 'Pending' })),
-        status: 'Pending'
-      });
-    }
-
-    const existingLabOrders = globalOrders.filter(o => o.category === 'Lab' && o.patientId === visit.uhid);
-    const existingLabTestNames = new Set(existingLabOrders.flatMap(o => o.tests.map(t => t.name)));
-
-    const newLabTests = visit.labOrders.filter(l => !existingLabTestNames.has(l.testName));
-
-    if (newLabTests.length > 0) {
-      addGlobalInvestigationOrder({
-        id: `LAB-${Date.now().toString().slice(-6)}`,
-        type: 'OP',
-        category: 'Lab',
-        patientId: visit.uhid,
-        patientName: visit.patientName,
-        orderedBy: visit.doctorName || 'Unknown',
-        orderedAt: new Date().toISOString(),
-        tests: newLabTests.map(l => ({ id: Math.random().toString(36).substring(2, 10) + Date.now().toString(36), name: l.testName, status: 'Pending' })),
-        status: 'Pending'
-      });
-    }
+  const handleUpdateEMR = async () => {
+    // Was two hand-rolled copies of the push logic. They deduped against EVERY
+    // order this patient had ever had, so a legitimate repeat of the same test
+    // on a later date was silently dropped, and neither copy passed testId — so
+    // orders raised from here also arrived at the lab with no reference range.
+    const sent = await syncInvestigationOrders();
+    if (!sent) return;
 
     toast.success('EMR Updated Successfully');
     navigate(-1);
@@ -452,8 +465,16 @@ export const DoctorConsultation = () => {
       requestedBy: 'Dr. on duty'
     });
 
-    // Auto Finalize Visit
-    handleFinalizeVisit();
+    // Auto-finalise, but only if the visit is still open. This used to run
+    // unconditionally: finalising a visit and then admitting the patient pushed
+    // every lab and radiology order to the worklist a second time, duplicating
+    // both the work and the charges.
+    if (!visit.isFinalized) {
+      handleFinalizeVisit();
+    } else {
+      // Already finalised — still make sure nothing added since then is stranded.
+      syncInvestigationOrders();
+    }
     toast.success('Admission Request Sent to IPD');
   };
 

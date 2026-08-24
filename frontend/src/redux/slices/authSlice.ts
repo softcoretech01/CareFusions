@@ -8,6 +8,8 @@ interface User {
   hospitalId: string;
   branchId: string;
   username?: string;
+  /** Sent as X-Department so the audit trail can attribute the change. */
+  department?: string;
 }
 
 export interface PermissionEntry {

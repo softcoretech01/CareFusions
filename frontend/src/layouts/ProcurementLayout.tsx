@@ -1,11 +1,14 @@
-import { Outlet } from 'react-router-dom';
 import { ProcurementSidebar } from './ProcurementSidebar';
 import { ProcurementProvider } from '../contexts/ProcurementContext';
+import { useAuthRedirect, ModuleOutlet } from '../components/auth/ModuleGuard';
 
 export const ProcurementLayout = () => {
+  const authRedirect = useAuthRedirect();
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   const name = 'Procurement Manager';
+
+  if (authRedirect) return authRedirect;
 
   return (
     <ProcurementProvider>
@@ -32,7 +35,7 @@ export const ProcurementLayout = () => {
         </header>
         <main className="flex-1 overflow-auto custom-scrollbar p-8">
           <div className="max-w-[1600px] mx-auto">
-            <Outlet />
+            <ModuleOutlet module="Procurement" />
           </div>
         </main>
       </div>

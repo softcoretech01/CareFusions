@@ -6,16 +6,86 @@
 -- Adding new columns. (Using IF NOT EXISTS logic via a quick workaround isn't standard in MySQL ALTER, 
 -- but we know these columns don't exist yet because we just created the table with 2 columns).
 
-ALTER TABLE Master_MedicineCategory
-ADD COLUMN CategoryCode VARCHAR(50) UNIQUE AFTER CategoryId,
-ADD COLUMN Description VARCHAR(500) AFTER CategoryName,
-ADD COLUMN Status VARCHAR(20) DEFAULT 'Active',
-ADD COLUMN Remarks TEXT,
-ADD COLUMN CreatedBy VARCHAR(100),
-ADD COLUMN CreatedDate DATETIME DEFAULT CURRENT_TIMESTAMP,
-ADD COLUMN ModifiedBy VARCHAR(100),
-ADD COLUMN ModifiedDate DATETIME,
-ADD COLUMN IsDeleted TINYINT(1) DEFAULT 0;
+-- Idempotent. A bare `ALTER TABLE ... ADD COLUMN` succeeds once and then fails
+-- with "Duplicate column name" on every later `python init_db.py`, aborting the
+-- deployment. Same conditional-procedure pattern as lab.sql / sample_type_master.sql.
+DROP PROCEDURE IF EXISTS SpTmpUpgradeMedicineCategory;
+DELIMITER $$
+CREATE PROCEDURE SpTmpUpgradeMedicineCategory()
+BEGIN
+    DECLARE v_schema VARCHAR(64);
+    SET v_schema = DATABASE();
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS
+                   WHERE TABLE_SCHEMA = v_schema AND TABLE_NAME = 'Master_MedicineCategory'
+                     AND COLUMN_NAME = 'CategoryCode') THEN
+        ALTER TABLE Master_MedicineCategory ADD COLUMN CategoryCode VARCHAR(50) AFTER CategoryId;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS
+                   WHERE TABLE_SCHEMA = v_schema AND TABLE_NAME = 'Master_MedicineCategory'
+                     AND COLUMN_NAME = 'Description') THEN
+        ALTER TABLE Master_MedicineCategory ADD COLUMN Description VARCHAR(500) AFTER CategoryName;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS
+                   WHERE TABLE_SCHEMA = v_schema AND TABLE_NAME = 'Master_MedicineCategory'
+                     AND COLUMN_NAME = 'Status') THEN
+        ALTER TABLE Master_MedicineCategory ADD COLUMN Status VARCHAR(20) DEFAULT 'Active';
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS
+                   WHERE TABLE_SCHEMA = v_schema AND TABLE_NAME = 'Master_MedicineCategory'
+                     AND COLUMN_NAME = 'Remarks') THEN
+        ALTER TABLE Master_MedicineCategory ADD COLUMN Remarks TEXT;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS
+                   WHERE TABLE_SCHEMA = v_schema AND TABLE_NAME = 'Master_MedicineCategory'
+                     AND COLUMN_NAME = 'CreatedBy') THEN
+        ALTER TABLE Master_MedicineCategory ADD COLUMN CreatedBy VARCHAR(100);
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS
+                   WHERE TABLE_SCHEMA = v_schema AND TABLE_NAME = 'Master_MedicineCategory'
+                     AND COLUMN_NAME = 'CreatedDate') THEN
+        ALTER TABLE Master_MedicineCategory ADD COLUMN CreatedDate DATETIME DEFAULT CURRENT_TIMESTAMP;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS
+                   WHERE TABLE_SCHEMA = v_schema AND TABLE_NAME = 'Master_MedicineCategory'
+                     AND COLUMN_NAME = 'ModifiedBy') THEN
+        ALTER TABLE Master_MedicineCategory ADD COLUMN ModifiedBy VARCHAR(100);
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS
+                   WHERE TABLE_SCHEMA = v_schema AND TABLE_NAME = 'Master_MedicineCategory'
+                     AND COLUMN_NAME = 'ModifiedDate') THEN
+        ALTER TABLE Master_MedicineCategory ADD COLUMN ModifiedDate DATETIME;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS
+                   WHERE TABLE_SCHEMA = v_schema AND TABLE_NAME = 'Master_MedicineCategory'
+                     AND COLUMN_NAME = 'IsDeleted') THEN
+        ALTER TABLE Master_MedicineCategory ADD COLUMN IsDeleted TINYINT(1) DEFAULT 0;
+    END IF;
+
+    -- CategoryCode was declared UNIQUE inline. Added explicitly here because the
+    -- inline constraint is skipped whenever the column already exists — the same
+    -- "declared but never applied" drift seen on Master_Medicine / Master_LabTest.
+    IF NOT EXISTS (SELECT 1 FROM information_schema.STATISTICS
+                   WHERE TABLE_SCHEMA = v_schema AND TABLE_NAME = 'Master_MedicineCategory'
+                     AND INDEX_NAME = 'UQ_Master_MedicineCategory_Code') THEN
+        UPDATE Master_MedicineCategory
+           SET CategoryCode = CONCAT('CAT-', LPAD(CategoryId, 3, '0'))
+         WHERE CategoryCode IS NULL OR CategoryCode = '';
+        ALTER TABLE Master_MedicineCategory
+            ADD CONSTRAINT UQ_Master_MedicineCategory_Code UNIQUE (CategoryCode);
+    END IF;
+END$$
+DELIMITER ;
+CALL SpTmpUpgradeMedicineCategory();
+DROP PROCEDURE IF EXISTS SpTmpUpgradeMedicineCategory;
 
 -- 2. Backfill existing seed data with CategoryCode (CAT-001, CAT-002, etc.)
 UPDATE Master_MedicineCategory

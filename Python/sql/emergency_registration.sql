@@ -46,7 +46,8 @@ CREATE PROCEDURE registration.SpEmergencyRegistration(
 )
 BEGIN
     IF p_Opt = 'SELECT_ALL' THEN
-        SELECT * FROM registration.EmergencyRegistration ORDER BY EmergencyRegistrationId DESC;
+        -- Merged duplicates are soft deleted; keep them out of the directory.
+        SELECT * FROM registration.EmergencyRegistration WHERE COALESCE(IsDeleted, 0) = 0 ORDER BY EmergencyRegistrationId DESC;
 
     ELSEIF p_Opt = 'SELECT_BY_ID' THEN
         SELECT * FROM registration.EmergencyRegistration WHERE EmergencyRegistrationId = p_EmergencyRegistrationId;

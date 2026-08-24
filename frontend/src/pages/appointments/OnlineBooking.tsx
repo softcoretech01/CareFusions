@@ -31,7 +31,7 @@ const TIME_SLOTS = [
 
 export const OnlineBooking = () => {
   const navigate = useNavigate();
-  const { appointments, updateAppointment, queryAppointments, apiError, clearError } = useAppointments();
+  const { updateAppointment, queryAppointments, apiError, clearError } = useAppointments();
   const { options: departments } = useDepartments();
 
   // Department options come from the backend master.

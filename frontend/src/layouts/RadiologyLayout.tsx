@@ -1,10 +1,13 @@
-import { Outlet } from 'react-router-dom';
 import { RadiologySidebar } from './RadiologySidebar';
+import { useAuthRedirect, ModuleOutlet } from '../components/auth/ModuleGuard';
 
 export const RadiologyLayout = () => {
+  const authRedirect = useAuthRedirect();
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   const name = 'Radiologist';
+
+  if (authRedirect) return authRedirect;
 
   return (
     <div className="flex h-screen bg-bg-light overflow-hidden font-sans">
@@ -30,7 +33,7 @@ export const RadiologyLayout = () => {
         </header>
         
         <div className="p-8">
-          <Outlet />
+          <ModuleOutlet module="Radiology" />
         </div>
       </main>
     </div>

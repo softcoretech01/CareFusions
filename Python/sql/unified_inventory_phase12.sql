@@ -25,7 +25,7 @@
 ALTER TABLE hospital.Trn_OpdVisitPrescription
     ADD COLUMN IF NOT EXISTS MedicineId INT NULL AFTER Type;
 
-CREATE INDEX IDX_OpdRx_Medicine ON hospital.Trn_OpdVisitPrescription (MedicineId);
+CREATE INDEX IF NOT EXISTS IDX_OpdRx_Medicine ON hospital.Trn_OpdVisitPrescription (MedicineId);
 
 -- Backfill: only unambiguous matches. A name matching zero or several active
 -- medicines stays NULL and continues to display as text.

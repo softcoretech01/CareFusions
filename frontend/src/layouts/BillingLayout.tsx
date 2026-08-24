@@ -1,5 +1,5 @@
-import { Outlet } from 'react-router-dom';
 import { Sidebar } from '../components/billing/Sidebar';
+import { useAuthRedirect, ModuleOutlet } from '../components/auth/ModuleGuard';
 
 const BillingTopBar = () => {
   const hour = new Date().getHours();
@@ -27,6 +27,9 @@ const BillingTopBar = () => {
 };
 
 export const BillingLayout = () => {
+  const authRedirect = useAuthRedirect();
+  if (authRedirect) return authRedirect;
+
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50">
       <div className="print:hidden">
@@ -35,7 +38,7 @@ export const BillingLayout = () => {
       <div className="flex-1 flex flex-col relative overflow-hidden">
         <BillingTopBar />
         <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 custom-scrollbar print:p-0 print:overflow-visible">
-          <Outlet />
+          <ModuleOutlet module="Billing" />
         </main>
       </div>
     </div>

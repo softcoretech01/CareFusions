@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Printer, Download, Eye, X, Shield, Pill, Loader2 } from 'lucide-react';
+import { Printer, Download, Eye, X, Shield, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { DateFilter } from '../../components/ui/DateFilter';
 import axios from 'axios';
@@ -16,7 +16,7 @@ export const BillingReports = () => {
   const [selectedBill, setSelectedBill] = useState<any>(null);
 
   const [insuranceDetails, setInsuranceDetails] = useState<any>(null);
-  const [prescriptions, setPrescriptions] = useState<any[]>([]);
+  const [, setPrescriptions] = useState<any[]>([]);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
   useEffect(() => {

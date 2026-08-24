@@ -407,9 +407,6 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
   const applyDates = () => { setFromDate(draftFrom); setToDate(draftTo); };
   const clearDates = () => { setDraftFrom(''); setDraftTo(''); setFromDate(''); setToDate(''); };
   const openForm = () => { resetForm(); addLine(); setShowForm(true); };
-
-  const dateInput = 'h-10 px-3 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 focus:outline-none focus:border-primary';
-
   const exportDocs = () => exportToExcel(docs.map(d => ({
     Number: d.docNumber, Date: dayOf(d.docDate), From: d.fromStoreName, To: d.toStoreName || d.departmentName,
     Vendor: d.vendorName, Reference: d.referenceNo, Reason: d.reason, RequestedBy: d.requestedBy,

@@ -103,9 +103,6 @@ export const StockLedger = () => {
 
   const applyDates = () => { setFromDate(draftFrom); setToDate(draftTo); };
   const clearDates = () => { setDraftFrom(''); setDraftTo(''); setFromDate(''); setToDate(''); };
-
-  const dateInput = 'h-10 px-3 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 focus:outline-none focus:border-primary';
-
   return (
     <div className="space-y-4">
       <PageHeader

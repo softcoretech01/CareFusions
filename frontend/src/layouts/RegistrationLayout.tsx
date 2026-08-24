@@ -1,11 +1,13 @@
 import { useEffect } from 'react';
-import { Outlet } from 'react-router-dom';
+
 import { RegistrationSidebar } from './RegistrationSidebar';
 import { RegistrationTopNavigation } from './RegistrationTopNavigation';
 import { useAppSelector } from '../hooks/redux';
 import { motion } from 'framer-motion';
+import { useAuthRedirect, ModuleOutlet } from '../components/auth/ModuleGuard';
 
 export const RegistrationLayout = () => {
+  const authRedirect = useAuthRedirect();
   const themeMode = useAppSelector((state) => state.theme.mode);
 
   // Apply theme to document element
@@ -21,6 +23,8 @@ export const RegistrationLayout = () => {
     }
   }, [themeMode]);
 
+  if (authRedirect) return authRedirect;
+
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       <RegistrationSidebar />
@@ -33,7 +37,7 @@ export const RegistrationLayout = () => {
             transition={{ duration: 0.4, ease: "easeOut" }}
             className="h-full"
           >
-            <Outlet />
+            <ModuleOutlet module="Registration" />
           </motion.div>
         </main>
       </div>

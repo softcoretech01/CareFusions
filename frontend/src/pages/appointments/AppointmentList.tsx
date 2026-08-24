@@ -24,7 +24,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 export const AppointmentList = () => {
   const navigate = useNavigate();
-  const { appointments, updateAppointment, queryAppointments, apiError, clearError } = useAppointments();
+  const { updateAppointment, queryAppointments, apiError, clearError } = useAppointments();
   const { options: departments } = useDepartments();
 
   // Department options come from the backend master.
@@ -71,15 +71,6 @@ export const AppointmentList = () => {
     const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
     if (page > totalPages) setPage(1);
   }, [filtered, page]);
-
-  const handleReset = () => {
-    setSearchTerm('');
-    setFilterDept('');
-    setFilterStatus('');
-    setDateFrom('');
-    setDateTo('');
-  };
-
   const openEdit = (item: AppointmentRecord) => {
     setEditItem(item);
     setEditForm({

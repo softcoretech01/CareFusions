@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
-import { Outlet } from 'react-router-dom';
+
 import { EMRSidebar } from './EMRSidebar';
 import { ClipboardList } from 'lucide-react';
 import { useAppSelector } from '../hooks/redux';
+import { useAuthRedirect, ModuleOutlet } from '../components/auth/ModuleGuard';
 
 const EMRTopBar = () => {
   const hour = new Date().getHours();
@@ -31,6 +32,7 @@ const EMRTopBar = () => {
 };
 
 export const EMRLayout = () => {
+  const authRedirect = useAuthRedirect();
   const themeMode = useAppSelector((state) => state.theme.mode);
   useEffect(() => {
     const root = window.document.documentElement;
@@ -43,13 +45,15 @@ export const EMRLayout = () => {
     }
   }, [themeMode]);
 
+  if (authRedirect) return authRedirect;
+
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       <EMRSidebar />
       <div className="flex-1 flex flex-col relative overflow-hidden">
         <EMRTopBar />
         <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 custom-scrollbar">
-          <Outlet />
+          <ModuleOutlet module="EMR" />
         </main>
       </div>
     </div>

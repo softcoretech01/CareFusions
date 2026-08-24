@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Search, Plus, X, Bed, CheckCircle, Printer, FileText, Shield } from 'lucide-react';
+import { Search, Plus, Bed, CheckCircle, Printer, FileText, Shield } from 'lucide-react';
 import { DateFilter } from '../../components/ui/DateFilter';
 import axios from 'axios';
 import toast from 'react-hot-toast';
@@ -213,14 +213,34 @@ export const IPBilling = () => {
       });
     }
     
-    // 1. Add medicines from discharge summary with selling price lookup
+    /**
+     * Resolve a medicine's selling price from the master.
+     *
+     * The lookup used to be by lowercased NAME only, falling back to a
+     * hardcoded 15 when it missed — so any spelling variance silently printed
+     * a wrong price on the invoice with no warning. medicineId is the reliable
+     * key, so it is tried first; an unresolved medicine is now reported rather
+     * than invented.
+     */
+    const unpricedMedicines: string[] = [];
+    const priceForMedicine = (med: any): number => {
+      const explicit = Number(med.price || 0);
+      if (explicit > 0) return explicit;
+
+      const byId = med.medicineId != null ? medicinePrices[String(med.medicineId)] : undefined;
+      if (byId) return byId;
+
+      const byName = medicinePrices[(med.medicineName || '').trim().toLowerCase()];
+      if (byName) return byName;
+
+      unpricedMedicines.push(med.medicineName || 'Unnamed medicine');
+      return 0;
+    };
+
+    // 1. Take-home medicines from the discharge summary
     if (foundIPD.dischargeInfo?.medicines?.length > 0) {
       foundIPD.dischargeInfo.medicines.forEach((med: any, index: number) => {
-         let price = Number(med.price || 0);
-         if (price === 0) {
-           const medKey = (med.medicineName || '').trim().toLowerCase();
-           price = medicinePrices[medKey] || medicinePrices[String(med.medicineId)] || 15;
-         }
+         const price = priceForMedicine(med);
          const qty = Number(med.quantity || 1);
          newItems.push({
             id: `MED-${index+1}`,
@@ -230,6 +250,42 @@ export const IPBilling = () => {
             total: price * qty
          });
       });
+    }
+
+    // 1b. Medicines actually ADMINISTERED on the ward during the stay.
+    //
+    // These were never billed. Only the discharge summary's take-home drugs
+    // were picked up, so a long admission on daily IV antibiotics left the
+    // hospital with no charge at all for them. Quantity is the number of doses
+    // marked given, so an unadministered prescription bills nothing.
+    try {
+      const medRes = await axios.get(`${API_BASE}/ipd/admissions/${foundIPD.id}/medications`);
+      if (Array.isArray(medRes.data)) {
+        medRes.data.forEach((med: any, index: number) => {
+          const dosesGiven = Object.values(med.administrations || {}).filter(Boolean).length;
+          if (dosesGiven === 0) return;
+
+          const price = priceForMedicine(med);
+          newItems.push({
+            id: `WMED-${index + 1}`,
+            description: `${med.medicineName}${med.route ? ` (${med.route})` : ''} - administered`,
+            price,
+            qty: dosesGiven,
+            total: price * dosesGiven,
+          });
+        });
+      }
+    } catch (e) {
+      console.error('[IPBilling] ward medication load failed', e);
+      toast.error('Could not load administered medicines — the bill may be short.');
+    }
+
+    if (unpricedMedicines.length > 0) {
+      // Better a visible zero the biller must resolve than a plausible wrong number.
+      toast.error(
+        `No master price found for: ${[...new Set(unpricedMedicines)].join(', ')}. ` +
+        'Added at 0 — please set the rate before saving.'
+      );
     }
 
     // 2. Add Lab Orders for this patient
@@ -457,9 +513,6 @@ export const IPBilling = () => {
   const handleAddItem = () => {
     setItems([...items, { id: `ITM-${Date.now()}`, description: 'New Item', price: 0, qty: 1, total: 0 }]);
   };
-
-  const handleRemoveItem = (id: string) => setItems(items.filter(item => item.id !== id));
-
   const handleItemChange = (id: string, field: keyof BillItem, value: string | number) => {
     setItems(items.map(item => {
       if (item.id !== id) return item;
