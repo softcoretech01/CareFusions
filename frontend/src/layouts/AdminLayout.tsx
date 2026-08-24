@@ -1,16 +1,18 @@
 import { useEffect } from 'react';
-import { Outlet, Navigate, useLocation } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { TopNavigation } from './TopNavigation';
 import { useAppSelector } from '../hooks/redux';
 import { usePermissions } from '../hooks/usePermissions';
 import { moduleForPath } from '../utils/moduleMap';
 import { AccessDenied } from '../pages/AccessDenied';
+import { useAuthRedirect } from '../components/auth/ModuleGuard';
 
 export const AdminLayout = () => {
   const themeMode = useAppSelector((state) => state.theme.mode);
   const location = useLocation();
-  const { isAuthenticated, permissions, canView } = usePermissions();
+  const { permissions, canView } = usePermissions();
+  const authRedirect = useAuthRedirect();
 
   // Apply theme to document element
   useEffect(() => {
@@ -25,10 +27,9 @@ export const AdminLayout = () => {
     }
   }, [themeMode]);
 
-  // Must be logged in to reach the admin area.
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
+  // Must be logged in to reach the admin area. Uses the shared helper so the
+  // page the user was aiming for is remembered, exactly as the other portals do.
+  if (authRedirect) return authRedirect;
 
   // Role-based route guard: block modules the role cannot view.
   // (Skipped when no permissions are loaded — legacy/dev session fallback.)
