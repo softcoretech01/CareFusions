@@ -44,7 +44,6 @@ CREATE PROCEDURE SpMasterPharmacist (
     IN p_Opt                VARCHAR(20),
     IN p_PharmacistId       INT,
     
-    IN p_EmployeeCode       VARCHAR(50),
     IN p_PharmacistName     VARCHAR(100),
     IN p_LicenseNumber      VARCHAR(100),
     IN p_Qualification      VARCHAR(100),
@@ -80,7 +79,7 @@ BEGIN
     -- ==================================================================
     IF p_Opt = 'GET' THEN
         SELECT 
-            PharmacistId, PharmacistCode, EmployeeCode, PharmacistName, LicenseNumber, Qualification,
+            PharmacistId, PharmacistCode, PharmacistName, LicenseNumber, Qualification,
             HospitalName, BranchName, PharmacyName, Mobile, Email, Address,
             JoiningDate, ExperienceYears, Shift, EmploymentType,
             Photo, LicenseCertificate, IdProof,
@@ -94,7 +93,7 @@ BEGIN
     -- ==================================================================
     ELSEIF p_Opt = 'GETBYID' THEN
         SELECT 
-            PharmacistId, PharmacistCode, EmployeeCode, PharmacistName, LicenseNumber, Qualification,
+            PharmacistId, PharmacistCode, PharmacistName, LicenseNumber, Qualification,
             HospitalName, BranchName, PharmacyName, Mobile, Email, Address,
             JoiningDate, ExperienceYears, Shift, EmploymentType,
             Photo, LicenseCertificate, IdProof,
@@ -107,7 +106,7 @@ BEGIN
     -- ==================================================================
     ELSEIF p_Opt = 'SEARCH' THEN
         SELECT 
-            PharmacistId, PharmacistCode, EmployeeCode, PharmacistName, LicenseNumber, Qualification,
+            PharmacistId, PharmacistCode, PharmacistName, LicenseNumber, Qualification,
             HospitalName, BranchName, PharmacyName, Mobile, Email, Address,
             JoiningDate, ExperienceYears, Shift, EmploymentType,
             Photo, LicenseCertificate, IdProof,
@@ -126,13 +125,13 @@ BEGIN
         SET v_PharmacistCode = CONCAT('PHA-', LPAD(v_NextId, 3, '0'));
         
         INSERT INTO Master_Pharmacist (
-            PharmacistCode, EmployeeCode, PharmacistName, LicenseNumber, Qualification,
+            PharmacistCode, PharmacistName, LicenseNumber, Qualification,
             HospitalName, BranchName, PharmacyName, Mobile, Email, Address,
             JoiningDate, ExperienceYears, Shift, EmploymentType,
             Photo, LicenseCertificate, IdProof,
             Status, Remarks, CreatedDate, CreatedBy, IsDeleted
         ) VALUES (
-            v_PharmacistCode, p_EmployeeCode, p_PharmacistName, p_LicenseNumber, p_Qualification,
+            v_PharmacistCode, p_PharmacistName, p_LicenseNumber, p_Qualification,
             p_HospitalName, p_BranchName, p_PharmacyName, p_Mobile, p_Email, p_Address,
             p_JoiningDate, p_ExperienceYears, p_Shift, p_EmploymentType,
             p_Photo, p_LicenseCertificate, p_IdProof,
@@ -148,7 +147,6 @@ BEGIN
     ELSEIF p_Opt = 'UPDATE' THEN
         UPDATE Master_Pharmacist
         SET 
-            EmployeeCode       = p_EmployeeCode,
             PharmacistName     = p_PharmacistName,
             LicenseNumber      = p_LicenseNumber,
             Qualification      = p_Qualification,

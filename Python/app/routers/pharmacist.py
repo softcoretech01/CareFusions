@@ -20,7 +20,6 @@ def _map_row(row):
     return {
         "id": row.PharmacistId,
         "pharmacistId": row.PharmacistCode,
-        "employeeCode": row.EmployeeCode,
         "name": row.PharmacistName,
         "licenseNumber": row.LicenseNumber,
         "qualification": row.Qualification,
@@ -49,7 +48,6 @@ def _call_sp(db: Session, opt: str, pharmacist_id: int = 0, **kwargs):
     params = {
         "p_Opt": opt,
         "p_PharmacistId": pharmacist_id,
-        "p_EmployeeCode": safe_value(kwargs.get("employee_code")),
         "p_PharmacistName": safe_value(kwargs.get("name")),
         "p_LicenseNumber": safe_value(kwargs.get("license_number")),
         "p_Qualification": safe_value(kwargs.get("qualification")),
@@ -76,7 +74,7 @@ def _call_sp(db: Session, opt: str, pharmacist_id: int = 0, **kwargs):
     sql = text(f"""
         CALL {SP_NAME}(
             :p_Opt, :p_PharmacistId,
-            :p_EmployeeCode, :p_PharmacistName, :p_LicenseNumber, :p_Qualification,
+            :p_PharmacistName, :p_LicenseNumber, :p_Qualification,
             :p_HospitalName, :p_BranchName, :p_PharmacyName, :p_Mobile, :p_Email, :p_Address,
             :p_JoiningDate, :p_ExperienceYears, :p_Shift, :p_EmploymentType,
             :p_Photo, :p_LicenseCertificate, :p_IdProof,
@@ -116,7 +114,6 @@ def create_pharmacist(pharmacist: PharmacistCreate, db: Session = Depends(get_db
     try:
         kwargs = pharmacist.model_dump(by_alias=False)
         mapped = {
-            "employee_code": kwargs.get("employeeCode"),
             "name": kwargs.get("name"),
             "license_number": kwargs.get("licenseNumber"),
             "qualification": kwargs.get("qualification"),
@@ -156,7 +153,6 @@ def update_pharmacist(pharmacist_id: int, pharmacist: PharmacistUpdate, db: Sess
     try:
         kwargs = pharmacist.model_dump(by_alias=False)
         mapped = {
-            "employee_code": kwargs.get("employeeCode"),
             "name": kwargs.get("name"),
             "license_number": kwargs.get("licenseNumber"),
             "qualification": kwargs.get("qualification"),

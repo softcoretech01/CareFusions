@@ -15,7 +15,6 @@ USE admin;
 CREATE TABLE IF NOT EXISTS Master_Housekeeping (
     HousekeepingId      INT AUTO_INCREMENT PRIMARY KEY,
     HousekeepingCode    VARCHAR(20) NOT NULL UNIQUE,       -- Auto-generated: HK-001
-    EmployeeCode        VARCHAR(50) NOT NULL,
     StaffName           VARCHAR(100) NOT NULL,
     Gender              ENUM('Male','Female','Other') NULL,
     HospitalName        VARCHAR(150),
@@ -58,7 +57,6 @@ CREATE PROCEDURE SpMasterHousekeeping (
     IN p_Opt                VARCHAR(20),
     IN p_HousekeepingId     INT,
 
-    IN p_EmployeeCode       VARCHAR(50),
     IN p_StaffName          VARCHAR(100),
     IN p_Gender             VARCHAR(10),
     IN p_HospitalName       VARCHAR(150),
@@ -88,7 +86,7 @@ BEGIN
 
     IF p_Opt = 'GET' THEN
         SELECT
-            HousekeepingId, HousekeepingCode, EmployeeCode, StaffName, Gender,
+            HousekeepingId, HousekeepingCode, StaffName, Gender,
             HospitalName, BranchName, AssignedArea, Mobile, Email, Address,
             JoiningDate, Shift, ExperienceYears, ReportingManager,
             Photo, IdProof,
@@ -99,7 +97,7 @@ BEGIN
 
     ELSEIF p_Opt = 'GETBYID' THEN
         SELECT
-            HousekeepingId, HousekeepingCode, EmployeeCode, StaffName, Gender,
+            HousekeepingId, HousekeepingCode, StaffName, Gender,
             HospitalName, BranchName, AssignedArea, Mobile, Email, Address,
             JoiningDate, Shift, ExperienceYears, ReportingManager,
             Photo, IdProof,
@@ -109,7 +107,7 @@ BEGIN
 
     ELSEIF p_Opt = 'SEARCH' THEN
         SELECT
-            HousekeepingId, HousekeepingCode, EmployeeCode, StaffName, Gender,
+            HousekeepingId, HousekeepingCode, StaffName, Gender,
             HospitalName, BranchName, AssignedArea, Mobile, Email, Address,
             JoiningDate, Shift, ExperienceYears, ReportingManager,
             Photo, IdProof,
@@ -132,14 +130,6 @@ BEGIN
         FROM Master_Housekeeping;
 
     ELSEIF p_Opt = 'INSERT' THEN
-        -- One person, one employee code: a duplicate would split their record
-        -- across two rows and make the roster double-count them.
-        IF EXISTS (
-            SELECT 1 FROM Master_Housekeeping
-            WHERE EmployeeCode = p_EmployeeCode AND IsDeleted = 0
-        ) THEN
-            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'DUPLICATE_EMPLOYEE_CODE';
-        END IF;
         IF EXISTS (
             SELECT 1 FROM Master_Housekeeping
             WHERE Mobile = p_Mobile AND IsDeleted = 0
@@ -153,13 +143,13 @@ BEGIN
         SET v_HousekeepingCode = CONCAT('HK-', LPAD(v_NextId, 3, '0'));
 
         INSERT INTO Master_Housekeeping (
-            HousekeepingCode, EmployeeCode, StaffName, Gender,
+            HousekeepingCode, StaffName, Gender,
             HospitalName, BranchName, AssignedArea, Mobile, Email, Address,
             JoiningDate, Shift, ExperienceYears, ReportingManager,
             Photo, IdProof,
             Status, Remarks, CreatedBy, CreatedDate, IsDeleted
         ) VALUES (
-            v_HousekeepingCode, p_EmployeeCode, p_StaffName, p_Gender,
+            v_HousekeepingCode, p_StaffName, p_Gender,
             p_HospitalName, p_BranchName, p_AssignedArea, p_Mobile, p_Email, p_Address,
             p_JoiningDate, p_Shift, p_ExperienceYears, p_ReportingManager,
             p_Photo, p_IdProof,
@@ -171,13 +161,6 @@ BEGIN
     ELSEIF p_Opt = 'UPDATE' THEN
         IF EXISTS (
             SELECT 1 FROM Master_Housekeeping
-            WHERE EmployeeCode = p_EmployeeCode AND IsDeleted = 0
-              AND HousekeepingId <> p_HousekeepingId
-        ) THEN
-            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'DUPLICATE_EMPLOYEE_CODE';
-        END IF;
-        IF EXISTS (
-            SELECT 1 FROM Master_Housekeeping
             WHERE Mobile = p_Mobile AND IsDeleted = 0
               AND HousekeepingId <> p_HousekeepingId
         ) THEN
@@ -186,7 +169,6 @@ BEGIN
 
         UPDATE Master_Housekeeping
         SET
-            EmployeeCode        = p_EmployeeCode,
             StaffName           = p_StaffName,
             Gender              = p_Gender,
             HospitalName        = p_HospitalName,

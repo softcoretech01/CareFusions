@@ -36,7 +36,6 @@ def _map_row(row):
     return {
         "id": row.TechnicianId,
         "technicianId": row.TechnicianCode,
-        "employeeCode": row.EmployeeCode,
         "name": row.TechnicianName,
         "qualification": row.Qualification,
         "department": row.DepartmentName,
@@ -65,7 +64,6 @@ def _call_sp(db: Session, opt: str, technician_id: int = 0, **kwargs):
     params = {
         "p_Opt": opt,
         "p_TechnicianId": technician_id,
-        "p_EmployeeCode": safe_value(kwargs.get("employee_code")),
         "p_TechnicianName": safe_value(kwargs.get("name")),
         "p_Qualification": safe_value(kwargs.get("qualification")),
         "p_DepartmentName": safe_value(kwargs.get("department")),
@@ -92,7 +90,7 @@ def _call_sp(db: Session, opt: str, technician_id: int = 0, **kwargs):
     sql = text(f"""
         CALL {SP_NAME}(
             :p_Opt, :p_TechnicianId,
-            :p_EmployeeCode, :p_TechnicianName, :p_Qualification, :p_DepartmentName,
+            :p_TechnicianName, :p_Qualification, :p_DepartmentName,
             :p_LaboratoryName, :p_HospitalName, :p_BranchName, :p_Mobile, :p_Email, :p_Address,
             :p_JoiningDate, :p_ExperienceYears, :p_Shift, :p_ReportingManager,
             :p_ProfilePhoto, :p_QualificationCertificate, :p_IdProof,
@@ -132,7 +130,6 @@ def create_lab_technician(technician: LabTechnicianCreate, db: Session = Depends
     try:
         kwargs = technician.model_dump(by_alias=False)
         mapped = {
-            "employee_code": kwargs.get("employeeCode"),
             "name": kwargs.get("name"),
             "qualification": kwargs.get("qualification"),
             "department": kwargs.get("department"),
@@ -172,7 +169,6 @@ def update_lab_technician(technician_id: int, technician: LabTechnicianUpdate, d
     try:
         kwargs = technician.model_dump(by_alias=False)
         mapped = {
-            "employee_code": kwargs.get("employeeCode"),
             "name": kwargs.get("name"),
             "qualification": kwargs.get("qualification"),
             "department": kwargs.get("department"),

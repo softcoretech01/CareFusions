@@ -45,6 +45,7 @@ class _HousekeepingFields(BaseModel):
 
     photo:            Optional[str]  = None
     idProof:          Optional[str]  = None
+    status:           Optional[StatusEnum] = StatusEnum.Active
     remarks:          Optional[str]  = None
 
     @field_validator("name", "manager")
