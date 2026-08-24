@@ -173,7 +173,7 @@ export const PharmacistMaster = () => {
 
     try {
       const payload = {
-        employeeCode: formData.employeeCode,
+        employeeCode: formData.employeeCode || formData.pharmacistId,
         name: formData.name,
         licenseNumber: formData.licenseNumber,
         qualification: formData.qualification || null,

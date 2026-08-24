@@ -73,7 +73,6 @@ export const DepartmentMaster = () => {
   const [sortConfig, setSortConfig] = useState<{ key: keyof DepartmentRecord | null, direction: 'asc' | 'desc' }>({ key: null, direction: 'asc' });
 
   // Filter States
-  const [showFilters, setShowFilters] = useState(false);
 
   // Form States
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -286,14 +285,7 @@ export const DepartmentMaster = () => {
 
           <div className="flex items-center gap-3">
             <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={`p-2 border rounded-lg transition-colors ${showFilters ? 'border-primary bg-primary/5 text-primary' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}
-              title="Advanced Filters"
-            >
-              <Filter className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => { setSearchTerm(''); setShowFilters(false); setCurrentPage(1); }}
+              onClick={() => { setSearchTerm(''); setCurrentPage(1); }}
               className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors"
               title="Clear search & filters"
             >
@@ -308,21 +300,6 @@ export const DepartmentMaster = () => {
             </button>
           </div>
         </div>
-
-        <AnimatePresence>
-          {showFilters && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="border-b border-slate-100 bg-slate-50 overflow-hidden"
-            >
-              <div className="p-4 flex gap-4">
-                {/* Additional advanced filters can go here */}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         <div className="flex-1 overflow-auto">
           <table className="w-full text-left text-sm">

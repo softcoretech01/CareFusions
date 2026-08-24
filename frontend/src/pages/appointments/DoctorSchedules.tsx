@@ -13,13 +13,15 @@ const toMin = (t: string) => {
   return h * 60 + m;
 };
 function validateSessions(doc: DoctorScheduleRecord): string | null {
-  const { session1: s1, session2: s2 } = doc;
-  if (s1.start && s1.end && toMin(s1.start) >= toMin(s1.end))
-    return 'Morning session end time must be after its start time.';
-  if (s2.start && s2.end && toMin(s2.start) >= toMin(s2.end))
-    return 'Evening session end time must be after its start time.';
-  if (s1.end && s2.start && s2.end && toMin(s2.start) < toMin(s1.end))
-    return 'Evening session must start after the morning session ends.';
+  const { timings: t, breakTimings: b } = doc;
+  if (t.start && t.end && toMin(t.start) >= toMin(t.end))
+    return 'End time must be after start time.';
+  if (b && b.start && b.end && toMin(b.start) >= toMin(b.end))
+    return 'Break end time must be after break start time.';
+  if (t.start && b && b.start && toMin(b.start) < toMin(t.start))
+    return 'Break must start after shift starts.';
+  if (t.end && b && b.end && toMin(b.end) > toMin(t.end))
+    return 'Break must end before shift ends.';
   return null;
 }
 
@@ -245,50 +247,63 @@ export const DoctorSchedules = () => {
               <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-3">Standard Timings</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
-                  <h4 className="font-bold text-slate-700 mb-3 flex items-center gap-2"><SunIcon /> Morning Session</h4>
+                  <h4 className="font-bold text-slate-700 mb-3 flex items-center gap-2"><SunIcon /> Schedule Timings</h4>
                   <div className="flex items-center gap-4">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-500 mb-1">Start Time</label>
+                      <label className="block text-xs font-semibold text-slate-500 mb-1">From Time</label>
                       <input
                         type="time"
-                        value={currentDoc.session1.start}
-                        onChange={e => update({ session1: { ...currentDoc.session1, start: e.target.value } })}
+                        value={currentDoc.timings.start}
+                        onChange={e => update({ timings: { ...currentDoc.timings, start: e.target.value } })}
                         className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium focus:outline-none focus:border-primary"
                       />
                     </div>
                     <span className="text-slate-400 font-bold mt-4">to</span>
                     <div>
-                      <label className="block text-xs font-semibold text-slate-500 mb-1">End Time</label>
+                      <label className="block text-xs font-semibold text-slate-500 mb-1">To Time</label>
                       <input
                         type="time"
-                        value={currentDoc.session1.end}
-                        onChange={e => update({ session1: { ...currentDoc.session1, end: e.target.value } })}
+                        value={currentDoc.timings.end}
+                        onChange={e => update({ timings: { ...currentDoc.timings, end: e.target.value } })}
                         className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium focus:outline-none focus:border-primary"
                       />
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
-                  <h4 className="font-bold text-slate-700 mb-3 flex items-center gap-2"><MoonIcon /> Evening Session</h4>
-                  <div className="flex items-center gap-4">
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 relative">
+                  <div className="absolute top-4 right-4 flex items-center gap-2">
+                    <label className="text-xs font-semibold text-slate-500 cursor-pointer flex items-center gap-1">
+                      <input 
+                        type="checkbox" 
+                        checked={!!currentDoc.breakTimings} 
+                        onChange={(e) => update({ breakTimings: e.target.checked ? { start: '', end: '' } : null })}
+                        className="accent-primary"
+                      />
+                      Add Break
+                    </label>
+                  </div>
+                  <h4 className="font-bold text-slate-700 mb-3 flex items-center gap-2"><MoonIcon /> Break Timings</h4>
+                  <div className={`flex items-center gap-4 transition-opacity ${!currentDoc.breakTimings ? 'opacity-50 pointer-events-none' : ''}`}>
                     <div>
-                      <label className="block text-xs font-semibold text-slate-500 mb-1">Start Time</label>
+                      <label className="block text-xs font-semibold text-slate-500 mb-1">Break From</label>
                       <input
                         type="time"
-                        value={currentDoc.session2.start}
-                        onChange={e => update({ session2: { ...currentDoc.session2, start: e.target.value } })}
+                        value={currentDoc.breakTimings?.start || ''}
+                        onChange={e => update({ breakTimings: { ...(currentDoc.breakTimings || {start: '', end: ''}), start: e.target.value } })}
                         className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium focus:outline-none focus:border-primary"
+                        disabled={!currentDoc.breakTimings}
                       />
                     </div>
                     <span className="text-slate-400 font-bold mt-4">to</span>
                     <div>
-                      <label className="block text-xs font-semibold text-slate-500 mb-1">End Time</label>
+                      <label className="block text-xs font-semibold text-slate-500 mb-1">Break To</label>
                       <input
                         type="time"
-                        value={currentDoc.session2.end}
-                        onChange={e => update({ session2: { ...currentDoc.session2, end: e.target.value } })}
+                        value={currentDoc.breakTimings?.end || ''}
+                        onChange={e => update({ breakTimings: { ...(currentDoc.breakTimings || {start: '', end: ''}), end: e.target.value } })}
                         className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium focus:outline-none focus:border-primary"
+                        disabled={!currentDoc.breakTimings}
                       />
                     </div>
                   </div>

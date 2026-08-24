@@ -7,8 +7,8 @@ export interface DoctorScheduleRecord {
   name: string;
   dept: string;
   workingDays: string[]; // e.g. ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
-  session1: { start: string; end: string };
-  session2: { start: string; end: string };
+  timings: { start: string; end: string };
+  breakTimings: { start: string; end: string } | null;
   slotDuration: number; // minutes
   maxPatients: number;
   exceptions: { date: string; reason: string }[]; // leave/holiday dates
@@ -81,8 +81,8 @@ export const DoctorScheduleProvider = ({ children }: { children: ReactNode }) =>
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           workingDays:  doc.workingDays,
-          session1:     doc.session1,
-          session2:     doc.session2,
+          timings:      doc.timings,
+          breakTimings: doc.breakTimings,
           slotDuration: doc.slotDuration,
           maxPatients:  doc.maxPatients,
           exceptions:   doc.exceptions,
