@@ -18,6 +18,7 @@ class ReceptionistCreate(BaseModel):
 
     photo:              Optional[str] = None
     idProof:            Optional[str] = None
+    status:             Optional[str] = "Active"
     remarks:            Optional[str] = None
     createdBy:          Optional[str] = "System"
 

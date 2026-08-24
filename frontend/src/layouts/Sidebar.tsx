@@ -40,6 +40,7 @@ const navigation: NavItem[] = [
       { name: 'Pharmacist', to: '/admin/masters/pharmacist' },
       { name: 'Lab Technician', to: '/admin/masters/lab-technician' },
       { name: 'Receptionist', to: '/admin/masters/receptionist' },
+      { name: 'Housekeeping', to: '/admin/masters/housekeeping' },
     ]
   },
 

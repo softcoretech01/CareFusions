@@ -44,7 +44,6 @@ CREATE PROCEDURE SpMasterLabTechnician (
     IN p_Opt                        VARCHAR(20),
     IN p_TechnicianId               INT,
     
-    IN p_EmployeeCode               VARCHAR(50),
     IN p_TechnicianName             VARCHAR(100),
     IN p_Qualification              VARCHAR(100),
     IN p_DepartmentName             VARCHAR(100),
@@ -80,7 +79,7 @@ BEGIN
     -- ==================================================================
     IF p_Opt = 'GET' THEN
         SELECT 
-            TechnicianId, TechnicianCode, EmployeeCode, TechnicianName, Qualification,
+            TechnicianId, TechnicianCode, TechnicianName, Qualification,
             DepartmentName, LaboratoryName, HospitalName, BranchName, Mobile, Email, Address,
             JoiningDate, ExperienceYears, Shift, ReportingManager,
             ProfilePhoto, QualificationCertificate, IdProof,
@@ -94,7 +93,7 @@ BEGIN
     -- ==================================================================
     ELSEIF p_Opt = 'GETBYID' THEN
         SELECT 
-            TechnicianId, TechnicianCode, EmployeeCode, TechnicianName, Qualification,
+            TechnicianId, TechnicianCode, TechnicianName, Qualification,
             DepartmentName, LaboratoryName, HospitalName, BranchName, Mobile, Email, Address,
             JoiningDate, ExperienceYears, Shift, ReportingManager,
             ProfilePhoto, QualificationCertificate, IdProof,
@@ -107,7 +106,7 @@ BEGIN
     -- ==================================================================
     ELSEIF p_Opt = 'SEARCH' THEN
         SELECT 
-            TechnicianId, TechnicianCode, EmployeeCode, TechnicianName, Qualification,
+            TechnicianId, TechnicianCode, TechnicianName, Qualification,
             DepartmentName, LaboratoryName, HospitalName, BranchName, Mobile, Email, Address,
             JoiningDate, ExperienceYears, Shift, ReportingManager,
             ProfilePhoto, QualificationCertificate, IdProof,
@@ -133,13 +132,13 @@ BEGIN
         SET v_TechnicianCode = CONCAT('LAB-', LPAD(v_NextId, 3, '0'));
         
         INSERT INTO Master_LabTechnician (
-            TechnicianCode, EmployeeCode, TechnicianName, Qualification, DepartmentName,
+            TechnicianCode, TechnicianName, Qualification, DepartmentName,
             LaboratoryName, HospitalName, BranchName, Mobile, Email, Address,
             JoiningDate, ExperienceYears, Shift, ReportingManager,
             ProfilePhoto, QualificationCertificate, IdProof,
             Status, Remarks, CreatedDate, CreatedBy, IsDeleted
         ) VALUES (
-            v_TechnicianCode, p_EmployeeCode, p_TechnicianName, p_Qualification, p_DepartmentName,
+            v_TechnicianCode, p_TechnicianName, p_Qualification, p_DepartmentName,
             p_LaboratoryName, p_HospitalName, p_BranchName, p_Mobile, p_Email, p_Address,
             p_JoiningDate, p_ExperienceYears, p_Shift, p_ReportingManager,
             p_ProfilePhoto, p_QualificationCertificate, p_IdProof,
@@ -155,7 +154,6 @@ BEGIN
     ELSEIF p_Opt = 'UPDATE' THEN
         UPDATE Master_LabTechnician
         SET 
-            EmployeeCode             = p_EmployeeCode,
             TechnicianName           = p_TechnicianName,
             Qualification            = p_Qualification,
             DepartmentName           = p_DepartmentName,

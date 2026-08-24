@@ -36,7 +36,6 @@ def _map_row(row):
     return {
         "id": row.NurseId,
         "nurseId": row.NurseCode,
-        "employeeCode": row.EmployeeCode,
         "name": row.NurseName,
         "gender": row.Gender,
         "dob": row.DateOfBirth,
@@ -75,7 +74,6 @@ def _call_sp(db: Session, opt: str, nurse_id: int = 0, **kwargs):
     params = {
         "p_Opt": opt,
         "p_NurseId": nurse_id,
-        "p_EmployeeCode": safe_value(kwargs.get("employee_code")),
         "p_NurseName": safe_value(kwargs.get("name")),
         "p_Gender": safe_value(kwargs.get("gender")),
         "p_DateOfBirth": safe_value(kwargs.get("dob")),
@@ -148,29 +146,11 @@ def get_nurse(nurse_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def _next_employee_code(db: Session) -> str:
-    """The code a new nurse gets when the form does not supply one.
-
-    Master_Nurse.EmployeeCode is NOT NULL, but the Nurse form only shows the
-    generated Nurse ID, so a create sent nothing and the insert failed with
-    "Column 'EmployeeCode' cannot be null".
-    """
-    row = _call_sp(db, "GETNEXTCODE").fetchone()
-    return row[0] if row else "NUR-001"
-
-
-def _existing_employee_code(db: Session, nurse_id: int):
-    """Keep the stored code on an update that does not send one."""
-    row = _call_sp(db, "GETBYID", nurse_id=nurse_id).fetchone()
-    return row.EmployeeCode if row else None
-
-
 @router.post("/", response_model=NurseResponse, status_code=status.HTTP_201_CREATED)
 def create_nurse(nurse: NurseCreate, db: Session = Depends(get_db)):
     try:
         kwargs = nurse.model_dump(by_alias=False)
         mapped = {
-            "employee_code": kwargs.get("employeeCode") or _next_employee_code(db),
             "name": kwargs.get("name"),
             "gender": kwargs.get("gender"),
             "dob": kwargs.get("dob"),
@@ -220,8 +200,6 @@ def update_nurse(nurse_id: int, nurse: NurseUpdate, db: Session = Depends(get_db
     try:
         kwargs = nurse.model_dump(by_alias=False)
         mapped = {
-            "employee_code": (kwargs.get("employeeCode")
-                              or _existing_employee_code(db, nurse_id)),
             "name": kwargs.get("name"),
             "gender": kwargs.get("gender"),
             "dob": kwargs.get("dob"),

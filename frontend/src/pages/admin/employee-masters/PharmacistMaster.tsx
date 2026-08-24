@@ -11,7 +11,6 @@ import { exportToExcel } from '../../../utils/exportToExcel';
 interface PharmacistRecord {
   id: number;
   pharmacistId: string;
-  employeeCode: string;
   name: string;
   licenseNumber: string;
   qualification: string;
@@ -34,7 +33,6 @@ interface PharmacistRecord {
 
 const emptyData: Omit<PharmacistRecord, 'id'> = {
   pharmacistId: '',
-  employeeCode: '',
   name: '',
   licenseNumber: '',
   qualification: '',
@@ -56,7 +54,6 @@ const API_BASE = import.meta.env.VITE_API_URL as string;
 const mapApiToRecord = (item: any): PharmacistRecord => ({
   id:                 item.id,
   pharmacistId:       item.pharmacistId as string,
-  employeeCode:       item.employeeCode as string,
   name:               item.name as string,
   licenseNumber:      item.licenseNumber as string,
   qualification:      item.qualification as string || '',
@@ -173,7 +170,7 @@ export const PharmacistMaster = () => {
 
     try {
       const payload = {
-        employeeCode: formData.employeeCode || formData.pharmacistId,
+        pharmacistId: formData.pharmacistId,
         name: formData.name,
         licenseNumber: formData.licenseNumber,
         qualification: formData.qualification || null,
@@ -501,10 +498,6 @@ export const PharmacistMaster = () => {
               <section>
                 <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Employment Details</h3>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Joining Date</label>
-                    <input type="date" value={formData.joiningDate} onChange={e => setFormData({...formData, joiningDate: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
-                  </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Shift</label>
                     <select value={formData.shift} onChange={e => setFormData({...formData, shift: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">

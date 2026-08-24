@@ -14,7 +14,6 @@ import {
 export interface HousekeepingRecord {
   id: number;
   housekeepingCode: string;
-  employeeCode: string;
   name: string;
   gender: string;
   hospital: string;
@@ -37,7 +36,7 @@ export interface HousekeepingRecord {
 const SHIFTS = ['Morning', 'Afternoon', 'Night', 'General', 'Rotational'];
 
 const emptyData: Omit<HousekeepingRecord, 'id'> = {
-  housekeepingCode: '', employeeCode: '', name: '', gender: '',
+  housekeepingCode: '', name: '', gender: '',
   hospital: '', branch: '', assignedArea: '', mobile: '', email: '',
   address: '', joiningDate: '', shift: '', experience: '', manager: '', remarks: '',
 };
@@ -47,7 +46,6 @@ const API_BASE = import.meta.env.VITE_API_URL as string;
 const mapApiToRecord = (item: any): HousekeepingRecord => ({
   id:               item.id,
   housekeepingCode: item.housekeepingCode,
-  employeeCode:     item.employeeCode,
   name:             item.name,
   gender:           item.gender || '',
   hospital:         item.hospital || '',
@@ -105,7 +103,6 @@ export const HousekeepingMaster = () => {
 
   const validateForm = () => {
     const next: Record<string, string> = {};
-    if (!formData.employeeCode.trim()) next.employeeCode = 'Employee Code is required';
     if (!formData.name.trim()) next.name = 'Staff Name is required';
     if (!formData.assignedArea.trim()) next.assignedArea = 'Assigned Area is required';
     if (!formData.shift) next.shift = 'Shift is required';
@@ -121,14 +118,8 @@ export const HousekeepingMaster = () => {
       else if (exp > 60) next.experience = 'Experience cannot exceed 60 years';
     }
     // A future joining date would put the person on the roster before they start.
-    if (formData.joiningDate && formData.joiningDate > new Date().toISOString().slice(0, 10)) {
-      next.joiningDate = 'Joining Date cannot be in the future';
-    }
 
-    if (records.some(r => r.employeeCode.trim().toLowerCase() === formData.employeeCode.trim().toLowerCase()
-                          && r.id !== selectedRecord?.id)) {
-      next.employeeCode = 'Employee Code is already assigned';
-    }
+
     if (records.some(r => r.mobile === formData.mobile.trim() && r.id !== selectedRecord?.id)) {
       next.mobile = 'Mobile number is already registered';
     }
@@ -181,7 +172,6 @@ export const HousekeepingMaster = () => {
     setIsSaving(true);
     try {
       const payload = {
-        employeeCode: formData.employeeCode.trim(),
         name:         formData.name.trim(),
         gender:       formData.gender || null,
         hospital:     formData.hospital || null,
@@ -223,7 +213,6 @@ export const HousekeepingMaster = () => {
     const matchesSearch =
       r.name.toLowerCase().includes(q) ||
       r.housekeepingCode.toLowerCase().includes(q) ||
-      r.employeeCode.toLowerCase().includes(q) ||
       r.assignedArea.toLowerCase().includes(q) ||
       r.mobile.includes(q);
     return matchesSearch
@@ -306,7 +295,6 @@ export const HousekeepingMaster = () => {
                       <td className="px-4 py-3 text-sm font-medium text-slate-500">{row.housekeepingCode}</td>
                       <td className="px-4 py-3">
                         <div className="text-sm font-bold text-slate-900">{row.name}</div>
-                        <div className="text-xs text-slate-500">{row.employeeCode}</div>
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-600">{row.assignedArea}</td>
                       <td className="px-4 py-3 text-sm text-slate-600">{row.shift}</td>
@@ -434,14 +422,6 @@ export const HousekeepingMaster = () => {
                          placeholder="name@carefusions.in"
                          className={`${FIELD} ${errors.email ? 'border-red-300' : 'border-slate-200'}`} />
                   {errors.email && <p className="text-red-500 text-[11px] mt-0.5">{errors.email}</p>}
-                </div>
-                <div>
-                  <label className={LABEL}>Joining Date</label>
-                  <input type="date" value={formData.joiningDate}
-                         max={new Date().toISOString().slice(0, 10)}
-                         onChange={e => setFormData({ ...formData, joiningDate: e.target.value })}
-                         className={`${FIELD} ${errors.joiningDate ? 'border-red-300' : 'border-slate-200'}`} />
-                  {errors.joiningDate && <p className="text-red-500 text-[11px] mt-0.5">{errors.joiningDate}</p>}
                 </div>
                 <div>
                   <label className={LABEL}>Experience (years)</label>

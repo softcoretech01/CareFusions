@@ -1164,7 +1164,6 @@ export const DoctorMaster = () => {
               <Field label="Designation" value={selectedRecord.designation} />
               <Field label="Experience" value={selectedRecord.experience ? `${selectedRecord.experience} years` : ''} />
               <Field label="Languages" value={selectedRecord.languages} />
-              <Field label="Joining Date" value={selectedRecord.joiningDate} />
             </Section>
 
             <Section title="Schedule & Availability">

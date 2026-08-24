@@ -12,7 +12,6 @@ import { DocPreview } from '../../../components/ui/DocPreview';
 interface NurseRecord {
   id: number;
   nurseId: string;
-  employeeCode: string;
   name: string;
   gender: string;
   dob: string;
@@ -44,7 +43,6 @@ interface NurseRecord {
 
 const emptyData: Omit<NurseRecord, 'id'> = {
   nurseId: '',
-  employeeCode: '',
   name: '',
   gender: '',
   dob: '',
@@ -79,7 +77,6 @@ const API_BASE = import.meta.env.VITE_API_URL as string;
 const mapApiToRecord = (item: any): NurseRecord => ({
   id: item.id,
   nurseId: item.nurseId as string,
-  employeeCode: item.employeeCode as string,
   name: item.name as string,
   gender: item.gender as string,
   dob: item.dob ? String(item.dob) : '',
@@ -174,7 +171,7 @@ export const NurseMaster = () => {
     if (!formData.department) newErrors.department = 'Department is required';
     if (!formData.designation.trim()) newErrors.designation = 'Designation is required';
         if (!formData.mobile.trim()) newErrors.mobile = 'Mobile is required';
-    if (!formData.joiningDate) newErrors.joiningDate = 'Joining Date is required';
+
     if (!formData.shift) newErrors.shift = 'Shift is required';
 
     // Uniqueness checks
@@ -221,8 +218,8 @@ export const NurseMaster = () => {
 
     try {
       const payload = {
-        employeeCode: formData.employeeCode || formData.nurseId,
-        name: formData.name,
+        nurseId: formData.nurseId,
+        name: formData.name.trim(),
         gender: formData.gender || null,
         dob: formData.dob || null,
         qualification: formData.qualification,
@@ -603,11 +600,7 @@ export const NurseMaster = () => {
               <section>
                 <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Employment Details</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Joining Date <span className="text-red-500">*</span></label>
-                    <input type="date" value={formData.joiningDate} onChange={e => setFormData({ ...formData, joiningDate: e.target.value })} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.joiningDate ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
-                    {errors.joiningDate && <p className="text-red-500 text-xs mt-1">{errors.joiningDate}</p>}
-                  </div>
+
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Shift <span className="text-red-500">*</span></label>
                     <select value={formData.shift} onChange={e => setFormData({ ...formData, shift: e.target.value })} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.shift ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>

@@ -23,7 +23,6 @@ def _map_row(row) -> dict:
     return {
         "id":             row.ReceptionistId,
         "receptionistId": row.ReceptionistCode,
-        "employeeCode":   row.EmployeeCode,
         "name":           row.ReceptionistName,
         "hospital":       row.HospitalName,
         "branch":         row.BranchName,
@@ -50,7 +49,6 @@ def _call_sp(db: Session, opt: str, receptionist_id: int = 0, **kwargs):
     params = {
         "p_Opt":               opt,
         "p_ReceptionistId":    receptionist_id,
-        "p_EmployeeCode":      safe_value(kwargs.get("employee_code")),
         "p_ReceptionistName":  safe_value(kwargs.get("name")),
         "p_HospitalName":      safe_value(kwargs.get("hospital")),
         "p_BranchName":        safe_value(kwargs.get("branch")),
@@ -74,7 +72,7 @@ def _call_sp(db: Session, opt: str, receptionist_id: int = 0, **kwargs):
     sql = text(f"""
         CALL {SP_NAME}(
             :p_Opt, :p_ReceptionistId,
-            :p_EmployeeCode, :p_ReceptionistName,
+            :p_ReceptionistName,
             :p_HospitalName, :p_BranchName, :p_ReceptionCounter,
             :p_Mobile, :p_Email, :p_Address,
             :p_JoiningDate, :p_Shift, :p_ExperienceYears, :p_ReportingManager,
@@ -119,7 +117,6 @@ def create_receptionist(receptionist: ReceptionistCreate, db: Session = Depends(
     try:
         d = receptionist.model_dump()
         result = _call_sp(db, "INSERT",
-            employee_code=d["employeeCode"],
             name=d["name"],
             hospital=d["hospital"],
             branch=d["branch"],
@@ -156,7 +153,6 @@ def update_receptionist(receptionist_id: int, receptionist: ReceptionistUpdate, 
         d = receptionist.model_dump()
         _call_sp(db, "UPDATE",
             receptionist_id=receptionist_id,
-            employee_code=d["employeeCode"],
             name=d["name"],
             hospital=d["hospital"],
             branch=d["branch"],

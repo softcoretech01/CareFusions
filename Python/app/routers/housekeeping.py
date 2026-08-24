@@ -21,7 +21,6 @@ def _call_sp(db: Session, opt: str, **kwargs):
     params = {
         "p_Opt":              opt,
         "p_HousekeepingId":   kwargs.get("housekeeping_id"),
-        "p_EmployeeCode":     kwargs.get("employee_code"),
         "p_StaffName":        kwargs.get("staff_name"),
         "p_Gender":           kwargs.get("gender"),
         "p_HospitalName":     kwargs.get("hospital"),
@@ -44,7 +43,7 @@ def _call_sp(db: Session, opt: str, **kwargs):
     }
     sql = text(f"""
         CALL {SP_NAME}(
-            :p_Opt, :p_HousekeepingId, :p_EmployeeCode, :p_StaffName, :p_Gender,
+            :p_Opt, :p_HousekeepingId, :p_StaffName, :p_Gender,
             :p_HospitalName, :p_BranchName, :p_AssignedArea, :p_Mobile, :p_Email,
             :p_Address, :p_JoiningDate, :p_Shift, :p_ExperienceYears,
             :p_ReportingManager, :p_Photo, :p_IdProof, :p_Status, :p_Remarks,
@@ -58,7 +57,6 @@ def _map_row(row) -> dict:
     return {
         "id":               row.HousekeepingId,
         "housekeepingCode": row.HousekeepingCode,
-        "employeeCode":     row.EmployeeCode,
         "name":             row.StaffName,
         "gender":           row.Gender,
         "hospital":         row.HospitalName,
@@ -84,9 +82,6 @@ def _map_row(row) -> dict:
 
 def _raise_if_known(exc: Exception):
     msg = str(exc)
-    if "DUPLICATE_EMPLOYEE_CODE" in msg:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT,
-                            detail="Employee Code is already assigned to another housekeeping staff member")
     if "DUPLICATE_MOBILE" in msg:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT,
                             detail="Mobile number is already registered to another housekeeping staff member")
@@ -97,7 +92,6 @@ def _raise_if_known(exc: Exception):
 
 def _payload_kwargs(payload) -> dict:
     return dict(
-        employee_code=payload.employeeCode,
         staff_name=payload.name,
         gender=payload.gender.value if payload.gender else None,
         hospital=payload.hospital,
@@ -112,7 +106,7 @@ def _payload_kwargs(payload) -> dict:
         manager=payload.manager,
         photo=payload.photo,
         id_proof=payload.idProof,
-        status=payload.status.value,
+        status=payload.status.value if payload.status else "Active",
         remarks=payload.remarks,
     )
 

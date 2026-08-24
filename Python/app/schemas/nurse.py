@@ -3,9 +3,6 @@ from typing import Optional
 from datetime import date, datetime
 
 class NurseCreate(BaseModel):
-    # Master_Nurse.EmployeeCode is NOT NULL. The form does not collect it, so
-    # this is optional here and the router falls back to the generated code.
-    employeeCode:       Optional[str]       = None
     name:               str
     gender:             str
     dob:                Optional[date]      = None
@@ -44,7 +41,6 @@ class NurseResponse(BaseModel):
     # still serializes instead of raising ResponseValidationError.
     id:                 int
     nurseId:            str
-    employeeCode:       Optional[str]       = None
     name:               str
     gender:             str
     dob:                Optional[date]      = None

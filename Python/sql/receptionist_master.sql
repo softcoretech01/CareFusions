@@ -6,7 +6,6 @@
 CREATE TABLE IF NOT EXISTS Master_Receptionist (
     ReceptionistId      INT AUTO_INCREMENT PRIMARY KEY,
     ReceptionistCode    VARCHAR(20) NOT NULL UNIQUE,
-    EmployeeCode        VARCHAR(50) NOT NULL,
     ReceptionistName    VARCHAR(100) NOT NULL,
     HospitalName        VARCHAR(150),
     BranchName          VARCHAR(150),
@@ -41,7 +40,6 @@ CREATE PROCEDURE SpMasterReceptionist (
     IN p_Opt                VARCHAR(20),
     IN p_ReceptionistId     INT,
 
-    IN p_EmployeeCode       VARCHAR(50),
     IN p_ReceptionistName   VARCHAR(100),
     IN p_HospitalName       VARCHAR(150),
     IN p_BranchName         VARCHAR(150),
@@ -73,7 +71,7 @@ BEGIN
     -- ==================================================================
     IF p_Opt = 'GET' THEN
         SELECT
-            ReceptionistId, ReceptionistCode, EmployeeCode, ReceptionistName,
+            ReceptionistId, ReceptionistCode, ReceptionistName,
             HospitalName, BranchName, ReceptionCounter, Mobile, Email, Address,
             JoiningDate, Shift, ExperienceYears, ReportingManager,
             Photo, IdProof,
@@ -87,7 +85,7 @@ BEGIN
     -- ==================================================================
     ELSEIF p_Opt = 'GETBYID' THEN
         SELECT
-            ReceptionistId, ReceptionistCode, EmployeeCode, ReceptionistName,
+            ReceptionistId, ReceptionistCode, ReceptionistName,
             HospitalName, BranchName, ReceptionCounter, Mobile, Email, Address,
             JoiningDate, Shift, ExperienceYears, ReportingManager,
             Photo, IdProof,
@@ -100,7 +98,7 @@ BEGIN
     -- ==================================================================
     ELSEIF p_Opt = 'SEARCH' THEN
         SELECT
-            ReceptionistId, ReceptionistCode, EmployeeCode, ReceptionistName,
+            ReceptionistId, ReceptionistCode, ReceptionistName,
             HospitalName, BranchName, ReceptionCounter, Mobile, Email, Address,
             JoiningDate, Shift, ExperienceYears, ReportingManager,
             Photo, IdProof,
@@ -122,13 +120,13 @@ BEGIN
         SET v_ReceptionistCode = CONCAT('REC-', LPAD(v_NextId, 3, '0'));
 
         INSERT INTO Master_Receptionist (
-            ReceptionistCode, EmployeeCode, ReceptionistName,
+            ReceptionistCode, ReceptionistName,
             HospitalName, BranchName, ReceptionCounter, Mobile, Email, Address,
             JoiningDate, Shift, ExperienceYears, ReportingManager,
             Photo, IdProof,
             Status, Remarks, CreatedBy, CreatedDate, IsDeleted
         ) VALUES (
-            v_ReceptionistCode, p_EmployeeCode, p_ReceptionistName,
+            v_ReceptionistCode, p_ReceptionistName,
             p_HospitalName, p_BranchName, p_ReceptionCounter, p_Mobile, p_Email, p_Address,
             p_JoiningDate, p_Shift, p_ExperienceYears, p_ReportingManager,
             p_Photo, p_IdProof,
@@ -143,7 +141,6 @@ BEGIN
     ELSEIF p_Opt = 'UPDATE' THEN
         UPDATE Master_Receptionist
         SET
-            EmployeeCode        = p_EmployeeCode,
             ReceptionistName    = p_ReceptionistName,
             HospitalName        = p_HospitalName,
             BranchName          = p_BranchName,

@@ -6,7 +6,6 @@
 CREATE TABLE IF NOT EXISTS Master_Nurse (
     NurseId             INT AUTO_INCREMENT PRIMARY KEY,
     NurseCode           VARCHAR(20) NOT NULL UNIQUE,
-    EmployeeCode        VARCHAR(50) NOT NULL,
     NurseName           VARCHAR(100) NOT NULL,
     Gender              VARCHAR(20),
     DateOfBirth         DATE,
@@ -58,7 +57,6 @@ CREATE PROCEDURE SpMasterNurse (
     IN p_Opt                VARCHAR(20),
     IN p_NurseId            INT,
     
-    IN p_EmployeeCode       VARCHAR(50),
     IN p_NurseName          VARCHAR(100),
     IN p_Gender             VARCHAR(20),
     IN p_DateOfBirth        DATE,
@@ -104,7 +102,7 @@ BEGIN
     -- ==================================================================
     IF p_Opt = 'GET' THEN
         SELECT 
-            NurseId, NurseCode, EmployeeCode, NurseName, Gender, DateOfBirth, Qualification,
+            NurseId, NurseCode, NurseName, Gender, DateOfBirth, Qualification,
             RegistrationNumber, DepartmentName, Designation, HospitalName, BranchName,
             Mobile, AlternateMobile, Email, Address, City, State, Country, PostalCode,
             JoiningDate, Shift, ReportingManager, EmploymentType, ExperienceYears,
@@ -119,7 +117,7 @@ BEGIN
     -- ==================================================================
     ELSEIF p_Opt = 'GETBYID' THEN
         SELECT 
-            NurseId, NurseCode, EmployeeCode, NurseName, Gender, DateOfBirth, Qualification,
+            NurseId, NurseCode, NurseName, Gender, DateOfBirth, Qualification,
             RegistrationNumber, DepartmentName, Designation, HospitalName, BranchName,
             Mobile, AlternateMobile, Email, Address, City, State, Country, PostalCode,
             JoiningDate, Shift, ReportingManager, EmploymentType, ExperienceYears,
@@ -133,7 +131,7 @@ BEGIN
     -- ==================================================================
     ELSEIF p_Opt = 'SEARCH' THEN
         SELECT 
-            NurseId, NurseCode, EmployeeCode, NurseName, Gender, DateOfBirth, Qualification,
+            NurseId, NurseCode, NurseName, Gender, DateOfBirth, Qualification,
             RegistrationNumber, DepartmentName, Designation, HospitalName, BranchName,
             Mobile, AlternateMobile, Email, Address, City, State, Country, PostalCode,
             JoiningDate, Shift, ReportingManager, EmploymentType, ExperienceYears,
@@ -153,14 +151,14 @@ BEGIN
         SET v_NurseCode = CONCAT('NUR-', LPAD(v_NextId, 3, '0'));
 
         INSERT INTO Master_Nurse (
-            NurseCode, EmployeeCode, NurseName, Gender, DateOfBirth, Qualification,
+            NurseCode, NurseName, Gender, DateOfBirth, Qualification,
             RegistrationNumber, DepartmentName, Designation, HospitalName, BranchName,
             Mobile, AlternateMobile, Email, Address, City, State, Country, PostalCode,
             JoiningDate, Shift, ReportingManager, EmploymentType, ExperienceYears,
             ProfilePhoto, NursingLicense, QualificationCertificate, IdProof,
             Status, Remarks, CreatedDate, CreatedBy, IsDeleted
         ) VALUES (
-            v_NurseCode, p_EmployeeCode, p_NurseName, p_Gender, p_DateOfBirth, p_Qualification,
+            v_NurseCode, p_NurseName, p_Gender, p_DateOfBirth, p_Qualification,
             p_RegistrationNumber, p_DepartmentName, p_Designation, p_HospitalName, p_BranchName,
             p_Mobile, p_AlternateMobile, p_Email, p_Address, p_City, p_State, p_Country, p_PostalCode,
             p_JoiningDate, p_Shift, p_ReportingManager, p_EmploymentType, p_ExperienceYears,
@@ -177,7 +175,6 @@ BEGIN
     ELSEIF p_Opt = 'UPDATE' THEN
         UPDATE Master_Nurse
         SET 
-            EmployeeCode       = p_EmployeeCode,
             NurseName          = p_NurseName,
             Gender             = p_Gender,
             DateOfBirth        = p_DateOfBirth,

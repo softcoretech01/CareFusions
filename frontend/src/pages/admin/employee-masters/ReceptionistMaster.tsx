@@ -11,7 +11,6 @@ import { exportToExcel } from '../../../utils/exportToExcel';
 interface ReceptionistRecord {
   id: number;
   receptionistId: string;
-  employeeCode: string;
   name: string;
   hospital: string;
   branch: string;
@@ -32,7 +31,6 @@ interface ReceptionistRecord {
 
 const emptyData: Omit<ReceptionistRecord, 'id'> = {
   receptionistId: '',
-  employeeCode: '',
   name: '',
   hospital: '',
   branch: '',
@@ -52,7 +50,6 @@ const API_BASE = import.meta.env.VITE_API_URL as string;
 const mapApiToRecord = (item: any): ReceptionistRecord => ({
   id:             item.id,
   receptionistId: item.receptionistId as string,
-  employeeCode:   item.employeeCode as string,
   name:           item.name as string,
   hospital:       item.hospital as string || '',
   branch:         item.branch as string || '',
@@ -156,8 +153,8 @@ export const ReceptionistMaster = () => {
     setIsSaving(true);
     try {
       const payload = {
-        employeeCode: formData.employeeCode || formData.receptionistId,
-        name:         formData.name,
+        receptionistId: formData.receptionistId,
+        name:         formData.name.trim(),
         hospital:     formData.hospital || null,
         branch:       formData.branch || null,
         counter:      formData.counter,
@@ -459,11 +456,7 @@ export const ReceptionistMaster = () => {
               {/* Employment Details */}
               <section>
                 <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Employment Details</h3>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Joining Date</label>
-                    <input type="date" value={formData.joiningDate} onChange={e => setFormData({...formData, joiningDate: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
-                  </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Shift <span className="text-red-500">*</span></label>
                     <select value={formData.shift} onChange={e => setFormData({...formData, shift: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.shift ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
