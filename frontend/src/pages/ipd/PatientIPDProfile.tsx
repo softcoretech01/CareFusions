@@ -75,7 +75,14 @@ export const PatientIPDProfile = () => {
     requestDischarge(patient.id, dischargeInfo);
     toast.success('Discharge information saved. Patient moved to Discharge list.');
     
-    if (patient.insuranceRequired === 'Yes') {
+    // IPDPatient records an `insuranceStatus` ('Self Pay' | 'Covered' |
+    // 'Pending Approval'), set on the admission form. The check used to read
+    // `insuranceRequired`, which does not exist on this type — so it was always
+    // undefined and no insured discharge ever reached the claims screen.
+    const isInsured = patient.insuranceStatus === 'Covered'
+      || patient.insuranceStatus === 'Pending Approval';
+
+    if (isInsured) {
       navigate('/insurance/claims', { state: { uhid: patient.uhid } });
     } else {
       navigate('/ipd/discharges');

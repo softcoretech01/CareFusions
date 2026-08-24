@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Search, Download, Edit2, Trash2, AlertTriangle, X, Power, Save } from 'lucide-react';
+import { Plus, Search, Download, Edit2, Trash2, AlertTriangle, X, Save } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
@@ -114,19 +114,6 @@ export const DoctorSpecializationMaster = () => {
     setErrors({});
     setIsFormOpen(true);
   };
-
-  const handleToggleStatus = async (record: DoctorSpecializationRecord) => {
-    setApiError(null);
-    try {
-      const res = await fetch(`${API_BASE}/doctor-specializations/${record.id}/toggle-status`,
-                              { method: 'PATCH' });
-      if (!res.ok) throw new Error((await res.json()).detail || 'Failed to change status');
-      await fetchSpecializations();
-    } catch (err: any) {
-      setApiError(err.message);
-    }
-  };
-
   const handleDeleteRequest = (record: DoctorSpecializationRecord) => {
     setSelectedRecord(record);
     setIsDeleteOpen(true);

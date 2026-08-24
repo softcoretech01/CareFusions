@@ -808,7 +808,16 @@ export const Discharges = () => {
       )}
 
       {printPatient && (
-        <DischargePrintTemplate patient={printPatient} />
+        // The discharge details live on the patient's dischargeInfo record. They
+        // used to be omitted entirely, so the template received medicines ===
+        // undefined and threw on `medicines.length` the moment Print was clicked.
+        <DischargePrintTemplate
+          patient={printPatient}
+          medicines={printPatient.dischargeInfo?.medicines ?? []}
+          dischargeSummary={printPatient.dischargeInfo?.dischargeSummary ?? ''}
+          dischargeDate={printPatient.dischargeInfo?.dischargeDate ?? ''}
+          dischargedBy={printPatient.dischargeInfo?.dischargedBy ?? ''}
+        />
       )}
     </div>
   );

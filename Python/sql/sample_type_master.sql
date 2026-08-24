@@ -5,19 +5,108 @@
 -- 1. Alter existing Master_SampleType Table
 -- Adding new columns (The table was created with SampleTypeId and SampleTypeName previously)
 
-ALTER TABLE Master_SampleType
-ADD COLUMN SampleCode VARCHAR(50) UNIQUE AFTER SampleTypeId,
-ADD COLUMN Description VARCHAR(500) AFTER SampleTypeName,
-ADD COLUMN CollectionMethod VARCHAR(100) AFTER Description,
-ADD COLUMN StorageTemperature VARCHAR(50) AFTER CollectionMethod,
-ADD COLUMN MaxStorageTime VARCHAR(50) AFTER StorageTemperature,
-ADD COLUMN Status VARCHAR(20) DEFAULT 'Active',
-ADD COLUMN Remarks TEXT,
-ADD COLUMN CreatedBy VARCHAR(100),
-ADD COLUMN CreatedDate DATETIME DEFAULT CURRENT_TIMESTAMP,
-ADD COLUMN ModifiedBy VARCHAR(100),
-ADD COLUMN ModifiedDate DATETIME,
-ADD COLUMN IsDeleted TINYINT(1) DEFAULT 0;
+-- Idempotent: a bare `ALTER TABLE ... ADD COLUMN` runs once and then fails with
+-- "Duplicate column name" on every subsequent `python init_db.py`, which aborted
+-- the whole deployment part-way through. Each column is added only if missing,
+-- using the same conditional-procedure pattern as lab.sql.
+DROP PROCEDURE IF EXISTS SpTmpUpgradeSampleType;
+DELIMITER $$
+CREATE PROCEDURE SpTmpUpgradeSampleType()
+BEGIN
+    DECLARE v_schema VARCHAR(64);
+    SET v_schema = DATABASE();
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS
+                   WHERE TABLE_SCHEMA = v_schema AND TABLE_NAME = 'Master_SampleType'
+                     AND COLUMN_NAME = 'SampleCode') THEN
+        ALTER TABLE Master_SampleType ADD COLUMN SampleCode VARCHAR(50) AFTER SampleTypeId;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS
+                   WHERE TABLE_SCHEMA = v_schema AND TABLE_NAME = 'Master_SampleType'
+                     AND COLUMN_NAME = 'Description') THEN
+        ALTER TABLE Master_SampleType ADD COLUMN Description VARCHAR(500) AFTER SampleTypeName;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS
+                   WHERE TABLE_SCHEMA = v_schema AND TABLE_NAME = 'Master_SampleType'
+                     AND COLUMN_NAME = 'CollectionMethod') THEN
+        ALTER TABLE Master_SampleType ADD COLUMN CollectionMethod VARCHAR(100) AFTER Description;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS
+                   WHERE TABLE_SCHEMA = v_schema AND TABLE_NAME = 'Master_SampleType'
+                     AND COLUMN_NAME = 'StorageTemperature') THEN
+        ALTER TABLE Master_SampleType ADD COLUMN StorageTemperature VARCHAR(50) AFTER CollectionMethod;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS
+                   WHERE TABLE_SCHEMA = v_schema AND TABLE_NAME = 'Master_SampleType'
+                     AND COLUMN_NAME = 'MaxStorageTime') THEN
+        ALTER TABLE Master_SampleType ADD COLUMN MaxStorageTime VARCHAR(50) AFTER StorageTemperature;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS
+                   WHERE TABLE_SCHEMA = v_schema AND TABLE_NAME = 'Master_SampleType'
+                     AND COLUMN_NAME = 'Status') THEN
+        ALTER TABLE Master_SampleType ADD COLUMN Status VARCHAR(20) DEFAULT 'Active';
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS
+                   WHERE TABLE_SCHEMA = v_schema AND TABLE_NAME = 'Master_SampleType'
+                     AND COLUMN_NAME = 'Remarks') THEN
+        ALTER TABLE Master_SampleType ADD COLUMN Remarks TEXT;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS
+                   WHERE TABLE_SCHEMA = v_schema AND TABLE_NAME = 'Master_SampleType'
+                     AND COLUMN_NAME = 'CreatedBy') THEN
+        ALTER TABLE Master_SampleType ADD COLUMN CreatedBy VARCHAR(100);
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS
+                   WHERE TABLE_SCHEMA = v_schema AND TABLE_NAME = 'Master_SampleType'
+                     AND COLUMN_NAME = 'CreatedDate') THEN
+        ALTER TABLE Master_SampleType ADD COLUMN CreatedDate DATETIME DEFAULT CURRENT_TIMESTAMP;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS
+                   WHERE TABLE_SCHEMA = v_schema AND TABLE_NAME = 'Master_SampleType'
+                     AND COLUMN_NAME = 'ModifiedBy') THEN
+        ALTER TABLE Master_SampleType ADD COLUMN ModifiedBy VARCHAR(100);
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS
+                   WHERE TABLE_SCHEMA = v_schema AND TABLE_NAME = 'Master_SampleType'
+                     AND COLUMN_NAME = 'ModifiedDate') THEN
+        ALTER TABLE Master_SampleType ADD COLUMN ModifiedDate DATETIME;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS
+                   WHERE TABLE_SCHEMA = v_schema AND TABLE_NAME = 'Master_SampleType'
+                     AND COLUMN_NAME = 'IsDeleted') THEN
+        ALTER TABLE Master_SampleType ADD COLUMN IsDeleted TINYINT(1) DEFAULT 0;
+    END IF;
+
+    -- SampleCode was declared UNIQUE inline above. Inline UNIQUE on ADD COLUMN
+    -- is skipped when the column already exists, and this master hit the same
+    -- "declared but never applied" drift as Master_Medicine / Master_LabTest,
+    -- so the index is added explicitly and only when missing.
+    IF NOT EXISTS (SELECT 1 FROM information_schema.STATISTICS
+                   WHERE TABLE_SCHEMA = v_schema AND TABLE_NAME = 'Master_SampleType'
+                     AND INDEX_NAME = 'UQ_Master_SampleType_Code') THEN
+        -- Backfill first: a UNIQUE index over multiple NULLs is fine in MySQL,
+        -- but duplicates from earlier partial runs are not.
+        UPDATE Master_SampleType
+           SET SampleCode = CONCAT('SMP-', LPAD(SampleTypeId, 3, '0'))
+         WHERE SampleCode IS NULL OR SampleCode = '';
+        ALTER TABLE Master_SampleType
+            ADD CONSTRAINT UQ_Master_SampleType_Code UNIQUE (SampleCode);
+    END IF;
+END$$
+DELIMITER ;
+CALL SpTmpUpgradeSampleType();
+DROP PROCEDURE IF EXISTS SpTmpUpgradeSampleType;
 
 -- 2. Backfill existing seed data with SampleCode (SMP-001, SMP-002, etc.)
 UPDATE Master_SampleType

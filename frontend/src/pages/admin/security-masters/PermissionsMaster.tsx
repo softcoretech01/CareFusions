@@ -13,11 +13,21 @@ import { exportToExcel } from '../../../utils/exportToExcel';
 const API_BASE = import.meta.env.VITE_API_URL as string;
 
 // Module catalog — must match the Module keys gated in the sidebar/routes.
+// Two groups, deliberately kept in one list.
+//  - Master modules gate the /admin master screens (see utils/moduleMap.ts).
+//  - Portal modules gate the operational portals. They were missing entirely,
+//    so there was no way to grant or revoke a role's access to Registration,
+//    OPD, IPD, EMR, Procurement, Inventory or the Executive dashboards — the
+//    layouts now read these names via <ModuleOutlet module="..." />.
 const MODULES = [
+  // Master / admin modules
   'Dashboard', 'Organization', 'Doctor', 'Employee', 'Patient',
   'Appointment', 'Pharmacy', 'Laboratory', 'Radiology', 'Billing', 'Insurance',
   'Purchase & Inventory', 'Financial', 'Security', 'Notification', 'AI Config',
-  'Audit Trail', 'Appointments',
+  'Audit Trail',
+  // Operational portals
+  'Appointments', 'Registration', 'OPD', 'IPD', 'EMR',
+  'Procurement', 'Inventory', 'Executive',
 ];
 
 interface PermissionRecord {

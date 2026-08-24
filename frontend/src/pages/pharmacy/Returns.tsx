@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, RotateCcw, FileText, CheckCircle2, AlertCircle, X } from 'lucide-react';
+import { Search, RotateCcw, CheckCircle2, X } from 'lucide-react';
 import { usePharmacyBilling } from '../../contexts/PharmacyBillingContext';
 import type { Bill } from '../../contexts/PharmacyBillingContext';
 import { DateFilter } from '../../components/ui/DateFilter';

@@ -348,6 +348,13 @@ def create_sale(payload: SaleCreate, db: Session = Depends(get_db)):
         msg = str(getattr(e, "orig", e))
         if "Insufficient stock" in msg:
             raise HTTPException(status_code=409, detail="Insufficient stock for one or more items")
+        # The counter dispenses through SpInvDocument('ISSUE'), so an expired
+        # batch is refused by the same guard the stores use.
+        if "EXPIRED_STOCK" in msg:
+            raise HTTPException(
+                status_code=409,
+                detail="One or more selected batches are past their expiry date and cannot be dispensed.",
+            )
         logger.error(f"[POST /pharmacy/sales] {e}")
         raise HTTPException(status_code=500, detail="Failed to create sale")
 

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, DollarSign, Stethoscope, Settings, ShoppingCart, Package, Users, TrendingUp, Calendar, FileText, Building2, User, Menu } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppDispatch } from '../hooks/redux';
 import { logout } from '../redux/slices/authSlice';
+import { useAuthRedirect, ModuleOutlet } from '../components/auth/ModuleGuard';
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
 
@@ -23,6 +24,7 @@ const executiveNav = [
 ];
 
 export const ExecutiveLayout = () => {
+  const authRedirect = useAuthRedirect();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
@@ -48,6 +50,8 @@ export const ExecutiveLayout = () => {
     dispatch(logout());
     navigate('/login');
   };
+
+  if (authRedirect) return authRedirect;
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans text-slate-800 overflow-hidden">
@@ -169,7 +173,7 @@ export const ExecutiveLayout = () => {
         {/* Dynamic Page Content */}
         <main className="flex-1 overflow-auto bg-slate-50 p-4 lg:p-8 scroll-smooth">
           <div className="max-w-7xl mx-auto space-y-6">
-            <Outlet />
+            <ModuleOutlet module="Executive" />
           </div>
         </main>
       </div>

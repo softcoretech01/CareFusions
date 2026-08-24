@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { DateFilter } from '@/components/ui/DateFilter';
 import { Pagination } from '@/components/ui/Pagination';
 import { usePagination } from '@/hooks/usePagination';
-import { Search, Plus, FileText, CheckCircle, Clock, Ban, X, AlertCircle, Edit, Trash2, IndianRupee, UploadCloud, Eye, FlaskConical } from "lucide-react";
+import { Search, Plus, FileText, CheckCircle, Clock, Ban, X, AlertCircle, Edit, Trash2, IndianRupee, UploadCloud, FlaskConical } from "lucide-react";
 import toast from 'react-hot-toast';
 import { useInsurance } from '../../contexts/InsuranceContext';
 import { useIPD } from '../../contexts/IPDContext';

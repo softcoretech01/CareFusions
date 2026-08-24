@@ -17,7 +17,6 @@ export const EligibilityVerification = () => {
   const { patients } = usePatients();
 
   const [search, setSearch] = useState('');
-  const [appliedSearch, setAppliedSearch] = useState('');
 
   const [selected, setSelected] = useState<Policy | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -32,18 +31,13 @@ export const EligibilityVerification = () => {
     copayPercentage: '10', deductible: '0',
   });
 
-  const handleSearch = () => {
-    setAppliedSearch(search);
-  };
-
-  const handleReset = () => {
-    setSearch('');
-    setAppliedSearch('');
-  };
-
-  // Table filter — matches name, UHID or policy number
+  // Table filter — matches name, UHID or policy number.
+  // This filtered on a separate `appliedSearch` that only an unwired handleSearch()
+  // ever set, so it stayed '' forever: typing in the "Search Policy..." box updated
+  // nothing and the table always showed every policy. There is no Search button on
+  // this screen, so it filters live off the input like the other list screens do.
   const filtered = policies.filter(p => {
-    const s = appliedSearch.trim().toLowerCase();
+    const s = search.trim().toLowerCase();
     const matchesSearch = !s || p.patientName.toLowerCase().includes(s)
       || p.uhid.toLowerCase().includes(s)
       || p.policyNumber.toLowerCase().includes(s);
@@ -75,7 +69,10 @@ export const EligibilityVerification = () => {
       name,
       providerId: autoProviderId || prev.providerId,
       policyNumber: patient?.policyNumber || prev.policyNumber,
-      validTill: patient?.validTill ? patient.validTill.split('T')[0] : prev.validTill
+      // The registration record calls this ValidTill; the policy form field is
+      // validUntil. Writing `validTill` here just added a stray key to the form
+      // state, so the policy expiry date silently never auto-filled.
+      validUntil: patient?.validTill ? patient.validTill.split('T')[0] : prev.validUntil
     }));
     setErrors(prev => ({ ...prev, uhid: '', name: '' }));
     setUhidOpen(false);
@@ -401,7 +398,7 @@ export const EligibilityVerification = () => {
                     disabled={!!form.policyId}
                     placeholder="Search UHID or Name"
                     className={inputCls('uhid')}
-                    maxLength={LIMITS.UHID}
+                    maxLength={LIMITS.code}
                   />
                   {errors.uhid && <span className="text-xs text-red-500 mt-1">{errors.uhid}</span>}
                   
@@ -411,7 +408,7 @@ export const EligibilityVerification = () => {
                         <div
                           key={p.uhid}
                           className="px-3 py-2 hover:bg-slate-50 cursor-pointer border-b border-slate-50 last:border-0"
-                          onClick={() => selectPatient(p.uhid, p.patientName)}
+                          onClick={() => selectPatient(p.uhid, p.patientName ?? '')}
                         >
                           <div className="font-bold text-sm text-slate-800">{p.patientName}</div>
                           <div className="text-xs text-slate-500">{p.uhid}</div>
@@ -476,7 +473,7 @@ export const EligibilityVerification = () => {
                       setErrors({ ...errors, policyNumber: '' });
                     }}
                     className={inputCls('policyNumber')}
-                    maxLength={LIMITS.POLICY_NO}
+                    maxLength={LIMITS.policy}
                   />
                   {errors.policyNumber && <span className="text-xs text-red-500 mt-1">{errors.policyNumber}</span>}
                 </div>
@@ -506,7 +503,7 @@ export const EligibilityVerification = () => {
                       setErrors({ ...errors, sumInsured: '' });
                     }}
                     className={inputCls('sumInsured')}
-                    maxLength={LIMITS.AMOUNT}
+                    maxLength={LIMITS.amount}
                   />
                   {errors.sumInsured && <span className="text-xs text-red-500 mt-1">{errors.sumInsured}</span>}
                 </div>
@@ -539,7 +536,7 @@ export const EligibilityVerification = () => {
                     value={form.deductible}
                     onChange={(e) => setForm({ ...form, deductible: decimalOnly(e.target.value) })}
                     className={inputCls('deductible')}
-                    maxLength={LIMITS.AMOUNT}
+                    maxLength={LIMITS.amount}
                   />
                   <p className="text-xs text-slate-500 mt-1">Amount the patient must pay before insurance applies.</p>
                 </div>

@@ -301,6 +301,14 @@ def create_document(payload: DocumentCreate, db: Session = Depends(get_db)):
     except Exception as e:
         db.rollback()
         msg = str(getattr(e, "orig", e))
+        # SpInvStockPost refuses an expired batch on ISSUE / TRANSFER_OUT. Report
+        # it as a business conflict with the procedure's own message, not a 500.
+        if "EXPIRED_STOCK" in msg:
+            raise HTTPException(
+                status_code=409,
+                detail="That batch is past its expiry date and cannot be issued or "
+                       "transferred. Write it off instead.",
+            )
         for signal in ("Insufficient stock in the selected lot",
                        "No stock lot for this item, store and batch",
                        "Movement quantity cannot be zero",

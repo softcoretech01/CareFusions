@@ -139,6 +139,27 @@ BEGIN
             DECLARE v_Number   VARCHAR(20);
             DECLARE v_TokSeq   INT DEFAULT 1;
             DECLARE v_Token    VARCHAR(20);
+            DECLARE v_Clash    INT DEFAULT 0;
+
+            -- Refuse to put two patients in one doctor's slot. There was no
+            -- check at all: the same doctor, date and time slot could be booked
+            -- any number of times and both patients were told they had it.
+            -- Cancelled and deleted rows release the slot, as they should.
+            IF p_Doctor IS NOT NULL AND p_AppointmentDate IS NOT NULL
+               AND p_TimeSlot IS NOT NULL AND TRIM(p_TimeSlot) <> '' THEN
+                SELECT COUNT(*) INTO v_Clash
+                FROM Trn_Appointment
+                WHERE Doctor          = p_Doctor COLLATE utf8mb4_general_ci
+                  AND AppointmentDate = p_AppointmentDate
+                  AND TimeSlot        = p_TimeSlot COLLATE utf8mb4_general_ci
+                  AND IsDeleted = 0
+                  AND COALESCE(Status, '') <> 'Cancelled';
+
+                IF v_Clash > 0 THEN
+                    SIGNAL SQLSTATE '45000'
+                        SET MESSAGE_TEXT = 'SLOT_ALREADY_BOOKED';
+                END IF;
+            END IF;
 
             -- Appointment number: APT-YYYYMM + monthly sequence
             SET v_MonStr = DATE_FORMAT(NOW(), '%Y%m');
@@ -162,10 +183,17 @@ BEGIN
                 WHEN 'Gynecology'       THEN 'GYN'
                 ELSE UPPER(LEFT(COALESCE(p_Department, 'GEN'), 3))
             END;
+            -- Scoped to the appointment's own DAY. Without the date filter the
+            -- sequence never restarted: the first patient of a new day inherited
+            -- the running total (GEN-003, GEN-004, ... forever), which is not
+            -- what a waiting-room token means. The appointment NUMBER above is
+            -- deliberately different — that one is a monthly running sequence.
             SELECT COALESCE(MAX(CAST(SUBSTRING_INDEX(QueueToken, '-', -1) AS UNSIGNED)), 0) + 1
               INTO v_TokSeq
               FROM Trn_Appointment
-             WHERE QueueToken LIKE CONCAT(v_Prefix, '-%') AND IsDeleted = 0;
+             WHERE QueueToken LIKE CONCAT(v_Prefix, '-%')
+               AND AppointmentDate = p_AppointmentDate
+               AND IsDeleted = 0;
             SET v_Token = CONCAT(v_Prefix, '-', LPAD(v_TokSeq, 3, '0'));
 
             INSERT INTO Trn_Appointment (

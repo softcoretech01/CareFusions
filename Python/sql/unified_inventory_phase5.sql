@@ -63,7 +63,7 @@ ALTER TABLE inventory.Inventory_Stock
 ALTER TABLE inventory.Inventory_Stock
     ADD CONSTRAINT UQ_Inventory_Stock_Lot UNIQUE (ItemType, ItemId, StoreId, BatchNo);
 
-CREATE INDEX IDX_Inventory_Ledger_Type_Item ON inventory.Inventory_StockLedger (ItemType, ItemId);
+CREATE INDEX IF NOT EXISTS IDX_Inventory_Ledger_Type_Item ON inventory.Inventory_StockLedger (ItemType, ItemId);
 
 -- ── 5. One catalog shape over the two owning masters ────────────
 -- Everything that has to treat medicines and items alike (the stock queries,

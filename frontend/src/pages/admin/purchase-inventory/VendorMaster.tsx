@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, type KeyboardEvent } from 'react';
 import {
   Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle,
-  Save, ChevronLeft, ChevronRight, Eye, Power, X
+  Save, ChevronLeft, ChevronRight, Eye, X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
@@ -179,18 +179,6 @@ export const VendorMaster = () => {
     setSelectedRecord(record);
     setIsViewOpen(true);
   };
-
-  const handleToggleStatus = async (record: VendorRecord) => {
-    setApiError(null);
-    try {
-      const res = await fetch(`${API_BASE}/vendors/${record.id}/toggle-status`, { method: 'PATCH' });
-      if (!res.ok) throw new Error(`Toggle failed: ${res.status}`);
-      await fetchVendors();
-    } catch (err: unknown) {
-      setApiError(err instanceof Error ? err.message : 'Toggle failed');
-    }
-  };
-
   const handleDelete = (record: VendorRecord) => {
     setSelectedRecord(record);
     setIsDeleteOpen(true);

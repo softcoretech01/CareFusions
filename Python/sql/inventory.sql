@@ -259,6 +259,7 @@ BEGIN
     DECLARE v_itemName VARCHAR(200);
     DECLARE v_storeName VARCHAR(150);
     DECLARE v_type VARCHAR(20);
+    DECLARE v_lotExpiry DATE DEFAULT NULL;
 
     SET v_batch = COALESCE(NULLIF(TRIM(p_BatchNo), ''), '-');
     SET v_type  = COALESCE(NULLIF(TRIM(p_ItemType), ''), 'MEDICAL_ITEM');
@@ -295,8 +296,8 @@ BEGIN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Movement quantity cannot be zero';
     END IF;
 
-    SELECT COUNT(*), COALESCE(MAX(Quantity), 0), COALESCE(MAX(ValuationRate), 0)
-      INTO v_exists, v_oldQty, v_oldRate
+    SELECT COUNT(*), COALESCE(MAX(Quantity), 0), COALESCE(MAX(ValuationRate), 0), MAX(ExpiryDate)
+      INTO v_exists, v_oldQty, v_oldRate, v_lotExpiry
     FROM inventory.Inventory_Stock
     WHERE ItemType = v_type AND ItemId = p_ItemId AND StoreId = p_StoreId AND BatchNo = v_batch;
 
@@ -330,6 +331,22 @@ BEGIN
         END IF;
         IF v_oldQty + p_Qty < 0 THEN
             SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Insufficient stock in the selected lot';
+        END IF;
+
+        -- Expired stock must not leave the store for clinical use. Only the
+        -- picker endpoint filtered expired lots, so this was enforced nowhere
+        -- that mattered: a direct API call, or a lot that expired between the
+        -- picker loading and the sale posting, went straight out. The pharmacy
+        -- counter posts through SpInvDocument('ISSUE'), so this covers dispensing
+        -- as well as departmental issues.
+        --
+        -- WRITEOFF and ADJUSTMENT are deliberately still allowed: writing expired
+        -- stock off is exactly how it should leave, and blocking that would trap
+        -- it on the books forever.
+        IF p_MovementType IN ('ISSUE', 'TRANSFER_OUT')
+           AND v_lotExpiry IS NOT NULL AND v_lotExpiry < CURDATE() THEN
+            SIGNAL SQLSTATE '45000'
+                SET MESSAGE_TEXT = 'EXPIRED_STOCK: this batch is past its expiry date and cannot be issued or dispensed. Write it off instead.';
         END IF;
         SET v_newQty = v_oldQty + p_Qty;
         SET v_newRate = v_oldRate;      -- issuing does not change the average cost

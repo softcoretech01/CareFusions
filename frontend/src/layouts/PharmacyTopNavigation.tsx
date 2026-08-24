@@ -3,10 +3,21 @@ import { Search, CalendarDays } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { LiveClock } from '../components/ui/LiveClock';
+import { useAppDispatch } from '../hooks/redux';
+import { logout } from '../redux/slices/authSlice';
 
 export const PharmacyTopNavigation = () => {
+  const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+
+  // Sign out must clear the session, not just navigate. A bare redirect left
+  // isAuthenticated=true in the store and in storage, so the back button (or
+  // simply typing a module URL) walked straight back into the app.
+  const handleLogout = () => {
+    dispatch(logout());
+    navigate('/login', { replace: true });
+  };
 
   return (
     <header className="h-20 bg-white border-b border-slate-100 flex items-center justify-between px-8 sticky top-0 z-10 shadow-sm">
@@ -39,7 +50,7 @@ export const PharmacyTopNavigation = () => {
 
         <div 
           className="flex items-center gap-3 cursor-pointer p-1.5 rounded-xl hover:bg-hover transition-colors"
-          onClick={() => navigate('/login')}
+          onClick={handleLogout}
           title="Sign Out"
         >
           <div className="text-right hidden md:block mr-2">

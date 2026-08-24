@@ -70,7 +70,8 @@ CREATE PROCEDURE registration.SpQuickRegistration(
 )
 BEGIN
     IF p_Opt = 'SELECT_ALL' THEN
-        SELECT * FROM registration.QuickRegistration ORDER BY QuickRegistrationId DESC;
+        -- Merged duplicates are soft deleted; keep them out of the directory.
+        SELECT * FROM registration.QuickRegistration WHERE COALESCE(IsDeleted, 0) = 0 ORDER BY QuickRegistrationId DESC;
 
     ELSEIF p_Opt = 'SELECT_BY_ID' THEN
         SELECT * FROM registration.QuickRegistration WHERE QuickRegistrationId = p_QuickRegistrationId;

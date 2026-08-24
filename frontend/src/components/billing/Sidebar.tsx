@@ -1,4 +1,6 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useAppDispatch } from '../../hooks/redux';
+import { logout } from '../../redux/slices/authSlice';
 import { 
   LayoutDashboard,
   FileText,
@@ -15,7 +17,17 @@ const MENU_ITEMS = [
 ];
 
 export const Sidebar = () => {
+  const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const location = useLocation();
+
+  // Sign out must clear the session, not just navigate. A bare redirect left
+  // isAuthenticated=true in the store and in storage, so the back button (or
+  // simply typing a module URL) walked straight back into the app.
+  const handleLogout = () => {
+    dispatch(logout());
+    navigate('/login', { replace: true });
+  };
 
   return (
     <aside className="w-64 h-screen bg-sidebar text-white/90 flex flex-col sticky top-0 overflow-hidden shadow-xl shadow-black/10 z-20">
@@ -67,7 +79,7 @@ export const Sidebar = () => {
       
       <div className="p-4 border-t border-white/5 bg-sidebar">
         <button
-          onClick={() => { window.location.href = '/login'; }}
+          onClick={handleLogout}
           className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold text-white bg-white/10 hover:bg-danger hover:text-white transition-colors group"
         >
           <LogOut className="w-4 h-4 group-hover:scale-110 transition-transform" />

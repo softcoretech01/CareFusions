@@ -153,6 +153,14 @@ def create_appointment(payload: AppointmentCreate, db: Session = Depends(get_db)
         raise
     except Exception as e:
         db.rollback()
+        # SpAppointment refuses a slot that is already taken. That is a caller
+        # error, not a server fault, so it must not surface as a 500 the UI
+        # reports as "something went wrong".
+        if "SLOT_ALREADY_BOOKED" in str(e):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="That doctor already has an appointment in this time slot. Pick another slot.",
+            )
         logger.error(f"[POST /appointments] Error: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create appointment")
 

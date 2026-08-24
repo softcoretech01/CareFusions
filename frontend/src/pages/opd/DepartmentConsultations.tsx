@@ -12,9 +12,7 @@ export const DepartmentConsultations = () => {
   const { orders: globalOrders } = useInvestigations();
   const navigate = useNavigate();
 
-  const todayDate = new Date();
-  const firstDay = new Date(todayDate.getFullYear(), todayDate.getMonth(), 1);
-  const formatYYYYMMDD = (d: Date) => {
+  const todayDate = new Date();  const formatYYYYMMDD = (d: Date) => {
     const yyyy = d.getFullYear();
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const dd = String(d.getDate()).padStart(2, '0');
@@ -22,8 +20,6 @@ export const DepartmentConsultations = () => {
   };
 
   const todayStr = formatYYYYMMDD(todayDate);
-  const firstDayStr = formatYYYYMMDD(firstDay);
-
   const [dateFrom, setDateFrom] = useState(todayStr);
   const [dateTo, setDateTo] = useState(todayStr);
 

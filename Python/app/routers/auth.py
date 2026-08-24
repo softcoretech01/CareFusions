@@ -1,5 +1,4 @@
 import logging
-import secrets
 from pydantic import BaseModel
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -7,6 +6,7 @@ from sqlalchemy import text
 
 from app.database import get_db
 from app.core.security import verify_password
+from app.core.tokens import issue_token
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -76,7 +76,9 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
     permissions = _permissions_for_role(db, row.Role)
 
     return {
-        "token": secrets.token_urlsafe(24),
+        # A signed, expiring token — the old value was an unstored random string
+        # that no request could ever be checked against.
+        "token": issue_token(row.UserId, row.Username, row.Role),
         "user": {
             "id":         row.UserId,
             "userId":     row.UserCode,

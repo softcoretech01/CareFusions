@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Search, Plus, X, User, CheckCircle } from 'lucide-react';
+import { Search, Plus, User, CheckCircle } from 'lucide-react';
 
 import axios from 'axios';
 import toast from 'react-hot-toast';
@@ -62,7 +62,7 @@ export const OPBilling = () => {
   // Price books. Consultation, lab and radiology charges used to be the
   // literals 500 / 250 / 1500, so every bill ignored the masters: a 5,000
   // consultation was billed at 500 and a 1,200 Troponin at 250.
-  const [doctorFees, setDoctorFees] = useState<Record<string, number>>({});
+  const [, setDoctorFees] = useState<Record<string, number>>({});
   const [deptFees, setDeptFees] = useState<Record<string, number>>({});
   const [testPrices, setTestPrices] = useState<Record<string, number>>({});
   const [radPrices, setRadPrices] = useState<Record<string, number>>({});
@@ -320,9 +320,6 @@ export const OPBilling = () => {
   const handleAddItem = () => {
     setItems([...items, { id: `ITM-${Date.now()}`, description: 'New Item', price: 0, qty: 1, total: 0 }]);
   };
-
-  const handleRemoveItem = (id: string) => setItems(items.filter(item => item.id !== id));
-
   const handleItemChange = (id: string, field: keyof BillItem, value: string | number) => {
     setItems(items.map(item => {
       if (item.id !== id) return item;

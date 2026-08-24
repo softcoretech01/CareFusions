@@ -104,7 +104,7 @@ export const VisitDetailsModal = ({ visit, onClose, type }: VisitDetailsModalPro
               <ul className="list-disc pl-5 text-sm text-slate-600">
                 {visit.radiologyOrders.map((r, idx) => (
                   <li key={r.id || idx}>
-                    {r.bodyPart} - {r.modality} <span className="text-xs text-slate-400">({getRadStatus(visit.uhid, r.serviceName, r.bodyPart, r.status)})</span>
+                    {r.bodyPart} - {r.modality} <span className="text-xs text-slate-400">({getRadStatus(visit.uhid, r.serviceName ?? '', r.bodyPart, r.status)})</span>
                   </li>
                 ))}
               </ul>

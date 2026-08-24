@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import {
   Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle,
-  Save, ChevronLeft, ChevronRight, Eye, Power, X
+  Save, ChevronLeft, ChevronRight, Eye, X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
@@ -122,18 +122,6 @@ export const ManufacturerMaster = () => {
     setSelectedRecord(record);
     setIsViewOpen(true);
   };
-
-  const handleToggleStatus = async (record: ManufacturerRecord) => {
-    setApiError(null);
-    try {
-      const res = await fetch(`${API_BASE}/manufacturers/${record.id}/toggle-status`, { method: 'PATCH' });
-      if (!res.ok) throw new Error(`Toggle failed: ${res.status}`);
-      await fetchManufacturers();
-    } catch (err: unknown) {
-      setApiError(err instanceof Error ? err.message : 'Toggle failed');
-    }
-  };
-
   const handleDelete = (record: ManufacturerRecord) => {
     setSelectedRecord(record);
     setIsDeleteOpen(true);

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
-import { LayoutDashboard, Building2, Users, UserCog, CalendarClock, Microscope, ActivitySquare, Receipt, ShieldCheck, PackageSearch, Landmark, Lock, BellRing, Sparkles, History, ChevronRight, ChevronDown, Stethoscope } from 'lucide-react';
+import { LayoutDashboard, Building2, UserCog, Microscope, ActivitySquare, ShieldCheck, PackageSearch, Landmark, Lock, BellRing, Sparkles, History, ChevronRight, ChevronDown, Stethoscope } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePermissions } from '../hooks/usePermissions';
 import { useAppDispatch } from '../hooks/redux';

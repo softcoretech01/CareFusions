@@ -59,8 +59,17 @@ export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({ patientNam
     set(list.includes(val) ? list.filter(x => x !== val) : [...list, val]);
 
   const handlePlaceOrder = async () => {
-    const labTests = [...selectedLabs].map(name => ({ name, bodyPart: testBodyParts[name] || '' }));
-    if (customTest.trim()) labTests.push({ name: customTest.trim(), bodyPart: customTestBodyPart.trim() });
+    // Resolve each picked name back to its catalogue row. testId/testCode are
+    // what link the order line to Master_LabTest, and the master supplies the
+    // NormalRange that drives abnormal/critical flagging — a name alone leaves
+    // the line with no reference range. A free-typed custom test has no master
+    // row, so it stays id-less by design.
+    const fromCatalogue = (name: string) => catalogue.find(c => c.testName === name);
+    const labTests = [...selectedLabs].map(name => {
+      const c = fromCatalogue(name);
+      return { name, testId: c?.testId, testCode: c?.testCode, bodyPart: testBodyParts[name] || '' };
+    });
+    if (customTest.trim()) labTests.push({ name: customTest.trim(), testId: undefined, testCode: undefined, bodyPart: customTestBodyPart.trim() });
     
     const scanTests = [...selectedScans].map(name => ({ name, bodyPart: testBodyParts[name] || '' }));
     if (customScan.trim()) scanTests.push({ name: customScan.trim(), bodyPart: customScanBodyPart.trim() });
@@ -86,7 +95,14 @@ export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({ patientNam
           patientName,
           orderedBy: 'Doctor',
           orderedAt: now,
-          tests: labTests.map((t, i) => ({ id: `T-${Date.now()}-L${i}`, name: t.name, bodyPart: t.bodyPart, status: 'Pending' })),
+          tests: labTests.map((t, i) => ({
+            id: `T-${Date.now()}-L${i}`,
+            name: t.name,
+            testId: t.testId,
+            testCode: t.testCode,
+            bodyPart: t.bodyPart,
+            status: 'Pending' as const,
+          })),
           status: 'Pending',
         });
       }

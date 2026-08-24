@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Shield, Eye, EyeOff, Check, Stethoscope, Pill, Cloud, UserPlus, ShieldCheck, BarChart3, Heart, Plus, CalendarClock, BedDouble, ClipboardList, FlaskConical, ScanLine, ShoppingCart, Boxes, Sparkles, User } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppDispatch } from '../hooks/redux';
 import { setCredentials } from '../redux/slices/authSlice';
 
@@ -52,7 +52,13 @@ export const Login = () => {
   const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useAppDispatch();
+
+  // Where the module guard bounced us from, if anywhere. Sending the user
+  // back to the page they actually asked for beats dumping them on the
+  // portal's landing page every time their session expires mid-task.
+  const redirectTo = (location.state as { from?: string } | null)?.from;
 
   // Role cards are a visual hint only — actual access comes from real credentials.
   const handleRoleSelection = (roleId: string) => {
@@ -85,12 +91,13 @@ export const Login = () => {
           hospitalId: data.user.hospital || '',
           branchId: data.user.branch || '',
           username: data.user.username,
+          department: data.user.department || '',
         },
         token: data.token,
         permissions: data.permissions,
         rememberMe,
       }));
-      navigate(ROLE_ROUTES[selectedRole] || '/admin');
+      navigate(redirectTo || ROLE_ROUTES[selectedRole] || '/admin', { replace: true });
     } catch {
       setError('Cannot reach the server. Please ensure the API is running.');
     } finally {

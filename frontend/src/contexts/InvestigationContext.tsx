@@ -79,7 +79,8 @@ interface InvestigationContextType {
   loading: boolean;
   hasLoaded: boolean;
   refresh: () => Promise<void>;
-  addOrder: (order: InvestigationOrder) => void;
+  /** Resolves true when the order reached the backend, false when it did not. */
+  addOrder: (order: InvestigationOrder) => Promise<boolean>;
   updateTestResult: (orderId: string, testId: string, resultValue?: string, resultFile?: string, isCritical?: boolean) => void;
   updateTestStatus: (orderId: string, testId: string, status: InvestigationTest['status']) => void;
   verifyTest: (orderId: string, testId: string, verifiedBy: string) => void;
@@ -249,8 +250,18 @@ export const InvestigationProvider = ({ children }: { children: ReactNode }) => 
     refresh();
   }, []);
 
-  const addOrder = async (order: InvestigationOrder) => {
+  /**
+   * Place an investigation order.
+   *
+   * Returns false if the backend rejected it. This used to be fire-and-forget:
+   * the optimistic row was added, the POST failure was swallowed by a
+   * console.error, and the caller reported success — so a doctor could finalise
+   * a visit believing the lab had the order when nothing had been sent. The
+   * optimistic row is now rolled back and the caller is told.
+   */
+  const addOrder = async (order: InvestigationOrder): Promise<boolean> => {
     setOrders(prev => [order, ...prev]);
+    const rollback = () => setOrders(prev => prev.filter(o => o.id !== order.id));
 
     if (order.category === 'Lab') {
       try {
@@ -261,15 +272,23 @@ export const InvestigationProvider = ({ children }: { children: ReactNode }) => 
           patientName: order.patientName,
           orderedBy: order.orderedBy,
           priority: 'Routine',
+          // testId is the master link; testCode must be the real code, not the
+          // test name. Sending the name as the code meant SpLabOrder could not
+          // find the master row, so NormalRange/Unit arrived empty and results
+          // were verified against nothing.
           tests: order.tests.map(t => ({
+            testId: t.testId ?? null,
             testName: t.name,
-            testCode: t.name,
+            testCode: t.testCode ?? t.name,
             bodyPart: t.bodyPart || null,
           }))
         });
         refresh();
+        return true;
       } catch (error) {
         console.error('Failed to create lab order', error);
+        rollback();
+        return false;
       }
     } else if (order.category === 'Radiology') {
       try {
@@ -287,10 +306,14 @@ export const InvestigationProvider = ({ children }: { children: ReactNode }) => 
           }))
         });
         fetchRadiologyOrders();
+        return true;
       } catch (error) {
         console.error('Failed to create radiology order', error);
+        rollback();
+        return false;
       }
     }
+    return true;
   };
 
   const addQCLog = (log: QCLog) => {

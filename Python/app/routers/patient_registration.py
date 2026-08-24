@@ -1,8 +1,9 @@
 import logging
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import text
+from pydantic import BaseModel
 
 from app.database import get_db
 from app.schemas.patient_registration import (
@@ -276,6 +277,61 @@ def create_patient(data: PatientRegistrationCreate, db: Session = Depends(get_db
         db.rollback()
         logger.error(f"[POST /patients/] Error: {e}")
         raise HTTPException(status_code=500, detail="Failed to create patient")
+
+
+
+class PatientMergeRequest(BaseModel):
+    primaryUhid: str
+    secondaryUhid: str
+    user: Optional[str] = None
+
+
+@router.post("/merge")
+def merge_patients(payload: PatientMergeRequest, db: Session = Depends(get_db)):
+    """Merge a duplicate patient into the surviving one.
+
+    The Patient Merge screen used to call DELETE on the duplicate, which ran a
+    hard `DELETE FROM PatientRegistration`. No foreign key referenced that table,
+    so the duplicate's appointments, visits, lab and radiology orders,
+    admissions, insurance records, bills and documents were silently orphaned —
+    and the screen reported "merge successful".
+
+    SpPatientMerge re-points every one of those onto the surviving UHID inside a
+    single transaction, then soft-deletes the duplicate with a trail back to the
+    survivor so an old card or reference still resolves.
+    """
+    try:
+        cur = db.connection().connection.cursor()
+        cur.execute(
+            "CALL registration.SpPatientMerge(%s, %s, %s)",
+            (payload.primaryUhid, payload.secondaryUhid, payload.user or "Admin"),
+        )
+        summary = cur.fetchall()
+        moved_by_table = []
+        while cur.nextset():
+            try:
+                moved_by_table = cur.fetchall()
+            except Exception:
+                break
+        cur.close()
+        db.commit()
+
+        records_moved = summary[0][2] if summary else 0
+        return {
+            "primaryUhid": payload.primaryUhid,
+            "secondaryUhid": payload.secondaryUhid,
+            "recordsMoved": int(records_moved or 0),
+            "movedByTable": {row[0]: int(row[1]) for row in (moved_by_table or [])},
+        }
+    except Exception as e:
+        db.rollback()
+        msg = str(getattr(e, "orig", e))
+        if "MERGE_INVALID" in msg:
+            detail = msg.split("MERGE_INVALID:", 1)[-1].strip().rstrip("\"')") or "Invalid merge request"
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+        logger.error(f"[POST /patients/merge] {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Merge failed")
+
 
 @router.put("/{patient_id}", response_model=PatientRegistrationResponse)
 def update_patient(patient_id: int, data: PatientRegistrationUpdate, db: Session = Depends(get_db)):

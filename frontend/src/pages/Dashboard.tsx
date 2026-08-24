@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Building2, Users, Stethoscope, Pill, Microscope, ShieldCheck, UserCog, Settings, FileText, RefreshCw, Search, X } from 'lucide-react';
+import { Users, Pill, Microscope, ShieldCheck, UserCog, FileText, RefreshCw, Search, X } from 'lucide-react';
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
 import { Pagination } from '../components/ui/Pagination';

@@ -38,4 +38,4 @@ UPDATE admin.Master_Item i
     OR i.InventoryType NOT IN ('MEDICINE', 'MEDICAL_ITEM', 'NON_MEDICAL');
 
 -- ── 3. Index for the type-filtered lists the UI now issues ──────
-CREATE INDEX IDX_Item_InventoryType ON admin.Master_Item (InventoryType);
+CREATE INDEX IF NOT EXISTS IDX_Item_InventoryType ON admin.Master_Item (InventoryType);

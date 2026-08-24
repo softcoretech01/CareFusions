@@ -1,10 +1,12 @@
 import logging
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import os
 
 from app.core.audit_middleware import AuditLogMiddleware
+from app.core.auth_dep import require_auth
+from app.config import AUTH_SECRET_IS_EPHEMERAL, REQUIRE_AUTH
 
 from app.routers import (
     hospital, branch, department, radiology_service, equipment, service, tax,
@@ -33,11 +35,28 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Make the security posture visible at boot rather than a surprise in production.
+if not REQUIRE_AUTH:
+    logger.warning(
+        "REQUIRE_AUTH is off — every API endpoint is public. "
+        "Set REQUIRE_AUTH=true in Python/.env to enforce the login token."
+    )
+elif AUTH_SECRET_IS_EPHEMERAL:
+    logger.warning(
+        "REQUIRE_AUTH is on but AUTH_SECRET is unset — a random secret was "
+        "generated for this process, so tokens die on restart and will not "
+        "validate across workers. Set AUTH_SECRET in Python/.env."
+    )
+
 # ── App ───────────────────────────────────────────────────────
 app = FastAPI(
     title="CareFusions HMS API",
     description="Hospital Management System — Python FastAPI Backend",
     version="1.0.0",
+    # Global auth gate. It is a no-op while REQUIRE_AUTH is false, so this is
+    # safe to leave wired up; see app/config.py for the switch and the reason it
+    # ships off. Without it, every endpoint in the system is public.
+    dependencies=[Depends(require_auth)],
 )
 
 # ── CORS ────────────────────────────────────────────────

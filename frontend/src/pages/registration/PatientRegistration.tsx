@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Search, Plus, Filter, Edit2, Download, Trash2, Printer, Eye,
-  User, Phone, FileText, Heart, Shield, Activity, Calendar, FileDigit, Info,
-  AlertTriangle
+  Search, Plus, Filter, Edit2, Download, Printer, Eye,
+  User, Phone, FileText, Heart, Shield, Activity, Calendar, FileDigit, AlertTriangle
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { useLocation } from 'react-router-dom';
@@ -412,23 +411,9 @@ export const PatientRegistration = () => {
       return `${days} ${days === 1 ? 'Day' : 'Days'}`;
     }
   };
-
-
-  const handleCreateNew = () => {
-    setFormData({ ...initialFormState, uhid: '' });
-    setSelectedRecord(null);
-    setIsFormOpen(true);
-  };
-
-  const handleEdit = (record: any) => {
-    const sanitizedRecord = Object.fromEntries(
-      Object.entries(record).map(([k, v]) => [k, v === null ? '' : v])
-    );
-    setFormData({ ...initialFormState, ...sanitizedRecord });
-    setSelectedRecord(record);
-    setIsFormOpen(true);
-  };
-
+  // Restored and wired up: this was implemented but never called, while the
+  // "Print Slip" button below had no onClick at all — so the button did
+  // nothing and the registration card could not be printed.
   const handlePrint = (record: any) => {
     const printContent = `
       <html>
@@ -477,12 +462,14 @@ export const PatientRegistration = () => {
     }
   };
 
-  const handleDeleteRequest = (record: any) => {
+  const handleEdit = (record: any) => {
+    const sanitizedRecord = Object.fromEntries(
+      Object.entries(record).map(([k, v]) => [k, v === null ? '' : v])
+    );
+    setFormData({ ...initialFormState, ...sanitizedRecord });
     setSelectedRecord(record);
-    setIsDeleteOpen(true);
+    setIsFormOpen(true);
   };
-
-
   const handleConfirmDeactivate = async () => {
     if (selectedRecord) {
       try {
@@ -797,7 +784,8 @@ export const PatientRegistration = () => {
             </div>
             <div className="flex items-center gap-3">
               <Button variant="outline" onClick={() => setIsFormOpen(false)}>Cancel</Button>
-              <Button variant="outline" icon={Printer} className="hidden sm:flex">Print Slip</Button>
+              <Button variant="outline" icon={Printer} className="hidden sm:flex"
+                onClick={() => handlePrint({ ...(selectedRecord ?? {}), ...formData })}>Print Slip</Button>
               {!selectedRecord && (
                 <Button variant="outline" color="primary" onClick={(e) => handleSave(e, true)}>
                   Save & New
