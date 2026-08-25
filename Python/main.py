@@ -24,7 +24,7 @@ from app.routers import (
     purchase_requisition, rfq, vendor_quotation, purchase_order, goods_receipt, purchase_return,
     vendor_catalog, approval, procurement_dashboard,
     doctor_specialization, housekeeping, ipd_clinical, pharmacy, insurance, inventory, executive,
-    scheduled_reports, minor_operation, major_operation
+    scheduled_reports, minor_operation, major_operation, ward_charge
 )
 
 
@@ -132,6 +132,7 @@ app.include_router(diagnosis.router,             prefix="/api/v1")
 app.include_router(procedure.router,             prefix="/api/v1")
 app.include_router(minor_operation.router,       prefix="/api/v1")
 app.include_router(major_operation.router,       prefix="/api/v1")
+app.include_router(ward_charge.router,           prefix="/api/v1/ward-charges")
 app.include_router(procedure_type.router,        prefix="/api/v1")
 app.include_router(consultation_type.router,     prefix="/api/v1")
 app.include_router(appointment_status.router,    prefix="/api/v1")

@@ -24,9 +24,13 @@ cursor = connection.cursor()
 minor_sql = """
 CREATE TABLE IF NOT EXISTS Mst_MinorOperation (
     id INT AUTO_INCREMENT PRIMARY KEY,
+    serialNo INT NULL,
     operationCode VARCHAR(50) UNIQUE NOT NULL,
     operationName VARCHAR(100) NOT NULL,
     department VARCHAR(100) NOT NULL,
+    medications VARCHAR(500) NULL,
+    procedures VARCHAR(500) NULL,
+    equipment VARCHAR(500) NULL,
     description VARCHAR(250),
     defaultCharge DECIMAL(10,2) DEFAULT 0.00,
     taxApplicable BOOLEAN DEFAULT TRUE,
@@ -46,9 +50,13 @@ CREATE TABLE IF NOT EXISTS Mst_MinorOperation (
 major_sql = """
 CREATE TABLE IF NOT EXISTS Mst_MajorOperation (
     id INT AUTO_INCREMENT PRIMARY KEY,
+    serialNo INT NULL,
     operationCode VARCHAR(50) UNIQUE NOT NULL,
     operationName VARCHAR(100) NOT NULL,
     department VARCHAR(100) NOT NULL,
+    medications VARCHAR(500) NULL,
+    procedures VARCHAR(500) NULL,
+    equipment VARCHAR(500) NULL,
     description VARCHAR(250),
     defaultCharge DECIMAL(10,2) DEFAULT 0.00,
     taxApplicable BOOLEAN DEFAULT TRUE,

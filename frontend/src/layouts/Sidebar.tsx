@@ -30,6 +30,7 @@ const navigation: NavItem[] = [
     // screens still exist, so re-adding the two entries brings them back.
     name: 'Department', module: 'Organization', icon: Building2, children: [
       { name: 'Department', to: '/admin/masters/department' },
+      { name: 'Ward Charge', to: '/admin/masters/ward-charge' },
     ]
   },
 
