@@ -127,6 +127,8 @@ const BloodGroupMaster = lazy(() => import('../pages/admin/patient-masters/Blood
 const AllergyMaster = lazy(() => import('../pages/admin/patient-masters/AllergyMaster').then(m => ({ default: (m as any).AllergyMaster ?? (m as any).default })));
 const DiagnosisMaster = lazy(() => import('../pages/admin/patient-masters/DiagnosisMaster').then(m => ({ default: (m as any).DiagnosisMaster ?? (m as any).default })));
 const ProcedureMaster = lazy(() => import('../pages/admin/patient-masters/ProcedureMaster').then(m => ({ default: (m as any).ProcedureMaster ?? (m as any).default })));
+const MinorOperationMaster = lazy(() => import('../pages/admin/operation-masters/MinorOperationMaster').then(m => ({ default: (m as any).MinorOperationMaster ?? (m as any).default })));
+const MajorOperationMaster = lazy(() => import('../pages/admin/operation-masters/MajorOperationMaster').then(m => ({ default: (m as any).MajorOperationMaster ?? (m as any).default })));
 const ConsultationTypeMaster = lazy(() => import('../pages/admin/appointment-masters/ConsultationTypeMaster').then(m => ({ default: (m as any).ConsultationTypeMaster ?? (m as any).default })));
 const AppointmentStatusMaster = lazy(() => import('../pages/admin/appointment-masters/AppointmentStatusMaster').then(m => ({ default: (m as any).AppointmentStatusMaster ?? (m as any).default })));
 const MedicineMaster = lazy(() => import('../pages/admin/pharmacy-masters/MedicineMaster').then(m => ({ default: (m as any).MedicineMaster ?? (m as any).default })));
@@ -653,6 +655,8 @@ export const router = createBrowserRouter([
       { path: 'admin/masters/allergy', element: <AllergyMaster /> },
       { path: 'admin/masters/diagnosis', element: <DiagnosisMaster /> },
       { path: 'admin/masters/procedure', element: <ProcedureMaster /> },
+      { path: 'admin/masters/minor-operation', element: <MinorOperationMaster /> },
+      { path: 'admin/masters/major-operation', element: <MajorOperationMaster /> },
       { path: 'admin/masters/consultation-type', element: <ConsultationTypeMaster /> },
       { path: 'admin/masters/appointment-status', element: <AppointmentStatusMaster /> },
       { path: 'admin/masters/medicine', element: <MedicineMaster /> },

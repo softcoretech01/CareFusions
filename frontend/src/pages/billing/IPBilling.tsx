@@ -12,6 +12,7 @@ interface BillItem {
   price: number;
   qty: number;
   total: number;
+  category?: 'OPD' | 'IPD';
 }
 
 interface BillResponse {
@@ -199,8 +200,8 @@ export const IPBilling = () => {
     const feeQty = isFromOP ? Math.max(0, stayDays - 1) : stayDays;
     
     const newItems: BillItem[] = [
-      { id: 'ITM-001', description: `Room Charges (${stayDays} Days)`, price: 1500, qty: stayDays, total: 1500 * stayDays },
-      { id: 'ITM-002', description: 'Nursing Charges (Per Day)', price: 500, qty: stayDays, total: 500 * stayDays },
+      { id: 'ITM-001', description: `Room Charges (${stayDays} Days)`, price: 1500, qty: stayDays, total: 1500 * stayDays, category: 'IPD' },
+      { id: 'ITM-002', description: 'Nursing Charges (Per Day)', price: 500, qty: stayDays, total: 500 * stayDays, category: 'IPD' },
     ];
 
     if (feeQty > 0) {
@@ -209,7 +210,8 @@ export const IPBilling = () => {
         description: `Doctor Visit Fee (Per Day)${foundIPD.specialty ? ` - ${foundIPD.specialty}` : ''}`, 
         price: visitFee, 
         qty: feeQty, 
-        total: visitFee * feeQty 
+        total: visitFee * feeQty,
+        category: 'IPD'
       });
     }
     
@@ -247,7 +249,8 @@ export const IPBilling = () => {
             description: med.medicineName,
             price: price,
             qty: qty,
-            total: price * qty
+            total: price * qty,
+            category: 'IPD'
          });
       });
     }
@@ -272,6 +275,7 @@ export const IPBilling = () => {
             price,
             qty: dosesGiven,
             total: price * dosesGiven,
+            category: 'IPD'
           });
         });
       }
@@ -309,7 +313,8 @@ export const IPBilling = () => {
             description: `Lab Test: ${testNameStr}`,
             price: price,
             qty: 1,
-            total: price
+            total: price,
+            category: 'IPD'
           });
         });
       }
@@ -336,12 +341,86 @@ export const IPBilling = () => {
             description: `Radiology: ${radNameStr}`,
             price: price,
             qty: 1,
-            total: price
+            total: price,
+            category: 'IPD'
           });
         });
       }
     } catch (e) {
       console.error("Failed to fetch radiology orders for billing", e);
+    }
+    // 4. Add unbilled OPD Charges
+    try {
+      const opdRes = await axios.get(`${API_BASE}/opd-visits/schedule?source=emr`);
+      const unbilledOpd = opdRes.data.filter((p: any) => 
+        (p.uhid === foundIPD.uhid || (p.uhid && p.uhid.toLowerCase() === foundIPD.uhid.toLowerCase())) && 
+        (p.status === 'Completed' || p.isFinalized) &&
+        p.billingStatus !== 'Paid' && 
+        p.billingStatus !== 'Billed' && 
+        p.billingStatus !== 'Completed'
+      );
+      
+      unbilledOpd.forEach((visit: any, vIdx: number) => {
+        const consultFee = consultationFeeFor(visit.department) || 500;
+        newItems.push({
+          id: `OPD-CONSULT-${vIdx}`,
+          description: `Consultation Fee (${visit.department || 'General'})`,
+          price: consultFee,
+          qty: 1,
+          total: consultFee,
+          category: 'OPD'
+        });
+
+        if (visit.labOrders) {
+          visit.labOrders.forEach((lab: any, idx: number) => {
+            const price = labPrices[(lab.testName || '').trim().toLowerCase()] || 250;
+            newItems.push({
+              id: `OPD-LAB-${vIdx}-${idx}`,
+              description: `Lab Test: ${lab.testName || 'General Lab'}`,
+              price,
+              qty: 1,
+              total: price,
+              category: 'OPD'
+            });
+          });
+        }
+
+        if (visit.radiologyOrders) {
+          visit.radiologyOrders.forEach((rad: any, idx: number) => {
+            const price = radPrices[(rad.testName || '').trim().toLowerCase()] || 1500;
+            newItems.push({
+              id: `OPD-RAD-${vIdx}-${idx}`,
+              description: `Radiology: ${rad.testName || 'Scan'}`,
+              price,
+              qty: 1,
+              total: price,
+              category: 'OPD'
+            });
+          });
+        }
+
+        if (visit.prescriptions) {
+          visit.prescriptions.forEach((pres: any, idx: number) => {
+            const itemQty = pres.quantity ? parseFloat(pres.quantity) : 1;
+            let itemPrice = pres.medicineId ? (medicinePrices[String(pres.medicineId)] ?? undefined) : undefined;
+            if (itemPrice === undefined) itemPrice = medicinePrices[(pres.medicineName || '').trim().toLowerCase()];
+            if (itemPrice === undefined) {
+              const coreName = pres.medicineName ? pres.medicineName.split(' ')[0].toLowerCase() : '';
+              itemPrice = medicinePrices[coreName] ?? pres.price ?? 0;
+            }
+            newItems.push({
+              id: `OPD-PRES-${vIdx}-${idx}`,
+              description: `Medicine: ${pres.medicineName || 'Prescription'} (${pres.quantity || ''})`.trim(),
+              price: itemPrice,
+              qty: isNaN(itemQty) ? 1 : itemQty,
+              total: itemPrice * (isNaN(itemQty) ? 1 : itemQty),
+              category: 'OPD'
+            });
+          });
+        }
+      });
+    } catch (e) {
+      console.error("Failed to fetch OPD visits for billing", e);
     }
     
     setItems(newItems);
@@ -577,7 +656,7 @@ export const IPBilling = () => {
       IsInsurancePaid: isInsurancePaid,
       Items: items.map(i => ({
         ItemCode: i.id,
-        ItemDescription: i.description,
+        ItemDescription: `[${i.category || 'IPD'}] ${i.description}`,
         Quantity: i.qty,
         UnitPrice: i.price,
         Subtotal: i.total,
@@ -786,30 +865,77 @@ export const IPBilling = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {items.map(item => (
-                      <tr key={item.id} className="hover:bg-slate-50/50">
-                        <td className="px-5 py-3 max-w-xs">
-                          <input
-                            type="text"
-                            className="w-full bg-transparent border-0 p-1 focus:ring-1 focus:ring-primary/30 rounded text-sm truncate"
-                            value={item.description}
-                            title={item.description}
-                            onChange={e => handleItemChange(item.id, 'description', e.target.value)}
-                          />
-                        </td>
-                        <td className="px-5 py-3">
-                          <input type="number" className="w-full text-right bg-transparent border-0 p-1 focus:ring-1 focus:ring-primary/30 rounded text-sm" value={item.price} onChange={e => handleItemChange(item.id, 'price', Number(e.target.value))} />
-                        </td>
-                        <td className="px-5 py-3">
-                          {item.description.toLowerCase().includes('consultation fee') || item.description.toLowerCase().includes('doctor visit fee') ? (
-                            <div className="w-full text-center text-slate-400">-</div>
-                          ) : (
-                            <input type="number" className="w-full text-center bg-transparent border-0 p-1 focus:ring-1 focus:ring-primary/30 rounded text-sm" value={item.qty} onChange={e => handleItemChange(item.id, 'qty', Number(e.target.value))} />
-                          )}
-                        </td>
-                        <td className="px-5 py-3 text-right font-semibold text-slate-800">₹{item.total.toFixed(2)}</td>
-                      </tr>
-                    ))}
+                    {items.filter(i => i.category === 'OPD').length > 0 && (
+                      <>
+                        <tr className="bg-slate-100">
+                          <td colSpan={4} className="px-5 py-2 font-bold text-slate-700 text-xs tracking-wider uppercase">OPD Charges</td>
+                        </tr>
+                        {items.filter(i => i.category === 'OPD').map(item => (
+                          <tr key={item.id} className="hover:bg-slate-50/50">
+                            <td className="px-5 py-3 max-w-xs">
+                              <input
+                                type="text"
+                                className="w-full bg-transparent border-0 p-1 focus:ring-1 focus:ring-primary/30 rounded text-sm truncate"
+                                value={item.description}
+                                title={item.description}
+                                onChange={e => handleItemChange(item.id, 'description', e.target.value)}
+                              />
+                            </td>
+                            <td className="px-5 py-3">
+                              <input type="number" className="w-full text-right bg-transparent border-0 p-1 focus:ring-1 focus:ring-primary/30 rounded text-sm" value={item.price} onChange={e => handleItemChange(item.id, 'price', Number(e.target.value))} />
+                            </td>
+                            <td className="px-5 py-3">
+                              {item.description.toLowerCase().includes('consultation fee') || item.description.toLowerCase().includes('doctor visit fee') ? (
+                                <div className="w-full text-center text-slate-400">-</div>
+                              ) : (
+                                <input type="number" className="w-full text-center bg-transparent border-0 p-1 focus:ring-1 focus:ring-primary/30 rounded text-sm" value={item.qty} onChange={e => handleItemChange(item.id, 'qty', Number(e.target.value))} />
+                              )}
+                            </td>
+                            <td className="px-5 py-3 text-right font-semibold text-slate-800">₹{item.total.toFixed(2)}</td>
+                          </tr>
+                        ))}
+                        <tr className="bg-slate-50 font-semibold">
+                          <td colSpan={3} className="px-5 py-2 text-right text-slate-600 text-xs">OPD Subtotal:</td>
+                          <td className="px-5 py-2 text-right text-slate-800 text-sm">₹{items.filter(i => i.category === 'OPD').reduce((s, i) => s + i.total, 0).toFixed(2)}</td>
+                        </tr>
+                      </>
+                    )}
+
+                    {items.filter(i => i.category !== 'OPD').length > 0 && (
+                      <>
+                        <tr className="bg-slate-100">
+                          <td colSpan={4} className="px-5 py-2 font-bold text-slate-700 text-xs tracking-wider uppercase">IPD Charges</td>
+                        </tr>
+                        {items.filter(i => i.category !== 'OPD').map(item => (
+                          <tr key={item.id} className="hover:bg-slate-50/50">
+                            <td className="px-5 py-3 max-w-xs">
+                              <input
+                                type="text"
+                                className="w-full bg-transparent border-0 p-1 focus:ring-1 focus:ring-primary/30 rounded text-sm truncate"
+                                value={item.description}
+                                title={item.description}
+                                onChange={e => handleItemChange(item.id, 'description', e.target.value)}
+                              />
+                            </td>
+                            <td className="px-5 py-3">
+                              <input type="number" className="w-full text-right bg-transparent border-0 p-1 focus:ring-1 focus:ring-primary/30 rounded text-sm" value={item.price} onChange={e => handleItemChange(item.id, 'price', Number(e.target.value))} />
+                            </td>
+                            <td className="px-5 py-3">
+                              {item.description.toLowerCase().includes('consultation fee') || item.description.toLowerCase().includes('doctor visit fee') ? (
+                                <div className="w-full text-center text-slate-400">-</div>
+                              ) : (
+                                <input type="number" className="w-full text-center bg-transparent border-0 p-1 focus:ring-1 focus:ring-primary/30 rounded text-sm" value={item.qty} onChange={e => handleItemChange(item.id, 'qty', Number(e.target.value))} />
+                              )}
+                            </td>
+                            <td className="px-5 py-3 text-right font-semibold text-slate-800">₹{item.total.toFixed(2)}</td>
+                          </tr>
+                        ))}
+                        <tr className="bg-slate-50 font-semibold">
+                          <td colSpan={3} className="px-5 py-2 text-right text-slate-600 text-xs">IPD Subtotal:</td>
+                          <td className="px-5 py-2 text-right text-slate-800 text-sm">₹{items.filter(i => i.category !== 'OPD').reduce((s, i) => s + i.total, 0).toFixed(2)}</td>
+                        </tr>
+                      </>
+                    )}
                     <tr className="bg-primary/5 border-t-2 border-primary/20 font-bold">
                       <td colSpan={3} className="px-5 py-4 text-right text-slate-700">
                         {insuranceDetails ? 'Patient Payable:' : 'Total Amount:'}

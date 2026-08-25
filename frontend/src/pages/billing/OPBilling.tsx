@@ -68,6 +68,7 @@ export const OPBilling = () => {
   const [radPrices, setRadPrices] = useState<Record<string, number>>({});
   const [medicinePrices, setMedicinePrices] = useState<Record<string, number>>({});
   const [patients, setPatients] = useState<OpdVisit[]>([]);
+  const [admissions, setAdmissions] = useState<any[]>([]);
   const [searchId, setSearchId] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [items, setItems] = useState<BillItem[]>([]);
@@ -91,6 +92,7 @@ export const OPBilling = () => {
   useEffect(() => {
     fetchBills();
     fetchVisits();
+    fetchAdmissions();
     fetchPriceBooks();
 
     const handleClickOutside = (event: MouseEvent) => {
@@ -170,6 +172,16 @@ export const OPBilling = () => {
     }
   };
 
+  const fetchAdmissions = async () => {
+    try {
+      const res = await axios.get(`${API_BASE}/ipd-admissions/`);
+      const active = res.data.filter((a: any) => a.status === 'Admitted' || a.status === 'Discharged');
+      setAdmissions(active);
+    } catch (e) {
+      console.error("Failed to fetch IPD admissions", e);
+    }
+  };
+
   const filteredSuggestions = patients.filter(p => {
     const sId = (searchId || '').toLowerCase();
     return (p.queueToken?.toLowerCase() || '').includes(sId) ||
@@ -197,6 +209,11 @@ export const OPBilling = () => {
       p.billingStatus !== 'Paid' &&
       p.billingStatus !== 'Billed' &&
       p.billingStatus !== 'Completed')
+    .filter(p => {
+      // If the patient is currently in IPD (Admitted/Discharged but not fully billed), 
+      // their OP bill is handled in the IP Billing screen.
+      return !admissions.some(a => a.uhid === p.uhid);
+    })
     // Oldest first: the longest-outstanding visit is the one most at risk of
     // never being billed.
     .sort((a, b) => localDay(a.date).localeCompare(localDay(b.date)));

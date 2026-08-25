@@ -1,0 +1,44 @@
+from pydantic import BaseModel
+from typing import Optional
+from datetime import datetime
+
+
+class MajorOperationCreate(BaseModel):
+    operationCode:     str
+    operationName:     str
+    department:        str
+    description:       Optional[str] = None
+    defaultCharge:     str
+    taxApplicable:     Optional[bool] = False
+    estimatedDuration: str
+    requiresConsent:   Optional[bool] = False
+    requiresAdmission: Optional[bool] = False
+    otRequired:        Optional[bool] = False
+    status:            str = 'Active'
+    remarks:           Optional[str] = None
+    createdBy:         Optional[str] = "System"
+
+
+class MajorOperationUpdate(MajorOperationCreate):
+    modifiedBy:        Optional[str] = "System"
+
+
+class MajorOperationResponse(BaseModel):
+    id:                int
+    operationCode:     str
+    operationName:     str
+    department:        str
+    description:       Optional[str] = None
+    defaultCharge:     str
+    taxApplicable:     bool
+    estimatedDuration: str
+    requiresConsent:   bool
+    requiresAdmission: bool
+    otRequired:        bool
+    status:            str
+    remarks:           Optional[str] = None
+
+    createdBy:         Optional[str] = None
+    createdDate:       Optional[datetime] = None
+    modifiedBy:        Optional[str] = None
+    modifiedDate:      Optional[datetime] = None

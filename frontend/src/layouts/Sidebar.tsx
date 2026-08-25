@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
-import { LayoutDashboard, Building2, UserCog, Microscope, ActivitySquare, ShieldCheck, PackageSearch, Landmark, Lock, BellRing, Sparkles, History, ChevronRight, ChevronDown, Stethoscope } from 'lucide-react';
+import { LayoutDashboard, Building2, UserCog, Microscope, ActivitySquare, ShieldCheck, PackageSearch, Landmark, Lock, BellRing, Sparkles, History, ChevronRight, ChevronDown, Stethoscope, Scissors } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePermissions } from '../hooks/usePermissions';
 import { useAppDispatch } from '../hooks/redux';
@@ -59,6 +59,12 @@ const navigation: NavItem[] = [
   {
     name: 'Equipment Management', module: 'Organization', icon: Stethoscope, children: [
       { name: 'Equipment', to: '/admin/masters/equipment' },
+    ]
+  },
+  {
+    name: 'Operations', module: 'Organization', icon: Scissors, children: [
+      { name: 'Minor Operations', to: '/admin/masters/minor-operation' },
+      { name: 'Major Operations', to: '/admin/masters/major-operation' },
     ]
   },
   {

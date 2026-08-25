@@ -300,9 +300,14 @@ export const OnlineBooking = () => {
                           <Eye className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => openEdit(item)}
-                          className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
-                          title="Edit Booking"
+                          onClick={() => item.status !== 'Completed' && openEdit(item)}
+                          disabled={item.status === 'Completed'}
+                          className={`p-1.5 rounded-lg transition-colors ${
+                            item.status === 'Completed'
+                              ? 'text-slate-300 cursor-not-allowed opacity-50'
+                              : 'text-slate-400 hover:text-primary hover:bg-primary/10'
+                          }`}
+                          title={item.status === 'Completed' ? 'Completed bookings cannot be edited' : 'Edit Booking'}
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
