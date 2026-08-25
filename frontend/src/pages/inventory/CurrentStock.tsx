@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { INVENTORY_TYPES, typeLabel } from '../../utils/inventoryTypes';
 import { Pagination } from '../../components/ui/Pagination';
 import { PageHeader } from '../../components/inventory/PageHeader';
-import { DateFilter, monthStart, today } from '@/components/ui/DateFilter';
+import { DateFilter } from '@/components/ui/DateFilter';
 import { AutoStatusBadge } from '../../components/inventory/StatusBadge';
 import { Search, Download, Package } from 'lucide-react';
 import { useInventory } from '../../contexts/InventoryContext';
@@ -29,10 +29,13 @@ export const CurrentStock = () => {
   const [category, setCategory] = useState('');
   const [status, setStatus] = useState('');
 
-  const [fromDate, setFromDate] = useState(monthStart());
-  const [toDate, setToDate] = useState(today());
-  const [draftFrom, setDraftFrom] = useState(monthStart());
-  const [draftTo, setDraftTo] = useState(today());
+  // The range below filters on EXPIRY, not on when the stock arrived, so this
+  // page opens with no range set. Defaulting it to "this month" hid every lot
+  // that does not expire in the next few weeks - which is nearly all of them.
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const [draftFrom, setDraftFrom] = useState('');
+  const [draftTo, setDraftTo] = useState('');
 
   const applyDates = () => { setFromDate(draftFrom); setToDate(draftTo); };
   const clearDates = () => { setDraftFrom(''); setDraftTo(''); setFromDate(''); setToDate(''); };
@@ -78,8 +81,11 @@ export const CurrentStock = () => {
         title="Current Stock" 
         right={
           <DateFilter
+            label="Expiry from :"
             dateFrom={draftFrom}
             dateTo={draftTo}
+            defaultDateFrom=""
+            defaultDateTo=""
             onDateFromChange={setDraftFrom}
             onDateToChange={setDraftTo}
             onSearch={applyDates}
