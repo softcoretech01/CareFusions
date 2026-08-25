@@ -6,13 +6,19 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
+import { MultiSelectField } from '../../../components/ui/MultiSelectField';
+import { FlagChip, ChipList } from '../../../components/ui/DetailChips';
 import { exportToExcel } from '../../../utils/exportToExcel';
 
 interface MajorOperationRecord {
   id: number;
+  serialNo: number;
   operationCode: string;
   operationName: string;
   department: string;
+  medications: string;
+  procedures: string;
+  equipment: string;
   
   description: string;
   defaultCharge: string;
@@ -25,10 +31,13 @@ interface MajorOperationRecord {
   remarks: string;
 }
 
-const emptyData: Omit<MajorOperationRecord, 'id'> = {
+const emptyData: Omit<MajorOperationRecord, 'id' | 'serialNo'> = {
   operationCode: '',
   operationName: '',
   department: '',
+  medications: '',
+  procedures: '',
+  equipment: '',
   
   description: '',
   defaultCharge: '',
@@ -45,9 +54,13 @@ const API_BASE = import.meta.env.VITE_API_URL as string;
 
 const mapApiToRecord = (item: any): MajorOperationRecord => ({
   id:                item.id,
+  serialNo:          item.serialNo,
   operationCode:     item.operationCode,
   operationName:     item.operationName,
   department:        item.department,
+  medications:       item.medications || '',
+  procedures:        item.procedures || '',
+  equipment:         item.equipment || '',
   
   description:       item.description || '',
   defaultCharge:     item.defaultCharge || '0',
@@ -68,6 +81,9 @@ export const MajorOperationMaster = () => {
   
   // Dynamic Dropdowns
   const [departments, setDepartments] = useState<{departmentName: string}[]>([]);
+  const [medicines, setMedicines] = useState<string[]>([]);
+  const [procedures, setProcedures] = useState<string[]>([]);
+  const [equipment, setEquipment] = useState<string[]>([]);
   
   
   // Filter States
@@ -79,7 +95,7 @@ export const MajorOperationMaster = () => {
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<MajorOperationRecord | null>(null);
-  const [formData, setFormData] = useState<Omit<MajorOperationRecord, 'id'>>(emptyData);
+  const [formData, setFormData] = useState<Omit<MajorOperationRecord, 'id' | 'serialNo'>>(emptyData);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -104,12 +120,17 @@ export const MajorOperationMaster = () => {
 
   const fetchDropdowns = async () => {
     try {
-      const [dRes] = await Promise.all([
+      const [dRes, mRes, pRes, eRes] = await Promise.all([
         fetch(`${API_BASE}/departments/`),
-        
+        fetch(`${API_BASE}/medicines/`),
+        fetch(`${API_BASE}/procedures/`),
+        fetch(`${API_BASE}/equipment/`),
       ]);
       if (dRes.ok) setDepartments(await dRes.json());
-      
+      // Each master names its records differently; the operation only stores the name.
+      if (mRes.ok) setMedicines((await mRes.json()).map((m: any) => m.genericName).filter(Boolean));
+      if (pRes.ok) setProcedures((await pRes.json()).map((p: any) => p.procedureName).filter(Boolean));
+      if (eRes.ok) setEquipment((await eRes.json()).map((e: any) => e.equipmentName).filter(Boolean));
     } catch (err) {
       console.error(err);
     }
@@ -122,16 +143,10 @@ export const MajorOperationMaster = () => {
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
-    if (!formData.operationCode.trim()) newErrors.operationCode = 'Major Operation Code is required';
     if (!formData.operationName.trim()) newErrors.operationName = 'Major Operation Name is required';
     if (!formData.department) newErrors.department = 'Department is required';
     
     if (!formData.defaultCharge.trim()) newErrors.defaultCharge = 'Default Charge is required';
-
-    // Uniqueness checks
-    if (records.some(r => r.operationCode === formData.operationCode && r.id !== selectedRecord?.id)) {
-      newErrors.operationCode = 'Major Operation Code must be unique';
-    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -142,7 +157,7 @@ export const MajorOperationMaster = () => {
     const nextId = records.length > 0 ? Math.max(...records.map(r => r.id)) + 1 : 1;
     setFormData({
       ...emptyData,
-      operationCode: `OP-${nextId.toString().padStart(3, '0')}`
+      operationCode: `MAJ-${nextId.toString().padStart(3, '0')}`
     });
     setErrors({});
     setIsFormOpen(true);
@@ -173,6 +188,9 @@ export const MajorOperationMaster = () => {
         operationCode:     formData.operationCode,
         operationName:     formData.operationName,
         department:        formData.department,
+        medications:       formData.medications,
+        procedures:        formData.procedures,
+        equipment:         formData.equipment,
         
         description:       formData.description || null,
         defaultCharge:     formData.defaultCharge || "0",
@@ -315,7 +333,7 @@ export const MajorOperationMaster = () => {
               <table className="w-full text-left text-sm">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-600">
                   <tr>
-                    <th className="px-4 py-3 font-medium">Major Operation Code</th>
+                    <th className="px-4 py-3 font-medium w-16">S.No</th>
                     <th className="px-4 py-3 font-medium">Major Operation Name</th>
                     <th className="px-4 py-3 font-medium">Department</th>
                     <th className="px-4 py-3 font-medium text-right">Charge (₹)</th>
@@ -326,7 +344,7 @@ export const MajorOperationMaster = () => {
                   {filteredRecords.length > 0 ? (
                     pagedRecords.map((record) => (
                       <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-4 py-3 font-medium text-slate-800">{record.operationCode}</td>
+                        <td className="px-4 py-3 font-medium text-slate-500">{record.serialNo}</td>
                         <td className="px-4 py-3">{record.operationName}</td>
                         <td className="px-4 py-3 text-slate-600">{record.department}</td>
                         <td className="px-4 py-3 text-right font-medium text-slate-700">{record.defaultCharge}</td>
@@ -405,7 +423,19 @@ export const MajorOperationMaster = () => {
               <section>
                 <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Basic Information</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Major Operation Name <span className="text-red-500">*</span></label>
+                    <input type="text" value={formData.operationName} onChange={e => setFormData({...formData, operationName: e.target.value})} maxLength={100} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.operationName ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
+                    {errors.operationName && <p className="text-red-500 text-xs mt-1">{errors.operationName}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Department <span className="text-red-500">*</span></label>
+                    <select value={formData.department} onChange={e => setFormData({...formData, department: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.department ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
+                      <option value="">Select Department</option>
+                      {departments.map(d => <option key={d.departmentName} value={d.departmentName}>{d.departmentName}</option>)}
+                    </select>
+                    {errors.department && <p className="text-red-500 text-xs mt-1">{errors.department}</p>}
+                  </div>
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
                     <input type="text" value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} maxLength={250} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
@@ -454,6 +484,34 @@ export const MajorOperationMaster = () => {
                 </div>
               </section>
 
+              {/* Requirements */}
+              <section>
+                <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Requirements</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <MultiSelectField
+                    label="Medication"
+                    options={medicines}
+                    value={formData.medications}
+                    onChange={v => setFormData({...formData, medications: v})}
+                    placeholder="Select Medicine"
+                  />
+                  <MultiSelectField
+                    label="Procedure"
+                    options={procedures}
+                    value={formData.procedures}
+                    onChange={v => setFormData({...formData, procedures: v})}
+                    placeholder="Select Procedure"
+                  />
+                  <MultiSelectField
+                    label="Equipment"
+                    options={equipment}
+                    value={formData.equipment}
+                    onChange={v => setFormData({...formData, equipment: v})}
+                    placeholder="Select Equipment"
+                  />
+                </div>
+              </section>
+
               {/* System */}
               <section>
                 <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">System</h3>
@@ -487,38 +545,83 @@ export const MajorOperationMaster = () => {
       <Modal
         isOpen={isViewOpen}
         onClose={() => setIsViewOpen(false)}
-        title="View Major Operation Details"
-        maxWidth="lg"
+        title="Major Operation Details"
+        maxWidth="2xl"
       >
         {selectedRecord && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div><span className="text-xs text-slate-400 block">Major Operation Code</span><span className="text-sm font-medium">{selectedRecord.operationCode}</span></div>
-              <div><span className="text-xs text-slate-400 block">Major Operation Name</span><span className="text-sm font-medium">{selectedRecord.operationName}</span></div>
-              <div><span className="text-xs text-slate-400 block">Department</span><span className="text-sm font-medium">{selectedRecord.department || '-'}</span></div>
-              <div><span className="text-xs text-slate-400 block">Charge (₹)</span><span className="text-sm font-medium">{selectedRecord.defaultCharge || '-'}</span></div>
-              <div><span className="text-xs text-slate-400 block">Estimated Duration</span><span className="text-sm font-medium">{selectedRecord.estimatedDuration ? `${selectedRecord.estimatedDuration} min` : '-'}</span></div>
-              <div><span className="text-xs text-slate-400 block">Tax Applicable</span><span className="text-sm font-medium">{selectedRecord.taxApplicable ? 'Yes' : 'No'}</span></div>
-              <div><span className="text-xs text-slate-400 block">Requires Consent</span><span className="text-sm font-medium">{selectedRecord.requiresConsent ? 'Yes' : 'No'}</span></div>
-              <div><span className="text-xs text-slate-400 block">Requires Admission</span><span className="text-sm font-medium">{selectedRecord.requiresAdmission ? 'Yes' : 'No'}</span></div>
-              <div><span className="text-xs text-slate-400 block">OT Required</span><span className="text-sm font-medium">{selectedRecord.otRequired ? 'Yes' : 'No'}</span></div>
-            </div>
-
-            <div className="pt-4 border-t border-slate-100">
-              <span className="text-xs text-slate-400 block mb-1">Description</span>
-              <span className="text-sm font-medium">{selectedRecord.description || '-'}</span>
-            </div>
-
-            <div className="pt-4 border-t border-slate-100">
-              <span className="text-xs text-slate-400 block mb-1">Remarks</span>
-              <span className="text-sm font-medium">{selectedRecord.remarks || '-'}</span>
-            </div>
-
-            <div className="pt-4 border-t border-slate-100">
-              <span className="text-xs text-slate-400 block mb-1">Status</span>
-              <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${selectedRecord.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'}`}>
-                {selectedRecord.status}
+          <div className="space-y-6">
+            {/* Identity */}
+            <div className="flex items-start justify-between gap-4 pb-4 border-b border-slate-100">
+              <div>
+                <h3 className="text-xl font-bold text-slate-800">{selectedRecord.operationName}</h3>
+                <p className="text-sm text-slate-500 mt-1">
+                  {selectedRecord.operationCode}
+                  {selectedRecord.department ? ` · ${selectedRecord.department}` : ''}
+                </p>
+              </div>
+              <span className="shrink-0 px-3 py-1.5 rounded-xl bg-slate-100 text-slate-500 text-xs font-semibold">
+                S.No {selectedRecord.serialNo}
               </span>
+            </div>
+
+            {/* Figures */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                <span className="text-xs text-slate-400 block mb-1">Charge</span>
+                <span className="text-lg font-bold text-slate-800">
+                  ₹{Number(selectedRecord.defaultCharge || 0).toLocaleString('en-IN')}
+                </span>
+              </div>
+              <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                <span className="text-xs text-slate-400 block mb-1">Duration</span>
+                <span className="text-lg font-bold text-slate-800">
+                  {selectedRecord.estimatedDuration ? `${selectedRecord.estimatedDuration} min` : '—'}
+                </span>
+              </div>
+              <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                <span className="text-xs text-slate-400 block mb-1">Tax</span>
+                <span className="text-lg font-bold text-slate-800">
+                  {selectedRecord.taxApplicable ? 'Applicable' : 'Exempt'}
+                </span>
+              </div>
+            </div>
+
+            {/* Requirements */}
+            <div>
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 block mb-2">Requirements</span>
+              <div className="flex flex-wrap gap-2">
+                <FlagChip label="Patient Consent" on={selectedRecord.requiresConsent} />
+                <FlagChip label="Admission" on={selectedRecord.requiresAdmission} />
+                <FlagChip label="Operation Theater" on={selectedRecord.otRequired} />
+              </div>
+            </div>
+
+            {/* Linked masters */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 pt-4 border-t border-slate-100">
+              <div>
+                <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 block mb-2">Medication</span>
+                <ChipList value={selectedRecord.medications} />
+              </div>
+              <div>
+                <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 block mb-2">Procedure</span>
+                <ChipList value={selectedRecord.procedures} />
+              </div>
+              <div>
+                <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 block mb-2">Equipment</span>
+                <ChipList value={selectedRecord.equipment} />
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pt-4 border-t border-slate-100">
+              <div>
+                <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 block mb-2">Description</span>
+                <span className="text-sm text-slate-700">{selectedRecord.description || '—'}</span>
+              </div>
+              <div>
+                <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 block mb-2">Remarks</span>
+                <span className="text-sm text-slate-700">{selectedRecord.remarks || '—'}</span>
+              </div>
             </div>
           </div>
         )}

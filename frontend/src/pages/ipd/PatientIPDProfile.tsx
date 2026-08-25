@@ -92,7 +92,7 @@ export const PatientIPDProfile = () => {
   return (
     <div className="flex h-[calc(100vh-2rem)] gap-4 overflow-hidden">
       
-      {/* â”€â”€ LEFT PANEL â€” Patient info â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* â”€â”€ LEFT PANEL — Patient info â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="w-72 shrink-0 flex flex-col gap-4 overflow-y-auto custom-scrollbar">
         <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-slate-500 hover:text-slate-800 transition-colors self-start font-bold text-sm">
           <ArrowLeft className="w-4 h-4" /> Back to Ward
@@ -104,7 +104,7 @@ export const PatientIPDProfile = () => {
           </div>
           <h2 className="text-center font-bold text-slate-800 text-lg">{patient.patientName}</h2>
           <p className="text-center text-xs text-slate-400 mt-0.5">{patient.uhid}</p>
-          <p className="text-center text-sm text-slate-500 mt-1">{patient.age} yrs Â· {patient.gender}</p>
+          <p className="text-center text-sm text-slate-500 mt-1">{patient.age} yrs · {patient.gender}</p>
 
           <div className="mt-4 pt-4 border-t border-slate-100 text-center">
             <p className="text-xs font-bold text-slate-400 uppercase mb-1">Current Location</p>
@@ -125,7 +125,7 @@ export const PatientIPDProfile = () => {
         </div>
       </div>
 
-      {/* â”€â”€ CENTER â€” Tabs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* â”€â”€ CENTER — Tabs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Tab bar */}
         <div className="flex gap-1 bg-white border border-slate-200 rounded-2xl p-1 mb-4 overflow-x-auto shrink-0">

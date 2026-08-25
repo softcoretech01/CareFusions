@@ -17,9 +17,13 @@ logger = logging.getLogger(__name__)
 def _map_row(row) -> dict:
     return {
         "id":                row.id,
+        "serialNo":          row.serialNo,
         "operationCode":     row.operationCode,
         "operationName":     row.operationName,
         "department":        row.department,
+        "medications":       row.medications,
+        "procedures":        row.procedures,
+        "equipment":         row.equipment,
         "description":       row.description,
         "defaultCharge":     str(int(row.defaultCharge)) if row.defaultCharge is not None and row.defaultCharge == int(row.defaultCharge) else str(row.defaultCharge) if row.defaultCharge is not None else '0',
         "taxApplicable":     bool(row.taxApplicable),
@@ -70,19 +74,33 @@ def create(operation: MajorOperationCreate, db: Session = Depends(get_db)):
         d = operation.model_dump()
         sql = text("""
             INSERT INTO Mst_MajorOperation (
+                serialNo,
                 operationCode, operationName, department, description, defaultCharge, 
+                medications, procedures, equipment, 
                 taxApplicable, estimatedDuration, requiresConsent, requiresAdmission, otRequired, 
                 status, remarks, createdBy
             ) VALUES (
+                :serialNo,
                 :operationCode, :operationName, :department, :description, :defaultCharge, 
+                :medications, :procedures, :equipment, 
                 :taxApplicable, :estimatedDuration, :requiresConsent, :requiresAdmission, :otRequired, 
                 :status, :remarks, :createdBy
             )
         """)
+        # serialNo is assigned once here and never renumbered, so a deleted
+        # row simply leaves a gap - same contract as id.
+        next_serial = db.execute(
+            text("SELECT COALESCE(MAX(serialNo), 0) + 1 AS n FROM Mst_MajorOperation")
+        ).fetchone().n
+
         params = {
+            "serialNo": next_serial,
             "operationCode": d["operationCode"],
             "operationName": d["operationName"],
             "department": d["department"],
+            "medications": d["medications"],
+            "procedures": d["procedures"],
+            "equipment": d["equipment"],
             "description": d["description"],
             "defaultCharge": float(d["defaultCharge"] or 0),
             "taxApplicable": int(d["taxApplicable"]),
@@ -121,6 +139,9 @@ def update(id: int, operation: MajorOperationUpdate, db: Session = Depends(get_d
                 operationCode = :operationCode,
                 operationName = :operationName,
                 department = :department,
+                medications = :medications,
+                procedures = :procedures,
+                equipment = :equipment,
                 description = :description,
                 defaultCharge = :defaultCharge,
                 taxApplicable = :taxApplicable,
@@ -138,6 +159,9 @@ def update(id: int, operation: MajorOperationUpdate, db: Session = Depends(get_d
             "operationCode": d["operationCode"],
             "operationName": d["operationName"],
             "department": d["department"],
+            "medications": d["medications"],
+            "procedures": d["procedures"],
+            "equipment": d["equipment"],
             "description": d["description"],
             "defaultCharge": float(d["defaultCharge"] or 0),
             "taxApplicable": int(d["taxApplicable"]),

@@ -7,6 +7,9 @@ class MinorOperationCreate(BaseModel):
     operationCode:     str
     operationName:     str
     department:        str
+    medications:       Optional[str] = None
+    procedures:        Optional[str] = None
+    equipment:         Optional[str] = None
     description:       Optional[str] = None
     defaultCharge:     str
     taxApplicable:     Optional[bool] = False
@@ -25,9 +28,13 @@ class MinorOperationUpdate(MinorOperationCreate):
 
 class MinorOperationResponse(BaseModel):
     id:                int
+    serialNo:          Optional[int] = None
     operationCode:     str
     operationName:     str
     department:        str
+    medications:       Optional[str] = None
+    procedures:        Optional[str] = None
+    equipment:         Optional[str] = None
     description:       Optional[str] = None
     defaultCharge:     str
     taxApplicable:     bool

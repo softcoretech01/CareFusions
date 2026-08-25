@@ -115,6 +115,7 @@ const SettingsPage = lazy(() => import('../pages/executive/SettingsPage').then(m
 const HospitalMaster = lazy(() => import('../pages/admin/organization-masters/HospitalMaster').then(m => ({ default: (m as any).HospitalMaster ?? (m as any).default })));
 const BranchMaster = lazy(() => import('../pages/admin/organization-masters/BranchMaster').then(m => ({ default: (m as any).BranchMaster ?? (m as any).default })));
 const DepartmentMaster = lazy(() => import('../pages/admin/organization-masters/DepartmentMaster').then(m => ({ default: (m as any).DepartmentMaster ?? (m as any).default })));
+const WardChargeMaster = lazy(() => import('../pages/admin/organization-masters/WardChargeMaster').then(m => ({ default: (m as any).WardChargeMaster ?? (m as any).default })));
 const DoctorMaster = lazy(() => import('../pages/admin/doctor-masters/DoctorMaster').then(m => ({ default: (m as any).DoctorMaster ?? (m as any).default })));
 const DoctorSpecializationMaster = lazy(() => import('../pages/admin/doctor-masters/DoctorSpecializationMaster').then(m => ({ default: (m as any).DoctorSpecializationMaster ?? (m as any).default })));
 const NurseMaster = lazy(() => import('../pages/admin/employee-masters/NurseMaster').then(m => ({ default: (m as any).NurseMaster ?? (m as any).default })));
@@ -643,6 +644,7 @@ export const router = createBrowserRouter([
       { path: 'admin/masters/hospital', element: <HospitalMaster /> },
       { path: 'admin/masters/branch', element: <BranchMaster /> },
       { path: 'admin/masters/department', element: <DepartmentMaster /> },
+      { path: 'admin/masters/ward-charge', element: <WardChargeMaster /> },
       { path: 'admin/masters/doctor', element: <DoctorMaster /> },
       { path: 'admin/masters/doctor-specialization', element: <DoctorSpecializationMaster /> },
       { path: 'admin/masters/nurse', element: <NurseMaster /> },

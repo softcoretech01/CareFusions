@@ -15,19 +15,19 @@ import { inr } from '../../utils/inr';
 import { exportToExcel } from '../../utils/exportToExcel';
 import { useDepartments } from '../../hooks/useMasterOptions';
 
-/** Local calendar day (YYYY-MM-DD) â€” safe against UTC parsing skew. */
+/** Local calendar day (YYYY-MM-DD) — safe against UTC parsing skew. */
 const localDay = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-const dayOf = (s: string | null | undefined) => (s ? localDay(new Date(s)) : 'â€”');
+const dayOf = (s: string | null | undefined) => (s ? localDay(new Date(s)) : '—');
 
 export interface MovementConfig {
   docType: DocType;
   title: string;
   subtitle: string;
-  /** Where the stock comes from â€” shows a source store picker and lot selection. */
+  /** Where the stock comes from — shows a source store picker and lot selection. */
   needsSource: boolean;
-  /** Where the stock lands â€” shows a destination store picker. */
+  /** Where the stock lands — shows a destination store picker. */
   needsDestination: boolean;
   /** Free-text consumption destination (ISSUE only). */
   needsDepartment?: boolean;
@@ -37,7 +37,7 @@ export interface MovementConfig {
   reasons?: string[];
   /** Lines carry a cost (RECEIPT / RETURN). */
   needsRate?: boolean;
-  /** Lines may be negative â€” a write-off (ADJUSTMENT). */
+  /** Lines may be negative — a write-off (ADJUSTMENT). */
   allowNegative?: boolean;
   submitLabel: string;
   numberLabel: string;
@@ -73,9 +73,9 @@ const buildColumns = (docType: DocType): Column[] => {
     case 'RECEIPT':
       return [
         { label: 'GRN No', render: num },
-        { label: 'PO Number', render: d => d.referenceNo || 'â€”' },
-        { label: 'Vendor', render: d => d.vendorName || 'â€”' },
-        { label: 'Target Store', render: d => d.toStoreName || 'â€”' },
+        { label: 'PO Number', render: d => d.referenceNo || '—' },
+        { label: 'Vendor', render: d => d.vendorName || '—' },
+        { label: 'Target Store', render: d => d.toStoreName || '—' },
         { label: 'Received Date', render: d => dayOf(d.docDate) },
         { label: 'Total Items', align: 'right', render: d => d.totalItems },
         { label: 'Status', render: d => <AutoStatusBadge status={d.status || 'Received'} /> },
@@ -84,9 +84,9 @@ const buildColumns = (docType: DocType): Column[] => {
       return [
         { label: 'Stock Out No', render: num },
         { label: 'Date', render: d => dayOf(d.docDate) },
-        { label: 'Destination', render: d => d.departmentName || 'â€”' },
-        { label: 'Store', render: d => d.fromStoreName || 'â€”' },
-        { label: 'Requested By', render: d => d.requestedBy || 'â€”' },
+        { label: 'Destination', render: d => d.departmentName || '—' },
+        { label: 'Store', render: d => d.fromStoreName || '—' },
+        { label: 'Requested By', render: d => d.requestedBy || '—' },
         { label: 'Total Items', align: 'right', render: d => d.totalItems },
         { label: 'Total Qty', align: 'right', render: d => <span className="font-semibold text-slate-800">{d.totalQty}</span> },
       ];
@@ -94,9 +94,9 @@ const buildColumns = (docType: DocType): Column[] => {
       return [
         { label: 'Return No', render: num },
         { label: 'Date', render: d => dayOf(d.docDate) },
-        { label: 'Source (Returned From)', render: d => d.fromStoreName || d.departmentName || 'â€”' },
-        { label: 'Returned By', render: d => d.requestedBy || 'â€”' },
-        { label: 'Reason', render: d => d.reason || 'â€”' },
+        { label: 'Source (Returned From)', render: d => d.fromStoreName || d.departmentName || '—' },
+        { label: 'Returned By', render: d => d.requestedBy || '—' },
+        { label: 'Reason', render: d => d.reason || '—' },
         { label: 'Items', align: 'right', render: d => d.totalItems },
         { label: 'Total Qty', align: 'right', render: d => <span className="font-semibold text-slate-800">{d.totalQty}</span> },
         { label: 'Status', render: d => <AutoStatusBadge status={d.status || 'Pending'} /> },
@@ -112,8 +112,8 @@ const buildColumns = (docType: DocType): Column[] => {
           ),
         },
         { label: 'Date', render: d => dayOf(d.docDate) },
-        { label: 'Source Store', render: d => d.fromStoreName || 'â€”' },
-        { label: 'Destination Store', render: d => d.toStoreName || 'â€”' },
+        { label: 'Source Store', render: d => d.fromStoreName || '—' },
+        { label: 'Destination Store', render: d => d.toStoreName || '—' },
         { label: 'Total Items', align: 'right', render: d => d.totalItems },
         { label: 'Total Qty', align: 'right', render: d => <span className="font-semibold text-slate-800">{d.totalQty}</span> },
         { label: 'Status', render: d => <AutoStatusBadge status={d.status || 'Pending'} /> },
@@ -122,8 +122,8 @@ const buildColumns = (docType: DocType): Column[] => {
       return [
         { label: 'Adjustment No', render: num },
         { label: 'Date', render: d => dayOf(d.docDate) },
-        { label: 'Store', render: d => d.fromStoreName || 'â€”' },
-        { label: 'Reason', render: d => d.reason || 'â€”' },
+        { label: 'Store', render: d => d.fromStoreName || '—' },
+        { label: 'Reason', render: d => d.reason || '—' },
         { label: 'Items', align: 'right', render: d => d.totalItems },
         { label: 'Total Qty', align: 'right', render: d => <span className="font-semibold text-slate-800">{d.totalQty}</span> },
         { label: 'Status', render: d => <AutoStatusBadge status={d.status || 'Posted'} /> },
@@ -133,6 +133,7 @@ const buildColumns = (docType: DocType): Column[] => {
 
 interface LineDraft {
   key: string;
+  itemType?: string;
   itemId: number;
   itemName: string;
   category?: string;
@@ -155,7 +156,7 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
   const pres = PRESENTATION[config.docType];
   const columns = useMemo(() => buildColumns(config.docType), [config.docType]);
   // Departments come from the Department Master (Active only), so a department
-  // added there shows up here â€” no hardcoded list to keep in sync.
+  // added there shows up here — no hardcoded list to keep in sync.
   const { options: departmentOptions } = useDepartments();
 
   const [showForm, setShowForm] = useState(false);
@@ -211,7 +212,7 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
     return true;
   }), [documents, config.docType, search, storeFilter, fromDate, toDate]);
 
-  // The item's most recently updated stock lot â€” the source for the default
+  // The item's most recently updated stock lot — the source for the default
   // batch, expiry and cost when an item is picked.
   const latestLotFor = (itemId: number) => {
     const its = stock.filter(s => s.itemId === itemId);
@@ -232,7 +233,7 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
   const onHandFor = (itemId: number): number =>
     stock.filter(s => s.itemId === itemId).reduce((sum, s) => sum + s.quantity, 0);
 
-  // Outbound lines (issue/transfer) can't move more than the chosen lot holds â€”
+  // Outbound lines (issue/transfer) can't move more than the chosen lot holds —
   // cap the quantity at the lot's available balance as the user types.
   const clampToAvailable = (raw: string, available?: number): string => {
     const digits = digitsOnly(raw, LIMITS.qty);
@@ -249,7 +250,7 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
 
   const addLine = () => setLines(prev => [...prev, {
     key: `${Date.now()}-${prev.length}`,
-    itemId: 0, itemName: '', batchNo: '', mfgDate: '', expiryDate: '', uom: '',
+    itemType: '', itemId: 0, itemName: '', batchNo: '', mfgDate: '', expiryDate: '', uom: '',
     quantity: '', rate: '', remarks: '',
   }]);
 
@@ -261,9 +262,9 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
   // Source movements pick an existing lot; inbound movements pick a catalogue item.
   const selectLot = (key: string, stockId: string) => {
     const lot = lots.find(l => String(l.stockId) === stockId);
-    if (!lot) { updateLine(key, { itemId: 0, itemName: '', batchNo: '', available: undefined, category: '', rate: '' }); return; }
+    if (!lot) { updateLine(key, { itemType: '', itemId: 0, itemName: '', batchNo: '', available: undefined, category: '', rate: '' }); return; }
     updateLine(key, {
-      itemId: lot.itemId, itemName: lot.itemName, batchNo: lot.batchNo, category: lot.category,
+      itemType: lot.itemType, itemId: lot.itemId, itemName: lot.itemName, batchNo: lot.batchNo, category: lot.category,
       uom: lot.uom, available: lot.quantity, expiryDate: lot.expiryDate || '',
       rate: String(lot.valuationRate || 0),
     });
@@ -271,14 +272,14 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
 
   const selectItem = (key: string, itemId: string) => {
     const item = items.find(i => String(i.itemId) === itemId);
-    if (!item) { updateLine(key, { itemId: 0, itemName: '', uom: '', category: '', rate: '', batchNo: '', expiryDate: '' }); return; }
+    if (!item) { updateLine(key, { itemType: '', itemId: 0, itemName: '', uom: '', category: '', rate: '', batchNo: '', expiryDate: '' }); return; }
     // Selecting an item applies what the DB knows: unit, category and last cost.
     const lot = latestLotFor(item.itemId);
     const patch: Partial<LineDraft> = {
-      itemId: item.itemId, itemName: item.itemName, uom: item.uom, category: item.category,
+      itemType: item.itemType, itemId: item.itemId, itemName: item.itemName, uom: item.uom, category: item.category,
     };
     if (config.needsRate) patch.rate = lot?.valuationRate ? String(lot.valuationRate) : '';
-    // Inbound lines (return) carry a batch/expiry â€” show the item's current lot
+    // Inbound lines (return) carry a batch/expiry — show the item's current lot
     // values, or auto-generate a batch when it has no stock yet.
     if (!config.needsSource) {
       patch.batchNo = lot?.batchNo && lot.batchNo !== '-' ? lot.batchNo : genBatch();
@@ -322,6 +323,7 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
     setRemarks(doc.remarks || '');
     setLines(doc.items.map((it, idx) => ({
       key: `edit-${idx}`,
+      itemType: it.itemType,
       itemId: it.itemId,
       itemName: it.itemName,
       category: '',
@@ -358,6 +360,7 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
       reason: config.reasons ? reason : null,
       remarks: remarks || null,
       items: lines.map(l => ({
+        itemType: l.itemType || 'MEDICAL_ITEM',
         itemId: l.itemId,
         batchNo: l.batchNo || null,
         mfgDate: l.mfgDate || null,
@@ -389,7 +392,7 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
   };
 
   const handleDelete = async (doc: MovementDocument) => {
-    if (!window.confirm(`Delete ${doc.docNumber}? Stock will NOT be reversed â€” post a correcting adjustment instead.`)) return;
+    if (!window.confirm(`Delete ${doc.docNumber}? Stock will NOT be reversed — post a correcting adjustment instead.`)) return;
     const ok = await deleteDocument(doc.docId);
     toast[ok ? 'success' : 'error'](ok ? 'Document deleted' : 'Failed to delete document');
   };
@@ -400,7 +403,7 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
   const [page, setPage] = useState(1);
   const totalRows = docs.length;
   const totalPages = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
-  // Filters can shrink the list under the current page â€” snap back into range.
+  // Filters can shrink the list under the current page — snap back into range.
   useEffect(() => { if (page > totalPages) setPage(1); }, [page, totalPages]);
   const paged = docs.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
@@ -505,7 +508,7 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
                 <tr>
                   <td colSpan={columns.length + 1} className="px-3 py-14 text-center text-slate-400">
                     <FileText className="w-9 h-9 mx-auto text-slate-200 mb-2" />
-                    {loading ? 'Loadingâ€¦' : `No ${pres.title.toLowerCase()} records yet.`}
+                    {loading ? 'Loading…' : `No ${pres.title.toLowerCase()} records yet.`}
                   </td>
                 </tr>
               )}
@@ -621,7 +624,7 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
                   <div>
                     <label className="block text-sm font-semibold text-slate-700 mb-1.5">Reason</label>
                     <select value={reason} onChange={e => setReason(e.target.value)} className={inputCls}>
-                      <option value="">Select reasonâ€¦</option>
+                      <option value="">Select reason…</option>
                       {config.reasons.map(r => <option key={r} value={r}>{r}</option>)}
                     </select>
                   </div>
@@ -669,22 +672,22 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
                                   value={lots.find(l => l.itemId === line.itemId && l.batchNo === line.batchNo)?.stockId ?? ''}
                                   onChange={e => selectLot(line.key, e.target.value)}
                                   className={inputCls} disabled={!fromStoreId}>
-                                  <option value="">Select stock lotâ€¦</option>
+                                  <option value="">Select stock lot…</option>
                                   {lots.map(l => (
                                     <option key={l.stockId} value={l.stockId}>
-                                      {l.itemName} Â· {l.batchNo} Â· {l.quantity} {l.uom}
-                                      {l.expiryDate ? ` Â· exp ${dayOf(l.expiryDate)}` : ''}
+                                      {l.itemName} · {l.batchNo} · {l.quantity} {l.uom}
+                                      {l.expiryDate ? ` · exp ${dayOf(l.expiryDate)}` : ''}
                                     </option>
                                   ))}
                                 </select>
                               ) : (
                                 <select value={line.itemId || ''} onChange={e => selectItem(line.key, e.target.value)} className={inputCls}>
-                                  <option value="">Select itemâ€¦</option>
+                                  <option value="">Select item…</option>
                                   {items.map(i => <option key={i.itemId} value={i.itemId}>{i.itemName} ({i.itemCode})</option>)}
                                 </select>
                               )}
                             </td>
-                            <td className="px-3 py-2 text-slate-500">{line.category || 'â€”'}</td>
+                            <td className="px-3 py-2 text-slate-500">{line.category || '—'}</td>
                             {!config.needsSource && (
                               <td className="px-3 py-2 min-w-[110px]">
                                 <input type="text" value={line.batchNo} placeholder="Batch"
@@ -701,7 +704,7 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
                             <td className="px-3 py-2 text-slate-600 whitespace-nowrap">
                               {line.available !== undefined
                                 ? `${line.available} ${line.uom}`
-                                : line.itemId ? `${onHandFor(line.itemId)} ${line.uom}` : 'â€”'}
+                                : line.itemId ? `${onHandFor(line.itemId)} ${line.uom}` : '—'}
                             </td>
                             <td className="px-3 py-2 min-w-[90px]">
                               <input
@@ -787,7 +790,7 @@ export const MovementScreen = ({ config }: { config: MovementConfig }) => {
                 <button type="submit" disabled={submitting}
                   className="px-6 py-2.5 bg-primary text-white font-bold rounded-xl hover:bg-primary-hover text-sm disabled:opacity-60 flex items-center justify-center gap-2 shadow-sm">
                   <PackageCheck className="w-4 h-4" />
-                  {submitting ? 'Savingâ€¦' : editingDoc ? `Update ${config.numberLabel}` : pres.confirmLabel}
+                  {submitting ? 'Saving…' : editingDoc ? `Update ${config.numberLabel}` : pres.confirmLabel}
                 </button>
               </div>
             </form>

@@ -75,7 +75,7 @@ export const InventoryReports = () => {
   // â”€â”€ Expiry tracker â”€â”€
   const expiryRows = useMemo(() => expiring.map(e => ({
     itemCode: e.itemCode, itemName: e.itemName, store: e.storeName, batchNo: e.batchNo,
-    expiryDate: e.expiryDate ? new Date(e.expiryDate).toLocaleDateString('en-GB') : 'â€”',
+    expiryDate: e.expiryDate ? new Date(e.expiryDate).toLocaleDateString('en-GB') : '—',
     daysToExpiry: e.daysToExpiry, quantity: e.quantity,
   })), [expiring]);
 
@@ -151,10 +151,10 @@ export const InventoryReports = () => {
   };
 
   // These two need Procurement data (GRN vs PO, vendor lead times), which has no
-  // backend yet â€” shown as unavailable rather than faked with placeholder numbers.
+  // backend yet — shown as unavailable rather than faked with placeholder numbers.
   const BLOCKED = [
-    { title: 'Stock Reconciliation', description: 'Physical count vs system stock â€” needs Procurement GRN data' },
-    { title: 'Vendor Performance', description: 'Lead time and fill rate â€” needs Procurement purchase orders' },
+    { title: 'Stock Reconciliation', description: 'Physical count vs system stock — needs Procurement GRN data' },
+    { title: 'Vendor Performance', description: 'Lead time and fill rate — needs Procurement purchase orders' },
   ];
 
   const active = open ? REPORTS[open] : null;
@@ -173,7 +173,7 @@ export const InventoryReports = () => {
     const v = row[col.key];
     if (typeof v === 'number' && col.key.toLowerCase().includes('value')) return inr(v);
     if (col.key === 'daysToExpiry') return v < 0 ? `${Math.abs(v)} overdue` : v;
-    return v ?? 'â€”';
+    return v ?? '—';
   };
 
   return (
@@ -288,7 +288,7 @@ export const InventoryReports = () => {
                   {active.rows.length === 0 && (
                     <tr>
                       <td colSpan={active.columns.length} className="px-3 py-10 text-center text-slate-400">
-                        {loading ? 'Loadingâ€¦' : 'No data for the selected filters.'}
+                        {loading ? 'Loading…' : 'No data for the selected filters.'}
                       </td>
                     </tr>
                   )}
