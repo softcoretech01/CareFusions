@@ -25,8 +25,11 @@ interface DateFilterProps {
   onReset?: () => void;
   searchQuery?: string;
   onSearchChange?: (val: string) => void;
+  /** Pass '' to open with no range at all; omit for the usual today default. */
   defaultDateFrom?: string;
   defaultDateTo?: string;
+  /** Caption before the first input. Say what the dates mean when it isn't obvious. */
+  label?: string;
 }
 
 export const DateFilter = ({
@@ -38,22 +41,26 @@ export const DateFilter = ({
   onReset,
   defaultDateFrom,
   defaultDateTo,
+  label = 'From :',
 }: DateFilterProps) => {
-  const defaultFrom = defaultDateFrom || toInputDate(new Date());
-  const defaultTo = defaultDateTo || toInputDate(new Date());
+  // ?? not || so a caller can pass '' to mean "open unfiltered". Screens that
+  // list stock on hand have nothing to gain from a date range they did not ask
+  // for, and a range they did not notice silently hides most of their rows.
+  const defaultFrom = defaultDateFrom ?? toInputDate(new Date());
+  const defaultTo = defaultDateTo ?? toInputDate(new Date());
 
   // Seed a default range (this month → today) ONLY if the parent hasn't set
   // one. This is a controlled component: the inputs reflect the parent's
   // dateFrom/dateTo directly, and every change is pushed up immediately.
   useEffect(() => {
-    if (!dateFrom) onDateFromChange(defaultFrom);
-    if (!dateTo) onDateToChange(defaultTo);
+    if (!dateFrom && defaultFrom) onDateFromChange(defaultFrom);
+    if (!dateTo && defaultTo) onDateToChange(defaultTo);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-1.5 flex flex-nowrap whitespace-nowrap items-center gap-2 shadow-sm w-fit">
-      <span className="text-slate-400 text-sm font-medium mx-1">From :</span>
+      <span className="text-slate-400 text-sm font-medium mx-1">{label}</span>
       <input
         type="date"
         value={dateFrom}
