@@ -3,7 +3,7 @@
 
 const SLUG_TO_MODULE: Record<string, string> = {
   // Organization
-  hospital: 'Organization', branch: 'Organization', department: 'Organization',
+  hospital: 'Organization', branch: 'Organization', department: 'Organization', 'minor-operation': 'Organization', 'major-operation': 'Organization',
   // Doctor
   doctor: 'Doctor', 'doctor-specialization': 'Doctor',
   // Employee

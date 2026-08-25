@@ -158,7 +158,12 @@ BEGIN
             A.Type AS visitType,
             A.Priority AS priority,
             A.Status AS status,
-            IF((SELECT COUNT(*) FROM hospital.OpBill B WHERE B.Uhid = A.Uhid AND DATE(B.BillDate) = A.AppointmentDate AND B.PaymentStatus = 'Paid') > 0, 'Completed', 'Pending') AS billingStatus,
+            IF(
+                (SELECT COUNT(*) FROM hospital.OpBill B WHERE B.Uhid = A.Uhid AND DATE(B.BillDate) = A.AppointmentDate AND B.PaymentStatus = 'Paid') > 0
+                OR
+                (SELECT COUNT(*) FROM hospital.IpBill I WHERE I.Uhid = A.Uhid AND DATE(I.BillDate) >= A.AppointmentDate) > 0,
+                'Completed', 'Pending'
+            ) AS billingStatus,
             COALESCE(V.IsFinalized, 0) AS isFinalized,
             (
                 SELECT JSON_ARRAYAGG(

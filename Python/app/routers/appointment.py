@@ -169,11 +169,15 @@ def create_appointment(payload: AppointmentCreate, db: Session = Depends(get_db)
 def update_appointment(appointment_id: int, payload: AppointmentUpdate, db: Session = Depends(get_db)):
     """Update an appointment. AppointmentNumber and QueueToken are immutable here."""
     try:
+        existing = _call_sp(db, "GETBYID", appointment_id=appointment_id).fetchone()
+        if not existing:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Appointment {appointment_id} not found")
+        if existing.Status == "Completed":
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot edit a completed appointment")
+
         _call_sp(db, "UPDATE", appointment_id=appointment_id, updated_by=payload.updatedBy or "Admin", **_fields(payload))
         db.commit()
         updated = _call_sp(db, "GETBYID", appointment_id=appointment_id).fetchone()
-        if not updated:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Appointment {appointment_id} not found")
         return _map_row(updated)
     except HTTPException:
         raise
@@ -186,11 +190,15 @@ def update_appointment(appointment_id: int, payload: AppointmentUpdate, db: Sess
 @router.patch("/{appointment_id}/status", response_model=AppointmentResponse)
 def update_status(appointment_id: int, payload: StatusUpdate, db: Session = Depends(get_db)):
     try:
+        existing = _call_sp(db, "GETBYID", appointment_id=appointment_id).fetchone()
+        if not existing:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Appointment {appointment_id} not found")
+        if existing.Status == "Completed":
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot change status of a completed appointment")
+
         _call_sp(db, "UPDATESTATUS", appointment_id=appointment_id, status=payload.status.value, updated_by=payload.updatedBy or "Admin")
         db.commit()
         updated = _call_sp(db, "GETBYID", appointment_id=appointment_id).fetchone()
-        if not updated:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Appointment {appointment_id} not found")
         return _map_row(updated)
     except HTTPException:
         raise
