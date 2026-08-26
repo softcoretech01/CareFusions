@@ -9,11 +9,6 @@ const navigation = [
   { name: 'Eligibility & Verification', to: '/insurance/eligibility', icon: ShieldCheck },
   { name: 'Pre-Authorizations', to: '/insurance/pre-authorizations', icon: ClipboardCheck },
   { name: 'Claims Management', to: '/insurance/claims', icon: FileText },
-  // Both screens were routed but had no nav entry, so the only way in was to
-  // type the URL. Claims denial opens an appeal and settlement records the
-  // remittance, so they are the back half of the claims flow — not optional.
-  { name: 'Appeals', to: '/insurance/appeals', icon: Gavel },
-  { name: 'Settlements', to: '/insurance/settlements', icon: Banknote },
 ];
 
 export const InsuranceSidebar = () => {

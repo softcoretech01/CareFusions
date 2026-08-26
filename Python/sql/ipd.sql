@@ -76,6 +76,7 @@ CREATE TABLE IF NOT EXISTS hospital.IPD_Admission (
     CurrentBedId        INT          NULL,
     ProvisionalDiagnosis VARCHAR(500) NULL,
     InsuranceStatus     VARCHAR(50)  NULL,
+    OperationsData      JSON         NULL,
     DischargeDate       DATE         NULL,
     DischargeSummary    TEXT         NULL,
     DischargedBy        VARCHAR(150) NULL,
@@ -280,7 +281,7 @@ BEGIN
         SELECT AdmissionId, AdmissionNumber, Uhid, PatientName, Age, Gender, BloodGroup,
                AdmissionDate, AdmittingDoctor, Specialty, AdmissionType, Priority,
                ExpectedStayDays, Status, CurrentWardId, CurrentBedId, ProvisionalDiagnosis,
-               InsuranceStatus, DischargeDate, DischargeSummary, DischargedBy
+               InsuranceStatus, OperationsData, DischargeDate, DischargeSummary, DischargedBy
         FROM IPD_Admission
         WHERE IsDeleted = 0
         ORDER BY AdmissionId DESC;
@@ -289,7 +290,7 @@ BEGIN
         SELECT AdmissionId, AdmissionNumber, Uhid, PatientName, Age, Gender, BloodGroup,
                AdmissionDate, AdmittingDoctor, Specialty, AdmissionType, Priority,
                ExpectedStayDays, Status, CurrentWardId, CurrentBedId, ProvisionalDiagnosis,
-               InsuranceStatus, DischargeDate, DischargeSummary, DischargedBy
+               InsuranceStatus, OperationsData, DischargeDate, DischargeSummary, DischargedBy
         FROM IPD_Admission
         WHERE AdmissionId = p_AdmissionId AND IsDeleted = 0;
 

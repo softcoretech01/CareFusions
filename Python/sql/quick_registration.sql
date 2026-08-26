@@ -32,6 +32,10 @@ CREATE TABLE IF NOT EXISTS registration.QuickRegistration (
     ConsultationFee DECIMAL(10,2),
     PaymentMode VARCHAR(50),
     InsuranceRequired VARCHAR(10),
+    InsuranceProvider VARCHAR(50),
+    Tpa VARCHAR(50),
+    PolicyNumber VARCHAR(50),
+    ValidTill DATE,
     Status VARCHAR(20),
     Remarks VARCHAR(250),
     CreatedBy VARCHAR(50),
@@ -63,6 +67,10 @@ CREATE PROCEDURE registration.SpQuickRegistration(
     IN p_ConsultationFee DECIMAL(10,2),
     IN p_PaymentMode VARCHAR(50),
     IN p_InsuranceRequired VARCHAR(10),
+    IN p_InsuranceProvider VARCHAR(50),
+    IN p_Tpa VARCHAR(50),
+    IN p_PolicyNumber VARCHAR(50),
+    IN p_ValidTill DATE,
     IN p_Status VARCHAR(20),
     IN p_Remarks VARCHAR(250),
     IN p_CreatedBy VARCHAR(50),
@@ -94,13 +102,19 @@ BEGIN
         SET @new_uhid = CONCAT('UHID-', YEAR(CURDATE()), '-', LPAD(@max_seq, 4, '0'));
 
         INSERT INTO registration.QuickRegistration (
-            Uhid, RegistrationDate, RegistrationTime, Title, PatientName, Gender, DateOfBirth, Age,
-            MobileNumber, AlternateMobile, VisitType, Department, Doctor, Priority, VisitReason,
-            ConsultationRequired, ConsultationFee, PaymentMode, InsuranceRequired, Status, Remarks, CreatedBy
+            Uhid, RegistrationDate, RegistrationTime, Title, PatientName,
+            Gender, DateOfBirth, Age, MobileNumber, AlternateMobile,
+            VisitType, Department, Doctor, Priority, VisitReason,
+            ConsultationRequired, ConsultationFee, PaymentMode, InsuranceRequired,
+            InsuranceProvider, Tpa, PolicyNumber, ValidTill,
+            Status, Remarks, CreatedBy
         ) VALUES (
-            @new_uhid, p_RegistrationDate, p_RegistrationTime, p_Title, p_PatientName, p_Gender, p_DateOfBirth, p_Age,
-            p_MobileNumber, p_AlternateMobile, p_VisitType, p_Department, p_Doctor, p_Priority, p_VisitReason,
-            p_ConsultationRequired, p_ConsultationFee, p_PaymentMode, p_InsuranceRequired, p_Status, p_Remarks, p_CreatedBy
+            @new_uhid, p_RegistrationDate, p_RegistrationTime, p_Title, p_PatientName,
+            p_Gender, p_DateOfBirth, p_Age, p_MobileNumber, p_AlternateMobile,
+            p_VisitType, p_Department, p_Doctor, p_Priority, p_VisitReason,
+            p_ConsultationRequired, p_ConsultationFee, p_PaymentMode, p_InsuranceRequired,
+            p_InsuranceProvider, p_Tpa, p_PolicyNumber, p_ValidTill,
+            p_Status, p_Remarks, p_CreatedBy
         );
 
         SET @new_id = LAST_INSERT_ID();
@@ -130,6 +144,10 @@ BEGIN
             ConsultationFee = p_ConsultationFee,
             PaymentMode = p_PaymentMode,
             InsuranceRequired = p_InsuranceRequired,
+            InsuranceProvider = p_InsuranceProvider,
+            Tpa = p_Tpa,
+            PolicyNumber = p_PolicyNumber,
+            ValidTill = p_ValidTill,
             Status = p_Status,
             Remarks = p_Remarks,
             ModifiedBy = p_ModifiedBy

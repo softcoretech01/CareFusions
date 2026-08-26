@@ -62,7 +62,17 @@ export const ActiveInpatients = () => {
 
     const bed = beds.find(b => b.id === p.currentBedId);
     const matchesRoom = selectedRoom === 'All' || bed?.roomNumber === selectedRoom;
-    const matchesWard = !wardIdParam || p.currentWardId === Number(wardIdParam);
+
+    // Ward filter: match by name first (backend now returns currentWardName),
+    // fall back to charge-master ID match for backwards compatibility
+    let matchesWard = true;
+    if (wardIdParam && selectedWard) {
+      const byName = p.currentWardName
+        ? p.currentWardName.toLowerCase() === selectedWard.name.toLowerCase()
+        : false;
+      const byId = p.currentWardId === Number(wardIdParam);
+      matchesWard = byName || byId;
+    }
 
     return matchesSearch && matchesDate && matchesRoom && matchesWard;
   });

@@ -4,8 +4,10 @@ import { useIPD } from '../../contexts/IPDContext';
 import { usePatients } from '../../contexts/PatientContext';
 import { useDoctorSchedules } from '../../contexts/DoctorScheduleContext';
 import type { GlobalPatientRecord } from '../../contexts/PatientContext';
-import { UserPlus, Save, ArrowLeft, CheckCircle2, Bed, Stethoscope, BedDouble, Search, X } from 'lucide-react';
+import { UserPlus, Save, ArrowLeft, CheckCircle2, Bed, Stethoscope, BedDouble, Search, X, Syringe } from 'lucide-react';
 import toast from 'react-hot-toast';
+
+const API_BASE = import.meta.env.VITE_API_URL as string || 'http://localhost:8000/api/v1';
 
 export const NewAdmission = () => {
   const { state } = useLocation();
@@ -37,6 +39,24 @@ export const NewAdmission = () => {
     bedId: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const [minorOperations, setMinorOperations] = useState<any[]>([]);
+  const [majorOperations, setMajorOperations] = useState<any[]>([]);
+  const [selectedOperations, setSelectedOperations] = useState<{id: number, type: string, name: string, charge: number}[]>([]);
+
+  useEffect(() => {
+    const fetchOps = async () => {
+      try {
+        const [minRes, majRes] = await Promise.all([
+          fetch(`${API_BASE}/minor-operations/`),
+          fetch(`${API_BASE}/major-operations/`)
+        ]);
+        if (minRes.ok) setMinorOperations(await minRes.json());
+        if (majRes.ok) setMajorOperations(await majRes.json());
+      } catch (e) { console.error('Failed to fetch operations', e); }
+    };
+    fetchOps();
+  }, []);
 
   useEffect(() => {
     if (state?.request) {
@@ -160,6 +180,7 @@ export const NewAdmission = () => {
       currentBedId: Number(form.bedId),
       provisionalDiagnosis: form.provisionalDiagnosis,
       insuranceStatus: form.insuranceStatus,
+      operations: selectedOperations,
     });
 
     if (state?.request?.id) {
@@ -326,10 +347,8 @@ export const NewAdmission = () => {
                 <option value="">Select Ward</option>
                 {wards.filter(w => {
                   if (w.genderRestriction !== 'Any' && w.genderRestriction !== form.gender) return false;
-                  if (form.admissionType === 'ICU') return w.type.includes('ICU') || w.type === 'HDU';
-                  if (form.admissionType === 'General') return ['General', 'Semi-Private', 'Private', 'Deluxe'].includes(w.type);
                   return true;
-                }).map(w => <option key={w.id} value={w.id}>{w.name} ({w.type})</option>)}
+                }).map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
               </select>
               <Err f="wardId" />
             </div>
@@ -394,7 +413,52 @@ export const NewAdmission = () => {
           )}
         </div>
 
-        <div className="flex justify-end pt-2">
+        {/* Operation Selection (Only if OT is selected) */}
+        {form.wardId && wards.find(w => w.id === Number(form.wardId))?.name.toUpperCase().includes('OT') && (
+          <div>
+            <h2 className="text-base font-bold text-slate-800 border-b border-slate-100 pb-2 mb-3 flex items-center gap-2">
+              <Syringe className="w-4 h-4 text-primary" /> Operations Details
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className={labelCls}>Select Minor Operations</label>
+                <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-xl p-2 bg-slate-50">
+                  {minorOperations.map(op => {
+                    const isSelected = selectedOperations.some(so => so.id === op.id && so.type === 'Minor');
+                    return (
+                      <label key={op.id} className="flex items-center gap-2 p-1.5 hover:bg-white rounded-lg cursor-pointer">
+                        <input type="checkbox" checked={isSelected} onChange={(e) => {
+                          if (e.target.checked) setSelectedOperations(prev => [...prev, { id: op.id, type: 'Minor', name: op.operationName, charge: op.defaultCharge }]);
+                          else setSelectedOperations(prev => prev.filter(so => !(so.id === op.id && so.type === 'Minor')));
+                        }} className="rounded border-slate-300 text-primary focus:ring-primary/20" />
+                        <span className="text-sm text-slate-700">{op.operationName}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+              <div>
+                <label className={labelCls}>Select Major Operations</label>
+                <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-xl p-2 bg-slate-50">
+                  {majorOperations.map(op => {
+                    const isSelected = selectedOperations.some(so => so.id === op.id && so.type === 'Major');
+                    return (
+                      <label key={op.id} className="flex items-center gap-2 p-1.5 hover:bg-white rounded-lg cursor-pointer">
+                        <input type="checkbox" checked={isSelected} onChange={(e) => {
+                          if (e.target.checked) setSelectedOperations(prev => [...prev, { id: op.id, type: 'Major', name: op.operationName, charge: op.defaultCharge }]);
+                          else setSelectedOperations(prev => prev.filter(so => !(so.id === op.id && so.type === 'Major')));
+                        }} className="rounded border-slate-300 text-primary focus:ring-primary/20" />
+                        <span className="text-sm text-slate-700">{op.operationName}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="pt-4 flex justify-end">
           <button type="submit" className="px-6 py-2.5 bg-primary text-white font-bold rounded-xl hover:bg-primary/90 transition-colors flex items-center gap-2">
             <Save className="w-5 h-5" /> Admit Patient
           </button>

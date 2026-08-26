@@ -527,19 +527,7 @@ export const EligibilityVerification = () => {
                   </div>
                 </div>
 
-                <div className="md:col-span-2">
-                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1.5">
-                    Deductible (₹)
-                  </label>
-                  <input
-                    type="text"
-                    value={form.deductible}
-                    onChange={(e) => setForm({ ...form, deductible: decimalOnly(e.target.value) })}
-                    className={inputCls('deductible')}
-                    maxLength={LIMITS.amount}
-                  />
-                  <p className="text-xs text-slate-500 mt-1">Amount the patient must pay before insurance applies.</p>
-                </div>
+
               </div>
             </div>
 

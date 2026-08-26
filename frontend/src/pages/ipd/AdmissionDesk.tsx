@@ -35,7 +35,7 @@ export const AdmissionDesk = () => {
 
   const pendingRequests = admissionRequests.filter(r => {
     if (r.status !== 'Pending') return false;
-    
+
     if (appliedDateFrom && appliedDateTo) {
       const rDate = r.requestDate.substring(0, 10);
       return rDate >= appliedDateFrom && rDate <= appliedDateTo;
@@ -50,7 +50,7 @@ export const AdmissionDesk = () => {
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Admission Desk</h1>
         </div>
-        <button 
+        <button
           onClick={() => navigate('/ipd/new-admission')}
           className="px-6 py-2.5 bg-primary text-white font-bold rounded-xl hover:bg-primary/90 transition-colors"
         >
@@ -113,7 +113,7 @@ export const AdmissionDesk = () => {
                       <div className="text-xs text-slate-500 truncate max-w-[200px]">{req.provisionalDiagnosis}</div>
                     </td>
                     <td className="px-4 py-3">
-                      <button 
+                      <button
                         onClick={() => navigate('/ipd/new-admission', { state: { request: req } })}
                         className="px-4 py-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
                       >

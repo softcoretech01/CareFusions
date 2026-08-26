@@ -283,10 +283,12 @@ export const PatientRegistration = () => {
 
       const uniquePatients = new Map();
       allPatients.forEach(p => {
+        if (!p.uhid) return; // Skip if no uhid
         if (!uniquePatients.has(p.uhid)) {
           uniquePatients.set(p.uhid, p);
         } else {
           const existing = uniquePatients.get(p.uhid);
+          // Patient Registration takes precedence over Emergency, which takes precedence over Quick
           if (p.sourceType === 'Patient') {
             uniquePatients.set(p.uhid, p);
           } else if (p.sourceType === 'Emergency' && existing.sourceType === 'Quick') {

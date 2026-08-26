@@ -1,46 +1,59 @@
 const fs = require('fs');
 const path = require('path');
 
-const sidebarPath = path.join(__dirname, 'frontend/src/layouts/Sidebar.tsx');
+const sidebarPath = path.join(__dirname, 'src/layouts/Sidebar.tsx');
 const sidebarContent = fs.readFileSync(sidebarPath, 'utf8');
 
-// Regex to find all objects with { name: '...', to: '/admin/masters/...' }
-const regex = /name:\s*'([^']+)',\s*to:\s*'\/admin\/masters\/([^']+)'/g;
-let match;
-const masters = [];
+const groups = [];
+const groupRegex = /{ name: '([^']+)', icon: [^,]+, children: \[([\s\S]*?)\]},?/g;
+let groupMatch;
 
-while ((match = regex.exec(sidebarContent)) !== null) {
-  masters.push({ name: match[1], slug: match[2] });
+while ((groupMatch = groupRegex.exec(sidebarContent)) !== null) {
+  const groupName = groupMatch[1];
+  const childrenString = groupMatch[2];
+  
+  const children = [];
+  const childRegex = /{ name: '([^']+)', to: '\/admin\/masters\/([^']+)' }/g;
+  let childMatch;
+  while ((childMatch = childRegex.exec(childrenString)) !== null) {
+    children.push({ name: childMatch[1], slug: childMatch[2] });
+  }
+  
+  if (children.length > 0) {
+    groups.push({ name: groupName, children });
+  }
 }
 
-console.log(`Found ${masters.length} masters.`);
-
-// Helper to pascal case
-const toPascal = (str) => str.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join('');
-
-const outDir = path.join(__dirname, 'frontend/src/pages/admin/masters');
-if (!fs.existsSync(outDir)) {
-  fs.mkdirSync(outDir, { recursive: true });
-}
+const toPascal = (str) => str.split(/[- ]/).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join('');
+const toSlug = (str) => str.toLowerCase().replace(/ & /g, '-').replace(/\s+/g, '-');
 
 let routeImports = '';
 let routeDefinitions = '';
 
-masters.forEach((master, idx) => {
-  let compName = toPascal(master.slug) + 'Master';
-  if (compName.endsWith('MasterMaster')) {
-    compName = compName.replace('MasterMaster', 'Master');
+groups.forEach(group => {
+  const groupDirName = toSlug(group.name);
+  const outDir = path.join(__dirname, 'src/pages/admin', groupDirName);
+  
+  if (!fs.existsSync(outDir)) {
+    fs.mkdirSync(outDir, { recursive: true });
   }
 
-  routeImports += `import { ${compName} } from '../pages/admin/masters/${compName}';\n`;
-  routeDefinitions += `      { path: 'masters/${master.slug}', element: <${compName} /> },\n`;
+  group.children.forEach(master => {
+    let compName = toPascal(master.slug) + 'Master';
+    if (compName.endsWith('MasterMaster')) {
+      compName = compName.replace('MasterMaster', 'Master');
+    }
 
-  const title = master.name;
+    routeImports += `import { ${compName} } from '../pages/admin/${groupDirName}/${compName}';\n`;
+    routeDefinitions += `      { path: 'masters/${master.slug}', element: <${compName} /> },\n`;
 
-  const componentContent = `import { useState } from 'react';
-import { Plus, Search, Filter, Download, Edit2, Trash2 } from 'lucide-react';
+    const title = master.name;
+
+    const componentContent = `import { useState } from 'react';
+import { Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
+import { Modal } from '../../../components/ui/Modal';
 
 // Mock data generator for initial state
 const generateInitialData = () => {
@@ -99,37 +112,70 @@ export const ${compName} = () => {
   const [records, setRecords] = useState(generateInitialData());
   const [searchTerm, setSearchTerm] = useState('');
 
-  const handleDelete = (id: number) => {
-    if(window.confirm('Are you sure you want to delete this record?')) {
-      setRecords(records.filter(r => r.id !== id));
+  // Modal States
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState<any>(null);
+  const [formData, setFormData] = useState({ name: '', code: '', status: 'Active' });
+
+  // Handlers
+  const handleCreateNew = () => {
+    setSelectedRecord(null);
+    setFormData({ name: '', code: '', status: 'Active' });
+    setIsFormOpen(true);
+  };
+
+  const handleEdit = (record: any) => {
+    setSelectedRecord(record);
+    setFormData({ name: record.name, code: record.code, status: record.status });
+    setIsFormOpen(true);
+  };
+
+  const handleDeleteRequest = (record: any) => {
+    setSelectedRecord(record);
+    setIsDeleteOpen(true);
+  };
+
+  const handleSaveForm = () => {
+    if (!formData.name.trim() || !formData.code.trim()) return;
+
+    if (selectedRecord) {
+      // Update
+      setRecords(records.map(r => r.id === selectedRecord.id ? { ...r, ...formData } : r));
+    } else {
+      // Create
+      const newId = Math.max(...records.map(r => r.id), 0) + 1;
+      setRecords([...records, { id: newId, ...formData }]);
+    }
+    setIsFormOpen(false);
+  };
+
+  const confirmDelete = () => {
+    if (selectedRecord) {
+      setRecords(records.filter(r => r.id !== selectedRecord.id));
+      setIsDeleteOpen(false);
     }
   };
 
-  const handleEdit = (id: number) => {
-    const record = records.find(r => r.id === id);
-    if(record) {
-      const newName = window.prompt('Edit Name:', record.name);
-      if (newName) {
-        setRecords(records.map(r => r.id === id ? { ...r, name: newName } : r));
-      }
-    }
-  };
-
-  const filteredRecords = records.filter(r => r.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredRecords = records.filter(r => 
+    r.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    r.code.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="h-full flex flex-col"
+      className="h-full flex flex-col relative"
     >
+      {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-slate-800">${title}</h1>
           <p className="text-slate-500 mt-1">Manage and configure your ${title.toLowerCase()} settings.</p>
         </div>
         
-        <Button variant="filled" color="primary" icon={Plus}>
+        <Button variant="filled" color="primary" icon={Plus} onClick={handleCreateNew}>
           Create New
         </Button>
       </div>
@@ -187,9 +233,9 @@ export const ${compName} = () => {
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button variant="text" color="primary" icon={Edit2} className="!p-2" aria-label="Edit" onClick={() => handleEdit(row.id)} />
-                      <Button variant="text" color="danger" icon={Trash2} className="!p-2" aria-label="Delete" onClick={() => handleDelete(row.id)} />
+                    <div className="flex items-center justify-end gap-2 transition-opacity">
+                      <Button variant="text" color="primary" icon={Edit2} className="!p-2" aria-label="Edit" onClick={() => handleEdit(row)} />
+                      <Button variant="text" color="danger" icon={Trash2} className="!p-2" aria-label="Delete" onClick={() => handleDeleteRequest(row)} />
                     </div>
                   </td>
                 </tr>
@@ -215,15 +261,93 @@ export const ${compName} = () => {
           </div>
         </div>
       </div>
+
+      {/* Form Modal */}
+      <Modal
+        isOpen={isFormOpen}
+        onClose={() => setIsFormOpen(false)}
+        title={selectedRecord ? \`Edit ${title}\` : \`Create ${title}\`}
+        maxWidth="xl"
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-2">
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-slate-700 mb-1">Name</label>
+            <input
+              type="text"
+              value={formData.name}
+              onChange={(e) => setFormData({...formData, name: e.target.value})}
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+              placeholder="Enter name"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Code</label>
+            <input
+              type="text"
+              value={formData.code}
+              onChange={(e) => setFormData({...formData, code: e.target.value})}
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+              placeholder="Enter code"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
+            <select
+              value={formData.status}
+              onChange={(e) => setFormData({...formData, status: e.target.value})}
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+            >
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
+            </select>
+          </div>
+        </div>
+        
+        <div className="mt-8 flex items-center justify-end gap-3 pt-6 border-t border-slate-100">
+          <Button variant="outline" color="secondary" onClick={() => setIsFormOpen(false)}>
+            Cancel
+          </Button>
+          <Button variant="filled" color="primary" onClick={handleSaveForm}>
+            {selectedRecord ? 'Save Changes' : 'Create Record'}
+          </Button>
+        </div>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={isDeleteOpen}
+        onClose={() => setIsDeleteOpen(false)}
+        title="Confirm Deletion"
+        maxWidth="sm"
+      >
+        <div className="flex flex-col items-center text-center">
+          <div className="w-12 h-12 rounded-full bg-danger/10 text-danger flex items-center justify-center mb-4">
+            <AlertTriangle className="w-6 h-6" />
+          </div>
+          <h3 className="text-lg font-bold text-slate-800 mb-2">Delete Record</h3>
+          <p className="text-slate-500 text-sm mb-6">
+            Are you sure you want to delete <span className="font-semibold text-slate-700">{selectedRecord?.name}</span>? 
+            This action cannot be undone.
+          </p>
+          
+          <div className="flex items-center gap-3 w-full">
+            <Button variant="outline" color="secondary" className="flex-1" onClick={() => setIsDeleteOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="filled" color="danger" className="flex-1" onClick={confirmDelete}>
+              Delete
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
     </motion.div>
   );
 };
 `;
 
-  fs.writeFileSync(path.join(outDir, compName + '.tsx'), componentContent);
+    fs.writeFileSync(path.join(outDir, compName + '.tsx'), componentContent);
+  });
 });
 
-console.log('Generated 35 master components.');
-
-fs.writeFileSync(path.join(__dirname, 'frontend/src/routes/new_routes.txt'), routeImports + '\n\n' + routeDefinitions);
-console.log('Saved route imports to frontend/src/routes/new_routes.txt');
+console.log('Regenerated all files with advanced modals.');

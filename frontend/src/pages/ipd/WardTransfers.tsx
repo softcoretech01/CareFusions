@@ -8,6 +8,8 @@ import { DateFilter } from '../../components/ui/DateFilter';
 import { IpdErrorBanner } from './IpdErrorBanner';
 import toast from 'react-hot-toast';
 
+const API_BASE = import.meta.env.VITE_API_URL as string || 'http://localhost:8000/api/v1';
+
 interface TransferWithPatient {
   id: string;
   patientId: number;
@@ -65,6 +67,24 @@ export const WardTransfers = () => {
     targetBedId: '',
     reason: ''
   });
+
+  const [minorOperations, setMinorOperations] = useState<any[]>([]);
+  const [majorOperations, setMajorOperations] = useState<any[]>([]);
+  const [selectedOperations, setSelectedOperations] = useState<{id: number, type: string, name: string, charge: number}[]>([]);
+
+  useEffect(() => {
+    const fetchOps = async () => {
+      try {
+        const [minRes, majRes] = await Promise.all([
+          fetch(`${API_BASE}/minor-operations/`),
+          fetch(`${API_BASE}/major-operations/`)
+        ]);
+        if (minRes.ok) setMinorOperations(await minRes.json());
+        if (majRes.ok) setMajorOperations(await majRes.json());
+      } catch (e) { console.error('Failed to fetch operations', e); }
+    };
+    fetchOps();
+  }, []);
 
   // Calculate global transfer history
   const allTransfers: TransferWithPatient[] = useMemo(() => {
@@ -128,10 +148,14 @@ export const WardTransfers = () => {
       toast.error('Please select a patient and a new bed.');
       return;
     }
-    allocateBed(selectedPatientId, Number(transferForm.targetBedId), transferForm.reason);
+    const targetWard = wards.find(w => w.id === Number(transferForm.targetWardId));
+    const isTargetOT = targetWard?.name.toUpperCase().includes('OT') || targetWard?.type === 'OT';
+    const opsToSave = isTargetOT ? selectedOperations : undefined;
+    allocateBed(selectedPatientId, Number(transferForm.targetBedId), transferForm.reason, opsToSave);
     toast.success('Patient transferred successfully!');
     setSelectedPatientId(null);
     setTransferForm({ targetWardId: '', targetRoomNumber: '', targetBedId: '', reason: '' });
+    setSelectedOperations([]);
     setShowModal(false);
   };
 
@@ -178,6 +202,7 @@ export const WardTransfers = () => {
           onClick={() => {
             setSelectedPatientId(null);
             setTransferForm({ targetWardId: '', targetRoomNumber: '', targetBedId: '', reason: '' });
+            setSelectedOperations([]);
             setShowModal(true);
           }}
           className="px-4 py-2 bg-primary text-white font-bold rounded-xl flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-sm"
@@ -280,7 +305,7 @@ export const WardTransfers = () => {
       </div>
 
       {/* New Transfer Modal */}
-      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Initiate Ward Transfer" maxWidth="md">
+      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Initiate Ward Transfer" maxWidth="2xl">
         <form onSubmit={handleTransfer} className="space-y-5 p-1">
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Select Patient</label>
@@ -317,7 +342,7 @@ export const WardTransfers = () => {
               <option value="">Select Target Ward</option>
               {wards
                 .filter(w => w.genderRestriction === 'Any' || w.genderRestriction === selectedPatient?.gender)
-                .map(w => <option key={w.id} value={w.id}>{w.name} ({w.type})</option>)}
+                .map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
             </select>
             </div>
 
@@ -376,8 +401,51 @@ export const WardTransfers = () => {
             </div>
           )}
 
+          {/* Operation Selection (Only if target ward is OT) */}
+          {transferForm.targetWardId && wards.find(w => w.id === Number(transferForm.targetWardId))?.name.toUpperCase().includes('OT') && (
+            <div className="mt-4 p-4 border border-slate-200 rounded-xl bg-slate-50">
+              <h3 className="text-sm font-bold text-slate-800 mb-3 border-b border-slate-200 pb-2">Assign Operations</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Minor Operations</label>
+                  <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-xl p-2 bg-slate-50">
+                    {minorOperations.map(op => {
+                      const isSelected = selectedOperations.some(so => so.id === op.id && so.type === 'Minor');
+                      return (
+                        <label key={op.id} className="flex items-center gap-2 p-1.5 hover:bg-white rounded-lg cursor-pointer">
+                          <input type="checkbox" checked={isSelected} onChange={(e) => {
+                            if (e.target.checked) setSelectedOperations(prev => [...prev, { id: op.id, type: 'Minor', name: op.operationName, charge: op.defaultCharge }]);
+                            else setSelectedOperations(prev => prev.filter(so => !(so.id === op.id && so.type === 'Minor')));
+                          }} className="rounded border-slate-300 text-primary focus:ring-primary/20" />
+                          <span className="text-sm text-slate-700">{op.operationName}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Major Operations</label>
+                  <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-xl p-2 bg-slate-50">
+                    {majorOperations.map(op => {
+                      const isSelected = selectedOperations.some(so => so.id === op.id && so.type === 'Major');
+                      return (
+                        <label key={op.id} className="flex items-center gap-2 p-1.5 hover:bg-white rounded-lg cursor-pointer">
+                          <input type="checkbox" checked={isSelected} onChange={(e) => {
+                            if (e.target.checked) setSelectedOperations(prev => [...prev, { id: op.id, type: 'Major', name: op.operationName, charge: op.defaultCharge }]);
+                            else setSelectedOperations(prev => prev.filter(so => !(so.id === op.id && so.type === 'Major')));
+                          }} className="rounded border-slate-300 text-primary focus:ring-primary/20" />
+                          <span className="text-sm text-slate-700">{op.operationName}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Reason for Transfer</label>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 mt-4">Reason for Transfer</label>
             <textarea
               rows={3}
               value={transferForm.reason}

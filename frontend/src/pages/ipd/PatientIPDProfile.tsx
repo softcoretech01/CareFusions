@@ -1,22 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useIPD } from '../../contexts/IPDContext';
-import { ArrowLeft, User, Activity, CheckCircle, Save, AlertTriangle, FileText, Pill, Stethoscope, FlaskConical, ScrollText } from 'lucide-react';
+import { ArrowLeft, User, Activity, CheckCircle, Save, AlertTriangle, FileText, Pill, Stethoscope, FlaskConical, ScrollText, Syringe } from 'lucide-react';
 import { DischargePrescription } from '../../components/discharge/DischargePrescription';
 import type { DischargeItem } from '../../components/discharge/DischargePrescription';
 import { NursingFlowsheet } from '../../components/ipd/NursingFlowsheet';
 import { ClinicalRounds } from '../../components/ipd/ClinicalRounds';
 import { MarGrid } from '../../components/ipd/MarGrid';
 import { InvestigationsTab } from '../../components/ipd/InvestigationsTab';
+import { OperationsTab } from '../../components/ipd/OperationsTab';
 import toast from 'react-hot-toast';
-
-const TABS = [
-  { id: 'nursing', label: 'Nursing Flowsheet', icon: Activity },
-  { id: 'rounds', label: 'Clinical Rounds', icon: Stethoscope },
-  { id: 'mar', label: 'MAR (Medications)', icon: Pill },
-  { id: 'investigations', label: 'Investigations', icon: FlaskConical },
-  { id: 'discharge', label: 'Discharge', icon: ScrollText },
-];
 
 export const PatientIPDProfile = () => {
   const { patientId } = useParams<{ patientId: string }>();
@@ -88,6 +81,18 @@ export const PatientIPDProfile = () => {
       navigate('/ipd/discharges');
     }
   };
+
+  const isCurrentOT = ward?.type === 'OT' || ward?.name.toUpperCase().includes('OT');
+  const hasOperations = patient?.operations && patient.operations.length > 0;
+  const showOperations = isCurrentOT || hasOperations;
+  const TABS = [
+    { id: 'nursing', label: 'Nursing Flowsheet', icon: Activity },
+    { id: 'rounds', label: 'Clinical Rounds', icon: Stethoscope },
+    { id: 'mar', label: 'MAR (Medications)', icon: Pill },
+    { id: 'investigations', label: 'Investigations', icon: FlaskConical },
+    ...(showOperations ? [{ id: 'operations', label: 'Operations', icon: Syringe }] : []),
+    { id: 'discharge', label: 'Discharge', icon: ScrollText },
+  ];
 
   return (
     <div className="flex h-[calc(100vh-2rem)] gap-4 overflow-hidden">
@@ -161,6 +166,9 @@ export const PatientIPDProfile = () => {
           
           {/* INVESTIGATIONS */}
           {activeTab === 'investigations' && <InvestigationsTab admissionId={patient.id} patientName={patient.patientName} uhid={patient.uhid} />}
+
+          {/* OPERATIONS */}
+          {activeTab === 'operations' && <OperationsTab patientId={patient.id} />}
 
           {/* DISCHARGE TAB */}
           {activeTab === 'discharge' && (

@@ -96,7 +96,8 @@ export const IPPatients = () => {
               billingStatus: latestBill ? latestBill.PaymentStatus : (d.billingStatus || 'Pending'),
               chiefComplaint: '',
               diagnosis: '',
-              clinicalNotes: ''
+              clinicalNotes: '',
+              operations: d.operations || [],
             };
           });
           setRecords(mapped);

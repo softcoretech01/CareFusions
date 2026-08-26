@@ -8,11 +8,17 @@ import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
 import { exportToExcel } from '../../../utils/exportToExcel';
 
+interface RoomEntry {
+  roomNo: string;
+  bedQty: number;
+}
+
 interface WardChargeRecord {
   Id: number;
   WardType: string;
   Charge: number;
-  Description: string;
+  Rooms: RoomEntry[];
+  BedQty: number;
   Remarks: string;
   Status: string;
 }
@@ -20,7 +26,8 @@ interface WardChargeRecord {
 const emptyData: Omit<WardChargeRecord, 'Id'> = {
   WardType: '',
   Charge: 0,
-  Description: '',
+  Rooms: [],
+  BedQty: 1,
   Remarks: '',
   Status: 'Active'
 };
@@ -29,14 +36,33 @@ const WARD_TYPES = ['General', 'Semi-Private', 'Private', 'Deluxe', 'ICU', 'NICU
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
 
-const mapApiToRecord = (item: any): WardChargeRecord => ({
-  Id:          item.Id,
-  WardType:    item.WardType,
-  Charge:      Number(item.Charge ?? 0),
-  Description: item.Description || '',
-  Remarks:     item.Remarks || '',
-  Status:      item.Status
-});
+const mapApiToRecord = (item: any): WardChargeRecord => {
+  let parsedRooms: RoomEntry[] = [];
+  let parsedBedQty: number = 1;
+  try {
+    if (item.Description) {
+      const parsed = JSON.parse(item.Description);
+      if (parsed.rooms && Array.isArray(parsed.rooms)) {
+        parsedRooms = parsed.rooms.map((r: any) => {
+          if (typeof r === 'string') return { roomNo: r, bedQty: 1 };
+          return { roomNo: r.roomNo || '', bedQty: r.bedQty || 1 };
+        });
+      }
+      parsedBedQty = parsed.noOfBeds || 1;
+    }
+  } catch (e) {
+    // legacy fallback
+  }
+  return {
+    Id:          item.Id,
+    WardType:    item.WardType || '',
+    Charge:      Number(item.Charge ?? 0),
+    Rooms:       parsedRooms,
+    BedQty:      parsedBedQty,
+    Remarks:     item.Remarks || '',
+    Status:      item.Status
+  };
+};
 
 const money = (value: number) =>
   `₹${Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
@@ -57,6 +83,8 @@ export const WardChargeMaster = () => {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<WardChargeRecord | null>(null);
   const [formData, setFormData] = useState<Omit<WardChargeRecord, 'Id'>>(emptyData);
+  const [roomInput, setRoomInput] = useState('');
+  const [roomBedInput, setRoomBedInput] = useState<number | ''>('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -71,7 +99,17 @@ export const WardChargeMaster = () => {
       const res = await fetch(`${API_BASE}/ward-charges/`);
       if (!res.ok) throw new Error('Failed to fetch ward charges');
       const data = await res.json();
-      setRecords(data.map(mapApiToRecord));
+      const wardSortOrder = ['General Male', 'General Female', 'Semi-Private', 'Private', 'Deluxe', 'OT'];
+      const mapped = data.map(mapApiToRecord);
+      mapped.sort((a: any, b: any) => {
+        const idxA = wardSortOrder.findIndex(n => n.toLowerCase() === (a.WardType || '').toLowerCase());
+        const idxB = wardSortOrder.findIndex(n => n.toLowerCase() === (b.WardType || '').toLowerCase());
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        return (a.WardType || '').localeCompare(b.WardType || '');
+      });
+      setRecords(mapped);
     } catch (err) {
       console.error(err);
     } finally {
@@ -106,6 +144,8 @@ export const WardChargeMaster = () => {
   const handleCreateNew = () => {
     setSelectedRecord(null);
     setFormData(emptyData);
+    setRoomInput('');
+    setRoomBedInput('');
     setErrors({});
     setIsFormOpen(true);
   };
@@ -113,6 +153,8 @@ export const WardChargeMaster = () => {
   const handleEdit = (record: WardChargeRecord) => {
     setSelectedRecord(record);
     setFormData(record);
+    setRoomInput('');
+    setRoomBedInput('');
     setErrors({});
     setIsFormOpen(true);
   };
@@ -131,10 +173,15 @@ export const WardChargeMaster = () => {
     if (!validateForm()) return;
     setIsSaving(true);
     try {
+      const descriptionPayload = JSON.stringify({
+        rooms: formData.Rooms,
+        noOfBeds: formData.BedQty
+      });
+      
       const payload = {
         WardType:    formData.WardType,
         Charge:      Number(formData.Charge) || 0,
-        Description: formData.Description || null,
+        Description: descriptionPayload,
         Remarks:     formData.Remarks || null,
         Status:      formData.Status,
       };
@@ -208,12 +255,12 @@ export const WardChargeMaster = () => {
         <>
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-3xl font-bold text-slate-800">Ward Charge</h1>
+              <h1 className="text-3xl font-bold text-slate-800">Ward Management</h1>
               <p className="text-slate-500 mt-1"></p>
             </div>
             <div className="flex gap-3">
               <Button variant="filled" color="primary" icon={Plus} onClick={handleCreateNew}>
-                Add Ward Charge
+                Add Ward Management
               </Button>
             </div>
           </div>
@@ -271,7 +318,8 @@ export const WardChargeMaster = () => {
                   <tr>
                     <th className="px-4 py-3 font-medium w-16">S.No</th>
                     <th className="px-4 py-3 font-medium">Ward Type</th>
-                    <th className="px-4 py-3 font-medium">Description</th>
+                    <th className="px-4 py-3 font-medium">No of Rooms</th>
+                    <th className="px-4 py-3 font-medium text-center">No of Beds</th>
                     <th className="px-4 py-3 font-medium text-right">Charge / Day</th>
                     <th className="px-4 py-3 font-medium text-center">Action</th>
                   </tr>
@@ -282,7 +330,8 @@ export const WardChargeMaster = () => {
                       <tr key={record.Id} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-4 py-3 font-medium text-slate-500">{(_page - 1) * itemsPerPage + index + 1}</td>
                         <td className="px-4 py-3 font-medium text-slate-800">{record.WardType}</td>
-                        <td className="px-4 py-3 text-slate-600">{record.Description || '-'}</td>
+                        <td className="px-4 py-3 text-slate-600 font-medium">{record.Rooms.length}</td>
+                        <td className="px-4 py-3 text-center text-slate-600 font-medium">{record.Rooms.reduce((acc, curr) => acc + curr.bedQty, 0)}</td>
                         <td className="px-4 py-3 text-right font-medium text-slate-700">{money(record.Charge)}</td>
                         <td className="px-4 py-3 text-center">
                           <div className="flex items-center justify-center gap-2">
@@ -314,7 +363,7 @@ export const WardChargeMaster = () => {
                   ) : (
                     <tr>
                       <td colSpan={5} className="px-4 py-8 text-center text-slate-500">
-                        {isLoading ? 'Loading records...' : 'No ward charges found matching your criteria.'}
+                        {isLoading ? 'Loading records...' : 'No ward management records found matching your criteria.'}
                       </td>
                     </tr>
                   )}
@@ -349,7 +398,7 @@ export const WardChargeMaster = () => {
           <div className="flex justify-between items-center mb-2">
             <div>
               <h1 className="text-2xl font-bold text-slate-800">
-                {selectedRecord ? `Edit Ward Charge: ${selectedRecord.WardType}` : 'Add New Ward Charge'}
+                {selectedRecord ? `Edit Ward Management: ${selectedRecord.WardType}` : 'Add New Ward Management'}
               </h1>
             </div>
           </div>
@@ -359,18 +408,72 @@ export const WardChargeMaster = () => {
               {/* Basic Information */}
               <section>
                 <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Basic Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Ward Type <span className="text-red-500">*</span></label>
-                    <select value={formData.WardType} onChange={e => setFormData({ ...formData, WardType: e.target.value })} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.WardType ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
-                      <option value="">Select Ward Type</option>
-                      {WARD_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
+                    <input type="text" value={formData.WardType} onChange={e => {
+                      const newType = e.target.value;
+                      const isSingleBed = newType.toLowerCase() === 'ot' || newType.toLowerCase() === 'suite room';
+                      setFormData({ ...formData, WardType: newType, BedQty: isSingleBed ? 1 : formData.BedQty });
+                    }} maxLength={100} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.WardType ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} placeholder="Enter Ward Type (e.g. OT, Suite room, General)" />
                     {errors.WardType && <p className="text-red-500 text-xs mt-1">{errors.WardType}</p>}
                   </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
-                    <input type="text" value={formData.Description} onChange={e => setFormData({ ...formData, Description: e.target.value })} maxLength={250} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Rooms</label>
+                    <div className="flex gap-2 mb-3">
+                      <input 
+                        type="text" 
+                        value={roomInput}
+                        onChange={e => setRoomInput(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (roomInput.trim()) {
+                              const qty = ((formData.WardType || '').toLowerCase() === 'ot' || (formData.WardType || '').toLowerCase() === 'suite room') ? 1 : (roomBedInput === '' ? 1 : roomBedInput);
+                              setFormData(prev => ({ ...prev, Rooms: [...prev.Rooms, { roomNo: roomInput.trim(), bedQty: qty }] }));
+                              setRoomInput('');
+                              setRoomBedInput('');
+                            }
+                          }
+                        }}
+                        placeholder="Type room number (e.g. Room 101)"
+                        className="flex-1 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      />
+                      <input 
+                        type="number" 
+                        min="1"
+                        value={((formData.WardType || '').toLowerCase() === 'ot' || (formData.WardType || '').toLowerCase() === 'suite room') ? 1 : roomBedInput}
+                        onChange={e => setRoomBedInput(e.target.value === '' ? '' : (parseInt(e.target.value) || 1))}
+                        disabled={(formData.WardType || '').toLowerCase() === 'ot' || (formData.WardType || '').toLowerCase() === 'suite room'}
+                        placeholder="Beds"
+                        title="Number of beds in this room"
+                        className="w-24 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                      />
+                      <Button variant="filled" color="primary" onClick={() => {
+                        if (roomInput.trim()) {
+                          const qty = ((formData.WardType || '').toLowerCase() === 'ot' || (formData.WardType || '').toLowerCase() === 'suite room') ? 1 : (roomBedInput === '' ? 1 : roomBedInput);
+                          setFormData(prev => ({ ...prev, Rooms: [...prev.Rooms, { roomNo: roomInput.trim(), bedQty: qty }] }));
+                          setRoomInput('');
+                          setRoomBedInput('');
+                        }
+                      }}>
+                        Add
+                      </Button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {formData.Rooms.map((room, idx) => (
+                        <div key={idx} className="flex items-center gap-1 bg-primary/10 text-primary px-3 py-1.5 rounded-lg text-sm border border-primary/20">
+                          <span>{room.roomNo} <span className="opacity-75 text-xs">({room.bedQty} {room.bedQty === 1 ? 'bed' : 'beds'})</span></span>
+                          <button onClick={() => setFormData(prev => ({ ...prev, Rooms: prev.Rooms.filter((_, i) => i !== idx) }))} className="ml-1 hover:text-red-500 transition-colors">
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                      {formData.Rooms.length === 0 && (
+                        <p className="text-slate-400 text-sm italic">No rooms added yet.</p>
+                      )}
+                    </div>
                   </div>
                 </div>
               </section>
@@ -420,19 +523,36 @@ export const WardChargeMaster = () => {
       <Modal
         isOpen={isViewOpen}
         onClose={() => setIsViewOpen(false)}
-        title="Ward Charge Details"
+        title="Ward Management Details"
         maxWidth="lg"
       >
         {selectedRecord && (
           <div className="space-y-6">
-            <div className="pb-4 border-b border-slate-100">
-              <h3 className="text-xl font-bold text-slate-800">{selectedRecord.WardType}</h3>
-              <p className="text-sm text-slate-500 mt-1">{selectedRecord.Description || 'No description'}</p>
+            <div className="pb-4 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-bold text-slate-800">{selectedRecord.WardType}</h3>
+              </div>
+              <div className="px-3 py-1 bg-slate-100 rounded-full text-slate-600 text-sm font-medium">
+                {selectedRecord.Rooms.reduce((acc, curr) => acc + curr.bedQty, 0)} {selectedRecord.Rooms.reduce((acc, curr) => acc + curr.bedQty, 0) === 1 ? 'Bed' : 'Beds'}
+              </div>
             </div>
 
             <div className="rounded-2xl bg-slate-50 px-4 py-3">
               <span className="text-xs text-slate-400 block mb-1">Charge per Day</span>
               <span className="text-2xl font-bold text-slate-800">{money(selectedRecord.Charge)}</span>
+            </div>
+
+            <div className="pt-4 border-t border-slate-100">
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 block mb-3">Rooms List ({selectedRecord.Rooms.length})</span>
+              <div className="flex flex-wrap gap-2">
+                {selectedRecord.Rooms.length > 0 ? (
+                  selectedRecord.Rooms.map((room, i) => (
+                    <span key={i} className="px-3 py-1.5 bg-primary/10 text-primary border border-primary/20 rounded-lg text-sm font-medium">{room.roomNo} ({room.bedQty} {room.bedQty === 1 ? 'bed' : 'beds'})</span>
+                  ))
+                ) : (
+                  <span className="text-sm text-slate-500">No rooms listed.</span>
+                )}
+              </div>
             </div>
 
             <div className="pt-4 border-t border-slate-100">

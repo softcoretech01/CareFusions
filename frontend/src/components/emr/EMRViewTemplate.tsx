@@ -1,12 +1,36 @@
 
+import { useState } from 'react';
 import type { EMRRecord } from './EMRPrintTemplate';
-import { Stethoscope, Activity, Pill, Beaker, Clock, CheckCircle2 } from 'lucide-react';
+import { Stethoscope, Activity, Pill, Beaker, Clock, CheckCircle2, Syringe, Save } from 'lucide-react';
+import toast from 'react-hot-toast';
+
+const API_BASE = import.meta.env.VITE_API_URL as string || 'http://localhost:8000/api/v1';
 
 interface EMRViewTemplateProps {
   record: EMRRecord;
 }
 
 export const EMRViewTemplate = ({ record }: EMRViewTemplateProps) => {
+  const [savingOps, setSavingOps] = useState(false);
+  const [opsData, setOpsData] = useState<any[]>(record?.operations || []);
+
+  const handleSaveOperations = async () => {
+    try {
+      setSavingOps(true);
+      const res = await fetch(`${API_BASE}/ipd/admissions/${record.visitId}/operations-emr`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ operations: opsData })
+      });
+      if (res.ok) toast.success('Operation details saved successfully!');
+      else toast.error('Failed to save operation details.');
+    } catch (e) {
+      toast.error('Network error saving operation details.');
+    } finally {
+      setSavingOps(false);
+    }
+  };
+
   if (!record) return null;
 
   return (
@@ -187,6 +211,62 @@ export const EMRViewTemplate = ({ record }: EMRViewTemplateProps) => {
             </div>
           )}
         </div>
+
+        {/* Operations Section */}
+        {opsData && opsData.length > 0 && (
+          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+            <div className="bg-slate-50 px-5 py-3 border-b border-slate-200 flex items-center justify-between">
+              <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                <Syringe className="w-4 h-4 text-rose-500" />
+                Operations Details
+              </h4>
+              <button
+                onClick={handleSaveOperations}
+                disabled={savingOps}
+                className="text-xs px-3 py-1.5 bg-primary text-white rounded font-bold hover:bg-primary/90 flex items-center gap-1"
+              >
+                <Save className="w-3 h-3" /> {savingOps ? 'Saving...' : 'Save Operations'}
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              {opsData.map((op, idx) => (
+                <div key={idx} className="border border-slate-100 rounded-xl p-4 bg-slate-50">
+                  <p className="font-bold text-slate-800 mb-3">{op.name} <span className="text-xs font-normal text-slate-500 bg-white px-2 py-0.5 rounded-full border border-slate-200 ml-2">{op.type} Operation</span></p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Operation Summary</label>
+                      <textarea
+                        rows={3}
+                        className="w-full text-sm border border-slate-200 rounded-lg p-2 focus:outline-none focus:border-primary"
+                        value={op.summary || ''}
+                        onChange={(e) => {
+                          const newOps = [...opsData];
+                          newOps[idx].summary = e.target.value;
+                          setOpsData(newOps);
+                        }}
+                        placeholder="Enter operation summary..."
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Operation Result</label>
+                      <textarea
+                        rows={3}
+                        className="w-full text-sm border border-slate-200 rounded-lg p-2 focus:outline-none focus:border-primary"
+                        value={op.result || ''}
+                        onChange={(e) => {
+                          const newOps = [...opsData];
+                          newOps[idx].result = e.target.value;
+                          setOpsData(newOps);
+                        }}
+                        placeholder="Enter operation result/outcome..."
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Follow-up & Advice */}
         {record.followUpDate && (

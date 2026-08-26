@@ -58,6 +58,7 @@ export interface EMRRecord {
   admissionDate?: string;
   admissionTime?: string;
   ward?: string;
+  operations?: any[];
   bed?: string;
   admissionDiagnosis?: string;
   consultant?: string;
