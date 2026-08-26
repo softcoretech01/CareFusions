@@ -205,12 +205,38 @@ def upsert_policy(payload: PolicyUpsert, db: Session = Depends(get_db)):
             "uhid": payload.uhid
         })
 
-        # Also update QuickRegistration if the patient was registered quickly
+        # Also update QuickRegistration and EmergencyRegistration if the patient was registered quickly/emergently
         db.execute(text("""
             UPDATE registration.QuickRegistration
-            SET InsuranceRequired = 'Yes'
+            SET InsuranceRequired = 'Yes',
+                InsuranceProvider = :provider,
+                Tpa = :tpa,
+                PolicyNumber = :policy_no,
+                ValidTill = :valid_till
             WHERE Uhid = :uhid
-        """), {"uhid": payload.uhid})
+        """), {
+            "provider": payload.insurerName,
+            "tpa": payload.tpaName or "",
+            "policy_no": payload.policyNumber,
+            "valid_till": payload.validUntil or None,
+            "uhid": payload.uhid
+        })
+
+        db.execute(text("""
+            UPDATE registration.EmergencyRegistration
+            SET InsuranceRequired = 'Yes',
+                InsuranceProvider = :provider,
+                Tpa = :tpa,
+                PolicyNumber = :policy_no,
+                ValidTill = :valid_till
+            WHERE Uhid = :uhid
+        """), {
+            "provider": payload.insurerName,
+            "tpa": payload.tpaName or "",
+            "policy_no": payload.policyNumber,
+            "valid_till": payload.validUntil or None,
+            "uhid": payload.uhid
+        })
 
         db.commit()
         return _map_policy(row)
@@ -249,12 +275,38 @@ def update_policy(policy_id: int, payload: PolicyUpsert, db: Session = Depends(g
             "uhid": payload.uhid
         })
 
-        # Also update QuickRegistration if the patient was registered quickly
+        # Also update QuickRegistration and EmergencyRegistration if the patient was registered quickly/emergently
         db.execute(text("""
             UPDATE registration.QuickRegistration
-            SET InsuranceRequired = 'Yes'
+            SET InsuranceRequired = 'Yes',
+                InsuranceProvider = :provider,
+                Tpa = :tpa,
+                PolicyNumber = :policy_no,
+                ValidTill = :valid_till
             WHERE Uhid = :uhid
-        """), {"uhid": payload.uhid})
+        """), {
+            "provider": payload.insurerName,
+            "tpa": payload.tpaName or "",
+            "policy_no": payload.policyNumber,
+            "valid_till": payload.validUntil or None,
+            "uhid": payload.uhid
+        })
+
+        db.execute(text("""
+            UPDATE registration.EmergencyRegistration
+            SET InsuranceRequired = 'Yes',
+                InsuranceProvider = :provider,
+                Tpa = :tpa,
+                PolicyNumber = :policy_no,
+                ValidTill = :valid_till
+            WHERE Uhid = :uhid
+        """), {
+            "provider": payload.insurerName,
+            "tpa": payload.tpaName or "",
+            "policy_no": payload.policyNumber,
+            "valid_till": payload.validUntil or None,
+            "uhid": payload.uhid
+        })
 
         db.commit()
         return _map_policy(row)

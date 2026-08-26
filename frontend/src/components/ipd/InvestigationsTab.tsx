@@ -172,7 +172,9 @@ export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({ patientNam
       <div className="space-y-2">
         {order.tests.map(test => (
           <div key={test.id} className="flex items-center justify-between text-sm py-1">
-            <span className="font-medium text-slate-700">{test.name}</span>
+            <span className="font-medium text-slate-700">
+              {(test.bodyPart && test.name.toLowerCase() !== test.bodyPart.toLowerCase()) ? `${test.name} for ${test.bodyPart}` : test.name}
+            </span>
             {test.status === 'Completed' || test.status === 'Verified' ? (
               <span className="text-green-600 font-bold text-xs flex items-center gap-1">
                 <CheckCircle className="w-3.5 h-3.5" /> {test.resultValue ? `Result: ${test.resultValue}` : 'Completed'}

@@ -21,6 +21,11 @@ CREATE TABLE IF NOT EXISTS registration.EmergencyRegistration (
     ApproximateAge INT,
     EmergencyContactName VARCHAR(50),
     EmergencyContactPhone VARCHAR(10),
+    InsuranceRequired VARCHAR(10),
+    InsuranceProvider VARCHAR(50),
+    Tpa VARCHAR(50),
+    PolicyNumber VARCHAR(50),
+    ValidTill DATE,
     Status VARCHAR(20),
     CreatedBy VARCHAR(50),
     CreatedDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -40,6 +45,11 @@ CREATE PROCEDURE registration.SpEmergencyRegistration(
     IN p_ApproximateAge INT,
     IN p_EmergencyContactName VARCHAR(50),
     IN p_EmergencyContactPhone VARCHAR(10),
+    IN p_InsuranceRequired VARCHAR(10),
+    IN p_InsuranceProvider VARCHAR(50),
+    IN p_Tpa VARCHAR(50),
+    IN p_PolicyNumber VARCHAR(50),
+    IN p_ValidTill DATE,
     IN p_Status VARCHAR(20),
     IN p_CreatedBy VARCHAR(50),
     IN p_ModifiedBy VARCHAR(50)
@@ -71,10 +81,14 @@ BEGIN
 
         INSERT INTO registration.EmergencyRegistration (
             Uhid, RegistrationDate, RegistrationTime, PatientName, Gender, ApproximateAge,
-            EmergencyContactName, EmergencyContactPhone, Status, CreatedBy
+            EmergencyContactName, EmergencyContactPhone,
+            InsuranceRequired, InsuranceProvider, Tpa, PolicyNumber, ValidTill,
+            Status, CreatedBy
         ) VALUES (
             @new_uhid, p_RegistrationDate, p_RegistrationTime, p_PatientName, p_Gender, p_ApproximateAge,
-            p_EmergencyContactName, p_EmergencyContactPhone, p_Status, p_CreatedBy
+            p_EmergencyContactName, p_EmergencyContactPhone,
+            p_InsuranceRequired, p_InsuranceProvider, p_Tpa, p_PolicyNumber, p_ValidTill,
+            p_Status, p_CreatedBy
         );
 
         SET @new_id = LAST_INSERT_ID();
@@ -93,6 +107,11 @@ BEGIN
             ApproximateAge = p_ApproximateAge,
             EmergencyContactName = p_EmergencyContactName,
             EmergencyContactPhone = p_EmergencyContactPhone,
+            InsuranceRequired = p_InsuranceRequired,
+            InsuranceProvider = p_InsuranceProvider,
+            Tpa = p_Tpa,
+            PolicyNumber = p_PolicyNumber,
+            ValidTill = p_ValidTill,
             Status = p_Status,
             ModifiedBy = p_ModifiedBy
         WHERE EmergencyRegistrationId = p_EmergencyRegistrationId;

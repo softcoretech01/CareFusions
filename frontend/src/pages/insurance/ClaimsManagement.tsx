@@ -40,6 +40,7 @@ export const ClaimsManagement = () => {
   // Real IP bills (hospital.Ip_Bill) — the discharge breakdown is read from here.
   const [ipBills, setIpBills] = useState<any[]>([]);
   const [patientLabOrders, setPatientLabOrders] = useState<any[]>([]);
+  const [patientRadOrders, setPatientRadOrders] = useState<any[]>([]);
 
   const [form, setForm] = useState({
     uhid: '', patient: '', providerId: '', insurer: '',
@@ -65,7 +66,7 @@ export const ClaimsManagement = () => {
       .catch(() => setIpBills([]));
   }, []);
 
-  // Load lab orders for patient when UHID is entered
+  // Load lab and radiology orders for patient when UHID is entered
   useEffect(() => {
     const u = form.uhid.trim();
     if (u.length >= 4) {
@@ -73,8 +74,18 @@ export const ClaimsManagement = () => {
         .then(r => (r.ok ? r.json() : []))
         .then(d => setPatientLabOrders(Array.isArray(d) ? d : []))
         .catch(() => setPatientLabOrders([]));
+        
+      fetch(`${API_BASE}/radiology/orders`)
+        .then(r => (r.ok ? r.json() : []))
+        .then(d => {
+          if (Array.isArray(d)) {
+            setPatientRadOrders(d.filter((o: any) => (o.uhid || o.Uhid || '').toLowerCase() === u.toLowerCase()));
+          } else setPatientRadOrders([]);
+        })
+        .catch(() => setPatientRadOrders([]));
     } else {
       setPatientLabOrders([]);
+      setPatientRadOrders([]);
     }
   }, [form.uhid]);
 
@@ -146,8 +157,49 @@ export const ClaimsManagement = () => {
         list.push({ desc: `Discharge Med: ${m.medicineName} (${m.dosage})`, qty: q, unit: u, subtotal: q * u });
       });
     }
+
+    if (patientLabOrders && patientLabOrders.length > 0) {
+      const completedLabs = patientLabOrders.filter((ord: any) => ord.status === 'Completed' || ord.status === 'Verified');
+      completedLabs.forEach((ord: any) => {
+        let testNameStr = 'Lab Test';
+        if (typeof ord.tests === 'string') testNameStr = ord.tests;
+        else if (Array.isArray(ord.tests)) {
+          testNameStr = ord.tests.map((t: any) => typeof t === 'string' ? t : t?.name || t?.test_name || t?.testCode).filter(Boolean).join(', ');
+        } else if (ord.TestName) testNameStr = ord.TestName;
+        else if (ord.category) testNameStr = ord.category;
+        
+        list.push({ desc: testNameStr || 'Lab Test', qty: 1, unit: 250, subtotal: 250 });
+      });
+    }
+
+    if (patientRadOrders && patientRadOrders.length > 0) {
+      const completedRads = patientRadOrders.filter((ord: any) => ord.status === 'Completed' || ord.status === 'Verified');
+      completedRads.forEach((ord: any) => {
+        let radNameStr = 'Radiology Test';
+        if (Array.isArray(ord.tests)) {
+          radNameStr = ord.tests.map((t: any) => {
+            if (typeof t === 'string') return t;
+            const name = t?.name || t?.test_name || 'X-Ray';
+            return (t?.body_part && name.toLowerCase() !== t.body_part.toLowerCase()) ? `${name} for ${t.body_part}` : name;
+          }).filter(Boolean).join(', ');
+        } else if (ord.test_name) radNameStr = ord.test_name;
+        
+        list.push({ desc: radNameStr, qty: 1, unit: 500, subtotal: 500 });
+      });
+    }
+
+    if (matchedAdmission.operations && Array.isArray(matchedAdmission.operations)) {
+      const completedOps = matchedAdmission.operations.filter((op: any) => op.result && op.result.trim() !== '');
+      completedOps.forEach((op: any) => {
+        const price = Number(op.charge || 0);
+        if (price > 0) {
+          list.push({ desc: `Operation: ${op.name} (${op.type})`, qty: 1, unit: price, subtotal: price });
+        }
+      });
+    }
+
     return list;
-  }, [billItems, matchedAdmission]);
+  }, [billItems, matchedAdmission, patientLabOrders, patientRadOrders]);
 
   const calculatedTotal = useMemo(() => {
     return displayBillItems.reduce((s: number, i: any) => s + (i.subtotal || 0), 0);
@@ -452,7 +504,7 @@ export const ClaimsManagement = () => {
       {/* ── New claim ── */}
       {showNewModal && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[92vh] overflow-y-auto custom-scrollbar">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-5xl max-h-[92vh] overflow-y-auto custom-scrollbar">
             <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-start bg-white sticky top-0 z-10">
               <div>
                 <h2 className="text-xl font-bold text-slate-800">Submit New Claim</h2>
@@ -467,9 +519,14 @@ export const ClaimsManagement = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-1.5">UHID</label>
-                  <input type="text" value={form.uhid}
+                  <select value={form.uhid}
                     onChange={e => setForm({ ...form, uhid: e.target.value })}
-                    className={inputCls('uhid')} placeholder="e.g. UHID-2026-0003" />
+                    className={inputCls('uhid')}>
+                    <option value="">Select Pre-Auth Approved Patient...</option>
+                    {Array.from(new Map(preAuths.filter((req: any) => req.status === 'Approved' && !claims.some((c: any) => c.uhid === req.uhid)).map((req: any) => [req.uhid, req])).values()).map((req: any) => (
+                      <option key={req.id} value={req.uhid}>{req.patient} ({req.uhid})</option>
+                    ))}
+                  </select>
                   {errors.uhid && <p className="text-[11px] text-red-500 mt-1">{errors.uhid}</p>}
                   {form.uhid.trim().length >= 4 && ipBill && (
                     <p className="text-[11px] text-emerald-600 mt-1.5 flex items-center gap-1">

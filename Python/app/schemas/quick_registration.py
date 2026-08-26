@@ -57,7 +57,11 @@ class QuickRegistrationBase(BaseModel):
     ConsultationRequired: YesNoEnum = YesNoEnum.yes
     ConsultationFee: Optional[float] = 0.0
     PaymentMode: PaymentModeEnum = PaymentModeEnum.cash
-    InsuranceRequired: YesNoEnum = YesNoEnum.no
+    InsuranceRequired: Optional[YesNoEnum] = YesNoEnum.no
+    InsuranceProvider: Optional[str] = Field(None, max_length=50)
+    Tpa: Optional[str] = Field(None, max_length=50)
+    PolicyNumber: Optional[str] = Field(None, max_length=50)
+    ValidTill: Optional[date] = None
     Status: StatusEnum = StatusEnum.active
     Remarks: Optional[str] = Field(None, max_length=250)
     CreatedBy: Optional[str] = Field(None, max_length=50)

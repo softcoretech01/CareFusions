@@ -18,9 +18,11 @@ export const BillingReports = () => {
   const [insuranceDetails, setInsuranceDetails] = useState<any>(null);
   const [, setPrescriptions] = useState<any[]>([]);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+  const [ipBills, setIpBills] = useState<any[]>([]);
 
   useEffect(() => {
     fetchBills();
+    axios.get(`${API_BASE}/ip-billing/`).then(res => setIpBills(res.data)).catch(console.error);
   }, []);
 
   useEffect(() => {
@@ -372,22 +374,47 @@ export const BillingReports = () => {
               </div>
 
               <div className="border-t border-slate-100 pt-4 flex flex-col items-end gap-2 text-sm">
-                <div className="flex justify-between w-48 text-slate-600">
+                <div className="flex justify-between w-56 text-slate-600">
                   <span>Subtotal:</span>
-                  <span className="font-medium">₹{selectedBill.TotalAmount.toFixed(2)}</span>
+                  <span className="font-medium">₹{selectedBill.TotalAmount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                 </div>
-                <div className="flex justify-between w-48 text-slate-600">
+                <div className="flex justify-between w-56 text-slate-600">
                   <span>Discount:</span>
-                  <span className="font-medium text-emerald-600">-₹{selectedBill.Discount.toFixed(2)}</span>
+                  <span className="font-medium text-emerald-600">-₹{selectedBill.Discount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                 </div>
-                <div className="flex justify-between w-48 text-slate-600">
+                <div className="flex justify-between w-56 text-slate-600">
                   <span>Tax:</span>
-                  <span className="font-medium text-slate-800">₹{selectedBill.Tax.toFixed(2)}</span>
+                  <span className="font-medium text-slate-800">₹{selectedBill.Tax.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                 </div>
-                <div className="flex justify-between w-48 text-lg font-bold text-slate-800 border-t border-slate-100 pt-2 mt-2">
-                  <span>Total:</span>
-                  <span className="text-primary">₹{selectedBill.NetAmount.toFixed(2)}</span>
-                </div>
+                
+                {(() => {
+                  const actualIpBill = selectedBill.Type === 'IP' ? ipBills.find(b => b.BillNumber === selectedBill.BillNumber) : null;
+                  const claimedAmt = actualIpBill ? (actualIpBill.InsuranceClaimedAmount || 0) : (selectedBill.InsuranceClaimedAmount || 0);
+                  const patientBal = actualIpBill ? (actualIpBill.PatientBalance || 0) : (selectedBill.PatientBalance || 0);
+                  const hasInsurance = claimedAmt > 0 || selectedBill.PaymentMode === 'Insurance';
+                  
+                  return (
+                    <>
+                      <div className={`flex justify-between w-56 text-lg font-bold pt-2 mt-2 border-t border-slate-100 ${hasInsurance ? 'text-slate-800' : 'text-primary'}`}>
+                        <span>Total Bill:</span>
+                        <span>₹{selectedBill.NetAmount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                      </div>
+
+                      {hasInsurance && (
+                        <>
+                          <div className="flex justify-between w-56 text-sm font-bold text-slate-600 mt-1">
+                            <span>Insurance Claimed:</span>
+                            <span className="text-emerald-600">-₹{Number(claimedAmt).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                          </div>
+                          <div className="flex justify-between w-56 text-lg font-bold text-rose-700 border-t border-slate-100 pt-2 mt-2">
+                            <span>Patient Payable:</span>
+                            <span>₹{Number(patientBal).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                          </div>
+                        </>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             </div>
 

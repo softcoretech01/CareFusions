@@ -6,6 +6,7 @@ import { Plus, Search, FileText, CheckCircle, Clock, Ban, X, Edit, Trash2, Shiel
 import toast from 'react-hot-toast';
 import { usePatients } from '../../contexts/PatientContext';
 import { useInsurance } from '../../contexts/InsuranceContext';
+import { useIPD } from '../../contexts/IPDContext';
 
 const inr = (n: number) => `₹${(n ?? 0).toLocaleString('en-IN')}`;
 const TABS = ['All', 'Pending', 'Approved', 'Rejected'] as const;
@@ -18,6 +19,11 @@ export const PreAuthManagement = () => {
   const { preAuths, addPreAuth, updatePreAuth, updatePreAuthStatus, deletePreAuth,
           providers, policies, refresh, loading } = useInsurance();
   const { patients } = usePatients();
+  const { patients: ipdAdmissions } = useIPD();
+  const API_BASE = import.meta.env.VITE_API_URL as string;
+  const [ipBills, setIpBills] = useState<any[]>([]);
+  const [patientLabOrders, setPatientLabOrders] = useState<any[]>([]);
+  const [patientRadOrders, setPatientRadOrders] = useState<any[]>([]);
 
   const [activeTab, setActiveTab] = useState<string>('All');
   const [search, setSearch] = useState('');
@@ -39,7 +45,137 @@ export const PreAuthManagement = () => {
     uhid: '', patient: '', providerId: '', insurer: '', diagnosis: '', amount: '',
   });
 
-  useEffect(() => { refresh(); }, [refresh]);
+  
+  useEffect(() => {
+    fetch(`${API_BASE}/ip-billing/`)
+      .then(r => (r.ok ? r.json() : []))
+      .then(d => setIpBills(Array.isArray(d) ? d : []))
+      .catch(() => setIpBills([]));
+  }, []);
+
+  useEffect(() => {
+    const u = form.uhid.trim();
+    if (u.length >= 4) {
+      fetch(`${API_BASE}/lab/orders?uhid=${encodeURIComponent(u)}`)
+        .then(r => (r.ok ? r.json() : []))
+        .then(d => setPatientLabOrders(Array.isArray(d) ? d : []))
+        .catch(() => setPatientLabOrders([]));
+        
+      fetch(`${API_BASE}/radiology/orders`)
+        .then(r => (r.ok ? r.json() : []))
+        .then(d => {
+          if (Array.isArray(d)) {
+            setPatientRadOrders(d.filter((o: any) => (o.uhid || o.Uhid || '').toLowerCase() === u.toLowerCase()));
+          } else setPatientRadOrders([]);
+        })
+        .catch(() => setPatientRadOrders([]));
+    } else {
+      setPatientLabOrders([]);
+      setPatientRadOrders([]);
+    }
+  }, [form.uhid]);
+
+  const matchedAdmission = useMemo(() => {
+    const u = form.uhid.trim().toLowerCase();
+    if (u.length < 4) return null;
+    return ipdAdmissions.find(p => p.uhid.toLowerCase() === u
+      && (p.status === 'Discharged' || p.status === 'Discharge Requested'
+          || p.status === 'Admitted')) || null;
+  }, [form.uhid, ipdAdmissions]);
+
+  const ipBill = useMemo(() => {
+    const u = form.uhid.trim().toLowerCase();
+    if (u.length < 4) return null;
+    return ipBills.find(b => b.Uhid?.toLowerCase() === u) || null;
+  }, [form.uhid, ipBills]);
+
+  const billItems = useMemo(() => {
+    if (!ipBill || !ipBill.ItemDetails) return [];
+    try {
+      return JSON.parse(ipBill.ItemDetails);
+    } catch { return []; }
+  }, [ipBill]);
+
+  const displayBillItems = useMemo(() => {
+    if (billItems.length > 0) {
+      return billItems.map((b: any) => ({
+        desc: b.description || b.name,
+        qty: Number(b.quantity) || 1,
+        unit: Number(b.unitPrice) || 0,
+        subtotal: Number(b.total) || 0
+      }));
+    }
+
+    if (!matchedAdmission) return [];
+    
+    // Estimate from admission
+    const d1 = matchedAdmission.admissionDate ? new Date(matchedAdmission.admissionDate) : new Date();
+    const d2 = matchedAdmission.dischargeInfo?.dischargeDate ? new Date(matchedAdmission.dischargeInfo.dischargeDate) : new Date();
+    const stayDays = Math.max(1, Math.ceil((d2.getTime() - d1.getTime()) / (1000 * 3600 * 24)));
+    
+    const list = [
+      { desc: `Room Rent (${matchedAdmission.ward} - ${matchedAdmission.bed})`, qty: stayDays, unit: 1000, subtotal: stayDays * 1000 },
+      { desc: `Nursing Charges (Per Day)`, qty: stayDays, unit: 500, subtotal: stayDays * 500 },
+      { desc: `Doctor Visit Fee (${matchedAdmission.specialty || 'General'})`, qty: 1, unit: 400, subtotal: 400 },
+    ];
+    if (matchedAdmission.dischargeInfo?.medicines?.length) {
+      matchedAdmission.dischargeInfo.medicines.forEach((m: any) => {
+        const u = Number(m.price || 0) || 15;
+        const q = Number(m.quantity || 1);
+        list.push({ desc: `Discharge Med: ${m.medicineName} (${m.dosage})`, qty: q, unit: u, subtotal: q * u });
+      });
+    }
+
+    if (patientLabOrders && patientLabOrders.length > 0) {
+      const completedLabs = patientLabOrders.filter((ord: any) => ord.status === 'Completed' || ord.status === 'Verified');
+      completedLabs.forEach((ord: any) => {
+        let testNameStr = 'Lab Test';
+        if (typeof ord.tests === 'string') testNameStr = ord.tests;
+        else if (Array.isArray(ord.tests)) {
+          testNameStr = ord.tests.map((t: any) => typeof t === 'string' ? t : t?.name || t?.test_name || t?.testCode).filter(Boolean).join(', ');
+        } else if (ord.TestName) testNameStr = ord.TestName;
+        else if (ord.category) testNameStr = ord.category;
+        
+        list.push({ desc: testNameStr || 'Lab Test', qty: 1, unit: 250, subtotal: 250 });
+      });
+    }
+
+    if (patientRadOrders && patientRadOrders.length > 0) {
+      const completedRads = patientRadOrders.filter((ord: any) => ord.status === 'Completed' || ord.status === 'Verified');
+      completedRads.forEach((ord: any) => {
+        let radNameStr = 'Radiology Test';
+        if (Array.isArray(ord.tests)) {
+          radNameStr = ord.tests.map((t: any) => {
+            if (typeof t === 'string') return t;
+            const name = t?.name || t?.test_name || 'X-Ray';
+            return (t?.body_part && name.toLowerCase() !== t.body_part.toLowerCase()) ? `${name} for ${t.body_part}` : name;
+          }).filter(Boolean).join(', ');
+        } else if (ord.test_name) radNameStr = ord.test_name;
+        
+        list.push({ desc: radNameStr, qty: 1, unit: 500, subtotal: 500 });
+      });
+    }
+
+    if (matchedAdmission.operations && Array.isArray(matchedAdmission.operations)) {
+      const completedOps = matchedAdmission.operations.filter((op: any) => op.result && op.result.trim() !== '');
+      completedOps.forEach((op: any) => {
+        const price = Number(op.charge || 0);
+        if (price > 0) {
+          list.push({ desc: `Operation: ${op.name} (${op.type})`, qty: 1, unit: price, subtotal: price });
+        }
+      });
+    }
+
+    return list;
+  }, [billItems, matchedAdmission, patientLabOrders, patientRadOrders]);
+
+  const calculatedTotal = useMemo(() => {
+    return displayBillItems.reduce((s: number, i: any) => s + (i.subtotal || 0), 0);
+  }, [displayBillItems]);
+
+  useEffect(() => {
+  refresh();
+  }, [refresh]);
 
   // The patient's recorded policy drives the insurer and shows live coverage,
   // so the desk isn't guessing which insurer to raise the request against.
@@ -302,7 +438,7 @@ export const PreAuthManagement = () => {
       {/* ── New request ── */}
       {showNewModal && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[92vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[92vh] overflow-y-auto">
             <div className="px-5 py-3 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 sticky top-0">
               <h2 className="text-lg font-bold text-slate-800">New Pre-Auth Request</h2>
               <button onClick={() => setShowNewModal(false)} className="p-2 hover:bg-slate-200 rounded-full">
@@ -313,9 +449,14 @@ export const PreAuthManagement = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-1.5">UHID <span className="text-red-500">*</span></label>
-                  <input type="text" value={form.uhid}
+                  <select value={form.uhid}
                     onChange={e => setForm({ ...form, uhid: e.target.value })}
-                    className={inputCls('uhid')} placeholder="e.g. UHID-2023-..." />
+                    className={inputCls('uhid')}>
+                    <option value="">Select Eligible Patient...</option>
+                    {Array.from(new Map(policies.filter((p: any) => !preAuths.some((req: any) => req.uhid === p.uhid)).map((p: any) => [p.uhid, p])).values()).map((p: any) => (
+                      <option key={p.id} value={p.uhid}>{p.patientName} ({p.uhid})</option>
+                    ))}
+                  </select>
                   {errors.uhid && <p className="text-[11px] text-red-500 mt-1">{errors.uhid}</p>}
                 </div>
                 <div>
@@ -327,6 +468,7 @@ export const PreAuthManagement = () => {
                 </div>
               </div>
 
+              
               {/* Live coverage context from the patient's recorded policy. */}
               {form.uhid.trim() && (
                 matchedPolicy ? (
@@ -347,10 +489,48 @@ export const PreAuthManagement = () => {
                 ) : (
                   <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-800 flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 shrink-0" />
-                    No policy on record for this UHID — add it under Eligibility &amp; Verification first.
+                    No policy on record for this UHID — add it under Eligibility & Verification first.
                   </div>
                 )
               )}
+
+              {displayBillItems.length > 0 && (
+                <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
+                  <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-primary" />
+                    <h3 className="text-sm font-bold text-slate-800">Discharge Bill Breakdown & Charge Summary</h3>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50 text-[11px] font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                        <tr>
+                          <th className="px-4 py-2.5 text-left">Item Description</th>
+                          <th className="px-4 py-2.5 text-right">Qty/Days</th>
+                          <th className="px-4 py-2.5 text-right">Unit Price (₹)</th>
+                          <th className="px-4 py-2.5 text-right">Total (₹)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {displayBillItems.map((it: { desc: string; qty: number; unit: number; subtotal: number }, idx: number) => (
+                          <tr key={idx} className="hover:bg-slate-50">
+                            <td className="px-4 py-2.5 text-slate-700 font-medium">{it.desc}</td>
+                            <td className="px-4 py-2.5 text-right text-slate-600">{it.qty}</td>
+                            <td className="px-4 py-2.5 text-right text-slate-600">{it.unit ? it.unit.toLocaleString('en-IN') : '0'}</td>
+                            <td className="px-4 py-2.5 text-right font-bold text-slate-800">{it.subtotal ? it.subtotal.toLocaleString('en-IN') : '0'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot className="bg-emerald-50/70 border-t border-slate-200">
+                        <tr>
+                          <td colSpan={3} className="px-4 py-2.5 text-right font-semibold text-emerald-800">Total Estimated Cost</td>
+                          <td className="px-4 py-2.5 text-right font-bold text-emerald-700 text-base">{calculatedTotal.toLocaleString('en-IN')}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+              )}
+
 
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1.5">Insurance Provider <span className="text-red-500">*</span></label>

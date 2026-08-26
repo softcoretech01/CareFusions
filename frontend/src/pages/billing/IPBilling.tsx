@@ -47,8 +47,25 @@ export const IPBilling = () => {
   const [medicinePrices, setMedicinePrices] = useState<Record<string, number>>({});
   const [labPrices, setLabPrices] = useState<Record<string, number>>({});
   const [radPrices, setRadPrices] = useState<Record<string, number>>({});
+  const [wardCharges, setWardCharges] = useState<Record<string, number>>({});
+  const [wardNames, setWardNames] = useState<Record<string, string>>({});
 
   useEffect(() => {
+    axios.get(`${API_BASE}/ward-charges/`).then(res => {
+      if (Array.isArray(res.data)) {
+        const prices: Record<string, number> = {};
+        const names: Record<string, string> = {};
+        res.data.forEach((r: any) => {
+          prices[String(r.Id)] = Number(r.Charge || 0);
+          names[String(r.Id)] = r.WardType || `Ward ${r.Id}`;
+          if (r.WardType) {
+            prices[r.WardType.toLowerCase()] = Number(r.Charge || 0);
+          }
+        });
+        setWardCharges(prices);
+        setWardNames(names);
+      }
+    }).catch(() => {});
     fetch(`${API_BASE}/departments/`)
       .then(r => r.json())
       .then((rows: any[]) => {
@@ -146,6 +163,7 @@ export const IPBilling = () => {
   const [isInsurancePaid, setIsInsurancePaid] = useState(false);
   const [insuranceDetails, setInsuranceDetails] = useState<any>(null);
   const [insurancePolicy, setInsurancePolicy] = useState<any>(null);
+  const [activeClaim, setActiveClaim] = useState<any>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -199,10 +217,70 @@ export const IPBilling = () => {
     const isFromOP = foundIPD.admissionType === 'OPD';
     const feeQty = isFromOP ? Math.max(0, stayDays - 1) : stayDays;
     
-    const newItems: BillItem[] = [
-      { id: 'ITM-001', description: `Room Charges (${stayDays} Days)`, price: 1500, qty: stayDays, total: 1500 * stayDays, category: 'IPD' },
-      { id: 'ITM-002', description: 'Nursing Charges (Per Day)', price: 500, qty: stayDays, total: 500 * stayDays, category: 'IPD' },
-    ];
+    const newItems: BillItem[] = [];
+    
+    const transfers = foundIPD.wardTransferHistory || [];
+    
+    if (transfers.length === 0) {
+      const wardId = foundIPD.currentWardId;
+      const charge = wardCharges[String(wardId)] || 1500;
+      const wName = wardNames[String(wardId)] || `Ward ${wardId || 'General'}`;
+      
+      newItems.push({ 
+        id: 'ITM-ROOM-1', 
+        description: `Room Charges - ${wName} (${stayDays} Days)`, 
+        price: charge, 
+        qty: stayDays, 
+        total: charge * stayDays, 
+        category: 'IPD' 
+      });
+    } else {
+      let lastDate = new Date(foundIPD.admissionDate);
+      lastDate.setHours(0, 0, 0, 0);
+      
+      let totalBilledDays = 0;
+      transfers.forEach((t: any, idx: number) => {
+         const tDate = new Date(t.transferDate);
+         tDate.setHours(0, 0, 0, 0);
+         
+         let days = Math.floor((tDate.getTime() - lastDate.getTime()) / 86400000);
+         if (days < 0) days = 0;
+         
+         if (days > 0 || (idx === 0 && days === 0 && stayDays === 1)) {
+           let billedDays = days === 0 ? 1 : days;
+           const wardId = t.fromWardId;
+           const charge = wardCharges[String(wardId)] || 1500;
+           const wName = wardNames[String(wardId)] || `Ward ${wardId}`;
+           newItems.push({ 
+             id: `ITM-ROOM-${idx+1}`, 
+             description: `Room Charges - ${wName} (${billedDays} Days)`, 
+             price: charge, 
+             qty: billedDays, 
+             total: charge * billedDays, 
+             category: 'IPD' 
+           });
+           totalBilledDays += billedDays;
+         }
+         lastDate = tDate;
+      });
+      
+      let finalDays = stayDays - totalBilledDays;
+      if (finalDays > 0) {
+           const finalWardId = transfers[transfers.length - 1].toWardId;
+           const charge = wardCharges[String(finalWardId)] || 1500;
+           const wName = wardNames[String(finalWardId)] || `Ward ${finalWardId}`;
+           newItems.push({ 
+             id: `ITM-ROOM-${transfers.length+1}`, 
+             description: `Room Charges - ${wName} (${finalDays} Days)`, 
+             price: charge, 
+             qty: finalDays, 
+             total: charge * finalDays, 
+             category: 'IPD' 
+           });
+      }
+    }
+    
+    newItems.push({ id: 'ITM-NURSING', description: `Nursing Charges (Per Day)`, price: 500, qty: stayDays, total: 500 * stayDays, category: 'IPD' });
 
     if (feeQty > 0) {
       newItems.push({ 
@@ -296,7 +374,8 @@ export const IPBilling = () => {
     try {
       const labRes = await axios.get(`${API_BASE}/lab/orders?uhid=${encodeURIComponent(foundIPD.uhid)}`);
       if (Array.isArray(labRes.data)) {
-        labRes.data.forEach((ord: any, index: number) => {
+        const completedLabs = labRes.data.filter((ord: any) => ord.status === 'Completed' || ord.status === 'Verified');
+        completedLabs.forEach((ord: any, index: number) => {
           let testNameStr = 'Lab Test';
           if (typeof ord.tests === 'string') testNameStr = ord.tests;
           else if (Array.isArray(ord.tests)) {
@@ -310,7 +389,7 @@ export const IPBilling = () => {
           const price = labPrices[testNameStr.trim().toLowerCase()] || 250;
           newItems.push({
             id: `LAB-${index + 1}`,
-            description: `Lab Test: ${testNameStr}`,
+            description: testNameStr || 'Lab Test',
             price: price,
             qty: 1,
             total: price,
@@ -326,11 +405,18 @@ export const IPBilling = () => {
     try {
       const radRes = await axios.get(`${API_BASE}/radiology/orders`);
       if (Array.isArray(radRes.data)) {
-        const patientRad = radRes.data.filter((r: any) => (r.uhid || r.Uhid || '').toLowerCase() === foundIPD.uhid.toLowerCase());
+        const patientRad = radRes.data.filter((r: any) => 
+          (r.uhid || r.Uhid || '').toLowerCase() === foundIPD.uhid.toLowerCase() &&
+          (r.status === 'Completed' || r.status === 'Verified')
+        );
         patientRad.forEach((ord: any, index: number) => {
           let radNameStr = 'Radiology Test';
           if (Array.isArray(ord.tests)) {
-            radNameStr = ord.tests.map((t: any) => typeof t === 'string' ? t : t?.name || t?.test_name || 'X-Ray').filter(Boolean).join(', ');
+            radNameStr = ord.tests.map((t: any) => {
+              if (typeof t === 'string') return t;
+              const name = t?.name || t?.test_name || 'X-Ray';
+              return (t?.body_part && name.toLowerCase() !== t.body_part.toLowerCase()) ? `${name} for ${t.body_part}` : name;
+            }).filter(Boolean).join(', ');
           } else if (ord.test_name) {
             radNameStr = ord.test_name;
           }
@@ -338,7 +424,7 @@ export const IPBilling = () => {
           const price = radPrices[radNameStr.trim().toLowerCase()] || 500;
           newItems.push({
             id: `RAD-${index + 1}`,
-            description: `Radiology: ${radNameStr}`,
+            description: radNameStr,
             price: price,
             qty: 1,
             total: price,
@@ -349,6 +435,24 @@ export const IPBilling = () => {
     } catch (e) {
       console.error("Failed to fetch radiology orders for billing", e);
     }
+    // 3b. Add Operations Charges
+    if (foundIPD.operations && Array.isArray(foundIPD.operations)) {
+      const completedOps = foundIPD.operations.filter((op: any) => op.result && op.result.trim() !== '');
+      completedOps.forEach((op: any, index: number) => {
+        const price = Number(op.charge || 0);
+        if (price > 0) {
+          newItems.push({
+            id: `OP-${index + 1}`,
+            description: `Operation: ${op.name} (${op.type})`,
+            price: price,
+            qty: 1,
+            total: price,
+            category: 'IPD'
+          });
+        }
+      });
+    }
+
     // 4. Add unbilled OPD Charges
     try {
       const opdRes = await axios.get(`${API_BASE}/opd-visits/schedule?source=emr`);
@@ -372,11 +476,12 @@ export const IPBilling = () => {
         });
 
         if (visit.labOrders) {
-          visit.labOrders.forEach((lab: any, idx: number) => {
+          const completedVisitLabs = visit.labOrders.filter((lab: any) => lab.status === 'Completed' || lab.status === 'Verified' || lab.status === 'Resulted');
+          completedVisitLabs.forEach((lab: any, idx: number) => {
             const price = labPrices[(lab.testName || '').trim().toLowerCase()] || 250;
             newItems.push({
               id: `OPD-LAB-${vIdx}-${idx}`,
-              description: `Lab Test: ${lab.testName || 'General Lab'}`,
+              description: lab.testName || 'General Lab',
               price,
               qty: 1,
               total: price,
@@ -386,11 +491,14 @@ export const IPBilling = () => {
         }
 
         if (visit.radiologyOrders) {
-          visit.radiologyOrders.forEach((rad: any, idx: number) => {
+          const completedVisitRads = visit.radiologyOrders.filter((rad: any) => rad.status === 'Completed' || rad.status === 'Verified' || rad.status === 'Reported');
+          completedVisitRads.forEach((rad: any, idx: number) => {
             const price = radPrices[(rad.testName || '').trim().toLowerCase()] || 1500;
+            const name = rad.modality || rad.testName || 'Scan';
+            const fullName = (rad.bodyPart && name.toLowerCase() !== rad.bodyPart.toLowerCase()) ? `${name} for ${rad.bodyPart}` : name;
             newItems.push({
               id: `OPD-RAD-${vIdx}-${idx}`,
-              description: `Radiology: ${rad.testName || 'Scan'}`,
+              description: fullName,
               price,
               qty: 1,
               total: price,
@@ -441,7 +549,7 @@ export const IPBilling = () => {
         setInsuranceDetails(null);
       }
     }
-  }, [state, admissions, patientName, medicinePrices, labPrices, radPrices]);
+  }, [state, admissions, patientName, medicinePrices, labPrices, radPrices, wardCharges, wardNames]);
 
   const fetchBills = async () => {
     try {
@@ -553,6 +661,15 @@ export const IPBilling = () => {
       setIsInsurancePaid(false);
       setInsuranceDetails(null);
       setInsurancePolicy(null);
+      setActiveClaim(null);
+
+      // Fetch active claims first
+      axios.get(`${API_BASE}/insurance/claims/`).then(claimsRes => {
+        const patientClaim = claimsRes.data.find((c: any) => c.uhid === foundIPD.uhid && c.status !== 'Denied');
+        if (patientClaim) {
+          setActiveClaim(patientClaim);
+        }
+      }).catch(console.error);
 
       // Fetch active insurance policy
       axios.get(`${API_BASE}/insurance/policies/search?q=${foundIPD.uhid}`).then(insRes => {
@@ -604,7 +721,19 @@ export const IPBilling = () => {
   const totalAmount = items.reduce((sum, item) => sum + item.total, 0);
 
   useEffect(() => {
-    if (insurancePolicy) {
+    if (activeClaim) {
+      const claimed = activeClaim.claimedAmount || activeClaim.preAuth || activeClaim.amount || 0;
+      const balance = totalAmount - claimed;
+      setInsuranceDetails({
+        total: totalAmount,
+        claimed: claimed,
+        balance: balance > 0 ? balance : 0,
+        provider: activeClaim.insurer,
+        policyNo: activeClaim.id,
+        isPolicy: false
+      });
+      setIsInsurancePaid(balance <= 0 && totalAmount > 0);
+    } else if (insurancePolicy) {
       let amountAfterDeductible = totalAmount - (insurancePolicy.deductible || 0);
       if (amountAfterDeductible < 0) amountAfterDeductible = 0;
 
@@ -627,7 +756,7 @@ export const IPBilling = () => {
       });
       setIsInsurancePaid(balance <= 0 && totalAmount > 0);
     }
-  }, [totalAmount, insurancePolicy]);
+  }, [totalAmount, insurancePolicy, activeClaim]);
 
   const handleGenerateBill = async () => {
     if (!patientName || items.length === 0) {
@@ -726,8 +855,8 @@ export const IPBilling = () => {
                   <div className="absolute top-full left-0 right-14 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden z-50">
                     {filteredSuggestions.length > 0 ? (
                       <ul className="max-h-60 overflow-y-auto">
-                        {filteredSuggestions.map(p => (
-                          <li key={p.uhid} onClick={() => selectPatient(p)}
+                        {filteredSuggestions.map((p, idx) => (
+                          <li key={`${p.uhid}-${p.admissionId || idx}`} onClick={() => selectPatient(p)}
                             className="px-4 py-3 hover:bg-primary/5 cursor-pointer flex items-center gap-3 border-b border-slate-50 last:border-0 transition-colors">
                             <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
                               <Bed className="w-4 h-4" />
@@ -891,12 +1020,12 @@ export const IPBilling = () => {
                                 <input type="number" className="w-full text-center bg-transparent border-0 p-1 focus:ring-1 focus:ring-primary/30 rounded text-sm" value={item.qty} onChange={e => handleItemChange(item.id, 'qty', Number(e.target.value))} />
                               )}
                             </td>
-                            <td className="px-5 py-3 text-right font-semibold text-slate-800">₹{item.total.toFixed(2)}</td>
+                            <td className="px-5 py-3 text-right font-semibold text-slate-800">₹{item.total.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                           </tr>
                         ))}
                         <tr className="bg-slate-50 font-semibold">
                           <td colSpan={3} className="px-5 py-2 text-right text-slate-600 text-xs">OPD Subtotal:</td>
-                          <td className="px-5 py-2 text-right text-slate-800 text-sm">₹{items.filter(i => i.category === 'OPD').reduce((s, i) => s + i.total, 0).toFixed(2)}</td>
+                          <td className="px-5 py-2 text-right text-slate-800 text-sm">₹{items.filter(i => i.category === 'OPD').reduce((s, i) => s + i.total, 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                         </tr>
                       </>
                     )}
@@ -927,12 +1056,12 @@ export const IPBilling = () => {
                                 <input type="number" className="w-full text-center bg-transparent border-0 p-1 focus:ring-1 focus:ring-primary/30 rounded text-sm" value={item.qty} onChange={e => handleItemChange(item.id, 'qty', Number(e.target.value))} />
                               )}
                             </td>
-                            <td className="px-5 py-3 text-right font-semibold text-slate-800">₹{item.total.toFixed(2)}</td>
+                            <td className="px-5 py-3 text-right font-semibold text-slate-800">₹{item.total.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                           </tr>
                         ))}
                         <tr className="bg-slate-50 font-semibold">
                           <td colSpan={3} className="px-5 py-2 text-right text-slate-600 text-xs">IPD Subtotal:</td>
-                          <td className="px-5 py-2 text-right text-slate-800 text-sm">₹{items.filter(i => i.category !== 'OPD').reduce((s, i) => s + i.total, 0).toFixed(2)}</td>
+                          <td className="px-5 py-2 text-right text-slate-800 text-sm">₹{items.filter(i => i.category !== 'OPD').reduce((s, i) => s + i.total, 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                         </tr>
                       </>
                     )}
@@ -941,7 +1070,7 @@ export const IPBilling = () => {
                         {insuranceDetails ? 'Patient Payable:' : 'Total Amount:'}
                       </td>
                       <td className="px-5 py-4 text-right text-primary text-lg">
-                        ₹{(insuranceDetails ? insuranceDetails.balance : totalAmount).toFixed(2)}
+                        ₹{(insuranceDetails ? insuranceDetails.balance : totalAmount).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                       </td>
                     </tr>
                   </tbody>

@@ -267,11 +267,12 @@ export const OPBilling = () => {
     ];
 
     if (visit.labOrders && visit.labOrders.length > 0) {
-      visit.labOrders.forEach((lab, idx) => {
+      const completedVisitLabs = visit.labOrders.filter((lab) => lab.status === 'Completed' || lab.status === 'Verified' || lab.status === 'Resulted');
+      completedVisitLabs.forEach((lab, idx) => {
         const price = lookup(testPrices, lab.testName) ?? DEFAULT_LAB_FEE;
         newItems.push({
           id: `LAB-${idx}`,
-          description: `Lab Test: ${lab.testName || 'General Lab'}`,
+          description: lab.testName || 'General Lab',
           price,
           qty: 1,
           total: price
@@ -280,11 +281,14 @@ export const OPBilling = () => {
     }
 
     if (visit.radiologyOrders && visit.radiologyOrders.length > 0) {
-      visit.radiologyOrders.forEach((rad, idx) => {
+      const completedVisitRads = visit.radiologyOrders.filter((rad) => rad.status === 'Completed' || rad.status === 'Verified' || rad.status === 'Reported');
+      completedVisitRads.forEach((rad, idx) => {
         const price = lookup(radPrices, rad.testName) ?? DEFAULT_RADIOLOGY_FEE;
+        const name = rad.modality || rad.testName || 'Scan';
+        const fullName = (rad.bodyPart && name.toLowerCase() !== rad.bodyPart.toLowerCase()) ? `${name} for ${rad.bodyPart}` : name;
         newItems.push({
           id: `RAD-${idx}`,
-          description: `Radiology: ${rad.testName || 'Scan'}`,
+          description: fullName,
           price,
           qty: 1,
           total: price

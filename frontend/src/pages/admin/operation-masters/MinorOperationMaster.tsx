@@ -16,9 +16,7 @@ interface MinorOperationRecord {
   operationCode: string;
   operationName: string;
   department: string;
-  medications: string;
-  procedures: string;
-  equipment: string;
+  requirements: string;
   
   description: string;
   defaultCharge: string;
@@ -35,9 +33,7 @@ const emptyData: Omit<MinorOperationRecord, 'id' | 'serialNo'> = {
   operationCode: '',
   operationName: '',
   department: '',
-  medications: '',
-  procedures: '',
-  equipment: '',
+  requirements: '',
   
   description: '',
   defaultCharge: '',
@@ -58,9 +54,7 @@ const mapApiToRecord = (item: any): MinorOperationRecord => ({
   operationCode:     item.operationCode,
   operationName:     item.operationName,
   department:        item.department,
-  medications:       item.medications || '',
-  procedures:        item.procedures || '',
-  equipment:         item.equipment || '',
+  requirements:      item.medications || '',
   
   description:       item.description || '',
   defaultCharge:     item.defaultCharge || '0',
@@ -81,9 +75,6 @@ export const MinorOperationMaster = () => {
   
   // Dynamic Dropdowns
   const [departments, setDepartments] = useState<{departmentName: string}[]>([]);
-  const [medicines, setMedicines] = useState<string[]>([]);
-  const [procedures, setProcedures] = useState<string[]>([]);
-  const [equipment, setEquipment] = useState<string[]>([]);
   
   
   // Filter States
@@ -120,17 +111,10 @@ export const MinorOperationMaster = () => {
 
   const fetchDropdowns = async () => {
     try {
-      const [dRes, mRes, pRes, eRes] = await Promise.all([
+      const [dRes] = await Promise.all([
         fetch(`${API_BASE}/departments/`),
-        fetch(`${API_BASE}/medicines/`),
-        fetch(`${API_BASE}/procedures/`),
-        fetch(`${API_BASE}/equipment/`),
       ]);
       if (dRes.ok) setDepartments(await dRes.json());
-      // Each master names its records differently; the operation only stores the name.
-      if (mRes.ok) setMedicines((await mRes.json()).map((m: any) => m.genericName).filter(Boolean));
-      if (pRes.ok) setProcedures((await pRes.json()).map((p: any) => p.procedureName).filter(Boolean));
-      if (eRes.ok) setEquipment((await eRes.json()).map((e: any) => e.equipmentName).filter(Boolean));
     } catch (err) {
       console.error(err);
     }
@@ -188,9 +172,9 @@ export const MinorOperationMaster = () => {
         operationCode:     formData.operationCode,
         operationName:     formData.operationName,
         department:        formData.department,
-        medications:       formData.medications,
-        procedures:        formData.procedures,
-        equipment:         formData.equipment,
+        medications:       formData.requirements,
+        procedures:        "",
+        equipment:         "",
         
         description:       formData.description || null,
         defaultCharge:     formData.defaultCharge || "0",
@@ -487,28 +471,18 @@ export const MinorOperationMaster = () => {
               {/* Requirements */}
               <section>
                 <h3 className="text-lg font-bold text-slate-800 mb-4 border-b border-slate-100 pb-2">Requirements</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <MultiSelectField
-                    label="Medication"
-                    options={medicines}
-                    value={formData.medications}
-                    onChange={v => setFormData({...formData, medications: v})}
-                    placeholder="Select Medicine"
-                  />
-                  <MultiSelectField
-                    label="Procedure"
-                    options={procedures}
-                    value={formData.procedures}
-                    onChange={v => setFormData({...formData, procedures: v})}
-                    placeholder="Select Procedure"
-                  />
-                  <MultiSelectField
-                    label="Equipment"
-                    options={equipment}
-                    value={formData.equipment}
-                    onChange={v => setFormData({...formData, equipment: v})}
-                    placeholder="Select Equipment"
-                  />
+                <div className="grid grid-cols-1 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Summary of Requirements</label>
+                    <textarea 
+                      value={formData.requirements} 
+                      onChange={e => setFormData({...formData, requirements: e.target.value})} 
+                      maxLength={500} 
+                      rows={3}
+                      placeholder="Enter required medications, procedures, and equipment..."
+                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
+                    />
+                  </div>
                 </div>
               </section>
 
@@ -597,18 +571,10 @@ export const MinorOperationMaster = () => {
             </div>
 
             {/* Linked masters */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 pt-4 border-t border-slate-100">
+            <div className="grid grid-cols-1 gap-5 pt-4 border-t border-slate-100">
               <div>
-                <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 block mb-2">Medication</span>
-                <ChipList value={selectedRecord.medications} />
-              </div>
-              <div>
-                <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 block mb-2">Procedure</span>
-                <ChipList value={selectedRecord.procedures} />
-              </div>
-              <div>
-                <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 block mb-2">Equipment</span>
-                <ChipList value={selectedRecord.equipment} />
+                <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 block mb-2">Requirements Summary</span>
+                <span className="text-sm text-slate-700 whitespace-pre-wrap">{selectedRecord.requirements || '—'}</span>
               </div>
             </div>
 

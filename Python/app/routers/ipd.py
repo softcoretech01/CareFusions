@@ -8,7 +8,7 @@ from app.database import get_db
 from app.schemas.ipd import (
     WardCreate, BedCreate, BedStatusUpdate,
     AdmissionCreate, AdmissionUpdate, AllocateBed, DischargeRequest,
-    AdmissionRequestCreate, RequestStatusUpdate,
+    AdmissionRequestCreate, RequestStatusUpdate, OperationsEMRUpdate,
 )
 
 logger = logging.getLogger(__name__)
@@ -16,6 +16,104 @@ router = APIRouter(prefix="/ipd", tags=["IPD"])
 
 
 # ── SP call helpers ──────────────────────────────────────────
+def sync_wards_and_beds(db: Session):
+    """Synchronize IPD_Ward and IPD_Bed tables with Mst_WardCharge configuration to align synthetic IDs."""
+    try:
+        # Fetch active records from Mst_WardCharge
+        master_wards = db.execute(text("SELECT * FROM Mst_WardCharge WHERE IsDeleted = 0")).fetchall()
+        
+        active_ward_ids = []
+        active_bed_ids = []
+        
+        # Mapping ward type strings to allowed ENUM values in database
+        def get_enum_type(ward_name: str) -> str:
+            name_upper = ward_name.upper()
+            if 'SEMI-PRIVATE' in name_upper or 'SEMI PRIVATE' in name_upper:
+                return 'Semi-Private'
+            for t in ['GENERAL', 'PRIVATE', 'DELUXE', 'ICU', 'NICU', 'PICU', 'HDU', 'OT']:
+                if t in name_upper:
+                    return t.title() if t != 'OT' else 'OT'
+            return 'General'
+            
+        for mw in master_wards:
+            ward_id = mw.Id
+            ward_name = mw.WardType
+            ward_type = get_enum_type(mw.WardType)
+            
+            active_ward_ids.append(ward_id)
+            
+            # Upsert into hospital.IPD_Ward
+            exists_ward = db.execute(text("SELECT WardId FROM hospital.IPD_Ward WHERE WardId = :id"), {"id": ward_id}).fetchone()
+            if exists_ward:
+                db.execute(text("""
+                    UPDATE hospital.IPD_Ward 
+                    SET WardName = :name, WardType = :wtype, Capacity = :cap, IsDeleted = 0 
+                    WHERE WardId = :id
+                """), {"name": ward_name, "wtype": ward_type, "cap": 100, "id": ward_id})
+            else:
+                db.execute(text("""
+                    INSERT INTO hospital.IPD_Ward (WardId, WardName, WardType, GenderRestriction, Capacity, Status, IsDeleted)
+                    VALUES (:id, :name, :wtype, 'Any', 100, 'Active', 0)
+                """), {"id": ward_id, "name": ward_name, "wtype": ward_type})
+                
+            # Parse rooms & beds from Description JSON
+            rooms = []
+            if mw.Description:
+                try:
+                    import json
+                    parsed = json.loads(mw.Description)
+                    if isinstance(parsed, dict) and "rooms" in parsed:
+                        rooms = parsed["rooms"]
+                except Exception:
+                    pass
+            
+            capacity = 0
+            for r in rooms:
+                qty = 1 if isinstance(r, str) else r.get("bedQty", 1)
+                room_no = r if isinstance(r, str) else r.get("roomNo", "")
+                
+                for i in range(1, qty + 1):
+                    bed_number = f"{room_no}-{i}" if room_no else str(capacity + 1)
+                    synthetic_bed_id = (ward_id * 10000) + capacity + 1
+                    active_bed_ids.append(synthetic_bed_id)
+                    
+                    # Upsert into hospital.IPD_Bed
+                    exists_bed = db.execute(text("SELECT BedId FROM hospital.IPD_Bed WHERE BedId = :id"), {"id": synthetic_bed_id}).fetchone()
+                    if exists_bed:
+                        db.execute(text("""
+                            UPDATE hospital.IPD_Bed 
+                            SET WardId = :ward_id, RoomNumber = :room, BedNumber = :bed, IsDeleted = 0 
+                            WHERE BedId = :id
+                        """), {"ward_id": ward_id, "room": room_no, "bed": bed_number, "id": synthetic_bed_id})
+                    else:
+                        db.execute(text("""
+                            INSERT INTO hospital.IPD_Bed (BedId, WardId, RoomNumber, BedNumber, Status, IsDeleted)
+                            VALUES (:id, :ward_id, :room, :bed, 'Available', 0)
+                        """), {"id": synthetic_bed_id, "ward_id": ward_id, "room": room_no, "bed": bed_number})
+                    capacity += 1
+            
+            # Update ward capacity to actual parsed capacity
+            db.execute(text("UPDATE hospital.IPD_Ward SET Capacity = :cap WHERE WardId = :id"), {"cap": capacity or 1, "id": ward_id})
+            
+        # Soft delete inactive wards and beds
+        if active_ward_ids:
+            ids_str = ",".join(str(x) for x in active_ward_ids)
+            db.execute(text(f"UPDATE hospital.IPD_Ward SET IsDeleted = 1 WHERE WardId NOT IN ({ids_str})"))
+        else:
+            db.execute(text("UPDATE hospital.IPD_Ward SET IsDeleted = 1"))
+            
+        if active_bed_ids:
+            ids_str = ",".join(str(x) for x in active_bed_ids)
+            db.execute(text(f"UPDATE hospital.IPD_Bed SET IsDeleted = 1 WHERE BedId NOT IN ({ids_str})"))
+        else:
+            db.execute(text("UPDATE hospital.IPD_Bed SET IsDeleted = 1"))
+            
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.error(f"[sync_wards_and_beds] Error: {e}")
+        raise e
+
 def _sp(db: Session, name: str, params: dict):
     placeholders = ", ".join(f":{k}" for k in params)
     return db.execute(text(f"CALL {name}({placeholders})"), params)
@@ -65,6 +163,9 @@ def _req_sp(db, opt, **kw):
 
 
 # ── Row mappers ──────────────────────────────────────────────
+import json
+from sqlalchemy import text
+
 def _map_admission(r) -> dict:
     discharge = None
     if r.DischargeSummary or r.DischargedBy or r.DischargeDate:
@@ -90,11 +191,13 @@ def _map_admission(r) -> dict:
         "expectedStayDays": r.ExpectedStayDays,
         "status": r.Status,
         "currentWardId": r.CurrentWardId,
+        "currentWardName": getattr(r, "WardName", None) or "",
         "currentBedId": r.CurrentBedId,
         "provisionalDiagnosis": r.ProvisionalDiagnosis,
         "insuranceStatus": r.InsuranceStatus,
         "wardTransferHistory": [],
         "dischargeInfo": discharge,
+        "operations": (json.loads(r.OperationsData) if isinstance(r.OperationsData, str) else r.OperationsData) if hasattr(r, "OperationsData") and r.OperationsData else [],
     }
 
 
@@ -102,6 +205,7 @@ def _map_admission(r) -> dict:
 @router.get("/wards")
 def list_wards(db: Session = Depends(get_db)):
     try:
+        sync_wards_and_beds(db)
         rows = _ward_sp(db, "LIST").fetchall()
         return [{
             "id": r.WardId, "name": r.WardName, "type": r.WardType,
@@ -157,6 +261,7 @@ def delete_ward(ward_id: int, db: Session = Depends(get_db)):
 @router.get("/beds")
 def list_beds(db: Session = Depends(get_db)):
     try:
+        sync_wards_and_beds(db)
         rows = _bed_sp(db, "LIST").fetchall()
         return [{
             "id": r.BedId, "wardId": r.WardId, "wardName": r.WardName,
@@ -198,9 +303,19 @@ def update_bed_status(bed_id: int, payload: BedStatusUpdate, db: Session = Depen
 def list_admissions(db: Session = Depends(get_db)):
     """All admissions with nested ward-transfer history and discharge medicines."""
     try:
+        sync_wards_and_beds(db)
         rows = _adm_sp(db, "LIST").fetchall()
         transfers = _adm_sp(db, "TRANSFERS").fetchall()
         meds = _adm_sp(db, "DISCHARGEMEDS").fetchall()
+
+        # Build ward name lookup from IPD_Wards
+        ward_name_map: dict = {}
+        try:
+            ward_rows = _ward_sp(db, "LIST").fetchall()
+            for w in ward_rows:
+                ward_name_map[w.WardId] = w.WardName
+        except Exception:
+            pass
 
         t_by_adm: dict = {}
         for t in transfers:
@@ -220,6 +335,7 @@ def list_admissions(db: Session = Depends(get_db)):
         out = []
         for r in rows:
             adm = _map_admission(r)
+            adm["currentWardName"] = ward_name_map.get(r.CurrentWardId, "") if r.CurrentWardId else ""
             adm["wardTransferHistory"] = t_by_adm.get(r.AdmissionId, [])
             if adm["dischargeInfo"] is not None:
                 adm["dischargeInfo"]["medicines"] = m_by_adm.get(r.AdmissionId, [])
@@ -243,8 +359,17 @@ def _admit_fields(p: AdmissionCreate) -> dict:
 @router.post("/admissions", status_code=201)
 def admit_patient(payload: AdmissionCreate, db: Session = Depends(get_db)):
     try:
+        sync_wards_and_beds(db)
         row = _adm_sp(db, "ADMIT", **_admit_fields(payload)).fetchone()
         db.commit()
+        if payload.operations:
+            try:
+                ops_json = json.dumps(payload.operations)
+                db.execute(text("UPDATE hospital.IPD_Admission SET OperationsData = :ops WHERE AdmissionId = :id"), {"ops": ops_json, "id": row.AdmissionId})
+                db.commit()
+            except Exception as e:
+                db.rollback()
+                logger.error(f"Failed to update OperationsData on admit: {e}")
         created = _adm_sp(db, "GETBYID", admission_id=row.AdmissionId).fetchone()
         return _map_admission(created)
     except Exception as e:
@@ -268,14 +393,35 @@ def update_admission(admission_id: int, payload: AdmissionUpdate, db: Session = 
 @router.patch("/admissions/{admission_id}/allocate-bed")
 def allocate_bed(admission_id: int, payload: AllocateBed, db: Session = Depends(get_db)):
     try:
+        sync_wards_and_beds(db)
         _adm_sp(db, "ALLOCATEBED", admission_id=admission_id, ward_id=payload.wardId,
                 bed_id=payload.bedId, reason=payload.reason, user=payload.user or "Admin")
         db.commit()
+        if payload.operations is not None:
+            try:
+                ops_json = json.dumps(payload.operations)
+                db.execute(text("UPDATE hospital.IPD_Admission SET OperationsData = :ops WHERE AdmissionId = :id"), {"ops": ops_json, "id": admission_id})
+                db.commit()
+            except Exception as e:
+                db.rollback()
+                logger.error(f"Failed to update OperationsData on allocate bed: {e}")
         return {"message": "Bed allocated"}
     except Exception as e:
         db.rollback()
         logger.error(f"[PATCH /ipd/admissions/{admission_id}/allocate-bed] {e}")
         raise HTTPException(status_code=500, detail="Failed to allocate bed")
+@router.patch("/admissions/{admission_id}/operations-emr")
+def update_operations_emr(admission_id: int, payload: OperationsEMRUpdate, db: Session = Depends(get_db)):
+    try:
+        ops_json = json.dumps(payload.operations)
+        db.execute(text("UPDATE hospital.IPD_Admission SET OperationsData = :ops WHERE AdmissionId = :id"), {"ops": ops_json, "id": admission_id})
+        db.commit()
+        return {"message": "Operations updated"}
+    except Exception as e:
+        db.rollback()
+        logger.error(f"[PATCH /ipd/admissions/{admission_id}/operations-emr] {e}")
+        raise HTTPException(status_code=500, detail="Failed to update operations")
+
 
 
 def _save_discharge_meds(db, admission_id: int, meds):

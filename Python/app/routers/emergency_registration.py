@@ -27,6 +27,11 @@ def _call_sp(db: Session, opt: str, payload: dict = None, record_id: int = None)
         "p_ApproximateAge": payload.get("ApproximateAge") if payload else 0,
         "p_EmergencyContactName": payload.get("EmergencyContactName") if payload else None,
         "p_EmergencyContactPhone": payload.get("EmergencyContactPhone") if payload else None,
+        "p_InsuranceRequired": payload.get("InsuranceRequired") if payload else None,
+        "p_InsuranceProvider": payload.get("InsuranceProvider") if payload else None,
+        "p_Tpa": payload.get("Tpa") if payload else None,
+        "p_PolicyNumber": payload.get("PolicyNumber") if payload else None,
+        "p_ValidTill": payload.get("ValidTill") if payload else None,
         "p_Status": payload.get("Status") if payload else None,
         "p_CreatedBy": payload.get("CreatedBy") if payload else None,
         "p_ModifiedBy": payload.get("ModifiedBy") if payload else None
@@ -36,7 +41,8 @@ def _call_sp(db: Session, opt: str, payload: dict = None, record_id: int = None)
         CALL registration.{SP_NAME}(
             :p_Opt, :p_EmergencyRegistrationId, :p_RegistrationDate, :p_RegistrationTime,
             :p_PatientName, :p_Gender, :p_ApproximateAge, :p_EmergencyContactName,
-            :p_EmergencyContactPhone, :p_Status, :p_CreatedBy, :p_ModifiedBy
+            :p_EmergencyContactPhone, :p_InsuranceRequired, :p_InsuranceProvider,
+            :p_Tpa, :p_PolicyNumber, :p_ValidTill, :p_Status, :p_CreatedBy, :p_ModifiedBy
         )
     """)
     result = db.execute(sql, params)

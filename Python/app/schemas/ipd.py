@@ -119,6 +119,7 @@ class AdmissionCreate(BaseModel):
     bedId: Optional[int] = None
     provisionalDiagnosis: Optional[str] = Field(default=None, max_length=DIAG_MAX)
     insuranceStatus: Optional[str] = Field(default=None, max_length=50)
+    operations: Optional[List[dict]] = None
     user: Optional[str] = None
 
     @field_validator("uhid", "patientName")
@@ -167,6 +168,7 @@ class AllocateBed(BaseModel):
     wardId: int
     bedId: int
     reason: Optional[str] = Field(default=None, max_length=255)
+    operations: Optional[List[dict]] = None
     user: Optional[str] = None
 
 
@@ -175,6 +177,10 @@ class DischargeRequest(BaseModel):
     dischargedBy: Optional[str] = Field(default=None, max_length=NAME_MAX)
     medicines: List[DischargeMedicine] = []
     user: Optional[str] = None
+
+class OperationsEMRUpdate(BaseModel):
+    operations: List[dict] = []
+
 
 
 # ── Admission Request ────────────────────────────────────────

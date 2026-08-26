@@ -21,6 +21,11 @@ class EmergencyRegistrationBase(BaseModel):
     ApproximateAge: Optional[int] = 0
     EmergencyContactName: Optional[str] = Field(None, max_length=50)
     EmergencyContactPhone: Optional[str] = Field(None, min_length=10, max_length=10, pattern=r"^\d{10}$")
+    InsuranceRequired: Optional[str] = "No"
+    InsuranceProvider: Optional[str] = Field(None, max_length=50)
+    Tpa: Optional[str] = Field(None, max_length=50)
+    PolicyNumber: Optional[str] = Field(None, max_length=50)
+    ValidTill: Optional[date] = None
     Status: EmergencyStatusEnum = EmergencyStatusEnum.active
     CreatedBy: Optional[str] = Field(None, max_length=50)
     ModifiedBy: Optional[str] = Field(None, max_length=50)
