@@ -25,7 +25,6 @@ def _call_sp(db: Session, opt: str, **kwargs):
         "p_Opt":                  opt,
         "p_RadiologyServiceId":   kwargs.get("radiology_service_id"),
         "p_ServiceName":          kwargs.get("service_name"),
-        "p_Department":           kwargs.get("department"),
         "p_Description":          kwargs.get("description"),
         "p_ServiceCategory":      kwargs.get("service_category"),
         "p_EstimatedDuration":    kwargs.get("estimated_duration"),
@@ -43,21 +42,20 @@ def _call_sp(db: Session, opt: str, **kwargs):
         "p_CreatedBy":            kwargs.get("created_by"),
         "p_UpdatedBy":            kwargs.get("updated_by"),
         "p_Search":               kwargs.get("search"),
-        "p_DepartmentFilter":     kwargs.get("department_filter"),
         "p_CategoryFilter":       kwargs.get("category_filter"),
         "p_StatusFilter":         kwargs.get("status_filter"),
     }
 
     sql = text(f"""
         CALL {SP_NAME}(
-            :p_Opt, :p_RadiologyServiceId, :p_ServiceName, :p_Department,
+            :p_Opt, :p_RadiologyServiceId, :p_ServiceName,
             :p_Description, :p_ServiceCategory, :p_EstimatedDuration, :p_ReportTat,
             :p_RequiresAppointment, :p_RequiresContrast, :p_RequiresFasting,
             :p_ServicePrice, :p_Gst,
             :p_ReportTemplate, :p_RequiresApproval, :p_CriticalFindingAlert,
             :p_Status, :p_Remarks,
             :p_CreatedBy, :p_UpdatedBy,
-            :p_Search, :p_DepartmentFilter, :p_CategoryFilter, :p_StatusFilter
+            :p_Search, :p_CategoryFilter, :p_StatusFilter
         )
     """)
     return db.execute(sql, params)
