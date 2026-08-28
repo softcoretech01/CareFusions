@@ -55,7 +55,7 @@ def _call_sp(db: Session, opt: str, **kwargs):
             :p_ReportTemplate, :p_RequiresApproval, :p_CriticalFindingAlert,
             :p_Status, :p_Remarks,
             :p_CreatedBy, :p_UpdatedBy,
-            :p_Search,  :p_CategoryFilter, :p_StatusFilter
+            :p_Search, :p_CategoryFilter, :p_StatusFilter
         )
     """)
     return db.execute(sql, params)

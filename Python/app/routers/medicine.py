@@ -127,7 +127,7 @@ def get_next_code(db: Session = Depends(get_db)):
     try:
         row = db.execute(text(
             "SELECT CONCAT('MED-', LPAD(COALESCE(MAX(CAST(SUBSTRING_INDEX(MedicineCode, '-', -1) AS UNSIGNED)), 0) + 1, 3, '0')) AS medicineCode "
-            "FROM hospital.Master_Medicine"
+            "FROM Master_Medicine"
         )).fetchone()
         return {"medicineCode": row.medicineCode if row and row.medicineCode else "MED-001"}
     except Exception as e:
