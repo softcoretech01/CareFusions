@@ -236,7 +236,7 @@ export const NurseMaster = () => {
         state: formData.state || null,
         country: formData.country || null,
         postalCode: formData.postalCode || null,
-        joiningDate: formData.joiningDate,
+        joiningDate: formData.joiningDate || null,
         shift: formData.shift,
         manager: formData.manager || null,
         employmentType: formData.employmentType || null,
