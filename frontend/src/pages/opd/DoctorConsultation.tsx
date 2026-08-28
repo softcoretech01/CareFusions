@@ -61,18 +61,22 @@ export const DoctorConsultation = () => {
   } = useOPDVisits();
 
   const { appointments, updateAppointmentStatus } = useAppointments();
-  const { requestAdmission, patients } = useIPD();
+  const { requestAdmission, patients, admissionRequests } = useIPD();
   const { addOrder: addGlobalInvestigationOrder, orders: globalOrders } = useInvestigations();
 
   const navigate = useNavigate();
 
   const visit = getVisitById(Number(visitId));
   const isAdmitted = patients?.some(p => p.uhid === visit?.uhid && p.status === 'Admitted');
+  const hasAdmissionRequest = admissionRequests?.some(r => r.uhid === visit?.uhid && r.status === 'Pending');
   const [activeTab, setActiveTab] = useState('history');
 
   const patientHistory = visits
     .filter(v => v.uhid === visit?.uhid && v.id !== visit?.id && v.status === 'Completed')
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  // Backstop ref — declared here so all hooks are above the early-return guard.
+  const syncingRef = useRef(false);
 
   // ── Lab Tests from Master API ──
   const [apiLabTests, setApiLabTests] = useState<ApiLabTest[]>([]);
@@ -198,16 +202,6 @@ export const DoctorConsultation = () => {
       setSelectedLabs(visit.labOrders.map(l => l.testCode));
     }
   }, [visit]);
-
-  if (!visit) return (
-    <div className="flex flex-col items-center justify-center h-64 gap-4 text-slate-400">
-      <div className="text-5xl">🔍</div>
-      <p className="font-semibold text-slate-600">Visit not found or session expired.</p>
-      <button onClick={() => navigate(-1)} className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors">
-        ← Go Back
-      </button>
-    </div>
-  );
 
 
   const handleAddDiagnosis = () => {
@@ -348,7 +342,11 @@ export const DoctorConsultation = () => {
       );
 
     const newLabs = visit.labOrders.filter(l => !sentFor('Lab').has(l.testName));
-    const newRads = visit.radiologyOrders.filter(r => !sentFor('Radiology').has(r.serviceName || r.bodyPart));
+    // A radiology order lacking a serviceName was loaded from the backend
+    // (which drops the field). It was already pushed to the lab during the
+    // session it was created. We cannot re-push it anyway because we'd send
+    // 'Head' as the test name, creating a garbage duplicate.
+    const newRads = visit.radiologyOrders.filter(r => r.serviceName && !sentFor('Radiology').has(r.serviceName));
 
     const mkId = () => Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
     let ok = true;
@@ -400,19 +398,35 @@ export const DoctorConsultation = () => {
   // outstanding a couple of seconds after the last change; the dedupe inside
   // syncInvestigationOrders makes repeat runs no-ops, and the delay is long
   // enough that ticking a test and immediately un-ticking it sends nothing.
-  const syncingRef = useRef(false);
+  const syncInvestigationOrdersRef = useRef(syncInvestigationOrders);
   useEffect(() => {
+    syncInvestigationOrdersRef.current = syncInvestigationOrders;
+  });
+
+  useEffect(() => {
+    if (!visit) return;
     if (visit.isFinalized) return;
     if (visit.labOrders.length === 0 && visit.radiologyOrders.length === 0) return;
 
     const t = setTimeout(async () => {
       if (syncingRef.current) return;
       syncingRef.current = true;
-      try { await syncInvestigationOrders(); } finally { syncingRef.current = false; }
+      try { await syncInvestigationOrdersRef.current(); } finally { syncingRef.current = false; }
     }, 2000);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visit.labOrders, visit.radiologyOrders, visit.isFinalized]);
+  }, [visit?.labOrders, visit?.radiologyOrders, visit?.isFinalized]);
+
+  // ── Early return AFTER all hooks ──────────────────────────────────────
+  if (!visit) return (
+    <div className="flex flex-col items-center justify-center h-64 gap-4 text-slate-400">
+      <div className="text-5xl">🔍</div>
+      <p className="font-semibold text-slate-600">Visit not found or session expired.</p>
+      <button onClick={() => navigate(-1)} className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors">
+        ← Go Back
+      </button>
+    </div>
+  );
 
   const handleFinalizeVisit = async () => {
     // Send the orders BEFORE closing the visit, and stop if they did not land —
@@ -451,17 +465,14 @@ export const DoctorConsultation = () => {
   };
 
   const handleRecommendAdmission = () => {
-    if (visit.diagnoses.length === 0) {
-      toast.error('Please add a diagnosis before admitting.');
-      return;
-    }
+    setShowAdmitModal(false);
     requestAdmission({
       uhid: visit.uhid,
       patientName: visit.patientName,
       specialty: admitForm.specialty,
       admissionType: admitForm.type,
       priority: admitForm.priority,
-      provisionalDiagnosis: visit.diagnoses.map(d => d.description).join(', '),
+      provisionalDiagnosis: visit.diagnoses.length > 0 ? visit.diagnoses.map(d => d.description).join(', ') : '',
       requestedBy: 'Dr. on duty'
     });
 
@@ -955,6 +966,11 @@ export const DoctorConsultation = () => {
                         <CheckCircle className="w-4 h-4" />
                         Admitted
                       </div>
+                    ) : hasAdmissionRequest ? (
+                      <div className="px-8 py-3 bg-amber-50 text-amber-600 rounded-xl text-sm font-bold flex items-center gap-2 border border-amber-200">
+                        <CheckCircle className="w-4 h-4" />
+                        Admission Requested
+                      </div>
                     ) : (
                       <button onClick={() => setShowAdmitModal(true)}
                         className="px-8 py-3 bg-red-600 text-white rounded-xl text-sm font-bold hover:bg-red-700 transition-colors shadow-sm flex items-center gap-2">
@@ -974,6 +990,11 @@ export const DoctorConsultation = () => {
                       <div className="px-8 py-3 bg-red-50 text-red-600 rounded-xl text-sm font-bold flex items-center gap-2 border border-red-200">
                         <CheckCircle className="w-4 h-4" />
                         Admitted
+                      </div>
+                    ) : hasAdmissionRequest ? (
+                      <div className="px-8 py-3 bg-amber-50 text-amber-600 rounded-xl text-sm font-bold flex items-center gap-2 border border-amber-200">
+                        <CheckCircle className="w-4 h-4" />
+                        Admission Requested
                       </div>
                     ) : (
                       <button onClick={() => setShowAdmitModal(true)}

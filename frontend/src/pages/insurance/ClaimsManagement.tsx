@@ -41,6 +41,8 @@ export const ClaimsManagement = () => {
   const [ipBills, setIpBills] = useState<any[]>([]);
   const [patientLabOrders, setPatientLabOrders] = useState<any[]>([]);
   const [patientRadOrders, setPatientRadOrders] = useState<any[]>([]);
+  const [wardCharges, setWardCharges] = useState<Record<string, number>>({});
+  const [wardNames, setWardNames] = useState<Record<string, string>>({});
 
   const [form, setForm] = useState({
     uhid: '', patient: '', providerId: '', insurer: '',
@@ -64,6 +66,22 @@ export const ClaimsManagement = () => {
       .then(r => (r.ok ? r.json() : []))
       .then(d => setIpBills(Array.isArray(d) ? d : []))
       .catch(() => setIpBills([]));
+
+    fetch(`${API_BASE}/ward-charges/`)
+      .then(r => r.json())
+      .then(d => {
+        if (Array.isArray(d)) {
+          const prices: Record<string, number> = {};
+          const names: Record<string, string> = {};
+          d.forEach((r: any) => {
+            prices[String(r.Id)] = Number(r.Charge || 0);
+            names[String(r.Id)] = r.WardType || `Ward ${r.Id}`;
+          });
+          setWardCharges(prices);
+          setWardNames(names);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   // Load lab and radiology orders for patient when UHID is entered
@@ -140,16 +158,52 @@ export const ClaimsManagement = () => {
       const start = new Date(matchedAdmission.admissionDate);
       if (!isNaN(start.getTime())) {
         start.setHours(0, 0, 0, 0);
-        const today = new Date();
+        const today = matchedAdmission.dischargeInfo?.dischargeDate ? new Date(matchedAdmission.dischargeInfo.dischargeDate) : new Date();
         today.setHours(0, 0, 0, 0);
         stayDays = Math.max(1, Math.floor((today.getTime() - start.getTime()) / 86400000) + 1);
       }
     }
-    const list = [
-      { desc: `Room Charges (${stayDays} Days)`, qty: stayDays, unit: 1500, subtotal: stayDays * 1500 },
-      { desc: `Nursing Charges (Per Day)`, qty: stayDays, unit: 500, subtotal: stayDays * 500 },
-      { desc: `Doctor Visit Fee (${matchedAdmission.specialty || 'General'})`, qty: 1, unit: 400, subtotal: 400 },
-    ];
+    
+    const list: any[] = [];
+    const transfers = matchedAdmission.wardTransferHistory || [];
+    
+    if (transfers.length === 0) {
+      const wardId = matchedAdmission.currentWardId;
+      const charge = wardCharges[String(wardId)] || 1500;
+      const wName = wardNames[String(wardId)] || `Ward ${wardId || 'General'}`;
+      list.push({ desc: `Room Rent (${wName})`, qty: stayDays, unit: charge, subtotal: stayDays * charge });
+    } else {
+      let lastDate = new Date(matchedAdmission.admissionDate);
+      lastDate.setHours(0, 0, 0, 0);
+      let totalBilledDays = 0;
+      
+      transfers.forEach((t: any) => {
+         const tDate = new Date(t.transferDate);
+         tDate.setHours(0, 0, 0, 0);
+         let days = Math.floor((tDate.getTime() - lastDate.getTime()) / 86400000);
+         if (days < 0) days = 0;
+         
+         let billedDays = days === 0 ? 1 : days;
+         const wardId = t.fromWardId;
+         const charge = wardCharges[String(wardId)] || 1500;
+         const wName = wardNames[String(wardId)] || `Ward ${wardId}`;
+         
+         list.push({ desc: `Room Rent (${wName})`, qty: billedDays, unit: charge, subtotal: billedDays * charge });
+         totalBilledDays += billedDays;
+         lastDate = tDate;
+      });
+      
+      let finalDays = stayDays - totalBilledDays;
+      if (finalDays <= 0) finalDays = 1;
+      
+      const finalWardId = transfers[transfers.length - 1].toWardId;
+      const charge = wardCharges[String(finalWardId)] || 1500;
+      const wName = wardNames[String(finalWardId)] || `Ward ${finalWardId}`;
+      list.push({ desc: `Room Rent (${wName})`, qty: finalDays, unit: charge, subtotal: finalDays * charge });
+    }
+
+    list.push({ desc: `Nursing Charges (Per Day)`, qty: stayDays, unit: 500, subtotal: stayDays * 500 });
+    list.push({ desc: `Doctor Visit Fee (${matchedAdmission.specialty || 'General'})`, qty: 1, unit: 400, subtotal: 400 });
     if (matchedAdmission.dischargeInfo?.medicines?.length) {
       matchedAdmission.dischargeInfo.medicines.forEach((m: any) => {
         const u = Number(m.price || 0) || 15;
@@ -199,7 +253,7 @@ export const ClaimsManagement = () => {
     }
 
     return list;
-  }, [billItems, matchedAdmission, patientLabOrders, patientRadOrders]);
+  }, [billItems, matchedAdmission, patientLabOrders, patientRadOrders, wardCharges, wardNames]);
 
   const calculatedTotal = useMemo(() => {
     return displayBillItems.reduce((s: number, i: any) => s + (i.subtotal || 0), 0);
@@ -238,7 +292,7 @@ export const ClaimsManagement = () => {
     setForm(prev => {
       const newBilled = billedAmtStr || prev.billedAmount;
       const newPreAuth = preAuthAmt || prev.preAuthorizedAmount;
-      const newClaimed = prev.claimedAmount || newBilled || newPreAuth;
+      const newClaimed = prev.claimedAmount || newPreAuth || newBilled;
 
       return {
         ...prev,
@@ -568,62 +622,7 @@ export const ClaimsManagement = () => {
 
 
 
-              {patientLabOrders.length > 0 && (
-                <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
-                  <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <FlaskConical className="w-4 h-4 text-primary" />
-                      <h3 className="text-sm font-bold text-slate-800">Lab Orders & Investigations Details</h3>
-                    </div>
-                    <span className="text-xs bg-blue-100 text-blue-800 px-2.5 py-0.5 rounded-full font-semibold">
-                      {patientLabOrders.length} Order{patientLabOrders.length > 1 ? 's' : ''}
-                    </span>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs">
-                      <thead className="bg-slate-50 text-[11px] font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-200">
-                        <tr>
-                          <th className="px-4 py-2.5 text-left">Test / Category</th>
-                          <th className="px-4 py-2.5 text-left">Ordered By</th>
-                          <th className="px-4 py-2.5 text-left">Clinical Notes / Priority</th>
-                          <th className="px-4 py-2.5 text-center">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {patientLabOrders.map((ord: any, idx: number) => {
-                          const testName = (() => {
-                            if (typeof ord.tests === 'string') return ord.tests;
-                            if (Array.isArray(ord.tests)) {
-                              return ord.tests.map((t: any) => (typeof t === 'string' ? t : t?.name || t?.testCode || 'Test')).join(', ');
-                            }
-                            if (ord.tests && typeof ord.tests === 'object') {
-                              return ord.tests.name || ord.tests.testCode || 'Lab Test';
-                            }
-                            if (typeof ord.TestName === 'string') return ord.TestName;
-                            if (typeof ord.category === 'string') return ord.category;
-                            return 'Lab Investigation';
-                          })();
 
-                          return (
-                            <tr key={idx} className="hover:bg-slate-50">
-                              <td className="px-4 py-2.5 font-medium text-slate-800">
-                                {testName}
-                              </td>
-                              <td className="px-4 py-2.5 text-slate-600">{ord.orderedBy || ord.OrderedBy || 'Doctor'}</td>
-                              <td className="px-4 py-2.5 text-slate-600">{ord.clinicalNotes || ord.Priority || '-'}</td>
-                              <td className="px-4 py-2.5 text-center">
-                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
-                                  {ord.status || 'Ordered'}
-                                </span>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
 
               {displayBillItems.length > 0 && (
                 <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">

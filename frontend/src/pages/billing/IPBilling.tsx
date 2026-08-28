@@ -246,38 +246,39 @@ export const IPBilling = () => {
          let days = Math.floor((tDate.getTime() - lastDate.getTime()) / 86400000);
          if (days < 0) days = 0;
          
-         if (days > 0 || (idx === 0 && days === 0 && stayDays === 1)) {
-           let billedDays = days === 0 ? 1 : days;
-           const wardId = t.fromWardId;
-           const charge = wardCharges[String(wardId)] || 1500;
-           const wName = wardNames[String(wardId)] || `Ward ${wardId}`;
-           newItems.push({ 
-             id: `ITM-ROOM-${idx+1}`, 
-             description: `Room Charges - ${wName} (${billedDays} Days)`, 
-             price: charge, 
-             qty: billedDays, 
-             total: charge * billedDays, 
-             category: 'IPD' 
-           });
-           totalBilledDays += billedDays;
-         }
+         let billedDays = days === 0 ? 1 : days;
+         const wardId = t.fromWardId;
+         const charge = wardCharges[String(wardId)] || 1500;
+         const wName = wardNames[String(wardId)] || `Ward ${wardId}`;
+         
+         newItems.push({ 
+           id: `ITM-ROOM-${idx+1}`, 
+           description: `Room Charges - ${wName} (${billedDays} Days)`, 
+           price: charge, 
+           qty: billedDays, 
+           total: charge * billedDays, 
+           category: 'IPD' 
+         });
+         
+         totalBilledDays += billedDays;
          lastDate = tDate;
       });
       
       let finalDays = stayDays - totalBilledDays;
-      if (finalDays > 0) {
-           const finalWardId = transfers[transfers.length - 1].toWardId;
-           const charge = wardCharges[String(finalWardId)] || 1500;
-           const wName = wardNames[String(finalWardId)] || `Ward ${finalWardId}`;
-           newItems.push({ 
-             id: `ITM-ROOM-${transfers.length+1}`, 
-             description: `Room Charges - ${wName} (${finalDays} Days)`, 
-             price: charge, 
-             qty: finalDays, 
-             total: charge * finalDays, 
-             category: 'IPD' 
-           });
-      }
+      if (finalDays <= 0) finalDays = 1; // Guarantee at least 1 day for the final ward
+      
+      const finalWardId = transfers[transfers.length - 1].toWardId;
+      const charge = wardCharges[String(finalWardId)] || 1500;
+      const wName = wardNames[String(finalWardId)] || `Ward ${finalWardId}`;
+      
+      newItems.push({ 
+        id: `ITM-ROOM-${transfers.length+1}`, 
+        description: `Room Charges - ${wName} (${finalDays} Days)`, 
+        price: charge, 
+        qty: finalDays, 
+        total: charge * finalDays, 
+        category: 'IPD' 
+      });
     }
     
     newItems.push({ id: 'ITM-NURSING', description: `Nursing Charges (Per Day)`, price: 500, qty: stayDays, total: 500 * stayDays, category: 'IPD' });
@@ -665,7 +666,7 @@ export const IPBilling = () => {
 
       // Fetch active claims first
       axios.get(`${API_BASE}/insurance/claims/`).then(claimsRes => {
-        const patientClaim = claimsRes.data.find((c: any) => c.uhid === foundIPD.uhid && c.status !== 'Denied');
+        const patientClaim = claimsRes.data.find((c: any) => c.uhid === foundIPD.uhid && (c.status === 'Approved' || c.status === 'Settled'));
         if (patientClaim) {
           setActiveClaim(patientClaim);
         }
@@ -733,30 +734,11 @@ export const IPBilling = () => {
         isPolicy: false
       });
       setIsInsurancePaid(balance <= 0 && totalAmount > 0);
-    } else if (insurancePolicy) {
-      let amountAfterDeductible = totalAmount - (insurancePolicy.deductible || 0);
-      if (amountAfterDeductible < 0) amountAfterDeductible = 0;
-
-      let copayAmount = amountAfterDeductible * ((insurancePolicy.copayPercentage || 0) / 100);
-
-      let claimed = amountAfterDeductible - copayAmount;
-      if (insurancePolicy.sumInsured && claimed > insurancePolicy.sumInsured) {
-        claimed = insurancePolicy.sumInsured;
-      }
-
-      let balance = totalAmount - claimed;
-
-      setInsuranceDetails({
-        total: totalAmount,
-        claimed: claimed,
-        balance: balance,
-        provider: insurancePolicy.insurerName || insurancePolicy.providerId,
-        policyNo: insurancePolicy.policyNumber,
-        isPolicy: true
-      });
-      setIsInsurancePaid(balance <= 0 && totalAmount > 0);
+    } else {
+      setInsuranceDetails(null);
+      setIsInsurancePaid(false);
     }
-  }, [totalAmount, insurancePolicy, activeClaim]);
+  }, [totalAmount, activeClaim]);
 
   const handleGenerateBill = async () => {
     if (!patientName || items.length === 0) {

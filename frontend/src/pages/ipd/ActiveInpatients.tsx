@@ -164,8 +164,8 @@ export const ActiveInpatients = () => {
                         <div className="text-xs text-slate-500">{patient.uhid} • {patient.age}y {patient.gender}</div>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="font-bold text-slate-700">{bed?.bedNumber || 'Unassigned'}</div>
-                        <div className="text-xs text-slate-500">{ward?.name || 'N/A'} • Room no {bed?.roomNumber || 'N/A'}</div>
+                        <div className="font-bold text-slate-700">{ward?.name || 'Unassigned'}</div>
+                        <div className="text-xs text-slate-500">{bed ? `Room ${bed.roomNumber} • Bed ${bed.bedNumber}` : 'N/A'}</div>
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-700 font-medium">
                         {patient.admittingDoctor}
