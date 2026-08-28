@@ -110,7 +110,7 @@ def _call_sp(db: Session, opt: str, nurse_id: int = 0, **kwargs):
     sql = text(f"""
         CALL {SP_NAME}(
             :p_Opt, :p_NurseId,
-            :p_EmployeeCode, :p_NurseName, :p_Gender, :p_DateOfBirth, :p_Qualification,
+            :p_NurseName, :p_Gender, :p_DateOfBirth, :p_Qualification,
             :p_RegistrationNumber, :p_DepartmentName, :p_Designation, :p_HospitalName, :p_BranchName,
             :p_Mobile, :p_AlternateMobile, :p_Email, :p_Address, :p_City, :p_State, :p_Country, :p_PostalCode,
             :p_JoiningDate, :p_Shift, :p_ReportingManager, :p_EmploymentType, :p_ExperienceYears,
