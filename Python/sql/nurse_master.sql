@@ -143,6 +143,13 @@ BEGIN
         ORDER BY NurseId DESC;
 
     -- ==================================================================
+    -- GETNEXTCODE
+    -- ==================================================================
+    ELSEIF p_Opt = 'GETNEXTCODE' THEN
+        SELECT IFNULL(MAX(NurseId), 0) + 1 INTO v_NextId FROM Master_Nurse;
+        SELECT CONCAT('NUR-', LPAD(v_NextId, 3, '0')) AS NextCode;
+
+    -- ==================================================================
     -- INSERT
     -- ==================================================================
     ELSEIF p_Opt = 'INSERT' THEN

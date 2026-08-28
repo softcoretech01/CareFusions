@@ -20,7 +20,7 @@ class NurseCreate(BaseModel):
     state:              Optional[str]       = None
     country:            Optional[str]       = None
     postalCode:         Optional[str]       = None
-    joiningDate:        date
+    joiningDate:        Optional[date]      = None
     shift:              str
     manager:            Optional[str]       = None
     employmentType:     Optional[str]       = None
