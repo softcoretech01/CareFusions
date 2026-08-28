@@ -127,13 +127,35 @@ export const VendorMaster = () => {
     }
   };
 
+  const handleMobileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let val = e.target.value;
+    val = val.replace(/[^\d+]/g, '');
+    if (val.indexOf('+') > 0) {
+      val = val.substring(0, 1) + val.substring(1).replace(/\+/g, '');
+    }
+    if (val.startsWith('+')) {
+      if (val.length > 13) val = val.slice(0, 13);
+    } else {
+      if (val.length > 10) val = val.slice(0, 10);
+    }
+    setFormData({ ...formData, mobileNumber: val });
+  };
+
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
     if (!formData.vendorName.trim()) newErrors.vendorName = 'Vendor Name is required';
     if (!formData.contactPerson.trim()) newErrors.contactPerson = 'Contact Person is required';
 
-    if (!formData.mobileNumber.trim()) newErrors.mobileNumber = 'Mobile Number is required';
-    else if (!/^\d{10,15}$/.test(formData.mobileNumber.replace(/[\s+-]/g, ''))) newErrors.mobileNumber = 'Mobile must be 10-15 digits';
+    if (!formData.mobileNumber.trim()) {
+      newErrors.mobileNumber = 'Mobile Number is required';
+    } else {
+      const val = formData.mobileNumber.trim();
+      if (val.startsWith('+')) {
+        if (!/^\+\d{12}$/.test(val)) newErrors.mobileNumber = 'Must be exactly 13 characters (e.g. +91...)';
+      } else {
+        if (!/^\d{10}$/.test(val)) newErrors.mobileNumber = 'Must be exactly 10 digits';
+      }
+    }
 
     if (!formData.email.trim()) newErrors.email = 'Email is required';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) newErrors.email = 'Valid Email is required';
@@ -470,7 +492,7 @@ export const VendorMaster = () => {
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Mobile Number <span className="text-red-500">*</span></label>
-              <input type="tel" maxLength={LIMITS.mobile} value={formData.mobileNumber} onChange={(e) => setFormData({...formData, mobileNumber: e.target.value})} className={inputCls(errors.mobileNumber)} />
+              <input type="tel" value={formData.mobileNumber} onChange={handleMobileChange} className={inputCls(errors.mobileNumber)} />
               {errors.mobileNumber && <p className="text-red-500 text-xs mt-1">{errors.mobileNumber}</p>}
             </div>
             <div>

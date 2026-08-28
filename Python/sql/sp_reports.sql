@@ -8,42 +8,65 @@ CREATE PROCEDURE SpGetRegistrationReports(
     IN p_StartDate DATE,
     IN p_EndDate DATE
 )
-BEGIN
-    -- If dates are NULL, we just get everything, or we can default to today.
-    -- The frontend passes appliedDateFrom and appliedDateTo.
-    -- If empty string or null, handle accordingly.
+    CREATE TEMPORARY TABLE IF NOT EXISTS TempAllRegistrations (
+        Id INT,
+        Uhid VARCHAR(20),
+        PatientName VARCHAR(50),
+        RegistrationDate DATE,
+        CreatedDate TIMESTAMP,
+        PatientType VARCHAR(20),
+        Status VARCHAR(20)
+    );
     
+    TRUNCATE TABLE TempAllRegistrations;
+    
+    INSERT INTO TempAllRegistrations
+    SELECT PatientId, Uhid, PatientName, RegistrationDate, CreatedDate, PatientType, Status
+    FROM PatientRegistration
+    WHERE (p_StartDate IS NULL OR DATE(RegistrationDate) >= p_StartDate)
+      AND (p_EndDate IS NULL OR DATE(RegistrationDate) <= p_EndDate);
+      
+    INSERT INTO TempAllRegistrations
+    SELECT QuickRegistrationId, Uhid, PatientName, RegistrationDate, CreatedDate, 'Walk-In', Status
+    FROM QuickRegistration
+    WHERE (p_StartDate IS NULL OR DATE(RegistrationDate) >= p_StartDate)
+      AND (p_EndDate IS NULL OR DATE(RegistrationDate) <= p_EndDate);
+      
+    INSERT INTO TempAllRegistrations
+    SELECT EmergencyRegistrationId, Uhid, PatientName, RegistrationDate, CreatedDate, 'Emergency', Status
+    FROM EmergencyRegistration
+    WHERE (p_StartDate IS NULL OR DATE(RegistrationDate) >= p_StartDate)
+      AND (p_EndDate IS NULL OR DATE(RegistrationDate) <= p_EndDate);
+
+    INSERT INTO TempAllRegistrations
+    SELECT AdmissionId, Uhid, PatientName, DATE(AdmissionDate), CreatedDate, 'IPD', Status
+    FROM hospital.IPD_Admission
+    WHERE IsDeleted = 0
+      AND (p_StartDate IS NULL OR DATE(AdmissionDate) >= p_StartDate)
+      AND (p_EndDate IS NULL OR DATE(AdmissionDate) <= p_EndDate);
+
     -- RESULT SET 1: KPIs
     SELECT 
-        COUNT(PatientId) AS TotalRegistrations,
+        COUNT(Id) AS TotalRegistrations,
         SUM(CASE WHEN PatientType IN ('OP', 'Walk-In') THEN 1 ELSE 0 END) AS OpPatients,
         SUM(CASE WHEN PatientType = 'Emergency' THEN 1 ELSE 0 END) AS EmergencyPatients,
-        (SELECT COUNT(*) FROM hospital.IPD_Admission 
-         WHERE (p_StartDate IS NULL OR p_StartDate = '' OR DATE(AdmissionDate) >= p_StartDate)
-           AND (p_EndDate IS NULL OR p_EndDate = '' OR DATE(AdmissionDate) <= p_EndDate)
-           AND IsDeleted = 0) AS IpPatients
-    FROM PatientRegistration
-    WHERE (p_StartDate IS NULL OR p_StartDate = '' OR RegistrationDate >= p_StartDate)
-      AND (p_EndDate IS NULL OR p_EndDate = '' OR RegistrationDate <= p_EndDate);
+        SUM(CASE WHEN PatientType = 'IPD' THEN 1 ELSE 0 END) AS IpPatients
+    FROM TempAllRegistrations;
 
     -- RESULT SET 2: Demographics
     SELECT 
         PatientType,
-        COUNT(PatientId) AS PatientCount
-    FROM PatientRegistration
-    WHERE (p_StartDate IS NULL OR p_StartDate = '' OR RegistrationDate >= p_StartDate)
-      AND (p_EndDate IS NULL OR p_EndDate = '' OR RegistrationDate <= p_EndDate)
+        COUNT(Id) AS PatientCount
+    FROM TempAllRegistrations
     GROUP BY PatientType;
 
-    -- RESULT SET 3: Trends (Last 7 days or date range)
+    -- RESULT SET 3: Trends
     SELECT 
-        RegistrationDate,
-        COUNT(PatientId) AS RegistrationCount
-    FROM PatientRegistration
-    WHERE (p_StartDate IS NULL OR p_StartDate = '' OR RegistrationDate >= p_StartDate)
-      AND (p_EndDate IS NULL OR p_EndDate = '' OR RegistrationDate <= p_EndDate)
-    GROUP BY RegistrationDate
-    ORDER BY RegistrationDate ASC;
+        DATE(RegistrationDate) AS RegistrationDate,
+        COUNT(Id) AS RegistrationCount
+    FROM TempAllRegistrations
+    GROUP BY DATE(RegistrationDate)
+    ORDER BY DATE(RegistrationDate) ASC;
 
     -- RESULT SET 4: Recent Registrations
     SELECT 
@@ -52,12 +75,10 @@ BEGIN
         RegistrationDate,
         PatientType,
         Status
-    FROM PatientRegistration
-    WHERE (p_StartDate IS NULL OR p_StartDate = '' OR RegistrationDate >= p_StartDate)
-      AND (p_EndDate IS NULL OR p_EndDate = '' OR RegistrationDate <= p_EndDate)
-    ORDER BY CreatedDate DESC
-    LIMIT 10;
+    FROM TempAllRegistrations
+    ORDER BY CreatedDate DESC;
     
+    DROP TEMPORARY TABLE IF EXISTS TempAllRegistrations;
 END$$
 
 DELIMITER ;

@@ -31,20 +31,20 @@ def run_reports_sql():
                 INSERT INTO TempAllRegistrations
                 SELECT PatientId, Uhid, PatientName, RegistrationDate, CreatedDate, PatientType, Status
                 FROM PatientRegistration
-                WHERE (p_StartDate IS NULL OR RegistrationDate >= p_StartDate)
-                  AND (p_EndDate IS NULL OR RegistrationDate <= p_EndDate);
+                WHERE (p_StartDate IS NULL OR DATE(RegistrationDate) >= p_StartDate)
+                  AND (p_EndDate IS NULL OR DATE(RegistrationDate) <= p_EndDate);
                   
                 INSERT INTO TempAllRegistrations
                 SELECT QuickRegistrationId, Uhid, PatientName, RegistrationDate, CreatedDate, 'Walk-In', Status
                 FROM QuickRegistration
-                WHERE (p_StartDate IS NULL OR RegistrationDate >= p_StartDate)
-                  AND (p_EndDate IS NULL OR RegistrationDate <= p_EndDate);
+                WHERE (p_StartDate IS NULL OR DATE(RegistrationDate) >= p_StartDate)
+                  AND (p_EndDate IS NULL OR DATE(RegistrationDate) <= p_EndDate);
                   
                 INSERT INTO TempAllRegistrations
                 SELECT EmergencyRegistrationId, Uhid, PatientName, RegistrationDate, CreatedDate, 'Emergency', Status
                 FROM EmergencyRegistration
-                WHERE (p_StartDate IS NULL OR RegistrationDate >= p_StartDate)
-                  AND (p_EndDate IS NULL OR RegistrationDate <= p_EndDate);
+                WHERE (p_StartDate IS NULL OR DATE(RegistrationDate) >= p_StartDate)
+                  AND (p_EndDate IS NULL OR DATE(RegistrationDate) <= p_EndDate);
 
                 INSERT INTO TempAllRegistrations
                 SELECT AdmissionId, Uhid, PatientName, DATE(AdmissionDate), CreatedDate, 'IPD', Status
@@ -58,28 +58,23 @@ def run_reports_sql():
                     COUNT(Id) AS TotalRegistrations,
                     SUM(CASE WHEN PatientType IN ('OP', 'Walk-In') THEN 1 ELSE 0 END) AS OpPatients,
                     SUM(CASE WHEN PatientType = 'Emergency' THEN 1 ELSE 0 END) AS EmergencyPatients,
-                    (SELECT COUNT(*) FROM hospital.IPD_Admission 
-                     WHERE (p_StartDate IS NULL OR DATE(AdmissionDate) >= p_StartDate)
-                       AND (p_EndDate IS NULL OR DATE(AdmissionDate) <= p_EndDate)
-                       AND IsDeleted = 0) AS IpPatients
-                FROM TempAllRegistrations WHERE PatientType != 'IPD';
+                    SUM(CASE WHEN PatientType = 'IPD' THEN 1 ELSE 0 END) AS IpPatients
+                FROM TempAllRegistrations;
 
                 -- RESULT SET 2: Demographics
                 SELECT 
                     PatientType,
                     COUNT(Id) AS PatientCount
                 FROM TempAllRegistrations
-                WHERE PatientType != 'IPD'
                 GROUP BY PatientType;
 
                 -- RESULT SET 3: Trends
                 SELECT 
-                    RegistrationDate,
+                    DATE(RegistrationDate) AS RegistrationDate,
                     COUNT(Id) AS RegistrationCount
                 FROM TempAllRegistrations
-                WHERE PatientType != 'IPD'
-                GROUP BY RegistrationDate
-                ORDER BY RegistrationDate ASC;
+                GROUP BY DATE(RegistrationDate)
+                ORDER BY DATE(RegistrationDate) ASC;
 
                 -- RESULT SET 4: Recent Registrations
                 SELECT 

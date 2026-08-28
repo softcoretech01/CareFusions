@@ -614,11 +614,12 @@ export const PatientRegistration = () => {
   };
 
   const filteredRecords = patients.filter(record => {
+    const searchLower = searchTerm.toLowerCase();
     const matchesSearch =
-      record.uhid.toLowerCase().includes(appliedSearchTerm.toLowerCase()) ||
-      (record.patientName || '').toLowerCase().includes(appliedSearchTerm.toLowerCase()) ||
-      (record.mobileNumber || '').includes(appliedSearchTerm) ||
-      (record.aadhaarNumber || record.nationalId || '').includes(appliedSearchTerm);
+      record.uhid.toLowerCase().includes(searchLower) ||
+      (record.patientName || '').toLowerCase().includes(searchLower) ||
+      (record.mobileNumber || '').includes(searchLower) ||
+      (record.aadhaarNumber || record.nationalId || '').includes(searchLower);
 
     const matchesPatientType = !filterPatientType || record.patientType === filterPatientType;
     const matchesGender = !filterGender || record.gender === filterGender;
@@ -825,7 +826,7 @@ export const PatientRegistration = () => {
                     value={formData.patientName}
                     onChange={(e) => handleInputChange('patientName', e.target.value)}
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                    placeholder="Full Patient Name"
+                    placeholder="Patient Name"
                   />
                 </div>
 
