@@ -694,7 +694,7 @@ export const NurseMaster = () => {
             </div>
 
             <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex justify-between items-center shrink-0">
-              <Button variant="outline" color="secondary" onClick={() => setFormData(emptyData)} icon={RefreshCw}>
+              <Button variant="outline" color="secondary" onClick={() => setFormData({ ...emptyData, nurseId: formData.nurseId })} icon={RefreshCw}>
                 Reset
               </Button>
               <div className="flex gap-3">

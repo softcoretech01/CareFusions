@@ -81,9 +81,19 @@ export const MedicineMaster = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   
-  // Filter States
   const [showFilters, setShowFilters] = useState(false);
   const [filterCategory, setFilterCategory] = useState('');
+
+  // Sort State
+  const [sortConfig, setSortConfig] = useState<{key: keyof MedicineRecord | null, direction: 'asc'|'desc'}>({ key: null, direction: 'asc' });
+
+  const handleSort = (key: keyof MedicineRecord) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
 
   // Form States
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -296,16 +306,32 @@ export const MedicineMaster = () => {
     }
   };
 
-  const filteredRecords = records.filter(record => {
-    const matchesSearch = 
-      record.genericName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.medicineCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.manufacturer.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesCategory = !filterCategory || record.category === filterCategory;
+  const filteredRecords = useMemo(() => {
+    let result = records.filter(record => {
+      const matchesSearch = 
+        record.genericName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        record.medicineCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        record.manufacturer.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesCategory = !filterCategory || record.category === filterCategory;
 
-    return matchesSearch && matchesCategory;
-  });
+      return matchesSearch && matchesCategory;
+    });
+
+    if (sortConfig.key) {
+      const sortKey = sortConfig.key;
+      result.sort((a, b) => {
+        const left = a[sortKey];
+        const right = b[sortKey];
+        if (left === undefined || right === undefined) return 0;
+        if (left < right) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (left > right) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return result;
+  }, [records, searchTerm, filterCategory, sortConfig]);
 
   const _totalPages = Math.max(1, Math.ceil(filteredRecords.length / itemsPerPage));
   const _page = Math.min(currentPage, _totalPages);
@@ -382,10 +408,18 @@ export const MedicineMaster = () => {
               <table className="w-full text-left text-sm">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-600">
                   <tr>
-                    <th className="px-4 py-3 font-medium">Medicine Code</th>
-                    <th className="px-4 py-3 font-medium">Generic Name</th>
-                    <th className="px-4 py-3 font-medium">Category</th>
-                    <th className="px-4 py-3 font-medium text-right">Selling Price (₹)</th>
+                    <th className="px-4 py-3 font-medium cursor-pointer hover:text-primary transition-colors" onClick={() => handleSort('medicineCode')}>
+                      <div className="flex items-center gap-2">Medicine Code {sortConfig.key === 'medicineCode' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
+                    </th>
+                    <th className="px-4 py-3 font-medium cursor-pointer hover:text-primary transition-colors" onClick={() => handleSort('genericName')}>
+                      <div className="flex items-center gap-2">Generic Name {sortConfig.key === 'genericName' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
+                    </th>
+                    <th className="px-4 py-3 font-medium cursor-pointer hover:text-primary transition-colors" onClick={() => handleSort('category')}>
+                      <div className="flex items-center gap-2">Category {sortConfig.key === 'category' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
+                    </th>
+                    <th className="px-4 py-3 font-medium text-right cursor-pointer hover:text-primary transition-colors" onClick={() => handleSort('sellingPrice')}>
+                      <div className="flex items-center justify-end gap-2">Selling Price (₹) {sortConfig.key === 'sellingPrice' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
+                    </th>
                     <th className="px-4 py-3 font-medium text-center">Action</th>
                   </tr>
                 </thead>
@@ -582,7 +616,7 @@ export const MedicineMaster = () => {
             </div>
 
             <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex justify-between items-center shrink-0">
-              <Button variant="outline" color="secondary" onClick={() => setFormData(emptyData)} icon={RefreshCw}>
+              <Button variant="outline" color="secondary" onClick={() => setFormData({ ...emptyData, medicineCode: formData.medicineCode })} icon={RefreshCw}>
                 Reset
               </Button>
               <div className="flex gap-3">

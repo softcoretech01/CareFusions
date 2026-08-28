@@ -120,7 +120,13 @@ def get_categories(
     try:
         result = _call_sp(db, "GET", search=search, status_filter=status_filter,
                           inventory_type_filter=inventory_type)
-        return [_map_row(r) for r in result.fetchall()]
+        categories = [_map_row(r) for r in result.fetchall()]
+        
+        # Fallback filter in Python in case the SP hasn't been updated in the DB yet
+        if inventory_type:
+            categories = [c for c in categories if c["inventoryType"] == inventory_type]
+            
+        return categories
     except Exception as e:
         logger.error(f"[GET /categories] Error: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

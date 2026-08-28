@@ -39,6 +39,10 @@ def _call_sp(db: Session, opt: str, payload: dict = None, record_id: int = None)
         "p_ConsultationFee": payload.get("ConsultationFee") if payload else 0.0,
         "p_PaymentMode": payload.get("PaymentMode") if payload else None,
         "p_InsuranceRequired": payload.get("InsuranceRequired") if payload else None,
+        "p_InsuranceProvider": payload.get("InsuranceProvider") if payload else None,
+        "p_Tpa": payload.get("Tpa") if payload else None,
+        "p_PolicyNumber": payload.get("PolicyNumber") if payload else None,
+        "p_ValidTill": payload.get("ValidTill") if payload else None,
         "p_Status": payload.get("Status") if payload else None,
         "p_Remarks": payload.get("Remarks") if payload else None,
         "p_CreatedBy": payload.get("CreatedBy") if payload else None,
@@ -51,7 +55,8 @@ def _call_sp(db: Session, opt: str, payload: dict = None, record_id: int = None)
             :p_PatientName, :p_Gender, :p_DateOfBirth, :p_Age, :p_MobileNumber,
             :p_AlternateMobile, :p_VisitType, :p_Department, :p_Doctor, :p_Priority,
             :p_VisitReason, :p_ConsultationRequired, :p_ConsultationFee, :p_PaymentMode,
-            :p_InsuranceRequired, :p_Status, :p_Remarks, :p_CreatedBy, :p_ModifiedBy
+            :p_InsuranceRequired, :p_InsuranceProvider, :p_Tpa, :p_PolicyNumber, :p_ValidTill,
+            :p_Status, :p_Remarks, :p_CreatedBy, :p_ModifiedBy
         )
     """)
     result = db.execute(sql, params)

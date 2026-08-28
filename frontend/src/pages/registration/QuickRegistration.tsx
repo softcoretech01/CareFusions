@@ -300,10 +300,11 @@ export const QuickRegistration = () => {
   };
 
   const filteredRecords = records.filter(record => {
+    const searchLower = searchTerm.toLowerCase();
     const matchesSearch =
-      record.uhid.toLowerCase().includes(appliedSearchTerm.toLowerCase()) ||
-      (record.patientName || '').toLowerCase().includes(appliedSearchTerm.toLowerCase()) ||
-      (record.mobileNumber || '').includes(appliedSearchTerm);
+      record.uhid.toLowerCase().includes(searchLower) ||
+      (record.patientName || '').toLowerCase().includes(searchLower) ||
+      (record.mobileNumber || '').includes(searchLower);
 
     const matchesVisitType = !filterVisitType || record.visitType === filterVisitType;
     const matchesDepartment = !filterDepartment || record.department === filterDepartment;
