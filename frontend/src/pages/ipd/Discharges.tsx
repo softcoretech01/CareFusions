@@ -279,8 +279,8 @@ export const Discharges = () => {
                         <div className="text-xs text-slate-500">{patient.uhid}</div>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="font-bold text-slate-700">{bed?.bedNumber || 'Unassigned'}</div>
-                        <div className="text-xs text-slate-500">{ward?.name || 'N/A'} • Room no {bed?.roomNumber || 'N/A'}</div>
+                        <div className="font-bold text-slate-700">{ward?.name || 'Unassigned'}</div>
+                        <div className="text-xs text-slate-500">{bed ? `Room ${bed.roomNumber} • Bed ${bed.bedNumber}` : 'N/A'}</div>
                       </td>
                       <td className="px-4 py-3">
                         <div className="text-sm font-medium text-slate-700" title="Admission Date">Admit: {admitDate.toLocaleDateString()}</div>
@@ -619,15 +619,15 @@ export const Discharges = () => {
                           <p className="text-sm text-slate-500">No lab orders found.</p>
                         ) : (
                           <div className="space-y-4">
-                            {labOrders.map((order: any) => (
-                              <div key={order.order_id} className="border border-slate-200 rounded-lg overflow-hidden">
+                            {labOrders.map((order: any, i) => (
+                              <div key={order.order_id || order.id || i} className="border border-slate-200 rounded-lg overflow-hidden">
                                 <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex justify-between items-center">
                                   <div>
-                                    <span className="font-bold text-slate-800">{order.order_number}</span>
-                                    <span className="text-xs text-slate-500 ml-3">{new Date(order.ordered_at).toLocaleString()}</span>
+                                    <span className="font-bold text-slate-800">{order.order_number || order.orderNumber || 'Unknown'}</span>
+                                    <span className="text-xs text-slate-500 ml-3">{new Date(order.ordered_at || order.orderedAt).toLocaleString()}</span>
                                   </div>
-                                  <span className={`px-2 py-1 text-xs font-bold rounded ${order.status === 'Completed' ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>
-                                    {order.status}
+                                  <span className={`px-2 py-1 text-xs font-bold rounded ${order.status === 'Completed' || order.status === 'Verified' ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>
+                                    {order.status === 'Verified' ? 'Completed' : order.status}
                                   </span>
                                 </div>
                                 <table className="w-full text-sm text-left">
@@ -639,11 +639,11 @@ export const Discharges = () => {
                                     </tr>
                                   </thead>
                                   <tbody className="divide-y divide-slate-100">
-                                    {(order.tests || []).map((t: any) => (
-                                      <tr key={t.order_test_id}>
-                                        <td className="px-4 py-3">{t.test_name}</td>
+                                    {(order.tests || []).map((t: any, j: number) => (
+                                      <tr key={t.order_test_id || t.id || j}>
+                                        <td className="px-4 py-3">{t.test_name || t.testName || t.name}</td>
                                         <td className="px-4 py-3">{t.status}</td>
-                                        <td className="px-4 py-3 font-medium text-slate-800">{t.result_value || '-'}</td>
+                                        <td className="px-4 py-3 font-medium text-slate-800">{t.result_value || t.resultValue || '-'}</td>
                                       </tr>
                                     ))}
                                   </tbody>
@@ -660,15 +660,15 @@ export const Discharges = () => {
                           <p className="text-sm text-slate-500">No radiology orders found.</p>
                         ) : (
                           <div className="space-y-4">
-                            {radOrders.map((order: any) => (
-                              <div key={order.order_id} className="border border-slate-200 rounded-lg overflow-hidden">
+                            {radOrders.map((order: any, i) => (
+                              <div key={order.order_id || order.id || i} className="border border-slate-200 rounded-lg overflow-hidden">
                                 <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex justify-between items-center">
                                   <div>
-                                    <span className="font-bold text-slate-800">{order.order_number}</span>
-                                    <span className="text-xs text-slate-500 ml-3">{new Date(order.ordered_at).toLocaleString()}</span>
+                                    <span className="font-bold text-slate-800">{order.order_number || order.orderNumber || 'Unknown'}</span>
+                                    <span className="text-xs text-slate-500 ml-3">{new Date(order.ordered_at || order.orderedAt).toLocaleString()}</span>
                                   </div>
-                                  <span className={`px-2 py-1 text-xs font-bold rounded ${order.status === 'Completed' ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>
-                                    {order.status}
+                                  <span className={`px-2 py-1 text-xs font-bold rounded ${order.status === 'Completed' || order.status === 'Verified' ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>
+                                    {order.status === 'Verified' ? 'Completed' : order.status}
                                   </span>
                                 </div>
                                 <table className="w-full text-sm text-left">
@@ -680,11 +680,11 @@ export const Discharges = () => {
                                     </tr>
                                   </thead>
                                   <tbody className="divide-y divide-slate-100">
-                                    {(order.tests || []).map((t: any) => (
-                                      <tr key={t.order_test_id}>
-                                        <td className="px-4 py-3">{t.test_name}</td>
+                                    {(order.tests || []).map((t: any, j: number) => (
+                                      <tr key={t.order_test_id || t.id || j}>
+                                        <td className="px-4 py-3">{t.test_name || t.testName || t.name}</td>
                                         <td className="px-4 py-3">{t.status}</td>
-                                        <td className="px-4 py-3 text-slate-700 text-xs">{t.notes || '-'}</td>
+                                        <td className="px-4 py-3 text-slate-700 text-xs">{t.notes || t.result_value || t.resultValue || '-'}</td>
                                       </tr>
                                     ))}
                                   </tbody>

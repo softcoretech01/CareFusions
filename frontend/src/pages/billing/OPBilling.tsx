@@ -174,7 +174,7 @@ export const OPBilling = () => {
 
   const fetchAdmissions = async () => {
     try {
-      const res = await axios.get(`${API_BASE}/ipd-admissions/`);
+      const res = await axios.get(`${API_BASE}/ipd/admissions`);
       const active = res.data.filter((a: any) => a.status === 'Admitted' || a.status === 'Discharged');
       setAdmissions(active);
     } catch (e) {
@@ -267,8 +267,8 @@ export const OPBilling = () => {
     ];
 
     if (visit.labOrders && visit.labOrders.length > 0) {
-      const completedVisitLabs = visit.labOrders.filter((lab) => lab.status === 'Completed' || lab.status === 'Verified' || lab.status === 'Resulted');
-      completedVisitLabs.forEach((lab, idx) => {
+      const billableLabs = visit.labOrders.filter((lab) => lab.status !== 'Cancelled');
+      billableLabs.forEach((lab, idx) => {
         const price = lookup(testPrices, lab.testName) ?? DEFAULT_LAB_FEE;
         newItems.push({
           id: `LAB-${idx}`,
@@ -281,8 +281,8 @@ export const OPBilling = () => {
     }
 
     if (visit.radiologyOrders && visit.radiologyOrders.length > 0) {
-      const completedVisitRads = visit.radiologyOrders.filter((rad) => rad.status === 'Completed' || rad.status === 'Verified' || rad.status === 'Reported');
-      completedVisitRads.forEach((rad, idx) => {
+      const billableRads = visit.radiologyOrders.filter((rad) => rad.status !== 'Cancelled');
+      billableRads.forEach((rad, idx) => {
         const price = lookup(radPrices, rad.testName) ?? DEFAULT_RADIOLOGY_FEE;
         const name = rad.modality || rad.testName || 'Scan';
         const fullName = (rad.bodyPart && name.toLowerCase() !== rad.bodyPart.toLowerCase()) ? `${name} for ${rad.bodyPart}` : name;
