@@ -107,7 +107,7 @@ export const QuickRegistration = () => {
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
-  const [appliedSearchTerm, setAppliedSearchTerm] = useState('');;
+
   const [filterVisitType, setFilterVisitType] = useState('');
   const [filterDepartment, setFilterDepartment] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -119,14 +119,12 @@ export const QuickRegistration = () => {
   const [appliedDateTo, setAppliedDateTo] = useState(today);
 
   const handleSearch = () => {
-    setAppliedSearchTerm(searchTerm);
     setAppliedDateFrom(dateFrom);
     setAppliedDateTo(dateTo);
   };
 
   const handleDateReset = () => {
     setSearchTerm('');
-    setAppliedSearchTerm('');
     setDateFrom(firstDay);
     setDateTo(today);
     setAppliedDateFrom(firstDay);

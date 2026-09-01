@@ -12,8 +12,10 @@ interface MedicineRecord {
   id: number;
   medicineCode: string;
   genericName: string;
-  category: string;
-  subCategory: string;
+  categoryId: number;
+  category?: string;
+  subCategoryId?: number;
+  subCategory?: string;
   manufacturer: string;
   strength: string;
   dosageForm: string;
@@ -33,7 +35,9 @@ interface MedicineRecord {
 const emptyData: Omit<MedicineRecord, 'id'> = {
   medicineCode: '',
   genericName: '',
+  categoryId: 0,
   category: '',
+  subCategoryId: undefined,
   subCategory: '',
   manufacturer: '',
   strength: '',
@@ -55,14 +59,16 @@ const API_BASE = import.meta.env.VITE_API_URL as string;
 
 const mapApiToRecord = (item: any): MedicineRecord => ({
   id:             item.id,
-  medicineCode:   item.medicineCode,
-  genericName:    item.genericName,
-  category:       item.category,
-  subCategory:    item.subCategory ?? '',
-  manufacturer:   item.manufacturer,
-  strength:       item.strength,
-  dosageForm:     item.dosageForm,
-  unit:           item.unit,
+  medicineCode:   item.medicineCode || '',
+  genericName:    item.genericName || '',
+  categoryId:     item.categoryId || 0,
+  category:       item.category || '',
+  subCategoryId:  item.subCategoryId || undefined,
+  subCategory:    item.subCategory || '',
+  manufacturer:   item.manufacturer || '',
+  strength:       item.strength || '',
+  dosageForm:     item.dosageForm || '',
+  unit:           item.unit || '',
   batchTracking:  Boolean(item.batchTracking),
   expiryRequired: Boolean(item.expiryRequired),
   controlledDrug: Boolean(item.controlledDrug),
@@ -109,16 +115,24 @@ export const MedicineMaster = () => {
   const [errorMessage, setErrorMessage] = useState('');
 
   // Dynamic lookup
-  const [categoriesList, setCategoriesList] = useState<string[]>([]);
-  const [subCategoryList, setSubCategoryList] = useState<{ category: string; name: string }[]>([]);
+  const [categoriesList, setCategoriesList] = useState<{ id: number; name: string }[]>([]);
+  const [subCategoryList, setSubCategoryList] = useState<{ id: number; categoryId: number; name: string }[]>([]);
 
   /** Sub-categories under the selected medicine category. Values already used
    *  by existing medicines are kept so an older record stays editable. */
   const subCategoriesForCategory = useMemo(() => {
-    const fromMaster = subCategoryList.filter(sc => sc.category === formData.category).map(sc => sc.name);
-    const fromRecords = records.filter(r => r.category === formData.category).map(r => r.subCategory);
-    return Array.from(new Set([...fromMaster, ...fromRecords].filter(Boolean))).sort();
-  }, [subCategoryList, records, formData.category]);
+    const fromMaster = subCategoryList.filter(sc => sc.categoryId === formData.categoryId);
+    // Include the currently selected one from records if it exists, to prevent loss on edit
+    const currentSubCat = formData.subCategoryId && formData.subCategory 
+        ? { id: formData.subCategoryId, categoryId: formData.categoryId, name: formData.subCategory } 
+        : null;
+    
+    const combined = [...fromMaster];
+    if (currentSubCat && !combined.find(sc => sc.id === currentSubCat.id)) {
+        combined.push(currentSubCat);
+    }
+    return combined.sort((a, b) => a.name.localeCompare(b.name));
+  }, [subCategoryList, formData.categoryId, formData.subCategoryId, formData.subCategory]);
 
   const fetchMedicines = async () => {
     try {
@@ -140,18 +154,18 @@ export const MedicineMaster = () => {
       // The old Master_MedicineCategory list was merged into it, so this is
       // the same set of names with a single place to maintain them.
       const [catRes, subRes] = await Promise.all([
-        fetch(`${API_BASE}/categories/?inventoryType=MEDICINE&status_filter=Active`),
+        fetch(`${API_BASE}/categories/?status_filter=Active`),
         fetch(`${API_BASE}/sub-categories/?status_filter=Active`),
       ]);
       if (catRes.ok) {
         const data = await catRes.json();
-        setCategoriesList(data.map((c: any) => c.categoryName));
+        setCategoriesList(data.map((c: any) => ({ id: c.id, name: c.categoryName })));
       }
       // One sub-category master serves medicines and items alike; each row
       // names its parent category, so the list below narrows to that.
       if (subRes.ok) {
         const data = await subRes.json();
-        setSubCategoryList(data.map((sc: any) => ({ category: sc.category, name: sc.subCategoryName })));
+        setSubCategoryList(data.map((sc: any) => ({ id: sc.id, categoryId: sc.categoryId, name: sc.subCategoryName })));
       }
     } catch (err) {
       console.error(err);
@@ -166,8 +180,8 @@ export const MedicineMaster = () => {
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
     if (!formData.medicineCode.trim()) newErrors.medicineCode = 'Medicine Code is required';
-    if (!formData.genericName.trim()) newErrors.genericName = 'Generic Name is required';
-    if (!formData.category) newErrors.category = 'Category is required';
+    if (!formData.genericName.trim()) newErrors.genericName = 'Medicine Name is required';
+    if (!formData.categoryId) newErrors.categoryId = 'Category is required';
     if (!formData.manufacturer.trim()) newErrors.manufacturer = 'Manufacturer is required';
     if (!formData.strength.trim()) newErrors.strength = 'Strength is required';
     if (!formData.dosageForm.trim()) newErrors.dosageForm = 'Dosage Form is required';
@@ -244,8 +258,8 @@ export const MedicineMaster = () => {
       const payload = {
         medicineCode:   formData.medicineCode,
         genericName:    formData.genericName,
-        category:       formData.category,
-        subCategory:    formData.subCategory || null,
+        categoryId:     formData.categoryId,
+        subCategoryId:  formData.subCategoryId || null,
         manufacturer:   formData.manufacturer,
         strength:       formData.strength,
         dosageForm:     formData.dosageForm,
@@ -363,7 +377,7 @@ export const MedicineMaster = () => {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Search by Generic, Brand, Code, or Manufacturer..."
+                  placeholder="Search by Medicine Name, Brand, Code, or Manufacturer..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm"
@@ -397,7 +411,7 @@ export const MedicineMaster = () => {
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     >
                       <option value="">All Categories</option>
-                      {categoriesList.map(c => <option key={c} value={c}>{c}</option>)}
+                      {categoriesList.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                     </select>
                   </div>
                 </motion.div>
@@ -408,14 +422,14 @@ export const MedicineMaster = () => {
               <table className="w-full text-left text-sm">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-600">
                   <tr>
-                    <th className="px-4 py-3 font-medium cursor-pointer hover:text-primary transition-colors" onClick={() => handleSort('medicineCode')}>
-                      <div className="flex items-center gap-2">Medicine Code {sortConfig.key === 'medicineCode' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
-                    </th>
-                    <th className="px-4 py-3 font-medium cursor-pointer hover:text-primary transition-colors" onClick={() => handleSort('genericName')}>
-                      <div className="flex items-center gap-2">Generic Name {sortConfig.key === 'genericName' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
+                    <th className="px-4 py-3 font-medium">
+                      <div className="flex items-center gap-2">S.No</div>
                     </th>
                     <th className="px-4 py-3 font-medium cursor-pointer hover:text-primary transition-colors" onClick={() => handleSort('category')}>
                       <div className="flex items-center gap-2">Category {sortConfig.key === 'category' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
+                    </th>
+                    <th className="px-4 py-3 font-medium cursor-pointer hover:text-primary transition-colors" onClick={() => handleSort('genericName')}>
+                      <div className="flex items-center gap-2">Medicine Name {sortConfig.key === 'genericName' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
                     </th>
                     <th className="px-4 py-3 font-medium text-right cursor-pointer hover:text-primary transition-colors" onClick={() => handleSort('sellingPrice')}>
                       <div className="flex items-center justify-end gap-2">Selling Price (₹) {sortConfig.key === 'sellingPrice' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
@@ -425,14 +439,14 @@ export const MedicineMaster = () => {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {filteredRecords.length > 0 ? (
-                    pagedRecords.map((record) => (
+                    pagedRecords.map((record, index) => (
                       <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-4 py-3 font-medium text-slate-800">{record.medicineCode}</td>
+                        <td className="px-4 py-3 font-medium text-slate-800">{(_page - 1) * itemsPerPage + index + 1}</td>
+                        <td className="px-4 py-3 text-slate-600">{record.category}</td>
                         <td className="px-4 py-3">
                           {record.genericName}
                           {record.controlledDrug && <span className="ml-2 px-1.5 py-0.5 bg-red-100 text-red-700 rounded text-[10px] font-bold" title="Controlled Drug">CD</span>}
                         </td>
-                        <td className="px-4 py-3 text-slate-600">{record.category}</td>
                         <td className="px-4 py-3 text-right font-medium text-slate-700">{record.sellingPrice}</td>
                         <td className="px-4 py-3 text-center">
                           <div className="flex items-center justify-center gap-2">
@@ -508,30 +522,42 @@ export const MedicineMaster = () => {
                     {errors.medicineCode && <p className="text-red-500 text-xs mt-1">{errors.medicineCode}</p>}
                   </div>
                   <div className="lg:col-span-2">
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Generic Name <span className="text-red-500">*</span></label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Medicine Name <span className="text-red-500">*</span></label>
                     <input type="text" value={formData.genericName} onChange={e => setFormData({...formData, genericName: e.target.value})} maxLength={50} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.genericName ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
                     {errors.genericName && <p className="text-red-500 text-xs mt-1">{errors.genericName}</p>}
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Medicine Category <span className="text-red-500">*</span></label>
-                    <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.category ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
+                    <select 
+                      value={formData.categoryId || ""} 
+                      onChange={e => {
+                        const id = Number(e.target.value);
+                        const cat = categoriesList.find(c => c.id === id);
+                        setFormData({...formData, categoryId: id, category: cat?.name || "", subCategoryId: undefined, subCategory: ""});
+                      }} 
+                      className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.categoryId ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}
+                    >
                       <option value="">Select Category</option>
-                      {categoriesList.map(c => <option key={c} value={c}>{c}</option>)}
+                      {categoriesList.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
-                    {errors.category && <p className="text-red-500 text-xs mt-1">{errors.category}</p>}
+                    {errors.categoryId && <p className="text-red-500 text-xs mt-1">{errors.categoryId}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Sub Category</label>
                     <select
-                      value={formData.subCategory}
-                      onChange={e => setFormData({ ...formData, subCategory: e.target.value })}
+                      value={formData.subCategoryId || ""}
+                      onChange={e => {
+                        const id = Number(e.target.value);
+                        const subCat = subCategoriesForCategory.find(sc => sc.id === id);
+                        setFormData({ ...formData, subCategoryId: id || undefined, subCategory: subCat?.name || "" });
+                      }}
                       className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
                     >
                       <option value="">Select Sub Category</option>
-                      {subCategoriesForCategory.map(sc => <option key={sc} value={sc}>{sc}</option>)}
+                      {subCategoriesForCategory.map(sc => <option key={sc.id} value={sc.id}>{sc.name}</option>)}
                     </select>
-                    {formData.category && subCategoriesForCategory.length === 0 && (
+                    {formData.categoryId > 0 && subCategoriesForCategory.length === 0 && (
                       <p className="text-amber-600 text-xs mt-1">
                         No sub-categories under “{formData.category}” — add one in Sub Category master.
                       </p>
