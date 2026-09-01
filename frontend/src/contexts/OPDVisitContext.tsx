@@ -65,6 +65,7 @@ export interface LabOrder {
   clinicalNotes: string;
   status: 'Ordered' | 'Collected' | 'Processing' | 'Resulted';
   result?: string;
+  resultSummary?: string;
 }
 
 export interface RadiologyOrder {
@@ -77,6 +78,8 @@ export interface RadiologyOrder {
   contrastRequired: boolean;
   specialInstructions: string;
   status: 'Ordered' | 'Scheduled' | 'Completed' | 'Reported';
+  result?: string;
+  resultSummary?: string;
 }
 
 export interface Referral {
@@ -255,6 +258,7 @@ export const OPDVisitProvider = ({ children }: { children: ReactNode }) => {
         labOrders: visit.labOrders,
         radiologyOrders: visit.radiologyOrders,
         procedures: visit.procedures,
+        followUp: visit.followUp,
       };
       const res = await fetch(`${API_BASE}/opd-visits/save-clinical`, {
         method: 'POST',

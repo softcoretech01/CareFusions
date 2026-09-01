@@ -59,6 +59,7 @@ def _call_sp(db: Session, opt: str, medicine_id: int = 0, **kwargs):
         "p_GenericName":    safe_value(kwargs.get("generic_name")),
         "p_Category":       safe_value(kwargs.get("category")),
         "p_SubCategory":    safe_value(kwargs.get("sub_category")),
+        "p_Manufacturer":   safe_value(kwargs.get("manufacturer")),
         "p_Strength":       safe_value(kwargs.get("strength")),
         "p_DosageForm":     safe_value(kwargs.get("dosage_form")),
         "p_Unit":           safe_value(kwargs.get("unit")),
@@ -78,12 +79,13 @@ def _call_sp(db: Session, opt: str, medicine_id: int = 0, **kwargs):
         # p_Manufacturer was replaced by p_SubCategory in the SP; the field
         # is not on MedicineCreate yet, so it binds as NULL for now.
         "p_SubCategory":    safe_value(kwargs.get("sub_category")),
+        "p_Manufacturer":   safe_value(kwargs.get("manufacturer")),
     }
 
     sql = text(f"""
         CALL {SP_NAME}(
             :p_Opt, :p_MedicineId,
-            :p_MedicineCode, :p_GenericName, :p_Category, :p_SubCategory,
+            :p_MedicineCode, :p_GenericName, :p_Category, :p_SubCategory, :p_Manufacturer,
             :p_Strength, :p_DosageForm, :p_Unit,
             :p_BatchTracking, :p_ExpiryRequired, :p_ControlledDrug, :p_ReorderLevel, :p_Barcode,
             :p_PurchasePrice, :p_SellingPrice, :p_Gst,

@@ -1,8 +1,26 @@
-from sqlalchemy import create_engine, text
+from app.database import SessionLocal
+from sqlalchemy import text
+import pymysql.cursors
 
-try:
-    engine = create_engine('mysql+pymysql://root:root@localhost:3306/inventory')
-    with engine.begin() as conn:
-        print(conn.execute(text("CALL SpManageApprovals('GET_PENDING', NULL, 0, NULL, NULL)")).fetchall())
-except Exception as e:
-    print("Error:", e)
+db = SessionLocal()
+conn = db.connection().connection
+cursor = conn.cursor(pymysql.cursors.DictCursor)
+
+cursor.execute("""
+    CALL hospital.SpOpdVisit(
+        'GET_DETAILS', 1, NULL, NULL, NULL,
+        NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
+    )
+""")
+
+result_sets = []
+has_next = True
+while has_next:
+    result_sets.append(cursor.fetchall())
+    has_next = cursor.nextset()
+
+print("LabOrders:", result_sets[5] if len(result_sets) > 5 else [])
+print("RadOrders:", result_sets[6] if len(result_sets) > 6 else [])
+
+cursor.close()
+db.close()

@@ -12,6 +12,7 @@ export interface InvestigationTest {
   bodyPart?: string;
   resultValue?: string;
   resultFile?: string;
+  resultSummary?: string;
   status: 'Pending' | 'Sample Collected' | 'Sample Accepted' | 'Processing' | 'Completed' | 'Verified';
   collectedAt?: string;
   acceptedAt?: string;
@@ -335,7 +336,7 @@ export const InvestigationProvider = ({ children }: { children: ReactNode }) => 
     return 'Pending';
   };
 
-  const updateTestResult = async (orderId: string, testId: string, resultValue?: string, resultFile?: string, isCritical?: boolean) => {
+  const updateTestResult = async (orderId: string, testId: string, resultValue?: string, resultFile?: string, isCritical?: boolean, resultSummary?: string) => {
     const order = orders.find(o => o.id === orderId);
 
     // Optimistic UI Update
@@ -348,6 +349,7 @@ export const InvestigationProvider = ({ children }: { children: ReactNode }) => 
           ...test,
           resultValue,
           resultFile,
+          resultSummary,
           isCritical,
           status: 'Completed' as const,
           completedAt: new Date().toISOString()
@@ -366,6 +368,7 @@ export const InvestigationProvider = ({ children }: { children: ReactNode }) => 
         await axios.put(`${API_BASE}/radiology/orders/${orderId}/tests/${testId}`, {
           result_value: resultValue,
           result_file: resultFile,
+          result_summary: resultSummary,
           is_critical: isCritical
         });
         // re-fetch to ensure sync with backend
@@ -377,7 +380,8 @@ export const InvestigationProvider = ({ children }: { children: ReactNode }) => 
       try {
         await axios.put(`${API_BASE}/lab/orders/tests/${testId}/result`, {
           resultValue: resultValue,
-          resultFile: resultFile
+          resultFile: resultFile,
+          resultSummary: resultSummary
         });
         refresh();
       } catch (error) {

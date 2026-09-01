@@ -11,10 +11,12 @@ const API_BASE = import.meta.env.VITE_API_URL as string || 'http://localhost:800
 
 const TestResultEditor = ({ test, handleSaveResult, patientId }: any) => {
   const [localValue, setLocalValue] = useState(test.resultValue || '');
+  const [localSummary, setLocalSummary] = useState(test.resultSummary || '');
 
   useEffect(() => {
     setLocalValue(test.resultValue || '');
-  }, [test.resultValue]);
+    setLocalSummary(test.resultSummary || '');
+  }, [test.resultValue, test.resultSummary]);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -28,13 +30,29 @@ const TestResultEditor = ({ test, handleSaveResult, patientId }: any) => {
           disabled={test.status === 'Verified'}
           className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 ${test.status === 'Verified' ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-white border-slate-200'}`}
           onBlur={() => {
-            if (localValue !== test.resultValue) {
-              handleSaveResult(test.id, localValue, test.resultFile);
+            if (localValue !== test.resultValue || localSummary !== test.resultSummary) {
+              handleSaveResult(test.id, localValue, test.resultFile, localSummary);
             }
           }}
         />
       </div>
-      <div className="flex items-end gap-2">
+      <div>
+        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Result Summary</label>
+        <textarea
+          value={localSummary}
+          onChange={e => setLocalSummary(e.target.value)}
+          placeholder="Enter a short summary..."
+          disabled={test.status === 'Verified'}
+          rows={2}
+          className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none ${test.status === 'Verified' ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-white border-slate-200'}`}
+          onBlur={() => {
+            if (localValue !== test.resultValue || localSummary !== test.resultSummary) {
+              handleSaveResult(test.id, localValue, test.resultFile, localSummary);
+            }
+          }}
+        />
+      </div>
+      <div className="flex items-end gap-2 md:col-span-2">
         <div className="flex-1">
           <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Upload Report (PDF/IMG)</label>
           <input
@@ -55,12 +73,12 @@ const TestResultEditor = ({ test, handleSaveResult, patientId }: any) => {
                         headers: { 'Content-Type': 'multipart/form-data' }
                       });
                       toast.success('File uploaded successfully');
-                      handleSaveResult(test.id, localValue, file.name);
+                      handleSaveResult(test.id, localValue, file.name, localSummary);
                     } catch (err) {
                       toast.error('Failed to upload file');
                     }
                   } else {
-                    handleSaveResult(test.id, localValue, file.name);
+                    handleSaveResult(test.id, localValue, file.name, localSummary);
                   }
                 }
             }}
@@ -126,13 +144,13 @@ export const LabOrderList = () => {
     setActiveOrder(null);
   };
 
-  const handleSaveResult = async (testId: string, resultValue: string, resultFile?: string) => {
+  const handleSaveResult = async (testId: string, resultValue: string, resultFile?: string, resultSummary?: string) => {
     if (!activeOrder) return;
 
     // Abnormal/critical flagging is decided by the backend from the test's own
     // reference range and its critical-value flag in the test master, so the
     // result of the save tells us whether to warn.
-    updateTestResult(activeOrder.id, testId, resultValue, resultFile);
+    updateTestResult(activeOrder.id, testId, resultValue, resultFile, undefined, resultSummary);
 
     const test = activeOrder.tests.find(t => t.id === testId);
     const range = test?.normalRange;

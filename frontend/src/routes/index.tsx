@@ -1,4 +1,5 @@
 import { lazy, Suspense } from 'react';
+import { ErrorBoundary } from '../components/ui/ErrorBoundary';
 import { createBrowserRouter, Navigate, RouterProvider } from 'react-router-dom';
 import { AdminLayout } from '../layouts/AdminLayout';
 const Dashboard = lazy(() => import('../pages/Dashboard').then(m => ({ default: (m as any).Dashboard ?? (m as any).default })));
@@ -200,6 +201,7 @@ const RadiologyQC = lazy(() => import('../pages/radiology/RadiologyQC').then(m =
 export const router = createBrowserRouter([
   {
     path: '/',
+    errorElement: <ErrorBoundary />,
     element: <Navigate to="/login" replace />
   },
   {

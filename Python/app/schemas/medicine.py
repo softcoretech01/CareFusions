@@ -5,13 +5,13 @@ from datetime import datetime
 
 class MedicineCreate(BaseModel):
     medicineCode:   str
-    genericName:    str
-    category:       str
+    genericName:    Optional[str] = None
+    category:       Optional[str] = None
     # Second level of the same tree items use, from Master_SubCategory.
     subCategory:    Optional[str] = None
-    strength:       str
-    dosageForm:     str
-    unit:           str
+    strength:       Optional[str] = None
+    dosageForm:     Optional[str] = None
+    unit:           Optional[str] = None
 
     batchTracking:  bool = True
     expiryRequired: bool = True
@@ -35,12 +35,12 @@ class MedicineUpdate(MedicineCreate):
 class MedicineResponse(BaseModel):
     id:             int
     medicineCode:   str
-    genericName:    str
-    category:       str
+    genericName:    Optional[str] = None
+    category:       Optional[str] = None
     subCategory:    Optional[str] = None
-    strength:       str
-    dosageForm:     str
-    unit:           str
+    strength:       Optional[str] = None
+    dosageForm:     Optional[str] = None
+    unit:           Optional[str] = None
 
     batchTracking:  bool
     expiryRequired: bool

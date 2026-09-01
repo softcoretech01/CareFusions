@@ -31,6 +31,8 @@ class TestCreate(BaseModel):
     bodyPart: Optional[str] = None
     normalRange: Optional[str] = None
     unit: Optional[str] = None
+    isCritical: bool
+    resultSummary: Optional[str] = None
 
 class OrderCreate(BaseModel):
     category: Category
@@ -50,6 +52,7 @@ class TestStatusUpdate(BaseModel):
 class TestResultUpdate(BaseModel):
     resultValue: Optional[str] = None
     resultFile: Optional[str] = None
+    resultSummary: Optional[str] = None
     user: Optional[str] = None
 
 class VerifyIn(BaseModel):

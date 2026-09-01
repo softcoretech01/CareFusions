@@ -11,6 +11,15 @@ router = APIRouter(
     tags=["Radiology Orders"]
 )
 
+@router.get("/migrate")
+def migrate_db(db: Session = Depends(get_db)):
+    try:
+        db.execute(text("ALTER TABLE hospital.Rad_OrderTest ADD COLUMN ResultSummary TEXT"))
+        db.commit()
+    except Exception:
+        db.rollback()
+    return {"status": "Migration attempted"}
+
 
 # SpRadOrders takes 17 positional parameters. Every call site used to spell out
 # its own run of NULLs, so when p_BodyPart was added at position 12 the counts
@@ -54,6 +63,14 @@ def _call_sp(db: Session, action: str, **kwargs):
 def get_radiology_orders(db: Session = Depends(get_db)):
     try:
         result = _call_sp(db, "SELECT_ALL").fetchall()
+        
+        # Fetch ResultSummary directly
+        summary_rows = []
+        try:
+            summary_rows = db.execute(text("SELECT OrderTestId, ResultSummary FROM hospital.Rad_OrderTest")).fetchall()
+        except Exception:
+            pass
+        summary_map = {r.OrderTestId: getattr(r, 'ResultSummary', None) for r in summary_rows}
 
         orders_dict = {}
         for row in result:
@@ -85,6 +102,7 @@ def get_radiology_orders(db: Session = Depends(get_db)):
                     "status": row.TestStatus,
                     "result_value": row.ResultValue,
                     "result_file": row.ResultFile,
+                    "result_summary": summary_map.get(row.OrderTestId),
                     "is_critical": bool(row.IsCritical),
                     "completed_at": row.CompletedAt,
                     "verified_at": row.VerifiedAt,
@@ -153,6 +171,13 @@ def update_radiology_test(order_id: int, test_id: str, test_data: RadiologyTestU
             is_critical=1 if test_data.is_critical else 0,
             user_id="Admin",
         ).fetchone()
+        
+        try:
+            if test_data.result_summary is not None:
+                db.execute(text("UPDATE hospital.Rad_OrderTest SET ResultSummary = :rs WHERE OrderTestId = :id"), 
+                           {"rs": test_data.result_summary, "id": order_test_id_int})
+        except Exception as ex:
+            pass
         
         db.commit()
         

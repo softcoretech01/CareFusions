@@ -41,17 +41,41 @@ export const DuplicateCheck = () => {
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
-    // Duplicate detection logic: Grouping strictly by UHID
+    // Duplicate detection logic: Grouping by UHID, Mobile Number, or Name
     const groups: Record<string, { matchType: string; records: GlobalPatientRecord[] }> = {};
 
-    // Group by UHID Match
     patients.forEach(p => {
       const uhidStr = (p.uhid || '').trim();
+      const mobileStr = (p.mobileNumber || '').trim();
+      const nameStr = (p.patientName || p.firstName || '').trim().toLowerCase();
 
+      // Group by UHID Match
       if (uhidStr.length > 0) {
         const key = `uhid_${uhidStr}`;
         if (!groups[key]) {
           groups[key] = { matchType: 'UHID Match', records: [] };
+        }
+        if (!groups[key].records.find(r => r.id === p.id)) {
+          groups[key].records.push(p);
+        }
+      }
+
+      // Group by Mobile Number Match
+      if (mobileStr.length > 0) {
+        const key = `mobile_${mobileStr}`;
+        if (!groups[key]) {
+          groups[key] = { matchType: 'Mobile Match', records: [] };
+        }
+        if (!groups[key].records.find(r => r.id === p.id)) {
+          groups[key].records.push(p);
+        }
+      }
+
+      // Group by Name Match
+      if (nameStr.length > 0) {
+        const key = `name_${nameStr}`;
+        if (!groups[key]) {
+          groups[key] = { matchType: 'Name Match', records: [] };
         }
         if (!groups[key].records.find(r => r.id === p.id)) {
           groups[key].records.push(p);
@@ -91,9 +115,7 @@ export const DuplicateCheck = () => {
         <div>
           <h1 className="text-3xl font-bold text-slate-800">Duplicate Patient Check</h1>
         </div>
-        <Button variant="filled" color="primary" icon={Search}>
-          Run Full Scan Now
-        </Button>
+
       </div>
 
       <div className="bg-white rounded-3xl shadow-sm border border-slate-100 flex-1 flex flex-col overflow-hidden">

@@ -57,7 +57,6 @@ export const OPDDashboard = () => {
   const statsArray = [
     { label: 'Total Scheduled', value: stats.total, icon: CalendarDays, color: 'bg-blue-100 text-blue-600' },
     { label: 'Waiting Area', value: stats.waiting, icon: Clock, color: 'bg-amber-100 text-amber-600' },
-    { label: 'Currently Consulting', value: stats.consulting, icon: Activity, color: 'bg-purple-100 text-purple-600' },
     { label: 'Completed Today', value: stats.completed, icon: CheckCircle, color: 'bg-green-100 text-green-600' },
   ];
 
@@ -100,7 +99,7 @@ export const OPDDashboard = () => {
       </div>
 
       {/* Core Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-4">
         {statsArray.map((stat) => (
           <div 
             key={stat.label} 
