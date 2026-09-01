@@ -32,7 +32,7 @@ export const RadiologyOrderList = () => {
   };
 
   const [activeOrder, setActiveOrder] = useState<InvestigationOrder | null>(null);
-  const [tempResults, setTempResults] = useState<Record<string, { resultValue: string; resultFile: string; isCritical: boolean }>>({});
+  const [tempResults, setTempResults] = useState<Record<string, { resultValue: string; resultFile: string; isCritical: boolean; resultSummary: string }>>({});
 
   const filteredOrders = radOrders.filter(order => {
     // Compare calendar dates, not Date objects: orderedAt carries no zone and
@@ -47,11 +47,12 @@ export const RadiologyOrderList = () => {
 
   const handleUploadClick = (order: InvestigationOrder) => {
     setActiveOrder(order);
-    const initialTemp: Record<string, { resultValue: string; resultFile: string; isCritical: boolean }> = {};
+    const initialTemp: Record<string, { resultValue: string; resultFile: string; isCritical: boolean; resultSummary: string }> = {};
     order.tests.forEach(test => {
       initialTemp[test.id] = {
         resultValue: test.resultValue || '',
         resultFile: test.resultFile || '',
+        resultSummary: test.resultSummary || '',
         isCritical: test.isCritical || false
       };
     });
@@ -63,7 +64,7 @@ export const RadiologyOrderList = () => {
     setTempResults({});
   };
 
-  const handleTempChange = (testId: string, field: 'resultValue' | 'resultFile' | 'isCritical', value: string | boolean) => {
+  const handleTempChange = (testId: string, field: 'resultValue' | 'resultFile' | 'isCritical' | 'resultSummary', value: string | boolean) => {
     setTempResults(prev => ({
       ...prev,
       [testId]: { ...prev[testId], [field]: value }
@@ -75,8 +76,8 @@ export const RadiologyOrderList = () => {
     let updatedCount = 0;
     activeOrder.tests.forEach(test => {
       const temp = tempResults[test.id];
-      if (temp && (temp.resultValue !== test.resultValue || temp.resultFile !== test.resultFile || temp.isCritical !== test.isCritical)) {
-        updateTestResult(activeOrder.id, test.id, temp.resultValue, temp.resultFile, temp.isCritical);
+      if (temp && (temp.resultValue !== test.resultValue || temp.resultFile !== test.resultFile || temp.isCritical !== test.isCritical || temp.resultSummary !== test.resultSummary)) {
+        updateTestResult(activeOrder.id, test.id, temp.resultValue, temp.resultFile, temp.isCritical, temp.resultSummary);
         updatedCount++;
       }
     });
@@ -274,6 +275,16 @@ export const RadiologyOrderList = () => {
                         </label>
                       </div>
                       <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Result Summary</label>
+                        <textarea
+                          value={tempResults[test.id]?.resultSummary || ''}
+                          onChange={(e) => handleTempChange(test.id, 'resultSummary', e.target.value)}
+                          placeholder="Enter a short summary..."
+                          rows={3}
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-purple-500 mb-3 bg-slate-50 resize-none"
+                        />
+                      </div>
+                      <div className="md:col-span-2">
                         <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Upload Report / Images</label>
                         <div className="flex items-center gap-2">
                           <label className="flex-1 cursor-pointer bg-slate-50 border border-slate-200 hover:bg-white px-3 py-2 rounded-lg text-sm text-slate-600 flex items-center justify-between transition-colors group overflow-hidden">

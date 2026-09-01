@@ -5,10 +5,8 @@ export const RegistrationTopNavigation = () => {
 
   return (
     <header className="h-20 bg-white border-b border-slate-100 flex items-center justify-between px-8 sticky top-0 z-10 shadow-sm">
-      {/* Greeting — replaced the date/time chips (matches the main top navigation) */}
+      {/* Greeting removed as requested */}
       <div className="hidden md:block shrink-0">
-        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{greeting}</p>
-        <p className="text-lg font-bold text-slate-800 leading-tight">{name}</p>
       </div>
 
       <div className="flex items-center gap-4">

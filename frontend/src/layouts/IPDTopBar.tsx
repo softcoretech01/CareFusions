@@ -13,10 +13,7 @@ export const IPDTopBar = () => {
   return (
     <header className="h-20 bg-white border-b border-slate-100 flex items-center justify-between px-8 sticky top-0 z-10 shadow-sm">
       {/* Greeting — the valuable label that replaced the date/time chips */}
-      <div className="hidden md:block shrink-0">
-        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{greeting}</p>
-        <p className="text-lg font-bold text-slate-800 leading-tight">{name}</p>
-      </div>
+      <div className="hidden md:block shrink-0"></div>
 
       <div className="flex-1 max-w-xl relative mx-8">
         <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />

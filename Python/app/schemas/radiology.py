@@ -10,6 +10,7 @@ class RadiologyTestBase(BaseModel):
     status: str
     result_value: Optional[str] = None
     result_file: Optional[str] = None
+    result_summary: Optional[str] = None
     is_critical: bool = False
     completed_at: Optional[datetime] = None
     verified_at: Optional[datetime] = None
@@ -20,6 +21,7 @@ class RadiologyTestBase(BaseModel):
 class RadiologyTestUpdate(BaseModel):
     result_value: Optional[str] = None
     result_file: Optional[str] = None
+    result_summary: Optional[str] = None
     is_critical: bool = False
 
 class RadiologyTestCreate(BaseModel):

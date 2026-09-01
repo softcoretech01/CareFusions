@@ -907,12 +907,12 @@ export const DoctorConsultation = () => {
                 <div>
                   <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Patient</h4>
                   <p className="font-bold text-slate-800">{visit.patientName}</p>
-                  <p className="text-sm text-slate-500">{visit.uhid} · {visit.age}y · {visit.gender}</p>
+                  <p className="text-sm text-slate-500">{visit.uhid} &middot; {visit.age}y &middot; {visit.gender}</p>
                 </div>
                 <div>
                   <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Visit</h4>
                   <p className="font-bold text-slate-800">{visit.visitNumber}</p>
-                  <p className="text-sm text-slate-500">{visit.date} · {visit.doctorName}</p>
+                  <p className="text-sm text-slate-500">{visit.date} &middot; {visit.doctorName}</p>
                 </div>
               </div>
 

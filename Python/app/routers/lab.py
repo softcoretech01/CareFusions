@@ -117,6 +117,7 @@ def _map_test(r) -> dict:
         "status": r.Status,
         "resultValue": r.ResultValue or "",
         "resultFile": r.ResultFile or "",
+        "resultSummary": getattr(r, 'ResultSummary', ""),
         "normalRange": r.NormalRange or "",
         "unit": r.Unit or "",
         "isAbnormal": bool(r.IsAbnormal),
@@ -197,6 +198,17 @@ def get_order(order_id: int, db: Session = Depends(get_db)):
         if not h:
             raise HTTPException(status_code=404, detail="Order not found")
         tests = [_map_test(t) for t in _order_sp(db, "TESTS", OrderId=order_id).fetchall()]
+        
+        # Merge ResultSummary since SP might not return it
+        try:
+            summary_rows = db.execute(text("SELECT OrderTestId, ResultSummary FROM hospital.Lab_OrderTest WHERE OrderId = :oid"), {"oid": order_id}).fetchall()
+            summary_map = {str(r.OrderTestId): r.ResultSummary for r in summary_rows}
+            for t in tests:
+                if t["id"] in summary_map and summary_map[t["id"]]:
+                    t["resultSummary"] = summary_map[t["id"]]
+        except Exception:
+            pass
+
         return _map_order(h, tests)
     except HTTPException:
         raise
@@ -269,6 +281,14 @@ def set_test_result(order_test_id: int, payload: TestResultUpdate, db: Session =
                   ResultValue=payload.resultValue, ResultFile=payload.resultFile,
                   IsAbnormal=is_abnormal, IsCritical=is_critical,
                   User=payload.user or "Admin")
+        
+        try:
+            if payload.resultSummary is not None:
+                db.execute(text("UPDATE hospital.Lab_OrderTest SET ResultSummary = :rs WHERE OrderTestId = :id"), 
+                           {"rs": payload.resultSummary, "id": order_test_id})
+        except Exception as ex:
+            logger.error(f"Failed to save result summary: {ex}")
+            
         db.commit()
         return {"orderTestId": order_test_id, "isAbnormal": bool(is_abnormal),
                 "isCritical": bool(is_critical)}

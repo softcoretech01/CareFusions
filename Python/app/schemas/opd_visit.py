@@ -47,6 +47,7 @@ class LabOrderSchema(BaseModel):
     clinicalNotes: Optional[str] = None
     status: Optional[str] = None
     result: Optional[str] = None
+    resultSummary: Optional[str] = None
 
 class RadiologyOrderSchema(BaseModel):
     modality: Optional[str] = None
@@ -56,6 +57,8 @@ class RadiologyOrderSchema(BaseModel):
     contrastRequired: Optional[bool] = False
     specialInstructions: Optional[str] = None
     status: Optional[str] = None
+    result: Optional[str] = None
+    resultSummary: Optional[str] = None
 
 class ProcedureSchema(BaseModel):
     procedureName: Optional[str] = None

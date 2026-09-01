@@ -136,6 +136,25 @@ def get_opd_visit_details(appointment_id: int, db: Session = Depends(get_db)):
             "procedures": result_sets[7] if len(result_sets) > 7 else []
         }
         
+        # Merge ResultSummary for Lab Orders
+        if data["labOrders"]:
+            order_ids = [str(lo.get("LabOrderId")) for lo in data["labOrders"] if lo.get("LabOrderId")]
+            if order_ids:
+                lab_summary_rows = db.execute(text(f"SELECT OrderId, TestName, ResultSummary FROM hospital.Lab_OrderTest WHERE OrderId IN ({','.join(order_ids)})")).fetchall()
+                # Create map: (OrderId, TestName) -> ResultSummary
+                lab_summary_map = {(r.OrderId, r.TestName): getattr(r, 'ResultSummary', None) for r in lab_summary_rows}
+                for lo in data["labOrders"]:
+                    lo["resultSummary"] = lab_summary_map.get((lo.get("LabOrderId"), lo.get("TestName")))
+
+        # Merge ResultSummary for Rad Orders
+        if data["radiologyOrders"]:
+            rad_order_ids = [str(ro.get("RadiologyOrderId")) for ro in data["radiologyOrders"] if ro.get("RadiologyOrderId")]
+            if rad_order_ids:
+                rad_summary_rows = db.execute(text(f"SELECT OrderId, BodyPart, ResultSummary FROM hospital.Rad_OrderTest WHERE OrderId IN ({','.join(rad_order_ids)})")).fetchall()
+                rad_summary_map = {(r.OrderId, r.BodyPart): getattr(r, 'ResultSummary', None) for r in rad_summary_rows}
+                for ro in data["radiologyOrders"]:
+                    ro["resultSummary"] = rad_summary_map.get((ro.get("RadiologyOrderId"), ro.get("BodyPart")))
+        
         if data["vitals"]:
             v = data["vitals"]
             data["vitals"] = {

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useIPD } from '../../contexts/IPDContext';
-import { ArrowLeft, User, Activity, CheckCircle, Save, AlertTriangle, FileText, Pill, Stethoscope, FlaskConical, ScrollText, Syringe } from 'lucide-react';
+import { ArrowLeft, History, User, Activity, CheckCircle, Save, AlertTriangle, FileText, Pill, Stethoscope, FlaskConical, ScrollText, Syringe } from 'lucide-react';
 import { DischargePrescription } from '../../components/discharge/DischargePrescription';
 import type { DischargeItem } from '../../components/discharge/DischargePrescription';
 import { NursingFlowsheet } from '../../components/ipd/NursingFlowsheet';
