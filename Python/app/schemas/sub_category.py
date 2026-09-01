@@ -17,12 +17,12 @@ DESC_MAX     = 500
 
 # ── Shared field rules ───────────────────────────────────────
 class _SubCategoryFields(BaseModel):
-    category:        str            = Field(max_length=CATEGORY_MAX)
+    categoryId:      int
     subCategoryName: str            = Field(max_length=NAME_MAX)
     description:     Optional[str]  = Field(default=None, max_length=DESC_MAX)
     status:          StatusEnum     = StatusEnum.Active
 
-    @field_validator("category", "subCategoryName")
+    @field_validator("subCategoryName")
     @classmethod
     def not_empty(cls, v: str) -> str:
         if not v or not v.strip():
@@ -52,7 +52,8 @@ class SubCategoryUpdate(_SubCategoryFields):
 class SubCategoryResponse(BaseModel):
     id:              int
     subCategoryCode: str
-    category:        str
+    categoryId:      int
+    category:        Optional[str]
     subCategoryName: str
     description:     Optional[str]
     status:          str

@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import {
   Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle,
-  Save, ChevronLeft, ChevronRight, Eye, X
+  Save, ChevronLeft, ChevronRight, X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
@@ -14,7 +14,8 @@ const API_BASE = import.meta.env.VITE_API_URL as string;
 export interface SubCategoryRecord {
   id: number;
   subCategoryCode: string;
-  category: string;
+  categoryId: number;
+  category?: string;
   subCategoryName: string;
   description: string;
   status: string;
@@ -24,15 +25,16 @@ export interface SubCategoryRecord {
   updatedDate?: string;
 }
 
-type SubCategoryForm = { category: string; subCategoryName: string; description: string; status: string };
+type SubCategoryForm = { categoryId: number; category?: string; subCategoryName: string; description: string; status: string };
 
-const emptyData: SubCategoryForm = { category: '', subCategoryName: '', description: '', status: 'Active' };
+const emptyData: SubCategoryForm = { categoryId: 0, category: '', subCategoryName: '', description: '', status: 'Active' };
 
 const LIMITS = { subCategoryName: 100, description: 500 };
 
 const mapApiToRecord = (item: Record<string, unknown>): SubCategoryRecord => ({
   id:              item.id              as number,
   subCategoryCode: item.subCategoryCode as string,
+  categoryId:      item.categoryId      as number,
   category:        item.category        as string,
   subCategoryName: item.subCategoryName as string,
   description:     (item.description    as string) ?? '',
@@ -45,7 +47,7 @@ const mapApiToRecord = (item: Record<string, unknown>): SubCategoryRecord => ({
 
 export const SubCategoryMaster = () => {
   const [records, setRecords] = useState<SubCategoryRecord[]>([]);
-  const [categoryOptions, setCategoryOptions] = useState<{ name: string; type: string }[]>([]);
+  const [categoryOptions, setCategoryOptions] = useState<{ id: number; name: string; type: string }[]>([]);
   const [formType, setFormType] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -64,7 +66,6 @@ export const SubCategoryMaster = () => {
 
   // Form States
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [isViewOpen, setIsViewOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<SubCategoryRecord | null>(null);
   const [formData, setFormData] = useState<SubCategoryForm>(emptyData);
@@ -86,17 +87,22 @@ export const SubCategoryMaster = () => {
     }
   };
 
-  // Parent categories come from the live Category Master (active only)
   const fetchCategoryOptions = async () => {
     try {
-      const res = await fetch(`${API_BASE}/categories/?status_filter=Active`);
-      if (res.ok) {
-        const data: Record<string, unknown>[] = await res.json();
-        setCategoryOptions(data.map(c => ({
+      const catRes = await fetch(`${API_BASE}/categories/?status_filter=Active`);
+      
+      let allOptions: { id: number; name: string; type: string }[] = [];
+      
+      if (catRes.ok) {
+        const data: Record<string, unknown>[] = await catRes.json();
+        allOptions = data.map(c => ({
+          id: c.id as number,
           name: c.categoryName as string,
           type: (c.inventoryType as string) ?? '',
-        })));
+        }));
       }
+      
+      setCategoryOptions(allOptions);
     } catch {
       setCategoryOptions([]);
     }
@@ -119,9 +125,9 @@ export const SubCategoryMaster = () => {
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
-    if (!formData.category.trim()) newErrors.category = 'Category is required';
+    if (!formData.categoryId) newErrors.categoryId = 'Category is required';
     if (!formData.subCategoryName.trim()) newErrors.subCategoryName = 'Sub Category Name is required';
-    if (records.some(r => r.category === formData.category && r.subCategoryName.toLowerCase() === formData.subCategoryName.trim().toLowerCase() && r.id !== selectedRecord?.id))
+    if (records.some(r => r.categoryId === formData.categoryId && r.subCategoryName.toLowerCase() === formData.subCategoryName.trim().toLowerCase() && r.id !== selectedRecord?.id))
       newErrors.subCategoryName = 'This sub-category already exists under the selected category';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -138,17 +144,14 @@ export const SubCategoryMaster = () => {
 
   const handleEdit = (record: SubCategoryRecord) => {
     setSelectedRecord(record);
-    setFormType(categoryOptions.find(c => c.name === record.category)?.type ?? '');
-    setFormData({ category: record.category, subCategoryName: record.subCategoryName, description: record.description, status: record.status });
+    setFormType(categoryOptions.find(c => c.id === record.categoryId)?.type ?? '');
+    setFormData({ categoryId: record.categoryId, category: record.category, subCategoryName: record.subCategoryName, description: record.description, status: record.status });
     setErrors({});
     setIsFormOpen(true);
     fetchCategoryOptions();
   };
 
-  const handleView = (record: SubCategoryRecord) => {
-    setSelectedRecord(record);
-    setIsViewOpen(true);
-  };
+
   const handleDelete = (record: SubCategoryRecord) => {
     setSelectedRecord(record);
     setIsDeleteOpen(true);
@@ -175,7 +178,7 @@ export const SubCategoryMaster = () => {
     setApiError(null);
     try {
       const body = {
-        category:        formData.category,
+        categoryId:      formData.categoryId,
         subCategoryName: formData.subCategoryName.trim(),
         description:     formData.description || null,
         status:          formData.status,
@@ -221,10 +224,14 @@ export const SubCategoryMaster = () => {
 
   // Category options for the list filter (union of live categories + any used
   // in records, so an existing row's category is always selectable).
-  const allCategories = useMemo(
-    () => Array.from(new Set([...categoryOptions.map(c => c.name), ...records.map(r => r.category)])).sort(),
-    [categoryOptions, records]
-  );
+  const allCategories = useMemo(() => {
+    const opts = new Map<number, string>();
+    categoryOptions.forEach(c => opts.set(c.id, c.name));
+    records.forEach(r => {
+      if (r.categoryId) opts.set(r.categoryId, r.category || 'Unknown');
+    });
+    return Array.from(opts.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [categoryOptions, records]);
 
   // The form narrows the parent list to the chosen inventory type: a
   // sub-category may only hang off a category of that type. With no type
@@ -232,7 +239,7 @@ export const SubCategoryMaster = () => {
   // row needs.
   const formCategories = useMemo(
     () => (formType
-      ? categoryOptions.filter(c => c.type === formType).map(c => c.name).sort()
+      ? categoryOptions.filter(c => c.type === formType).map(c => ({ id: c.id, name: c.name })).sort((a, b) => a.name.localeCompare(b.name))
       : allCategories),
     [categoryOptions, formType, allCategories]
   );
@@ -355,7 +362,7 @@ export const SubCategoryMaster = () => {
                   className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
                 >
                   <option value="">All Categories</option>
-                  {allCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                  {allCategories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
                 </select>
               </div>
             </motion.div>
@@ -366,7 +373,7 @@ export const SubCategoryMaster = () => {
           <table className="w-full">
             <thead className="bg-slate-50 sticky top-0 z-10 border-b border-slate-200">
               <tr>
-                <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm cursor-pointer" onClick={() => handleSort('subCategoryCode')}>Code</th>
+                <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm">S.No</th>
                 <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm cursor-pointer" onClick={() => handleSort('category')}>Category</th>
                 <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm cursor-pointer" onClick={() => handleSort('subCategoryName')}>Sub Category</th>
                 <th className="text-right py-3 px-4 font-medium text-slate-500 text-sm w-32">Actions</th>
@@ -377,16 +384,13 @@ export const SubCategoryMaster = () => {
                 <tr><td colSpan={4} className="py-8 text-center text-slate-500">Loading sub-categories...</td></tr>
               ) : paginatedData.length === 0 ? (
                 <tr><td colSpan={4} className="py-8 text-center text-slate-500">No records found</td></tr>
-              ) : paginatedData.map((record) => (
+              ) : paginatedData.map((record, index) => (
                 <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="py-3 px-4 text-slate-800 font-medium">{record.subCategoryCode}</td>
+                  <td className="py-3 px-4 text-slate-800 font-medium">{(currentPage - 1) * itemsPerPage + index + 1}</td>
                   <td className="py-3 px-4 text-slate-800">{record.category}</td>
                   <td className="py-3 px-4 text-slate-800">{record.subCategoryName}</td>
                   <td className="py-3 px-4 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => handleView(record)} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="View Details">
-                        <Eye className="w-4 h-4" />
-                      </button>
                       <button onClick={() => handleEdit(record)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Edit">
                         <Edit2 className="w-4 h-4" />
                       </button>
@@ -451,11 +455,19 @@ export const SubCategoryMaster = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Category <span className="text-red-500">*</span></label>
-            <select value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value})} className={`w-full px-4 py-2 border rounded-xl text-sm outline-none focus:ring-2 transition-all ${errors.category ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'}`}>
+            <select 
+              value={formData.categoryId || ""} 
+              onChange={(e) => {
+                const id = Number(e.target.value);
+                const cat = formCategories.find(c => c.id === id);
+                setFormData({...formData, categoryId: id || 0, category: cat?.name || ""});
+              }} 
+              className={`w-full px-4 py-2 border rounded-xl text-sm outline-none focus:ring-2 transition-all ${errors.categoryId ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20 focus:border-primary'}`}
+            >
               <option value="">Select Category</option>
-              {formCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+              {formCategories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
             </select>
-            {errors.category && <p className="text-red-500 text-xs mt-1">{errors.category}</p>}
+            {errors.categoryId && <p className="text-red-500 text-xs mt-1">{errors.categoryId}</p>}
             {formCategories.length === 0 && <p className="text-amber-600 text-xs mt-1">No categories for this type — add one in Category Master first.</p>}
           </div>
           <div>
@@ -481,20 +493,6 @@ export const SubCategoryMaster = () => {
           <Button variant="outline" onClick={() => setIsFormOpen(false)}>Cancel</Button>
           <Button variant="filled" color="primary" onClick={handleSave} icon={Save} disabled={isSaving}>{isSaving ? 'Saving...' : (selectedRecord ? 'Update' : 'Save')}</Button>
         </div>
-      </Modal>
-
-      {/* View Modal */}
-      <Modal isOpen={isViewOpen} onClose={() => setIsViewOpen(false)} title={`View Sub Category Master Details`} size="md">
-        {selectedRecord && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div><span className="text-xs text-slate-400 block">Code</span><span className="text-sm font-medium">{selectedRecord.subCategoryCode}</span></div>
-              <div><span className="text-xs text-slate-400 block">Category</span><span className="text-sm font-medium">{selectedRecord.category}</span></div>
-              <div className="col-span-2"><span className="text-xs text-slate-400 block">Name</span><span className="text-sm font-medium">{selectedRecord.subCategoryName}</span></div>
-              <div className="col-span-2"><span className="text-xs text-slate-400 block">Description</span><span className="text-sm font-medium">{selectedRecord.description || '-'}</span></div>
-            </div>
-            </div>
-        )}
       </Modal>
 
       {/* Delete Modal */}

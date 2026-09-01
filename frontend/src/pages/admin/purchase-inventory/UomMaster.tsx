@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import {
   Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle,
-  Save, ChevronLeft, ChevronRight, Eye, X
+  Save, ChevronLeft, ChevronRight, X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
@@ -57,7 +57,6 @@ export const UomMaster = () => {
 
   // Form States
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [isViewOpen, setIsViewOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<UomRecord | null>(null);
   const [formData, setFormData] = useState<UomForm>(emptyData);
@@ -110,10 +109,7 @@ export const UomMaster = () => {
     setIsFormOpen(true);
   };
 
-  const handleView = (record: UomRecord) => {
-    setSelectedRecord(record);
-    setIsViewOpen(true);
-  };
+
   const handleDelete = (record: UomRecord) => {
     setSelectedRecord(record);
     setIsDeleteOpen(true);
@@ -304,7 +300,7 @@ export const UomMaster = () => {
           <table className="w-full">
             <thead className="bg-slate-50 sticky top-0 z-10 border-b border-slate-200">
               <tr>
-                <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm cursor-pointer" onClick={() => handleSort('uomCode')}>Code</th>
+                <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm">S.No</th>
                 <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm cursor-pointer" onClick={() => handleSort('uomName')}>Name</th>
                 <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm">Short Name</th>
                 <th className="text-right py-3 px-4 font-medium text-slate-500 text-sm w-32">Actions</th>
@@ -315,16 +311,13 @@ export const UomMaster = () => {
                 <tr><td colSpan={4} className="py-8 text-center text-slate-500">Loading UOMs...</td></tr>
               ) : paginatedData.length === 0 ? (
                 <tr><td colSpan={4} className="py-8 text-center text-slate-500">No records found</td></tr>
-              ) : paginatedData.map((record) => (
+              ) : paginatedData.map((record, index) => (
                 <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="py-3 px-4 text-slate-800 font-medium">{record.uomCode}</td>
+                  <td className="py-3 px-4 text-slate-800 font-medium">{((currentPage - 1) * itemsPerPage) + index + 1}</td>
                   <td className="py-3 px-4 text-slate-800">{record.uomName}</td>
                   <td className="py-3 px-4 text-slate-800">{record.shortName}</td>
                   <td className="py-3 px-4 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => handleView(record)} className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="View Details">
-                        <Eye className="w-4 h-4" />
-                      </button>
                       <button onClick={() => handleEdit(record)} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors" title="Edit">
                         <Edit2 className="w-4 h-4" />
                       </button>
@@ -402,18 +395,7 @@ export const UomMaster = () => {
         </div>
       </Modal>
 
-      {/* View Modal */}
-      <Modal isOpen={isViewOpen} onClose={() => setIsViewOpen(false)} title={`View UOM Master Details`} size="md">
-        {selectedRecord && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div><span className="text-xs text-slate-400 block">Code</span><span className="text-sm font-medium">{selectedRecord.uomCode}</span></div>
-              <div><span className="text-xs text-slate-400 block">Name</span><span className="text-sm font-medium">{selectedRecord.uomName}</span></div>
-              <div><span className="text-xs text-slate-400 block">Short Name</span><span className="text-sm font-medium">{selectedRecord.shortName}</span></div>
-            </div>
-            </div>
-        )}
-      </Modal>
+
 
       {/* Delete Modal */}
       <Modal isOpen={isDeleteOpen} onClose={() => setIsDeleteOpen(false)} title="Delete Record" size="sm">

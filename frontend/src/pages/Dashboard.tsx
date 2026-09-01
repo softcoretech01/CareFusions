@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Users, Pill, Microscope, ShieldCheck, UserCog, FileText, RefreshCw, Search, X } from 'lucide-react';
+import { Users, Pill, Microscope, ShieldCheck, FileText, Search, X, Building2, ActivitySquare, Stethoscope, Scissors, Landmark } from 'lucide-react';
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
 import { Pagination } from '../components/ui/Pagination';
@@ -36,7 +36,6 @@ const KPI_DEFS: {
       { key: 'name', label: 'Name' },
       { key: 'department|pharmacy|laboratory|counter', label: 'Assigned To' },
       { key: 'mobile', label: 'Mobile', mono: true },
-      { key: 'status', label: 'Status' },
     ],
   },
   {
@@ -44,11 +43,9 @@ const KPI_DEFS: {
     apis: ['/medicines/'],
     cols: [
       { key: 'medicineCode', label: 'Code', mono: true },
-      { key: 'brandName', label: 'Brand' },
-      { key: 'genericName', label: 'Generic' },
+      { key: 'genericName', label: 'Medicine Name' },
       { key: 'category', label: 'Category' },
       { key: 'sellingPrice', label: 'Price', mono: true },
-      { key: 'status', label: 'Status' },
     ],
   },
   {
@@ -60,7 +57,6 @@ const KPI_DEFS: {
       { key: 'testCategory', label: 'Category' },
       { key: 'department', label: 'Department' },
       { key: 'testPrice', label: 'Price', mono: true },
-      { key: 'status', label: 'Status' },
     ],
   },
   {
@@ -72,19 +68,56 @@ const KPI_DEFS: {
       { key: 'insuranceType', label: 'Type' },
       { key: 'contactPerson', label: 'Contact Person' },
       { key: 'phoneNumber', label: 'Phone', mono: true },
-      { key: 'status', label: 'Status' },
     ],
   },
   {
-    label: 'System Users', icon: UserCog, color: 'text-danger', bg: 'bg-danger/10',
-    apis: ['/users/'],
+    label: 'Departments', icon: Building2, color: 'text-pink-600', bg: 'bg-pink-600/10',
+    apis: ['/departments/'],
     cols: [
-      { key: 'userId', label: 'User ID', mono: true },
-      { key: 'username', label: 'Username' },
-      { key: 'role', label: 'Role' },
+      { key: 'departmentCode', label: 'Code', mono: true },
+      { key: 'departmentName', label: 'Name' },
+      { key: 'departmentType', label: 'Type' },
+      { key: 'departmentHead', label: 'Head' },
+    ],
+  },
+  {
+    label: 'Radiology', icon: ActivitySquare, color: 'text-cyan-600', bg: 'bg-cyan-600/10',
+    apis: ['/radiology-services/'],
+    cols: [
+      { key: 'serviceCode', label: 'Code', mono: true },
+      { key: 'serviceName', label: 'Service Name' },
+      { key: 'serviceCategory', label: 'Category' },
+      { key: 'servicePrice', label: 'Price (₹)' },
+    ],
+  },
+  {
+    label: 'Equipment', icon: Stethoscope, color: 'text-orange-600', bg: 'bg-orange-600/10',
+    apis: ['/equipment/'],
+    cols: [
+      { key: 'equipmentCode', label: 'Code', mono: true },
+      { key: 'equipmentName', label: 'Equipment Name' },
       { key: 'department', label: 'Department' },
-      { key: 'email', label: 'Email' },
-      { key: 'status', label: 'Status' },
+      { key: 'manufacturer', label: 'Manufacturer' },
+    ],
+  },
+  {
+    label: 'Operations', icon: Scissors, color: 'text-rose-600', bg: 'bg-rose-600/10',
+    apis: ['/minor-operations/', '/major-operations/'],
+    cols: [
+      { key: 'operationCode', label: 'Code', mono: true },
+      { key: 'operationName', label: 'Operation Name' },
+      { key: 'department', label: 'Department' },
+      { key: 'defaultCharge', label: 'Charge (₹)' },
+    ],
+  },
+  {
+    label: 'Financials', icon: Landmark, color: 'text-amber-600', bg: 'bg-amber-600/10',
+    apis: ['/coa-accounts/'],
+    cols: [
+      { key: 'accountName', label: 'Account Name' },
+      { key: 'accountType', label: 'Account Type' },
+      { key: 'parentAccount', label: 'Parent Account' },
+      { key: 'openingBalance', label: 'Balance' },
     ],
   },
 ];
@@ -158,16 +191,16 @@ const DetailsPanel = ({
   rows: Row[];
   onClose: () => void;
 }) => {
-  const [q, setQ] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(1);
   const Icon = def.icon;
 
   const shown = useMemo(() => {
-    const needle = q.trim().toLowerCase();
+    const needle = searchTerm.trim().toLowerCase();
     if (!needle) return rows;
     // Match against the rendered columns, so what you search is what you see.
     return rows.filter(r => def.cols.some(c => cell(r, c.key).toLowerCase().includes(needle)));
-  }, [rows, q, def.cols]);
+  }, [rows, searchTerm, def.cols]);
 
   const PAGE_SIZE = 10;
   const totalRows = shown.length;
@@ -199,8 +232,8 @@ const DetailsPanel = ({
         <div className="relative w-64 hidden sm:block">
           <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
-            value={q}
-            onChange={e => setQ(e.target.value)}
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
             placeholder="Search..."
             className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 pl-10 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
           />
@@ -227,7 +260,7 @@ const DetailsPanel = ({
             {shown.length === 0 ? (
               <tr>
                 <td colSpan={def.cols.length + 1} className="text-center py-14 text-slate-400 text-sm">
-                  No records match “{q}”.
+                  No records match “{searchTerm}”.
                 </td>
               </tr>
             ) : (
@@ -280,12 +313,10 @@ export const Dashboard = () => {
   const [kpiRows, setKpiRows] = useState<(Row[] | null)[]>(KPI_DEFS.map(() => null));
   const [userRoles, setUserRoles] = useState<string[]>([]);
   const [audits, setAudits] = useState<AuditRow[]>([]);
-  const [loading, setLoading] = useState(true);
   const [drillIdx, setDrillIdx] = useState<number | null>(null);
   const [showAudit, setShowAudit] = useState(false);
 
   const loadAll = async () => {
-    setLoading(true);
     const rows = await Promise.all(
       KPI_DEFS.map(async (k) =>
         (await Promise.all(k.apis.map((a, i) => fetchArray(a, k.sources?.[i])))).flat()
@@ -320,7 +351,7 @@ export const Dashboard = () => {
       }
     } catch { /* ignore */ }
 
-    setLoading(false);
+
   };
 
   useEffect(() => { loadAll(); /* eslint-disable-next-line */ }, []);
@@ -348,20 +379,14 @@ export const Dashboard = () => {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
         </div>
-        <button
-          onClick={loadAll}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm font-medium transition-colors"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
-        </button>
       </div>
 
       {/* KPIs Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
         {KPI_DEFS.map((kpi, idx) => {
           const Icon = kpi.icon;
           const rows = kpiRows[idx];
-          const val = rows === null ? null : rows.length;
+          const val = rows == null ? null : rows.length;
           return (
             <motion.button
               type="button"

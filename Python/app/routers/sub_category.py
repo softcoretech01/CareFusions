@@ -17,19 +17,19 @@ def _call_sp(db: Session, opt: str, **kwargs):
     params = {
         "p_Opt":             opt,
         "p_SubCategoryId":   kwargs.get("sub_category_id"),
-        "p_Category":        kwargs.get("category"),
+        "p_CategoryId":      kwargs.get("category_id") if kwargs.get("category_id") is not None else 0,
         "p_SubCategoryName": kwargs.get("sub_category_name"),
         "p_Description":     kwargs.get("description"),
         "p_Status":          kwargs.get("status"),
         "p_CreatedBy":       kwargs.get("created_by"),
         "p_UpdatedBy":       kwargs.get("updated_by"),
         "p_Search":          kwargs.get("search"),
-        "p_CategoryFilter":  kwargs.get("category_filter"),
+        "p_CategoryFilter":  kwargs.get("category_filter") if kwargs.get("category_filter") is not None else 0,
         "p_StatusFilter":    kwargs.get("status_filter"),
     }
     sql = text(f"""
         CALL {SP_NAME}(
-            :p_Opt, :p_SubCategoryId, :p_Category, :p_SubCategoryName, :p_Description,
+            :p_Opt, :p_SubCategoryId, :p_CategoryId, :p_SubCategoryName, :p_Description,
             :p_Status, :p_CreatedBy, :p_UpdatedBy, :p_Search, :p_CategoryFilter, :p_StatusFilter
         )
     """)
@@ -40,6 +40,7 @@ def _map_row(row) -> dict:
     return {
         "id":              row.SubCategoryId,
         "subCategoryCode": row.SubCategoryCode,
+        "categoryId":      row.CategoryId,
         "category":        row.Category,
         "subCategoryName": row.SubCategoryName,
         "description":     row.Description,
@@ -66,7 +67,7 @@ def _raise_if_duplicate(exc: Exception):
 
 def _payload_kwargs(payload) -> dict:
     return dict(
-        category=payload.category,
+        category_id=payload.categoryId,
         sub_category_name=payload.subCategoryName,
         description=payload.description,
         status=payload.status.value,
@@ -77,13 +78,13 @@ def _payload_kwargs(payload) -> dict:
 @router.get("/", response_model=List[SubCategoryResponse])
 def get_sub_categories(
     search: Optional[str] = None,
-    category: Optional[str] = None,
+    category_id: Optional[int] = None,
     status_filter: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
     """Fetch all sub-categories with optional search and category/status filters."""
     try:
-        result = _call_sp(db, "GET", search=search, category_filter=category, status_filter=status_filter)
+        result = _call_sp(db, "GET", search=search, category_filter=category_id, status_filter=status_filter)
         return [_map_row(r) for r in result.fetchall()]
     except Exception as e:
         logger.error(f"[GET /sub-categories] Error: {e}")
