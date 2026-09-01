@@ -6,9 +6,10 @@ from datetime import datetime
 class MedicineCreate(BaseModel):
     medicineCode:   str
     genericName:    str
-    category:       str
+    categoryId:     int
     # Second level of the same tree items use, from Master_SubCategory.
-    subCategory:    Optional[str] = None
+    subCategoryId:  Optional[int] = None
+    manufacturer:   str
     strength:       str
     dosageForm:     str
     unit:           str
@@ -36,8 +37,11 @@ class MedicineResponse(BaseModel):
     id:             int
     medicineCode:   str
     genericName:    str
-    category:       str
+    categoryId:     int
+    category:       Optional[str] = None
+    subCategoryId:  Optional[int] = None
     subCategory:    Optional[str] = None
+    manufacturer:   Optional[str] = None
     strength:       str
     dosageForm:     str
     unit:           str

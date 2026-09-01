@@ -343,7 +343,7 @@ export const PatientRegistration = () => {
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
-  const [appliedSearchTerm, setAppliedSearchTerm] = useState('');
+
   const [showFilters, setShowFilters] = useState(false);
   const [filterPatientType, setFilterPatientType] = useState('');
   const [filterGender, setFilterGender] = useState('');
@@ -356,14 +356,12 @@ export const PatientRegistration = () => {
   const [appliedDateTo, setAppliedDateTo] = useState(today);
 
   const handleSearch = () => {
-    setAppliedSearchTerm(searchTerm);
     setAppliedDateFrom(dateFrom);
     setAppliedDateTo(dateTo);
   };
 
   const handleReset = () => {
     setSearchTerm('');
-    setAppliedSearchTerm('');
     setDateFrom(firstDay);
     setDateTo(today);
     setAppliedDateFrom(firstDay);
