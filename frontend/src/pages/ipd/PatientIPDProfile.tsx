@@ -23,7 +23,7 @@ export const PatientIPDProfile = () => {
   const [clinicalNotes, setClinicalNotes] = useState('');
   const [finalDiagnosis, setFinalDiagnosis] = useState('');
   const [dischargeDate, setDischargeDate] = useState(new Date().toISOString().split('T')[0]);
-  
+
   const patient = patients.find(p => p.id === Number(patientId));
   const bed = beds.find(b => b.id === patient?.currentBedId);
   const ward = wards.find(w => w.id === patient?.currentWardId);
@@ -50,7 +50,7 @@ export const PatientIPDProfile = () => {
       toast.error('Please enter discharge summary');
       return;
     }
-    
+
     const dischargeInfo = {
       dischargeDate: dischargeDate,
       dischargeSummary: dischargeSummary,
@@ -68,7 +68,7 @@ export const PatientIPDProfile = () => {
 
     requestDischarge(patient.id, dischargeInfo);
     toast.success('Discharge information saved. Patient moved to Discharge list.');
-    
+
     // IPDPatient records an `insuranceStatus` ('Self Pay' | 'Covered' |
     // 'Pending Approval'), set on the admission form. The check used to read
     // `insuranceRequired`, which does not exist on this type — so it was always
@@ -98,7 +98,7 @@ export const PatientIPDProfile = () => {
 
   return (
     <div className="flex h-[calc(100vh-2rem)] gap-4 overflow-hidden">
-      
+
       {/* â”€â”€ LEFT PANEL — Patient info â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="w-72 shrink-0 flex flex-col gap-4 overflow-y-auto custom-scrollbar">
         <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 text-slate-500 hover:text-slate-800 transition-colors self-start font-bold text-sm">
@@ -118,7 +118,7 @@ export const PatientIPDProfile = () => {
             <p className="font-bold text-slate-800">{ward?.name}</p>
             <p className="text-sm font-bold text-primary mt-1">Room no {bed?.roomNumber} &bull; Bed {bed?.bedNumber}</p>
           </div>
-          
+
           <div className="mt-4 pt-4 border-t border-slate-100">
             <p className="text-xs font-bold text-slate-400 uppercase mb-1">Admitting Doctor</p>
             <p className="font-bold text-slate-800 text-sm">{patient.admittingDoctor}</p>
@@ -143,9 +143,8 @@ export const PatientIPDProfile = () => {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${
-                  isActive ? 'bg-primary text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'
-                }`}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all whitespace-nowrap ${isActive ? 'bg-primary text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'
+                  }`}
               >
                 <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
                 {tab.label}
@@ -156,16 +155,16 @@ export const PatientIPDProfile = () => {
 
         {/* Tab Content */}
         <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 pb-8">
-          
+
           {/* NURSING FLOWSHEET */}
           {activeTab === 'nursing' && <NursingFlowsheet patientId={patient.id} />}
-          
+
           {/* CLINICAL ROUNDS */}
           {activeTab === 'rounds' && <ClinicalRounds patientId={patient.id} />}
-          
+
           {/* MAR (Medications) */}
           {activeTab === 'mar' && <MarGrid patientId={patient.id} />}
-          
+
           {/* INVESTIGATIONS */}
           {activeTab === 'investigations' && <InvestigationsTab admissionId={patient.id} patientName={patient.patientName} uhid={patient.uhid} />}
 
@@ -245,7 +244,7 @@ export const PatientIPDProfile = () => {
                 </div>
 
                 {/* Discharge Medicines */}
-                <DischargePrescription 
+                <DischargePrescription
                   items={dischargeMedicines}
                   onItemsChange={setDischargeMedicines}
                   dischargeSummary={dischargeSummary}
@@ -270,7 +269,7 @@ export const PatientIPDProfile = () => {
                 </div>
 
                 {/* Action Button */}
-                <button 
+                <button
                   onClick={handleSaveDischarge}
                   className="w-full px-6 py-3 bg-primary text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors"
                 >

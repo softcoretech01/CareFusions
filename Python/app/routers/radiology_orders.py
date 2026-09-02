@@ -140,31 +140,35 @@ def create_radiology_order(order_data: RadiologyOrderCreate, db: Session = Depen
         
         service_items = []
         for test in order_data.tests:
+            t_id = test.testId if test.testId is not None else test.test_id
+            t_code = test.testCode or test.test_code or test.testName
+            b_part = test.body_part or test.bodyPart or ""
+            
             test_query = text("""
                 INSERT INTO hospital.Rad_OrderTest (OrderId, TestCode, TestName, BodyPart, Status)
                 VALUES (:order_id, :test_code, :test_name, :body_part, 'Pending')
             """)
             db.execute(test_query, {
                 "order_id": order_id,
-                "test_code": test.testCode or test.testName,
+                "test_code": t_code,
                 "test_name": test.testName,
-                "body_part": test.body_part
+                "body_part": b_part
             })
             
             # Fetch master price if available
             master_price = 0.0
-            if test.testId or test.testName:
+            if t_id or test.testName:
                 master_row = db.execute(
-                    text("SELECT TestPrice FROM admin.Master_RadiologyService WHERE (ServiceId = :tid OR ServiceName = :tname) AND IsDeleted = 0 LIMIT 1"),
-                    {"tid": test.testId, "tname": test.testName}
+                    text("SELECT ServicePrice FROM admin.Master_RadiologyService WHERE (RadiologyServiceId = :tid OR ServiceName = :tname) AND IsDeleted = 0 LIMIT 1"),
+                    {"tid": t_id, "tname": test.testName}
                 ).fetchone()
-                if master_row and master_row.TestPrice:
-                    master_price = float(master_row.TestPrice)
+                if master_row and master_row.ServicePrice:
+                    master_price = float(master_row.ServicePrice)
 
             service_items.append(
                 ServiceOrderItemCreate(
                     ItemType="RADIOLOGY",
-                    ItemId=str(test.testId) if test.testId else test.testName,
+                    ItemId=str(t_id) if t_id is not None else test.testName,
                     ItemName=test.testName,
                     MasterPrice=master_price,
                     OriginalPrice=master_price, # Original defaults to master
@@ -212,9 +216,9 @@ def update_radiology_test(order_id: int, test_id: str, test_data: RadiologyTestU
         release_query = text("""
             SELECT soi.ServiceStatus
             FROM hospital.Rad_Order h
-            JOIN Service_Order so ON so.OrderNo = h.OrderNumber
+            JOIN hospital.Service_Order so ON so.OrderNo = h.OrderNumber
             JOIN hospital.Rad_OrderTest t ON t.OrderId = h.OrderId
-            JOIN Service_OrderItem soi ON soi.ServiceOrderId = so.ServiceOrderId 
+            JOIN hospital.Service_OrderItem soi ON soi.ServiceOrderId = so.ServiceOrderId 
                 AND (soi.ItemName = t.TestName OR soi.ItemId = t.TestId)
             WHERE t.OrderTestId = :test_id
             LIMIT 1
@@ -235,8 +239,8 @@ def update_radiology_test(order_id: int, test_id: str, test_data: RadiologyTestU
         
         # Phase 9: Write back completion state to Service_Order backbone
         db.execute(text("""
-            UPDATE Service_OrderItem soi
-            JOIN Service_Order so ON soi.ServiceOrderId = so.ServiceOrderId
+            UPDATE hospital.Service_OrderItem soi
+            JOIN hospital.Service_Order so ON soi.ServiceOrderId = so.ServiceOrderId
             JOIN hospital.Rad_Order h ON so.OrderNo = h.OrderNumber
             JOIN hospital.Rad_OrderTest t ON t.OrderId = h.OrderId 
                 AND (soi.ItemName = t.TestName OR soi.ItemId = t.TestId)
@@ -247,8 +251,8 @@ def update_radiology_test(order_id: int, test_id: str, test_data: RadiologyTestU
         # Check if all items in the parent order are now completed
         check_all_completed = text("""
             SELECT COUNT(*) as pending_count, MAX(so.ServiceOrderId) as parent_id
-            FROM Service_OrderItem soi
-            JOIN Service_Order so ON soi.ServiceOrderId = so.ServiceOrderId
+            FROM hospital.Service_OrderItem soi
+            JOIN hospital.Service_Order so ON soi.ServiceOrderId = so.ServiceOrderId
             JOIN hospital.Rad_Order h ON so.OrderNo = h.OrderNumber
             JOIN hospital.Rad_OrderTest t ON t.OrderId = h.OrderId
             WHERE t.OrderTestId = :test_id
@@ -258,7 +262,7 @@ def update_radiology_test(order_id: int, test_id: str, test_data: RadiologyTestU
         
         if pending_res and pending_res.pending_count == 0 and pending_res.parent_id:
             db.execute(text("""
-                UPDATE Service_Order 
+                UPDATE hospital.Service_Order 
                 SET ServiceStatus = 'COMPLETED', OrderStatus = 'COMPLETED', UpdatedAt = NOW()
                 WHERE ServiceOrderId = :parent_id
             """), {"parent_id": pending_res.parent_id})

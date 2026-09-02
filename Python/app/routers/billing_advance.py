@@ -18,7 +18,7 @@ def get_pending_advance_bills(db: Session = Depends(get_db)):
     """
     try:
         query = text("""
-            SELECT * FROM Billing_Advance
+            SELECT * FROM hospital.Billing_Advance
             WHERE Status = 'PENDING' AND IsDeleted = 0
             ORDER BY CreatedAt DESC
         """)
@@ -35,7 +35,7 @@ def pay_advance_bill(advance_id: int, payload: schemas.AdvancePaymentRequest, db
     """
     try:
         # Fetch the advance bill
-        adv_query = text("SELECT * FROM Billing_Advance WHERE AdvanceId = :id AND IsDeleted = 0 FOR UPDATE")
+        adv_query = text("SELECT * FROM hospital.Billing_Advance WHERE AdvanceId = :id AND IsDeleted = 0 FOR UPDATE")
         adv = db.execute(adv_query, {"id": advance_id}).fetchone()
         
         if not adv:
@@ -45,17 +45,19 @@ def pay_advance_bill(advance_id: int, payload: schemas.AdvancePaymentRequest, db
             raise HTTPException(status_code=400, detail="Advance bill is already paid")
             
         adv_dict = dict(adv._mapping)
-        total_amount = adv_dict["TotalAmount"]
-        
-        if abs(total_amount - payload.Amount) > 0.01:
+        # DECIMAL columns come back as decimal.Decimal, which cannot be subtracted from the
+        # float on the request, so the comparison below raised TypeError and 500'd every payment.
+        total_amount = float(adv_dict["TotalAmount"] or 0)
+
+        if abs(total_amount - float(payload.Amount)) > 0.01:
              raise HTTPException(
                  status_code=400, 
                  detail=f"Payment amount ({payload.Amount}) must exactly match the total required amount ({total_amount})."
              )
         
-        # 1. Update the Billing_Advance record
+        # 1. Update the hospital.Billing_Advance record
         update_adv = text("""
-            UPDATE Billing_Advance 
+            UPDATE hospital.Billing_Advance 
             SET PaidAmount = :PaidAmount,
                 PaymentMode = :PaymentMode,
                 PaymentReference = :PaymentReference,
@@ -70,10 +72,10 @@ def pay_advance_bill(advance_id: int, payload: schemas.AdvancePaymentRequest, db
             "AdvanceId": advance_id
         })
         
-        # 2. Update the parent Service_Order
+        # 2. Update the parent hospital.Service_Order
         service_order_id = adv_dict["ServiceOrderId"]
         db.execute(text("""
-            UPDATE Service_Order 
+            UPDATE hospital.Service_Order 
             SET FinancialStatus = 'CLEARED',
                 PaymentStatus = 'PAID',
                 ServiceStatus = 'RELEASED',
@@ -81,9 +83,9 @@ def pay_advance_bill(advance_id: int, payload: schemas.AdvancePaymentRequest, db
             WHERE ServiceOrderId = :ServiceOrderId
         """), {"ServiceOrderId": service_order_id})
         
-        # 3. Update the Service_OrderItem (The Final Gate unlock)
+        # 3. Update the hospital.Service_OrderItem (The Final Gate unlock)
         db.execute(text("""
-            UPDATE Service_OrderItem 
+            UPDATE hospital.Service_OrderItem 
             SET FinancialStatus = 'CLEARED',
                 PaymentStatus = 'PAID',
                 ServiceStatus = 'RELEASED',
@@ -91,11 +93,11 @@ def pay_advance_bill(advance_id: int, payload: schemas.AdvancePaymentRequest, db
             WHERE ServiceOrderId = :ServiceOrderId
         """), {"ServiceOrderId": service_order_id})
         
-        # Phase 8: Insert Service_Release for all items in this order
+        # Phase 8: Insert hospital.Service_Release for all items in this order
         db.execute(text("""
-            INSERT INTO Service_Release (ServiceOrderItemId, ReleaseDate, ReleasedBy, ReleaseStatus, ReleaseReason)
+            INSERT INTO hospital.Service_Release (ServiceOrderItemId, ReleaseDate, ReleasedBy, ReleaseStatus, ReleaseReason)
             SELECT ServiceOrderItemId, NOW(), 'SYSTEM_BILLING_CLEARED', 'ACTIVE', 'Advance Bill Paid'
-            FROM Service_OrderItem
+            FROM hospital.Service_OrderItem
             WHERE ServiceOrderId = :ServiceOrderId AND IsDeleted = 0
         """), {"ServiceOrderId": service_order_id})
         

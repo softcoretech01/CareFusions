@@ -71,14 +71,15 @@ def _call_sp(db: Session, opt: str, **kwargs) -> Any:
         "p_ValidTill": kwargs.get("ValidTill", None),
         "p_PatientType": kwargs.get("PatientType", None),
         "p_ReferredBy": kwargs.get("ReferredBy", None),
+        "p_PrimaryDoctor": kwargs.get("PrimaryDoctor", None),
+        "p_Department": kwargs.get("Department", None),
+        "p_RegistrationSource": kwargs.get("RegistrationSource", None),
         "p_PrivacyConsent": kwargs.get("PrivacyConsent", None),
         "p_SmsConsent": kwargs.get("SmsConsent", None),
         "p_EmailConsent": kwargs.get("EmailConsent", None),
         "p_WhatsappConsent": kwargs.get("WhatsappConsent", None),
         "p_Status": kwargs.get("Status", None),
         "p_Remarks": kwargs.get("Remarks", None),
-        "p_IsQuickRegistration": kwargs.get("IsQuickRegistration", False),
-        "p_RegistrationMode": kwargs.get("RegistrationMode", 0),
         "p_CreatedBy": kwargs.get("CreatedBy", "admin"),
         "p_ModifiedBy": kwargs.get("ModifiedBy", "admin")
     }
@@ -95,9 +96,9 @@ def _call_sp(db: Session, opt: str, **kwargs) -> Any:
             :p_EmergencyAlternateMobile, :p_EmergencyAddress, :p_Allergies, :p_ChronicDiseases, 
             :p_CurrentMedication, :p_OrganDonor, :p_Disability, :p_InsuranceRequired, 
             :p_InsuranceProvider, :p_Tpa, :p_PolicyNumber, :p_ValidTill, :p_PatientType, 
-            :p_ReferredBy, 
+            :p_ReferredBy, :p_PrimaryDoctor, :p_Department, :p_RegistrationSource,
             :p_PrivacyConsent, :p_SmsConsent, :p_EmailConsent, :p_WhatsappConsent, :p_Status, :p_Remarks, 
-            :p_CreatedBy, :p_ModifiedBy, :p_IsQuickRegistration, :p_RegistrationMode
+            :p_CreatedBy, :p_ModifiedBy
         )
     """)
 

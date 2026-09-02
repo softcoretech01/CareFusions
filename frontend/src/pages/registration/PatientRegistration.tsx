@@ -111,8 +111,9 @@ const initialFormState: Omit<PatientRecord, 'id'> = {
   passportNumber: '',
   panNumber: '',
   drivingLicense: '',
-  nationalIdType: 'Aadhar Card',
+  nationalIdType: '',
   nationalIdNumber: '',
+  status: 'Active',
 
   emergencyContactName: '',
   emergencyRelationship: '',
@@ -1350,6 +1351,17 @@ export const PatientRegistration = () => {
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
                     placeholder="e.g. General Checkup, Fever..."
                   />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Status <span className="text-red-500">*</span></label>
+                  <select
+                    value={formData.status}
+                    onChange={(e) => handleInputChange('status', e.target.value as 'Active' | 'Inactive')}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  >
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                  </select>
                 </div>
               </div>
             </div>

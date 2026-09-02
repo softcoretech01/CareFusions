@@ -116,6 +116,12 @@ const SettingsPage = lazy(() => import('../pages/executive/SettingsPage').then(m
 
 import { PROLayout } from '../layouts/PROLayout';
 const PRODashboard = lazy(() => import('../pages/pro/PRODashboard').then(m => ({ default: (m as any).PRODashboard ?? (m as any).default })));
+const OPDServiceOrders = lazy(() => import('../pages/pro/ServiceOrders').then(m => ({ default: (m as any).OPDServiceOrders })));
+const IPDServiceOrders = lazy(() => import('../pages/pro/ServiceOrders').then(m => ({ default: (m as any).IPDServiceOrders })));
+const OperationsServiceOrders = lazy(() => import('../pages/pro/ServiceOrders').then(m => ({ default: (m as any).OperationsServiceOrders })));
+const InsurancePayments = lazy(() => import('../pages/pro/InsurancePayments').then(m => ({ default: (m as any).InsurancePayments ?? (m as any).default })));
+const ApprovalsRelease = lazy(() => import('../pages/pro/ApprovalsRelease').then(m => ({ default: (m as any).ApprovalsRelease ?? (m as any).default })));
+const ReportsAudit = lazy(() => import('../pages/pro/ReportsAudit').then(m => ({ default: (m as any).ReportsAudit ?? (m as any).default })));
 
 const HospitalMaster = lazy(() => import('../pages/admin/organization-masters/HospitalMaster').then(m => ({ default: (m as any).HospitalMaster ?? (m as any).default })));
 const BranchMaster = lazy(() => import('../pages/admin/organization-masters/BranchMaster').then(m => ({ default: (m as any).BranchMaster ?? (m as any).default })));
@@ -627,11 +633,35 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <Navigate to="/pro/approvals" replace />
+        element: <PRODashboard />
+      },
+      {
+        path: 'service-orders',
+        element: <Navigate to="/pro/service-orders/opd" replace />
+      },
+      {
+        path: 'service-orders/opd',
+        element: <OPDServiceOrders />
+      },
+      {
+        path: 'service-orders/ipd',
+        element: <IPDServiceOrders />
+      },
+      {
+        path: 'service-orders/operations',
+        element: <OperationsServiceOrders />
+      },
+      {
+        path: 'insurance-payments',
+        element: <InsurancePayments />
       },
       {
         path: 'approvals',
-        element: <PRODashboard />
+        element: <ApprovalsRelease />
+      },
+      {
+        path: 'reports',
+        element: <ReportsAudit />
       }
     ]
   },
