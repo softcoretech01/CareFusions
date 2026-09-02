@@ -113,25 +113,37 @@ export const IPDDashboard = () => {
   const firstDay = `${today.split('-')[0]}-${today.split('-')[1]}-01`;
   const [dateFrom, setDateFrom] = useState(firstDay);
   const [dateTo, setDateTo] = useState(today);
+  const [appliedDateFrom, setAppliedDateFrom] = useState(firstDay);
+  const [appliedDateTo, setAppliedDateTo] = useState(today);
+
   const handleSearch = () => {
+    setAppliedDateFrom(dateFrom);
+    setAppliedDateTo(dateTo);
   };
 
   const handleReset = () => {
     setDateFrom(firstDay);
     setDateTo(today);
+    setAppliedDateFrom(firstDay);
+    setAppliedDateTo(today);
   };
 
-  const activePatients = patients.filter(p => p.status === 'Admitted' || p.status === 'Discharge Requested');
+  const isDateInRange = (dateString?: string) => {
+    if (!dateString) return true;
+    const d = dateString.split('T')[0];
+    return d >= appliedDateFrom && d <= appliedDateTo;
+  };
+
+  const activePatients = patients.filter(p => (p.status === 'Admitted' || p.status === 'Discharge Requested') && isDateInRange(p.admissionDate));
   const occupiedBeds = beds.filter(b => b.status === 'Occupied').length;
   const totalBeds = beds.length;
   const occupancyRate = totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : 0;
   
-  const pendingAdmissions = admissionRequests.filter(r => r.status === 'Pending').length;
+  const pendingAdmissions = admissionRequests.filter(r => r.status === 'Pending' && isDateInRange(String(r.requestDate))).length;
 
   // Analytics Calculations
-  const todayStr = new Date().toISOString().split('T')[0];
-  const admissionsToday = patients.filter(p => p.admissionDate.startsWith(todayStr)).length;
-  const dischargesToday = patients.filter(p => p.status === 'Discharged' /* && date check */).length; // Dummy
+  const admissionsInPeriod = patients.filter(p => isDateInRange(p.admissionDate)).length;
+  const dischargesInPeriod = patients.filter(p => p.status === 'Discharged' && (p.dischargeDate ? isDateInRange(p.dischargeDate) : isDateInRange(p.admissionDate))).length;
   
   // ALOS Calculation
   const alos = 4.2; // Dummy calculation
@@ -198,7 +210,7 @@ export const IPDDashboard = () => {
         { key: 'requestedBy', label: 'Requested By' },
         { key: 'status', label: 'Status' },
       ],
-      rows: admissionRequests.filter(r => r.status === 'Pending').map(r => ({
+      rows: admissionRequests.filter(r => r.status === 'Pending' && isDateInRange(String(r.requestDate))).map(r => ({
         requestDate: String(r.requestDate).split('T')[0], uhid: r.uhid, patientName: r.patientName,
         specialty: r.specialty, admissionType: r.admissionType, priority: r.priority,
         requestedBy: r.requestedBy, status: r.status,
@@ -399,15 +411,15 @@ export const IPDDashboard = () => {
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-bold text-lg text-slate-800">Admissions vs Discharges</h3>
             <div className="flex gap-4 text-sm font-bold">
-              <div className="flex items-center gap-1 text-green-600"><ArrowUpRight className="w-4 h-4"/> Admissions ({admissionsToday} today)</div>
-              <div className="flex items-center gap-1 text-red-500"><ArrowDownRight className="w-4 h-4"/> Discharges ({dischargesToday} today)</div>
+              <div className="flex items-center gap-1 text-green-600"><ArrowUpRight className="w-4 h-4"/> Admissions ({admissionsInPeriod} in period)</div>
+              <div className="flex items-center gap-1 text-red-500"><ArrowDownRight className="w-4 h-4"/> Discharges ({dischargesInPeriod} in period)</div>
             </div>
           </div>
           <Chart 
             options={barOptions} 
             series={[
-              { name: 'Admissions', data: [12, 18, 15, 22, 14, 25, admissionsToday] },
-              { name: 'Discharges', data: [10, 15, 12, 20, 15, 18, dischargesToday] }
+              { name: 'Admissions', data: [12, 18, 15, 22, 14, 25, admissionsInPeriod] },
+              { name: 'Discharges', data: [10, 15, 12, 20, 15, 18, dischargesInPeriod] }
             ]} 
             type="bar" 
             height={300} 
