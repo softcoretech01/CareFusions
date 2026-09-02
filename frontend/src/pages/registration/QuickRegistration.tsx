@@ -24,8 +24,7 @@ const initialFormState: Partial<GlobalPatientRecord> = {
   alternateMobile: '',
 
   visitType: 'OP',
-  department: '',
-  doctor: '',
+
   priority: 'Normal',
   visitReason: '',
 
@@ -45,7 +44,7 @@ export const QuickRegistration = () => {
   const [patients, setPatients] = useState<any[]>([]);
   const [options, setOptions] = useState<any>({
     Title: [], Gender: [], YesNo: [], Priority: [], VisitType: [],
-    Status: [], PaymentMode: [], Departments: [], Doctors: []
+    Status: [], PaymentMode: []
   });
 
   const fetchOptions = async () => {
@@ -75,8 +74,7 @@ export const QuickRegistration = () => {
           mobileNumber: d.MobileNumber,
           alternateMobile: d.AlternateMobile,
           visitType: d.VisitType,
-          department: d.Department,
-          doctor: d.Doctor,
+
           priority: d.Priority,
           visitReason: d.VisitReason,
           consultationRequired: d.ConsultationRequired,
@@ -109,7 +107,7 @@ export const QuickRegistration = () => {
   const [searchTerm, setSearchTerm] = useState('');
 
   const [filterVisitType, setFilterVisitType] = useState('');
-  const [filterDepartment, setFilterDepartment] = useState('');
+
   const [filterStatus, setFilterStatus] = useState('');
   const today = new Date().toISOString().split('T')[0];
   const firstDay = `${today.split('-')[0]}-${today.split('-')[1]}-01`;
@@ -130,7 +128,7 @@ export const QuickRegistration = () => {
     setAppliedDateFrom(firstDay);
     setAppliedDateTo(today);
     setFilterVisitType('');
-    setFilterDepartment('');
+
     setFilterStatus('');
   };
 
@@ -211,8 +209,7 @@ export const QuickRegistration = () => {
       MobileNumber: formData.mobileNumber,
       AlternateMobile: formData.alternateMobile || null,
       VisitType: formData.visitType || 'OP',
-      Department: formData.department || null,
-      Doctor: formData.doctor || null,
+
       Priority: formData.priority || 'Normal',
       VisitReason: formData.visitReason || null,
       ConsultationRequired: formData.consultationRequired || 'Yes',
@@ -305,13 +302,12 @@ export const QuickRegistration = () => {
       (record.mobileNumber || '').includes(searchLower);
 
     const matchesVisitType = !filterVisitType || record.visitType === filterVisitType;
-    const matchesDepartment = !filterDepartment || record.department === filterDepartment;
     const matchesStatus = !filterStatus || record.status === filterStatus;
 
     const recordDate = record.registrationDate ? record.registrationDate.substring(0, 10) : '';
     const matchesDate = (!appliedDateFrom || recordDate >= appliedDateFrom) && (!appliedDateTo || recordDate <= appliedDateTo);
 
-    return matchesSearch && matchesVisitType && matchesDepartment && matchesStatus && matchesDate;
+    return matchesSearch && matchesVisitType && matchesStatus && matchesDate;
   });
 
   return (

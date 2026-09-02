@@ -50,8 +50,7 @@ class QuickRegistrationBase(BaseModel):
     MobileNumber: str = Field(..., min_length=10, max_length=10, pattern=r"^\d{10}$")
     AlternateMobile: Optional[str] = Field(None, max_length=10)
     VisitType: VisitTypeEnum = VisitTypeEnum.op
-    Department: Optional[str] = Field(None, max_length=50)
-    Doctor: Optional[str] = Field(None, max_length=50)
+
     Priority: PriorityEnum = PriorityEnum.normal
     VisitReason: Optional[str] = Field(None, max_length=250)
     ConsultationRequired: YesNoEnum = YesNoEnum.yes
@@ -89,5 +88,4 @@ class QuickRegistrationOptions(BaseModel):
     VisitType: List[str]
     Status: List[str]
     PaymentMode: List[str]
-    Departments: List[str]
-    Doctors: List[str]
+

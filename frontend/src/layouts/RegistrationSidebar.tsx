@@ -15,7 +15,6 @@ interface NavItem {
 const navigation: NavItem[] = [
   { name: 'Dashboard', to: '/registration/reports', icon: LayoutDashboard },
   { name: 'Patient Registration', to: '/registration/new', icon: UserPlus },
-  { name: 'Quick Registration', to: '/registration/quick', icon: Zap },
   { name: 'Emergency Registration', to: '/registration/emergency', icon: Activity },
   { name: "Today's Registrations", to: '/registration/today', icon: CalendarDays },
   { name: 'Patient Documents', to: '/registration/documents', icon: FolderOpen },
