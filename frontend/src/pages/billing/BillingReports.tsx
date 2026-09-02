@@ -19,9 +19,11 @@ export const BillingReports = () => {
   const [, setPrescriptions] = useState<any[]>([]);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [ipBills, setIpBills] = useState<any[]>([]);
+  const [advances, setAdvances] = useState<any[]>([]);
 
   useEffect(() => {
     fetchBills();
+    fetchPaidAdvances();
     axios.get(`${API_BASE}/ip-billing/`).then(res => setIpBills(res.data)).catch(console.error);
   }, []);
 
@@ -101,7 +103,36 @@ export const BillingReports = () => {
     }
   };
 
-  const filteredBills = bills.filter(bill => {
+  // A collected advance disappears from the Advance Payments queue once it is paid, so surface it
+  // here as its own row type. It comes from Billing_Advance rather than Op/IpBill, which is all
+  // the billing-reports stored procedure knows about.
+  const fetchPaidAdvances = async () => {
+    try {
+      const { data } = await axios.get(`${API_BASE}/billing/advance/`, { params: { status: 'PAID' } });
+      setAdvances(data.map((a: any) => ({
+        BillNumber: a.AdvanceNo,
+        Type: 'ADV',
+        PatientId: a.UHID,
+        PatientName: a.PatientName || a.UHID,
+        Date: a.UpdatedAt || a.CreatedAt,
+        NetAmount: Number(a.PaidAmount ?? 0),
+        PaymentStatus: 'Paid',
+        Items: [],
+        isAdvance: true,
+        ServiceOrderId: a.ServiceOrderId,
+        PaymentMode: a.PaymentMode,
+        PaymentReference: a.PaymentReference,
+      })));
+    } catch (error) {
+      console.error('Failed to fetch paid advances', error);
+    }
+  };
+
+  const allBills = [...bills, ...advances].sort(
+    (a, b) => new Date(b.Date).getTime() - new Date(a.Date).getTime()
+  );
+
+  const filteredBills = allBills.filter(bill => {
     const billDate = new Date(bill.Date);
     const startDate = fromDate ? new Date(fromDate) : null;
     const endDate = toDate ? new Date(toDate) : null;
@@ -110,9 +141,10 @@ export const BillingReports = () => {
     
     const matchesFrom = !startDate || billDate >= startDate;
     const matchesTo = !endDate || billDate <= endDate;
-    const matchesSearch = 
-      bill.BillNumber.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      bill.PatientName.toLowerCase().includes(searchQuery.toLowerCase());
+    const q = searchQuery.toLowerCase();
+    const matchesSearch =
+      (bill.BillNumber || '').toLowerCase().includes(q) ||
+      (bill.PatientName || '').toLowerCase().includes(q);
 
     return matchesFrom && matchesTo && matchesSearch;
   });
@@ -217,11 +249,16 @@ export const BillingReports = () => {
                 ) : filteredBills.map(bill => {
                   const isPaid = bill.PaymentStatus === 'Paid';
                   const isIP = bill.Type === 'IP';
+                  const isAdvance = !!bill.isAdvance;
                   return (
                     <tr key={bill.BillNumber} className="hover:bg-slate-50/60 transition-colors">
                       <td className="px-6 py-4 font-mono font-semibold text-slate-900">{bill.BillNumber}</td>
                       <td className="px-6 py-4">
-                        <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${isIP ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                        <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${
+                          isAdvance ? 'bg-amber-100 text-amber-700'
+                            : isIP ? 'bg-purple-100 text-purple-700'
+                            : 'bg-blue-100 text-blue-700'
+                        }`}>
                           {bill.Type}
                         </span>
                       </td>
@@ -260,15 +297,21 @@ export const BillingReports = () => {
                           >
                             <Eye className="w-5 h-5" />
                           </button>
+                          {/* The print route resolves an Op/Ip bill number; an advance has no
+                              such bill behind it, so printing stays off for those rows. */}
                           <button
-                            onClick={() => isPaid && handlePrint(bill.BillNumber)}
-                            disabled={!isPaid}
+                            onClick={() => isPaid && !isAdvance && handlePrint(bill.BillNumber)}
+                            disabled={!isPaid || isAdvance}
                             className={`p-2 rounded-lg transition-all ${
-                              isPaid
+                              isPaid && !isAdvance
                                 ? 'text-primary hover:bg-primary/10 hover:shadow-sm cursor-pointer'
                                 : 'text-slate-300 cursor-not-allowed'
                             }`}
-                            title={isPaid ? 'Print Bill' : 'Mark as Paid to enable printing'}
+                            title={
+                              isAdvance ? 'Advance receipts are not printable from here'
+                                : isPaid ? 'Print Bill'
+                                : 'Mark as Paid to enable printing'
+                            }
                           >
                             <Printer className="w-5 h-5" />
                           </button>

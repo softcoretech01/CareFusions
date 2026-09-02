@@ -184,7 +184,20 @@ def get_registration_reports(start_date: str = None, end_date: str = None, db: S
             })
             
         cursor.close()
-        
+
+        # Counted here rather than inside SpGetRegistrationReports so the stored procedure stays
+        # untouched. Same date window as the other KPIs. Every sale counts, refunds included: the
+        # card reports how many bills were raised, not how much money stuck.
+        pharmacy_sql = "SELECT COUNT(*) FROM hospital.Pharmacy_Sale WHERE 1 = 1"
+        pharmacy_params = {}
+        if start_date:
+            pharmacy_sql += " AND DATE(SaleDate) >= :start_date"
+            pharmacy_params["start_date"] = start_date
+        if end_date:
+            pharmacy_sql += " AND DATE(SaleDate) <= :end_date"
+            pharmacy_params["end_date"] = end_date
+        kpis["pharmacyBills"] = db.execute(text(pharmacy_sql), pharmacy_params).scalar() or 0
+
         return {
             "kpis": kpis,
             "demographics": demographics,

@@ -3,6 +3,7 @@ import { Loader2, CheckCircle, IndianRupee } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { Card } from '../../components/ui/Card';
+import { DateFilter } from '../../components/ui/DateFilter';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 
@@ -23,6 +24,8 @@ const AdvancePayments = () => {
   const [bills, setBills] = useState<AdvanceBill[]>([]);
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState<number | null>(null);
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
 
   const fetchBills = async () => {
     try {
@@ -56,7 +59,17 @@ const AdvancePayments = () => {
     }
   };
 
-  const totalDue = bills.reduce((sum, b) => sum + (parseFloat(b.TotalAmount as any) || 0), 0);
+  // Filters on the date the advance was raised, which is the "Raised On" column.
+  const filteredBills = bills.filter(bill => {
+    const raised = new Date(bill.CreatedAt);
+    const start = fromDate ? new Date(fromDate) : null;
+    const end = toDate ? new Date(toDate) : null;
+    if (start) start.setHours(0, 0, 0, 0);
+    if (end) end.setHours(23, 59, 59, 999);
+    return (!start || raised >= start) && (!end || raised <= end);
+  });
+
+  const totalDue = filteredBills.reduce((sum, b) => sum + (parseFloat(b.TotalAmount as any) || 0), 0);
 
   if (loading) {
     return (
@@ -69,16 +82,28 @@ const AdvancePayments = () => {
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-10">
       <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Advance Payments</h1>
-          <p className="text-slate-500 text-sm mt-1">Manage PRO approved orders pending for advance payment.</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <h1 className="text-2xl font-bold text-slate-800 tracking-tight shrink-0">Advance Payments</h1>
+
+        {/* Opens unfiltered on purpose: an unnoticed default range would hide older
+            bills that are still waiting to be collected. */}
+        <DateFilter
+          label="Raised from :"
+          dateFrom={fromDate}
+          dateTo={toDate}
+          onDateFromChange={setFromDate}
+          onDateToChange={setToDate}
+          defaultDateFrom=""
+          defaultDateTo=""
+          onSearch={() => {}}
+          onReset={() => { setFromDate(''); setToDate(''); }}
+        />
+
+        <div className="flex flex-wrap items-center gap-3 shrink-0">
           <span className="bg-amber-50 text-amber-700 px-4 py-2 rounded-full font-medium text-sm flex items-center gap-2 border border-amber-200">
             <IndianRupee className="w-4 h-4" />
-            {bills.length} Bill{bills.length === 1 ? '' : 's'} Pending Payment
+            {filteredBills.length} Bill{filteredBills.length === 1 ? '' : 's'} Pending Payment
           </span>
-          {bills.length > 0 && (
+          {filteredBills.length > 0 && (
             <span className="bg-slate-50 text-slate-600 px-4 py-2 rounded-full font-medium text-sm border border-slate-200">
               Total Due <span className="font-bold text-slate-800">{inr(totalDue)}</span>
             </span>
@@ -86,16 +111,30 @@ const AdvancePayments = () => {
         </div>
       </div>
 
-      {bills.length === 0 ? (
+      {filteredBills.length === 0 ? (
         <Card className="p-12 text-center border-dashed border-2">
           <div className="w-16 h-16 bg-slate-50 text-slate-400 rounded-full flex items-center justify-center mx-auto mb-4">
             <CheckCircle className="w-8 h-8" />
           </div>
-          <h3 className="text-lg font-bold text-slate-800 mb-2">No Advance Payments Pending</h3>
-          <p className="text-slate-500 max-w-md mx-auto">
-            There are currently no PRO approved orders waiting for advance payment. When a PRO approves an order with a
-            patient responsibility, it will automatically appear here.
-          </p>
+          {bills.length === 0 ? (
+            <>
+              <h3 className="text-lg font-bold text-slate-800 mb-2">No Advance Payments Pending</h3>
+              <p className="text-slate-500 max-w-md mx-auto">
+                There are currently no PRO approved orders waiting for advance payment. When a PRO approves an order with a
+                patient responsibility, it will automatically appear here.
+              </p>
+            </>
+          ) : (
+            // Distinguishing these matters: "none in this range" and "none at all" mean very
+            // different things when money is still owed outside the selected dates.
+            <>
+              <h3 className="text-lg font-bold text-slate-800 mb-2">No Advance Payments In This Range</h3>
+              <p className="text-slate-500 max-w-md mx-auto">
+                {bills.length} pending bill{bills.length === 1 ? '' : 's'} exist outside the selected dates. Clear the
+                date filter to see {bills.length === 1 ? 'it' : 'them'}.
+              </p>
+            </>
+          )}
         </Card>
       ) : (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
@@ -113,7 +152,7 @@ const AdvancePayments = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {bills.map((bill) => (
+                {filteredBills.map((bill) => (
                   <tr key={bill.AdvanceId} className="hover:bg-slate-50/60 transition-colors">
                     <td className="px-6 py-4 font-mono font-semibold text-slate-800">{bill.AdvanceNo}</td>
                     <td className="px-6 py-4 text-slate-600">{bill.UHID}</td>

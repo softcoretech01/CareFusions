@@ -500,7 +500,10 @@ export const DoctorConsultation = () => {
       admissionType: admitForm.type,
       priority: admitForm.priority,
       admissionReason: admitForm.admissionReason,
-      requestedBy: 'Dr. on duty'
+      // The consulting doctor is the one recommending the admission. Sending the literal
+      // "Dr. on duty" matched nobody in the doctor master, so the admission desk showed a
+      // placeholder and New Admission could not pre-select an admitting doctor.
+      requestedBy: visit.doctorName || 'Dr. on duty'
     });
 
     // Auto-finalise, but only if the visit is still open. This used to run

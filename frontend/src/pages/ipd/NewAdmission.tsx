@@ -9,6 +9,12 @@ import toast from 'react-hot-toast';
 
 const API_BASE = import.meta.env.VITE_API_URL as string || 'http://localhost:8000/api/v1';
 
+// Union of what OPD's "Recommend Admission" can send and what this form has always offered.
+const ADMISSION_TYPES = ['General', 'Day Care', 'Surgical', 'ICU', 'Maternity'];
+
+// "Dr. Charu", "dr charu " and "Charu" all name the same doctor.
+const normaliseDoctorName = (name: string) => (name || '').replace(/^dr\.?\s*/i, '').trim().toLowerCase();
+
 export const NewAdmission = () => {
   const { state } = useLocation();
   const navigate = useNavigate();
@@ -84,7 +90,8 @@ export const NewAdmission = () => {
         ...prev,
         uhid: req.uhid,
         patientName: req.patientName,
-        admittingDoctor: req.requestedBy,
+        // admittingDoctor is filled by the doctor-matching effect below, which only accepts a
+        // requester that resolves to a real doctor.
         specialty: req.specialty,
         admissionType: req.admissionType,
         priority: req.priority,
@@ -92,6 +99,50 @@ export const NewAdmission = () => {
       }));
     }
   }, [state]);
+
+  // The request records the requesting doctor as free text ("Dr. Charu"), while the picker is
+  // keyed by the doctor master's exact name ("Charu"), so a plain equality check never matched
+  // and the field fell back to "Select Doctor". Match on a normalised form instead, and upgrade
+  // the raw text to the master's spelling once the schedules finish loading — but only while the
+  // field still holds the raw text, so a manual pick is never overwritten.
+  const requestedDoctor = (state?.request?.requestedBy || '').trim();
+  const requestedSpecialty = (state?.request?.specialty || '').trim();
+
+  const matchedDoctorName = useMemo(() => {
+    if (!requestedDoctor) return '';
+    const target = normaliseDoctorName(requestedDoctor);
+    return doctorSchedules.find(d => normaliseDoctorName(d.name) === target)?.name || '';
+  }, [requestedDoctor, doctorSchedules]);
+
+  // Only a requester that resolves to a real doctor is pre-selected. Older requests stored the
+  // placeholder "Dr. on duty", which names nobody — leave the field empty in that case so the
+  // clerk has to pick an actual admitting doctor rather than admitting the patient under a
+  // string that no doctor record backs.
+  // Re-runs when the schedules finish loading, so a match found late still lands. The ref stops
+  // it from clobbering a pick the clerk has already made.
+  const doctorPicked = useRef(false);
+
+  useEffect(() => {
+    if (!requestedDoctor || doctorPicked.current) return;
+    setForm(prev => (prev.admittingDoctor === matchedDoctorName
+      ? prev
+      : { ...prev, admittingDoctor: matchedDoctorName }));
+  }, [requestedDoctor, matchedDoctorName]);
+
+  const doctorOptions = useMemo(
+    () => doctorSchedules.map(doc => ({ key: String(doc.id), name: doc.name })),
+    [doctorSchedules]
+  );
+
+  // OPD offers General / Day Care / ICU while this form offered General / Surgical / ICU /
+  // Maternity, so a "Day Care" request landed on a value with no matching option. Cover both
+  // lists, and keep any other incoming value rather than silently showing something else.
+  const admissionTypeOptions = useMemo(() => {
+    const current = (form.admissionType || '').trim();
+    return current && !ADMISSION_TYPES.includes(current)
+      ? [...ADMISSION_TYPES, current]
+      : ADMISSION_TYPES;
+  }, [form.admissionType]);
 
   // The admission request only carries UHID/name/clinical fields — it has no
   // age, gender or blood group. Pull those from the registered-patient record
@@ -336,32 +387,40 @@ export const NewAdmission = () => {
               <select 
                 value={form.admittingDoctor} 
                 onChange={e => {
+                  doctorPicked.current = true;
                   const docName = e.target.value;
                   const doc = doctorSchedules.find(d => d.name === docName);
-                  setForm({ 
-                    ...form, 
+                  setForm({
+                    ...form,
                     admittingDoctor: docName,
-                    specialty: doc ? doc.dept : form.specialty
+                    // The specialty the consulting doctor asked for is the clinical decision, so
+                    // it survives whoever ends up admitting the patient. Only a direct admission,
+                    // which carries no requested specialty, defaults to the doctor's department.
+                    specialty: requestedSpecialty || (doc ? doc.dept : form.specialty),
                   });
-                }} 
+                }}
                 className={fieldCls('admittingDoctor')}
               >
                 <option value="">Select Doctor</option>
-                {doctorSchedules.map(doc => (
-                  <option key={doc.id} value={doc.name}>{doc.name}</option>
+                {doctorOptions.map(doc => (
+                  <option key={doc.key} value={doc.name}>{doc.name}</option>
                 ))}
               </select>
               <Err f="admittingDoctor" />
             </div>
             <div>
               <label className={labelCls}>Specialty <span className="text-red-500">*</span></label>
-              <input type="text" maxLength={100} value={form.specialty} onChange={e => setForm({ ...form, specialty: e.target.value })} className={fieldCls('specialty')} disabled={!!form.admittingDoctor} />
+              {/* Locked only while the doctor's department is filling this in — a requested
+                  specialty is the clerk's to correct if it is wrong. */}
+              <input type="text" maxLength={100} value={form.specialty} onChange={e => setForm({ ...form, specialty: e.target.value })} className={fieldCls('specialty')} disabled={!requestedSpecialty && !!form.admittingDoctor} />
               <Err f="specialty" />
             </div>
             <div>
               <label className={labelCls}>Admission Type</label>
               <select value={form.admissionType} onChange={e => setForm({ ...form, admissionType: e.target.value })} className={fieldCls()}>
-                <option>General</option><option>Surgical</option><option>ICU</option><option>Maternity</option>
+                {admissionTypeOptions.map(type => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
               </select>
             </div>
             <div>
