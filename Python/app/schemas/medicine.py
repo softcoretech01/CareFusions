@@ -9,7 +9,7 @@ class MedicineCreate(BaseModel):
     categoryId:     int
     # Second level of the same tree items use, from Master_SubCategory.
     subCategoryId:  Optional[int] = None
-    manufacturer:   str
+    manufacturerId: Optional[int] = None
     strength:       str
     dosageForm:     str
     unit:           str
@@ -41,6 +41,7 @@ class MedicineResponse(BaseModel):
     category:       Optional[str] = None
     subCategoryId:  Optional[int] = None
     subCategory:    Optional[str] = None
+    manufacturerId: Optional[int] = None
     manufacturer:   Optional[str] = None
     strength:       str
     dosageForm:     str

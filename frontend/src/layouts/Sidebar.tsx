@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
-import { LayoutDashboard, Building2, UserCog, Microscope, ActivitySquare, ShieldCheck, PackageSearch, Landmark, Lock, BellRing, Sparkles, History, ChevronRight, ChevronDown, Stethoscope, Scissors } from 'lucide-react';
+import { LayoutDashboard, Building2, UserCog, Microscope, ActivitySquare, ShieldCheck, PackageSearch, Landmark, Lock, BellRing, Sparkles, History, ChevronRight, ChevronDown, Stethoscope, Scissors, CalendarClock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePermissions } from '../hooks/usePermissions';
 import { useAppDispatch } from '../hooks/redux';
@@ -36,12 +36,17 @@ const navigation: NavItem[] = [
 
   {
     name: 'Employee', icon: UserCog, children: [
-      { name: 'Doctors', to: '/admin/masters/doctor' },
+      { name: 'Doctors', to: '/admin/masters/doctor', module: 'Doctor' },
       { name: 'Nurse', to: '/admin/masters/nurse' },
       { name: 'Pharmacist', to: '/admin/masters/pharmacist' },
       { name: 'Lab Technician', to: '/admin/masters/lab-technician' },
       { name: 'Receptionist', to: '/admin/masters/receptionist' },
       { name: 'Housekeeping', to: '/admin/masters/housekeeping' },
+    ]
+  },
+  {
+    name: 'Schedule', icon: CalendarClock, module: 'Doctor', children: [
+      { name: 'Doctor Schedules', to: '/admin/masters/doctor-schedules', module: 'Doctor' },
     ]
   },
 

@@ -31,8 +31,7 @@ def _call_sp(db: Session, opt: str, payload: dict = None, record_id: int = None)
         "p_MobileNumber": payload.get("MobileNumber") if payload else None,
         "p_AlternateMobile": payload.get("AlternateMobile") if payload else None,
         "p_VisitType": payload.get("VisitType") if payload else None,
-        "p_Department": payload.get("Department") if payload else None,
-        "p_Doctor": payload.get("Doctor") if payload else None,
+
         "p_Priority": payload.get("Priority") if payload else None,
         "p_VisitReason": payload.get("VisitReason") if payload else None,
         "p_ConsultationRequired": payload.get("ConsultationRequired") if payload else None,
@@ -53,7 +52,7 @@ def _call_sp(db: Session, opt: str, payload: dict = None, record_id: int = None)
         CALL registration.{SP_NAME}(
             :p_Opt, :p_QuickRegistrationId, :p_RegistrationDate, :p_RegistrationTime, :p_Title,
             :p_PatientName, :p_Gender, :p_DateOfBirth, :p_Age, :p_MobileNumber,
-            :p_AlternateMobile, :p_VisitType, :p_Department, :p_Doctor, :p_Priority,
+            :p_AlternateMobile, :p_VisitType, :p_Priority,
             :p_VisitReason, :p_ConsultationRequired, :p_ConsultationFee, :p_PaymentMode,
             :p_InsuranceRequired, :p_InsuranceProvider, :p_Tpa, :p_PolicyNumber, :p_ValidTill,
             :p_Status, :p_Remarks, :p_CreatedBy, :p_ModifiedBy
@@ -78,17 +77,6 @@ def get_options(db: Session = Depends(get_db)):
     departments = []
     doctors = []
     
-    try:
-        dept_res = db.execute(text("SELECT DepartmentName FROM admin.Master_Department WHERE Status = 'Active' OR Status = 'ACTIVE'"))
-        departments = [row[0] for row in dept_res.fetchall()]
-    except Exception as e:
-        print("Error fetching departments:", e)
-        
-    try:
-        doc_res = db.execute(text("SELECT DoctorName FROM admin.Master_Doctor_Header WHERE Status = 'Active' OR Status = 'ACTIVE'"))
-        doctors = [row[0] for row in doc_res.fetchall()]
-    except Exception as e:
-        print("Error fetching doctors:", e)
 
     return QuickRegistrationOptions(
         Title=[e.value for e in TitleEnum],
@@ -97,9 +85,7 @@ def get_options(db: Session = Depends(get_db)):
         Priority=[e.value for e in PriorityEnum],
         VisitType=[e.value for e in VisitTypeEnum],
         Status=[e.value for e in StatusEnum],
-        PaymentMode=[e.value for e in PaymentModeEnum],
-        Departments=departments,
-        Doctors=doctors
+        PaymentMode=[e.value for e in PaymentModeEnum]
     )
 
 @router.get("/", response_model=List[QuickRegistrationResponse])

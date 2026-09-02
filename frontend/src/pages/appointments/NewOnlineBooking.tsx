@@ -602,7 +602,7 @@ export const NewOnlineBooking = () => {
                 <div className="grid grid-cols-3 gap-2">
                   {timeSlots.length === 0 && (
                     <p className="col-span-3 text-sm text-slate-400 text-center py-6 border-2 border-dashed border-slate-200 rounded-xl">
-                      No slots — this doctor has no session times configured. Set them in Doctor Schedules.
+                      No slots — this doctor has no session times configured. Set them in Admin &gt; Employee &gt; Doctor Schedules.
                     </p>
                   )}
                   {timeSlots.map(time => {

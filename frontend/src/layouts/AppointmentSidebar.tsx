@@ -9,9 +9,6 @@ const navigation = [
   { name: 'Dashboard', to: '/appointments', icon: LayoutDashboard },
   { name: 'Online Booking', to: '/appointments/online-booking', icon: Globe },
   { name: 'Walk-in Booking', to: '/appointments/list', icon: CalendarPlus },
-  { name: 'Doctor Schedules', to: '/appointments/schedules', icon: Stethoscope },
-  { name: 'Queue Management', to: '/appointments/queue', icon: ListOrdered },
-  { name: 'Reschedule/Cancel', to: '/appointments/reschedule', icon: CalendarClock },
 ];
 
 export const AppointmentSidebar = () => {

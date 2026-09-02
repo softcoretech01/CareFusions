@@ -29,6 +29,7 @@ const AppointmentList = lazy(() => import('../pages/appointments/AppointmentList
 const NewAppointment = lazy(() => import('../pages/appointments/NewAppointment').then(m => ({ default: (m as any).NewAppointment ?? (m as any).default })));
 const OnlineBooking = lazy(() => import('../pages/appointments/OnlineBooking').then(m => ({ default: (m as any).OnlineBooking ?? (m as any).default })));
 const NewOnlineBooking = lazy(() => import('../pages/appointments/NewOnlineBooking').then(m => ({ default: (m as any).NewOnlineBooking ?? (m as any).default })));
+const BookAppointment = lazy(() => import('../pages/appointments/BookAppointment').then(m => ({ default: (m as any).BookAppointment ?? (m as any).default })));
 const DoctorSchedules = lazy(() => import('../pages/appointments/DoctorSchedules').then(m => ({ default: (m as any).DoctorSchedules ?? (m as any).default })));
 const QueueManagement = lazy(() => import('../pages/appointments/QueueManagement').then(m => ({ default: (m as any).QueueManagement ?? (m as any).default })));
 const WaitingList = lazy(() => import('../pages/appointments/WaitingList').then(m => ({ default: (m as any).WaitingList ?? (m as any).default })));
@@ -262,6 +263,14 @@ export const router = createBrowserRouter([
         element: <VisitHistory />
       },
       {
+        path: 'queue',
+        element: <QueueManagement />
+      },
+      {
+        path: 'reschedule',
+        element: <RescheduleCancel />
+      },
+      {
         path: 'reports',
         element: <RegistrationReports />
       },
@@ -296,24 +305,16 @@ export const router = createBrowserRouter([
         element: <NewOnlineBooking />
       },
       {
+        path: 'book-existing',
+        element: <BookAppointment />
+      },
+      {
         path: 'list',
         element: <AppointmentList />
       },
       {
-        path: 'schedules',
-        element: <DoctorSchedules />
-      },
-      {
-        path: 'queue',
-        element: <QueueManagement />
-      },
-      {
         path: 'waiting-list',
         element: <WaitingList />
-      },
-      {
-        path: 'reschedule',
-        element: <RescheduleCancel />
       },
       {
         path: 'history',
@@ -517,8 +518,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'alerts',
-        element: <LabAlerts />
-      },
+},
       {
         path: 'qc',
         element: <LabQualityControl />
@@ -653,6 +653,7 @@ export const router = createBrowserRouter([
       { path: 'admin/masters/department', element: <DepartmentMaster /> },
       { path: 'admin/masters/ward-charge', element: <WardChargeMaster /> },
       { path: 'admin/masters/doctor', element: <DoctorMaster /> },
+      { path: 'admin/masters/doctor-schedules', element: <DoctorSchedules /> },
       { path: 'admin/masters/doctor-specialization', element: <DoctorSpecializationMaster /> },
       { path: 'admin/masters/nurse', element: <NurseMaster /> },
       { path: 'admin/masters/pharmacist', element: <PharmacistMaster /> },
