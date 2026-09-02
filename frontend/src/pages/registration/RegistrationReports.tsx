@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { LineChart, PieChart, Users, Activity, Heart, Shield, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { LineChart, PieChart, Users, Activity, Heart, Shield, Pill, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useEffect } from 'react';
 import ReactApexChart from 'react-apexcharts';
 import { DateFilter } from '../../components/ui/DateFilter';
@@ -61,6 +61,7 @@ export const RegistrationReports = () => {
   const opPatients = reportData?.kpis?.opPatients || 0;
   const emergencyPatients = reportData?.kpis?.emergencyPatients || 0;
   const ipPatients = reportData?.kpis?.ipPatients || 0;
+  const pharmacyBills = reportData?.kpis?.pharmacyBills || 0;
 
   const trendLabels = reportData?.trends?.map((t: any) => {
     if (!t.date) return '';
@@ -131,12 +132,12 @@ export const RegistrationReports = () => {
 
       <div className="flex-1 overflow-y-auto custom-scrollbar space-y-8 pr-2">
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 xl:gap-6">
           <div 
             onClick={() => setActiveView(activeView === 'TOTAL' ? 'NONE' : 'TOTAL')}
-            className={`bg-white rounded-3xl p-6 border ${activeView === 'TOTAL' ? 'border-blue-500 ring-4 ring-blue-50' : 'border-slate-100'} shadow-sm flex items-center gap-4 hover:shadow-md transition-all cursor-pointer`}
+            className={`bg-white rounded-3xl p-6 border ${activeView === 'TOTAL' ? 'border-blue-500 ring-4 ring-blue-50' : 'border-slate-100'} shadow-sm flex items-center gap-3 xl:gap-4 hover:shadow-md transition-all cursor-pointer`}
           >
-            <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
+            <div className="w-12 h-12 xl:w-14 xl:h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
               <Users className="w-7 h-7" />
             </div>
             <div>
@@ -147,9 +148,9 @@ export const RegistrationReports = () => {
 
           <div 
             onClick={() => setActiveView(activeView === 'OP' ? 'NONE' : 'OP')}
-            className={`bg-white rounded-3xl p-6 border ${activeView === 'OP' ? 'border-emerald-500 ring-4 ring-emerald-50' : 'border-slate-100'} shadow-sm flex items-center gap-4 hover:shadow-md transition-all cursor-pointer`}
+            className={`bg-white rounded-3xl p-6 border ${activeView === 'OP' ? 'border-emerald-500 ring-4 ring-emerald-50' : 'border-slate-100'} shadow-sm flex items-center gap-3 xl:gap-4 hover:shadow-md transition-all cursor-pointer`}
           >
-            <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+            <div className="w-12 h-12 xl:w-14 xl:h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
               <Activity className="w-7 h-7" />
             </div>
             <div>
@@ -160,9 +161,9 @@ export const RegistrationReports = () => {
 
           <div 
             onClick={() => setActiveView(activeView === 'EMERGENCY' ? 'NONE' : 'EMERGENCY')}
-            className={`bg-white rounded-3xl p-6 border ${activeView === 'EMERGENCY' ? 'border-orange-500 ring-4 ring-orange-50' : 'border-slate-100'} shadow-sm flex items-center gap-4 hover:shadow-md transition-all cursor-pointer`}
+            className={`bg-white rounded-3xl p-6 border ${activeView === 'EMERGENCY' ? 'border-orange-500 ring-4 ring-orange-50' : 'border-slate-100'} shadow-sm flex items-center gap-3 xl:gap-4 hover:shadow-md transition-all cursor-pointer`}
           >
-            <div className="w-14 h-14 rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center">
+            <div className="w-12 h-12 xl:w-14 xl:h-14 rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center">
               <Heart className="w-7 h-7" />
             </div>
             <div>
@@ -173,14 +174,26 @@ export const RegistrationReports = () => {
 
           <div 
             onClick={() => setActiveView(activeView === 'IP' ? 'NONE' : 'IP')}
-            className={`bg-white rounded-3xl p-6 border ${activeView === 'IP' ? 'border-purple-500 ring-4 ring-purple-50' : 'border-slate-100'} shadow-sm flex items-center gap-4 hover:shadow-md transition-all cursor-pointer`}
+            className={`bg-white rounded-3xl p-6 border ${activeView === 'IP' ? 'border-purple-500 ring-4 ring-purple-50' : 'border-slate-100'} shadow-sm flex items-center gap-3 xl:gap-4 hover:shadow-md transition-all cursor-pointer`}
           >
-            <div className="w-14 h-14 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center">
+            <div className="w-12 h-12 xl:w-14 xl:h-14 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center">
               <Shield className="w-7 h-7" />
             </div>
             <div>
               <div className="text-slate-500 text-sm font-medium mb-1">IP Admissions</div>
               <div className="text-3xl font-bold text-slate-800">{ipPatients}</div>
+            </div>
+          </div>
+
+          {/* Not clickable like the others: the list below holds registrations, and a pharmacy
+              bill has no registration row to filter it down to. */}
+          <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm flex items-center gap-3 xl:gap-4">
+            <div className="w-12 h-12 xl:w-14 xl:h-14 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center">
+              <Pill className="w-7 h-7" />
+            </div>
+            <div>
+              <div className="text-slate-500 text-sm font-medium mb-1">Pharmacy Bills</div>
+              <div className="text-3xl font-bold text-slate-800">{pharmacyBills}</div>
             </div>
           </div>
         </div>

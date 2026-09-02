@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException
-from typing import List
+from fastapi import APIRouter, Depends, HTTPException, Query
+from typing import List, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from ..database import get_db
@@ -10,6 +10,50 @@ router = APIRouter(
     prefix="/billing/advance",
     tags=["Advance Billing"]
 )
+
+@router.get("")
+@router.get("/")
+def list_advance_bills(
+    status: Optional[str] = Query(None, description="Filter by Status, e.g. PAID or PENDING"),
+    db: Session = Depends(get_db),
+):
+    """
+    All advance bills, newest first. The billing reports screen reads the PAID ones so a
+    collected advance stays visible after it drops off the pending list.
+
+    Billing_Advance holds only a UHID, so the patient name is resolved the same way the PRO
+    screens do: the patient master first, then the most recent lab/radiology order for that UHID.
+    """
+    try:
+        where = ["adv.IsDeleted = 0"]
+        params = {}
+        if status:
+            where.append("adv.Status = :status")
+            params["status"] = status
+
+        query = text(f"""
+            SELECT adv.*,
+                   COALESCE(
+                       p.PatientName,
+                       (SELECT x.PatientName
+                          FROM (
+                              SELECT Uhid, PatientName, OrderedAt FROM hospital.Lab_Order
+                              UNION ALL
+                              SELECT Uhid, PatientName, OrderedAt FROM hospital.Rad_Order
+                          ) x
+                         WHERE x.Uhid = adv.UHID AND NULLIF(TRIM(x.PatientName), '') IS NOT NULL
+                         ORDER BY x.OrderedAt DESC
+                         LIMIT 1)
+                   ) AS PatientName
+            FROM hospital.Billing_Advance adv
+            LEFT JOIN registration.Patient p ON p.Uhid = adv.UHID
+            WHERE {' AND '.join(where)}
+            ORDER BY adv.AdvanceId DESC
+        """)
+        rows = db.execute(query, params).fetchall()
+        return [dict(r._mapping) for r in rows]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/pending", response_model=List[schemas.AdvanceBillResponse])
 def get_pending_advance_bills(db: Session = Depends(get_db)):

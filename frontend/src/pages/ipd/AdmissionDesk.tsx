@@ -5,6 +5,11 @@ import { Clock, CheckCircle } from 'lucide-react';
 import { DateFilter } from '../../components/ui/DateFilter';
 import { IpdErrorBanner } from './IpdErrorBanner';
 
+// Values older requests stored in place of a doctor. None of them is a person.
+const DOCTOR_PLACEHOLDERS = ['dr. on duty', 'dr on duty', 'on duty', 'doctor', 'n/a'];
+const isNamedDoctor = (name?: string) =>
+  !!name?.trim() && !DOCTOR_PLACEHOLDERS.includes(name.trim().toLowerCase());
+
 export const AdmissionDesk = () => {
   const { admissionRequests, refreshAll } = useIPD();
 
@@ -108,7 +113,11 @@ export const AdmissionDesk = () => {
                     <td className="px-4 py-3 text-sm text-slate-600">{req.specialty}</td>
                     <td className="px-4 py-3 text-sm font-bold text-slate-700">{req.admissionType}</td>
                     <td className="px-4 py-3 text-sm text-slate-600">
-                      {req.requestedBy}
+                      {/* Older requests stored the placeholder "Dr. on duty", which names no
+                          actual doctor — show it as unrecorded rather than as a person. */}
+                      {isNamedDoctor(req.requestedBy)
+                        ? req.requestedBy
+                        : <span className="text-slate-400 italic text-xs">Not recorded</span>}
                     </td>
                     <td className="px-4 py-3">
                       {req.admissionReason ? <div className="text-xs text-indigo-500 truncate max-w-[200px]">Reason: {req.admissionReason}</div> : <span className="text-slate-400 italic text-xs">No specific details</span>}

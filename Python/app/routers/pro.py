@@ -226,8 +226,24 @@ def approve_pro_order(order_id: int, payload: pro_schema.PROOrderApproveRequest,
                 if payload.AdvanceAmount is not None and payload.AdvanceAmount > 0:
                     advance_amount = min(float(payload.AdvanceAmount), float(total_patient_resp))
 
-                advance_no = f"ADV-{order_id}-{int(datetime.now().timestamp())}"
-                db.execute(text("INSERT INTO hospital.Billing_Advance (AdvanceNo, ServiceOrderId, UHID, TotalAmount, Status) VALUES (:AdvanceNo, :ServiceOrderId, :UHID, :TotalAmount, 'PENDING')"), {"AdvanceNo": advance_no, "ServiceOrderId": order_id, "UHID": uhid, "TotalAmount": advance_amount})
+                # Re-approving an order used to raise a second advance bill, so one order could
+                # end up with several rows and appear to owe a multiple of its real amount. An
+                # order gets one outstanding advance: re-approval re-prices the existing row.
+                existing = db.execute(text("""
+                    SELECT AdvanceId FROM hospital.Billing_Advance
+                    WHERE ServiceOrderId = :order_id AND IsDeleted = 0 AND Status <> 'PAID'
+                    ORDER BY AdvanceId DESC LIMIT 1
+                """), {"order_id": order_id}).fetchone()
+
+                if existing:
+                    db.execute(text("""
+                        UPDATE hospital.Billing_Advance
+                        SET TotalAmount = :TotalAmount, UpdatedAt = NOW()
+                        WHERE AdvanceId = :AdvanceId
+                    """), {"TotalAmount": advance_amount, "AdvanceId": existing.AdvanceId})
+                else:
+                    advance_no = f"ADV-{order_id}-{int(datetime.now().timestamp())}"
+                    db.execute(text("INSERT INTO hospital.Billing_Advance (AdvanceNo, ServiceOrderId, UHID, TotalAmount, Status) VALUES (:AdvanceNo, :ServiceOrderId, :UHID, :TotalAmount, 'PENDING')"), {"AdvanceNo": advance_no, "ServiceOrderId": order_id, "UHID": uhid, "TotalAmount": advance_amount})
 
                 log_pro_audit(
                     db, order_id, None, uhid, 'ADVANCE_SET',
@@ -395,26 +411,55 @@ def record_advance_payment(order_id: int, payload: pro_schema.AdvancePaymentRequ
             
         uhid = order.UHID
         
-        # Check existing advance or create new
-        advance_no = f"REC-{order_id}-{int(datetime.now().timestamp())}"
-        db.execute(text("""
-            INSERT INTO hospital.Billing_Advance (
-                AdvanceNo, ServiceOrderId, UHID, TotalAmount, PaidAmount, PaymentMode, PaymentReference, Status, CreatedAt
-            ) VALUES (
-                :AdvanceNo, :ServiceOrderId, :UHID, :TotalAmount, :PaidAmount, :PaymentMode, :PaymentReference, 'PAID', NOW()
-            )
-        """), {
-            "AdvanceNo": advance_no,
-            "ServiceOrderId": order_id,
-            "UHID": uhid,
-            "TotalAmount": payload.TotalAmount,
-            "PaidAmount": payload.PaidAmount,
-            "PaymentMode": payload.PaymentMode,
-            "PaymentReference": payload.PaymentReference or ""
-        })
-        
+        # Settle the advance the approval already raised rather than inserting a second row.
+        # This comment always said "check existing advance or create new" but never checked, so
+        # every manual payment left a duplicate REC- row alongside the original ADV- one and the
+        # order looked like it had collected twice.
+        existing = db.execute(text("""
+            SELECT AdvanceId, AdvanceNo FROM hospital.Billing_Advance
+            WHERE ServiceOrderId = :order_id AND IsDeleted = 0 AND Status <> 'PAID'
+            ORDER BY AdvanceId DESC LIMIT 1
+        """), {"order_id": order_id}).fetchone()
+
+        pay_is_full = float(payload.PaidAmount) >= float(payload.TotalAmount)
+
+        if existing:
+            advance_no = existing.AdvanceNo
+            db.execute(text("""
+                UPDATE hospital.Billing_Advance
+                SET TotalAmount = :TotalAmount, PaidAmount = :PaidAmount,
+                    PaymentMode = :PaymentMode, PaymentReference = :PaymentReference,
+                    Status = :Status, UpdatedAt = NOW()
+                WHERE AdvanceId = :AdvanceId
+            """), {
+                "TotalAmount": payload.TotalAmount,
+                "PaidAmount": payload.PaidAmount,
+                "PaymentMode": payload.PaymentMode,
+                "PaymentReference": payload.PaymentReference or "",
+                "Status": 'PAID' if pay_is_full else 'PARTIALLY_PAID',
+                "AdvanceId": existing.AdvanceId,
+            })
+        else:
+            advance_no = f"REC-{order_id}-{int(datetime.now().timestamp())}"
+            db.execute(text("""
+                INSERT INTO hospital.Billing_Advance (
+                    AdvanceNo, ServiceOrderId, UHID, TotalAmount, PaidAmount, PaymentMode, PaymentReference, Status, CreatedAt
+                ) VALUES (
+                    :AdvanceNo, :ServiceOrderId, :UHID, :TotalAmount, :PaidAmount, :PaymentMode, :PaymentReference, :Status, NOW()
+                )
+            """), {
+                "AdvanceNo": advance_no,
+                "ServiceOrderId": order_id,
+                "UHID": uhid,
+                "TotalAmount": payload.TotalAmount,
+                "PaidAmount": payload.PaidAmount,
+                "PaymentMode": payload.PaymentMode,
+                "PaymentReference": payload.PaymentReference or "",
+                "Status": 'PAID' if pay_is_full else 'PARTIALLY_PAID',
+            })
+
         # If paid in full or partial, update payment status
-        is_full = payload.PaidAmount >= payload.TotalAmount
+        is_full = pay_is_full
         pay_status = 'PAID' if is_full else 'PARTIALLY_PAID'
         fin_status = 'CLEARED' if is_full else 'PARTIALLY_CLEARED'
         
