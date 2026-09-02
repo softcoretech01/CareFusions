@@ -5,7 +5,7 @@ import {
   ClipboardList, Activity, BarChart2, AlertCircle, Loader
 } from 'lucide-react';
 
-const API = 'http://localhost:8000/api/v1/pro';
+const API = (import.meta.env.VITE_API_URL as string || 'http://localhost:8000/api/v1') + '/pro';
 
 const StatCard = ({
   title, value, icon: Icon, color, onClick

@@ -3,12 +3,12 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
-  Search, X, CheckCircle, XCircle, Loader,
-  AlertCircle, ChevronRight, FileText, User, Pencil, Wallet, Layers,
+  Search, X, CheckCircle, XCircle, Loader, Calendar,
+  AlertCircle, ChevronRight, FileText, User, Pencil, Layers,
   Stethoscope, BedDouble, Activity,
 } from 'lucide-react';
 
-const API = 'http://localhost:8000/api/v1/pro';
+const API = (import.meta.env.VITE_API_URL as string || 'http://localhost:8000/api/v1') + '/pro';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const num = (v: any) => parseFloat(v ?? 0) || 0;
@@ -44,24 +44,6 @@ const StatusBadge = ({ status }: { status?: string }) => {
   );
 };
 
-const AMOUNT_TONES = {
-  slate: { wrap: 'bg-slate-50 border-slate-100', label: 'text-slate-400', value: 'text-slate-700' },
-  orange: { wrap: 'bg-orange-50/70 border-orange-200', label: 'text-orange-500', value: 'text-orange-700' },
-};
-
-const AmountTile = ({
-  label, value, tone = 'slate', hint,
-}: { label: string; value: string; tone?: keyof typeof AMOUNT_TONES; hint?: string }) => {
-  const t = AMOUNT_TONES[tone];
-  return (
-    <div className={`rounded-xl border p-3 ${t.wrap}`}>
-      <p className={`text-[11px] font-semibold uppercase tracking-wide mb-1 ${t.label}`}>{label}</p>
-      <p className={`text-base font-bold ${t.value}`}>{value}</p>
-      {hint ? <p className={`text-[11px] mt-0.5 ${t.label}`}>{hint}</p> : null}
-    </div>
-  );
-};
-
 const InfoRow = ({ label, value }: { label: string; value: any }) => (
   <div className="min-w-0">
     <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{label}</p>
@@ -79,19 +61,29 @@ const ReviewModal = ({
   const multi = orders.length > 1;
 
   const orderTotals = useMemo(() => orders.map(orderTotal), [orders]);
-  const total = useMemo(() => orderTotals.reduce((a, b) => a + b, 0), [orderTotals]);
   const itemCount = useMemo(() => orders.reduce((n, o) => n + (o.Items?.length ?? 0), 0), [orders]);
 
-  const [advance, setAdvance] = useState(0);
+  const [editedPrices, setEditedPrices] = useState<Record<number, number>>({});
+
+  useEffect(() => {
+    const initial: Record<number, number> = {};
+    orders.forEach(o => {
+      (o.Items ?? []).forEach((it: any) => {
+        initial[it.ServiceOrderItemId] = lineAmount(it);
+      });
+    });
+    setEditedPrices(initial);
+  }, [orders]);
+
   const [saving, setSaving] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
 
-  // Default the up-front collection to the whole amount; the officer can lower it.
-  useEffect(() => { setAdvance(total); }, [total]);
-
-  const remaining = Math.max(0, total - advance);
+  const total = useMemo(() => {
+    return Object.values(editedPrices).reduce((sum, val) => sum + val, 0);
+  }, [editedPrices]);
+  const originalTotal = useMemo(() => orderTotals.reduce((a, b) => a + b, 0), [orderTotals]);
 
   // Esc closes the reject prompt first, then the review; page scroll stays locked behind it.
   useEffect(() => {
@@ -109,22 +101,12 @@ const ReviewModal = ({
     };
   }, [onClose, showRejectModal]);
 
-  const updateAdvance = useCallback((value: number) => {
-    setAdvance(Math.min(Math.max(0, value), total));
-  }, [total]);
-
-  // The advance is entered once for the whole row, but each order raises its own advance bill,
-  // so split it in proportion to each order's amount. The last order absorbs the rounding
-  // remainder, keeping the parts summing to exactly what the officer typed.
+  // No advance splitting needed since PROPrice is set directly per item
   const splitAdvance = useCallback(() => {
-    let assigned = 0;
-    return orderTotals.map((t, i) => {
-      if (i === orderTotals.length - 1) return Math.max(0, round2(advance - assigned));
-      const part = total > 0 ? round2((advance * t) / total) : 0;
-      assigned += part;
-      return part;
+    return orders.map(o => {
+      return (o.Items ?? []).reduce((sum: number, it: any) => sum + (editedPrices[it.ServiceOrderItemId] ?? 0), 0);
     });
-  }, [orderTotals, advance, total]);
+  }, [orders, editedPrices]);
 
   const handleApprove = async () => {
     if (itemCount === 0) { toast.error('There are no service items to approve.'); return; }
@@ -140,7 +122,7 @@ const ReviewModal = ({
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               Items: (order.Items ?? []).map((it: any) => {
-                const amount = lineAmount(it);
+                const amount = editedPrices[it.ServiceOrderItemId] ?? lineAmount(it);
                 return {
                   ServiceOrderItemId: it.ServiceOrderItemId,
                   PROPrice: amount,
@@ -163,6 +145,8 @@ const ReviewModal = ({
 
       if (failed.length === 0) {
         toast.success(multi ? `${orders.length} orders approved` : `Order ${orders[0].OrderNo} approved`);
+        onClose();
+        navigate('/billing/advance-payments');
       } else if (failed.length === orders.length) {
         toast.error(failed[0]);
       } else {
@@ -170,7 +154,7 @@ const ReviewModal = ({
       }
 
       onRefresh();
-      if (failed.length !== orders.length) onClose();
+      if (failed.length !== 0 && failed.length !== orders.length) onClose();
     } finally {
       setSaving(false);
     }
@@ -279,7 +263,7 @@ const ReviewModal = ({
               <div className="flex items-center justify-between gap-3 mb-3">
                 <div className="flex items-center gap-2">
                   <FileText className="w-4 h-4 text-emerald-500" />
-                  <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400">Service Items</h3>
+                  <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400">Service Orders</h3>
                 </div>
                 <span className="text-xs font-semibold text-slate-400">
                   {itemCount} item{itemCount === 1 ? '' : 's'}{multi ? ` · ${orders.length} orders` : ''}
@@ -314,7 +298,19 @@ const ReviewModal = ({
                             </div>
                             <div className="flex items-center gap-3 shrink-0">
                               <StatusBadge status={item.PROStatus} />
-                              <span className="text-sm font-bold text-slate-700 tabular-nums">{inr(lineAmount(item))}</span>
+                              <div className="relative w-28">
+                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-500 pointer-events-none">₹</span>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  step="0.01"
+                                  value={editedPrices[item.ServiceOrderItemId] ?? ''}
+                                  onChange={e => setEditedPrices(prev => ({ ...prev, [item.ServiceOrderItemId]: parseFloat(e.target.value) || 0 }))}
+                                  disabled={saving || rejecting}
+                                  className="w-full bg-slate-50 rounded-lg border border-slate-200 pl-6 pr-2 py-1 text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:bg-white"
+                                />
+                                <Pencil className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
+                              </div>
                             </div>
                           </div>
                         ))}
@@ -325,58 +321,19 @@ const ReviewModal = ({
               )}
             </section>
 
-            {/* Payment */}
-            <section>
-              <div className="flex items-center gap-2 mb-3">
-                <Wallet className="w-4 h-4 text-emerald-500" />
-                <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400">Payment</h3>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <AmountTile label="Original Amount" value={inr(total)} hint="From the service master" />
-                <AmountTile label="Total" value={inr(total)} hint={multi ? `Across ${orders.length} orders` : 'Amount payable'} />
-
-                <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3">
-                  <label className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-600 mb-1">
-                    <Pencil className="w-3 h-3" /> Advance Amount
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm font-bold text-emerald-600 pointer-events-none">₹</span>
-                    <input
-                      type="number"
-                      min={0}
-                      max={total}
-                      step="0.01"
-                      disabled={saving || rejecting}
-                      value={advance}
-                      onFocus={e => e.target.select()}
-                      onChange={e => updateAdvance(parseFloat(e.target.value) || 0)}
-                      className="w-full bg-white rounded-lg border border-emerald-200 pl-6 pr-2 py-1.5 text-base font-bold text-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-400 disabled:cursor-not-allowed"
-                    />
-                  </div>
-                  <p className="text-[11px] text-emerald-600 mt-1">
-                    {multi ? 'Split across the orders by amount' : 'Collected up front'}
-                  </p>
-                </div>
-
-                <AmountTile label="Remaining" value={inr(remaining)} tone="orange" hint="Auto-calculated" />
-              </div>
-
-              {total <= 0 && itemCount > 0 && (
-                <p className="mt-3 flex items-center gap-1.5 text-xs font-medium text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                  No price is set on the service master, so this will be approved as zero-cost.
-                </p>
-              )}
-            </section>
+            {total <= 0 && itemCount > 0 && (
+              <p className="flex items-center gap-1.5 text-xs font-medium text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                No price is set, so this will be approved as zero-cost.
+              </p>
+            )}
           </div>
 
           {/* Footer Actions */}
           <div className="border-t border-slate-100 bg-white shrink-0">
-            <div className="px-6 py-3 bg-slate-50/70 border-b border-slate-100 flex flex-wrap items-center justify-between gap-x-6 gap-y-1 text-sm">
-              <span className="text-slate-500">Total <span className="font-bold text-slate-700">{inr(total)}</span></span>
-              <span className="text-slate-500">Advance <span className="font-bold text-emerald-600">{inr(advance)}</span></span>
-              <span className="text-slate-500">Remaining <span className="font-bold text-orange-600">{inr(remaining)}</span></span>
+            <div className="px-6 py-3 bg-slate-50/70 border-b border-slate-100 flex items-center justify-between gap-3 text-sm">
+              <span className="text-slate-500">Total Amount</span>
+              <span className="font-bold text-slate-700">{inr(total)}</span>
             </div>
 
             <div className="px-6 py-4 flex gap-3">
@@ -508,6 +465,8 @@ const ServiceOrdersPage = ({ module }: { module: 'OPD' | 'IPD' | 'EMERGENCY' }) 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [selectedRow, setSelectedRow] = useState<any>(null);
 
   const load = useCallback(async () => {
@@ -527,6 +486,8 @@ const ServiceOrdersPage = ({ module }: { module: 'OPD' | 'IPD' | 'EMERGENCY' }) 
   useEffect(() => { load(); }, [load]);
 
   const filtered = orders.filter(o => {
+    if (dateFrom && o.OrderDate < dateFrom) return false;
+    if (dateTo && o.OrderDate > dateTo + 'T23:59:59') return false;
     if (!search) return true;
     const s = search.toLowerCase();
     return (
@@ -605,48 +566,91 @@ const ServiceOrdersPage = ({ module }: { module: 'OPD' | 'IPD' | 'EMERGENCY' }) 
       )}
 
       {/* Page Header */}
-      <div className="flex items-center gap-4">
-        <div className={`w-12 h-12 rounded-2xl ${config.bg} flex items-center justify-center`}>
-          <Icon className={`w-6 h-6 ${config.color}`} />
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className={`w-12 h-12 rounded-2xl ${config.bg} flex items-center justify-center`}>
+            <Icon className={`w-6 h-6 ${config.color}`} />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-800">{config.label}</h1>
+            <p className="text-slate-500 text-sm">{config.description}</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">{config.label}</h1>
-          <p className="text-slate-500 text-sm">{config.description}</p>
+
+        {/* Date Filter */}
+        <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-sm shrink-0">
+          <span className="text-slate-500 text-sm font-medium">From :</span>
+          <div className="relative">
+            <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={e => setDateFrom(e.target.value)}
+              className="pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+            />
+          </div>
+          <span className="text-slate-500 text-sm font-medium ml-1">to :</span>
+          <div className="relative">
+            <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <input
+              type="date"
+              value={dateTo}
+              onChange={e => setDateTo(e.target.value)}
+              className="pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+            />
+          </div>
+          <div className="w-px h-6 bg-slate-200 mx-1"></div>
+          <button className="bg-[#086450] text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-[#075342] transition-colors">
+            Search
+          </button>
+          <button
+            onClick={() => { setDateFrom(''); setDateTo(''); }}
+            className="bg-slate-100 text-slate-700 px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-slate-200 transition-colors"
+          >
+            Cancel
+          </button>
         </div>
       </div>
 
-      {/* Summary chips */}
-      {!loading && !error && (
-        <div className="flex flex-wrap gap-3">
-          <span className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full px-3 py-1 text-xs font-semibold">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block" /> {pendingCount} Pending
-          </span>
-          <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full px-3 py-1 text-xs font-semibold">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" /> {approvedCount} Approved
-          </span>
-          <span className="inline-flex items-center gap-1.5 bg-red-50 text-red-600 border border-red-200 rounded-full px-3 py-1 text-xs font-semibold">
-            <span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block" /> {rejectedCount} Rejected
-          </span>
-          <span className="inline-flex items-center gap-1.5 bg-slate-50 text-slate-600 border border-slate-200 rounded-full px-3 py-1 text-xs font-semibold">
-            {orders.length} Total
-          </span>
-        </div>
-      )}
-
       {/* Table card */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-        {/* Search bar */}
-        <div className="px-4 py-3 border-b border-slate-100">
-          <div className="relative max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search Order No, UHID, Patient..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="pl-9 pr-4 py-2 rounded-xl border border-slate-200 text-sm w-full focus:outline-none focus:ring-2 focus:ring-emerald-400"
-            />
+        {/* Search bar & Filters */}
+        <div className="px-4 py-3 border-b border-slate-100 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3 flex-1 min-w-[300px]">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search Order No, UHID, Patient..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="pl-9 pr-8 py-2 rounded-xl border border-slate-200 text-sm w-full focus:outline-none focus:ring-2 focus:ring-emerald-400"
+              />
+              {search && (
+                <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
           </div>
+
+          {/* Overview Labels */}
+          {!loading && !error && (
+            <div className="flex flex-wrap gap-2">
+              <span className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full px-3 py-1 text-xs font-semibold">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block" /> {pendingCount} Pending
+              </span>
+              <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full px-3 py-1 text-xs font-semibold">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" /> {approvedCount} Approved
+              </span>
+              <span className="inline-flex items-center gap-1.5 bg-red-50 text-red-600 border border-red-200 rounded-full px-3 py-1 text-xs font-semibold">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block" /> {rejectedCount} Rejected
+              </span>
+              <span className="inline-flex items-center gap-1.5 bg-slate-50 text-slate-600 border border-slate-200 rounded-full px-3 py-1 text-xs font-semibold">
+                {orders.length} Total
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Content */}
@@ -671,8 +675,7 @@ const ServiceOrdersPage = ({ module }: { module: 'OPD' | 'IPD' | 'EMERGENCY' }) 
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
-                  <th className="px-4 py-3 text-left font-semibold">#</th>
-                  <th className="px-4 py-3 text-left font-semibold">Order No</th>
+                  <th className="px-4 py-3 text-left font-semibold">S.No</th>
                   <th className="px-4 py-3 text-left font-semibold">UHID</th>
                   <th className="px-4 py-3 text-left font-semibold">Patient</th>
                   <th className="px-4 py-3 text-left font-semibold">Doctor</th>
@@ -688,18 +691,6 @@ const ServiceOrdersPage = ({ module }: { module: 'OPD' | 'IPD' | 'EMERGENCY' }) 
                 {rows.map((row, idx) => (
                   <tr key={row.key} className="border-t border-slate-50 hover:bg-emerald-50/30 transition-colors">
                     <td className="px-4 py-3 text-slate-400">{idx + 1}</td>
-                    <td className="px-4 py-3">
-                      {row.isGroup ? (
-                        <span
-                          title={row.orders.map((o: any) => o.OrderNo).join('\n')}
-                          className="inline-flex items-center gap-1.5 bg-slate-100 text-slate-600 rounded-full px-2.5 py-0.5 text-xs font-semibold"
-                        >
-                          <Layers className="w-3 h-3" /> {row.orders.length} orders
-                        </span>
-                      ) : (
-                        <span className="font-mono text-xs text-slate-600">{row.orders[0].OrderNo}</span>
-                      )}
-                    </td>
                     <td className="px-4 py-3 text-slate-500">{row.UHID}</td>
                     <td className="px-4 py-3 font-medium text-slate-700">{dash(row.PatientName)}</td>
                     <td className="px-4 py-3 text-slate-500">{dash(row.DoctorName)}</td>
