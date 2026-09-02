@@ -174,7 +174,8 @@ BEGIN
                         'priority', L.Priority,
                         'clinicalNotes', L.ClinicalNotes,
                         'status', L.Status,
-                        'result', L.Result
+                        'result', L.Result,
+                        'resultSummary', L.ResultSummary
                     )
                 )
                 FROM hospital.Trn_OpdVisitLabOrder L
@@ -190,7 +191,9 @@ BEGIN
                         'priority', R.Priority,
                         'contrastRequired', R.ContrastRequired,
                         'specialInstructions', R.SpecialInstructions,
-                        'status', R.Status
+                        'status', R.Status,
+                        'result', R.Result,
+                        'resultSummary', R.ResultSummary
                     )
                 )
                 FROM hospital.Trn_OpdVisitRadiologyOrder R

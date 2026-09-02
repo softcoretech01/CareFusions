@@ -78,7 +78,8 @@ export const AdmissionDesk = () => {
                 <th className="px-4 py-3 text-left">Request Time</th>
                 <th className="px-4 py-3 text-left">Patient Details</th>
                 <th className="px-4 py-3 text-left">Department</th>
-                <th className="px-4 py-3 text-left">Requested By</th>
+                <th className="px-4 py-3 text-left">Admission Type</th>
+                <th className="px-4 py-3 text-left">Requested Doctor</th>
                 <th className="px-4 py-3 text-left">Details</th>
                 <th className="px-4 py-3 text-left">Action</th>
               </tr>
@@ -86,7 +87,7 @@ export const AdmissionDesk = () => {
             <tbody className="divide-y divide-slate-100">
               {pendingRequests.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-slate-400">
+                  <td colSpan={8} className="px-6 py-12 text-center text-slate-400">
                     No pending admission requests.
                   </td>
                 </tr>
@@ -105,12 +106,12 @@ export const AdmissionDesk = () => {
                       <div className="text-xs text-slate-500">{req.uhid}</div>
                     </td>
                     <td className="px-4 py-3 text-sm text-slate-600">{req.specialty}</td>
+                    <td className="px-4 py-3 text-sm font-bold text-slate-700">{req.admissionType}</td>
                     <td className="px-4 py-3 text-sm text-slate-600">
                       {req.requestedBy}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="text-sm font-bold text-slate-700">{req.admissionType} • {req.specialty}</div>
-                      <div className="text-xs text-slate-500 truncate max-w-[200px]">{req.provisionalDiagnosis}</div>
+                      {req.admissionReason ? <div className="text-xs text-indigo-500 truncate max-w-[200px]">Reason: {req.admissionReason}</div> : <span className="text-slate-400 italic text-xs">No specific details</span>}
                     </td>
                     <td className="px-4 py-3">
                       <button

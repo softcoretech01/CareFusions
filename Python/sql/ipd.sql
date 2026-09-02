@@ -74,7 +74,7 @@ CREATE TABLE IF NOT EXISTS hospital.IPD_Admission (
     Status              ENUM('Admitted','Discharge Requested','Discharged') NOT NULL DEFAULT 'Admitted',
     CurrentWardId       INT          NULL,
     CurrentBedId        INT          NULL,
-    ProvisionalDiagnosis VARCHAR(500) NULL,
+    AdmissionReason VARCHAR(500) NULL,
     InsuranceStatus     VARCHAR(50)  NULL,
     OperationsData      JSON         NULL,
     DischargeDate       DATE         NULL,
@@ -137,7 +137,7 @@ CREATE TABLE IF NOT EXISTS hospital.IPD_AdmissionRequest (
     Specialty           VARCHAR(100) NULL,
     AdmissionType       VARCHAR(50)  NULL,
     Priority            VARCHAR(20)  NULL,
-    ProvisionalDiagnosis VARCHAR(500) NULL,
+    AdmissionReason VARCHAR(500) NULL,
     RequestedBy         VARCHAR(150) NULL,
     Status              ENUM('Pending','Admitted','Cancelled') NOT NULL DEFAULT 'Pending',
     CreatedBy           VARCHAR(100) NULL,
@@ -258,7 +258,7 @@ CREATE PROCEDURE hospital.SpIpdAdmission(
     IN p_ExpectedStayDays INT,
     IN p_WardId INT,
     IN p_BedId INT,
-    IN p_ProvisionalDiagnosis VARCHAR(500),
+    IN p_AdmissionReason VARCHAR(500),
     IN p_InsuranceStatus VARCHAR(50),
     IN p_TransferReason VARCHAR(255),
     IN p_DischargeSummary TEXT,
@@ -280,7 +280,7 @@ BEGIN
     IF p_Opt = 'LIST' THEN
         SELECT AdmissionId, AdmissionNumber, Uhid, PatientName, Age, Gender, BloodGroup,
                AdmissionDate, AdmittingDoctor, Specialty, AdmissionType, Priority,
-               ExpectedStayDays, Status, CurrentWardId, CurrentBedId, ProvisionalDiagnosis,
+               ExpectedStayDays, Status, CurrentWardId, CurrentBedId, AdmissionReason,
                InsuranceStatus, OperationsData, DischargeDate, DischargeSummary, DischargedBy
         FROM IPD_Admission
         WHERE IsDeleted = 0
@@ -289,7 +289,7 @@ BEGIN
     ELSEIF p_Opt = 'GETBYID' THEN
         SELECT AdmissionId, AdmissionNumber, Uhid, PatientName, Age, Gender, BloodGroup,
                AdmissionDate, AdmittingDoctor, Specialty, AdmissionType, Priority,
-               ExpectedStayDays, Status, CurrentWardId, CurrentBedId, ProvisionalDiagnosis,
+               ExpectedStayDays, Status, CurrentWardId, CurrentBedId, AdmissionReason,
                InsuranceStatus, OperationsData, DischargeDate, DischargeSummary, DischargedBy
         FROM IPD_Admission
         WHERE AdmissionId = p_AdmissionId AND IsDeleted = 0;
@@ -320,11 +320,11 @@ BEGIN
         INSERT INTO IPD_Admission (
             AdmissionNumber, Uhid, PatientName, Age, Gender, BloodGroup, AdmittingDoctor,
             Specialty, AdmissionType, Priority, ExpectedStayDays, Status, CurrentWardId,
-            CurrentBedId, ProvisionalDiagnosis, InsuranceStatus, CreatedBy
+            CurrentBedId, AdmissionReason, InsuranceStatus, CreatedBy
         ) VALUES (
             v_Num, p_Uhid, p_PatientName, p_Age, p_Gender, p_BloodGroup, p_AdmittingDoctor,
             p_Specialty, p_AdmissionType, p_Priority, p_ExpectedStayDays, 'Admitted', p_WardId,
-            p_BedId, p_ProvisionalDiagnosis, p_InsuranceStatus, p_User
+            p_BedId, p_AdmissionReason, p_InsuranceStatus, p_User
         );
 
         IF p_BedId IS NOT NULL THEN
@@ -338,7 +338,7 @@ BEGIN
         SET PatientName = p_PatientName, Age = p_Age, Gender = p_Gender, BloodGroup = p_BloodGroup,
             AdmittingDoctor = p_AdmittingDoctor, Specialty = p_Specialty, AdmissionType = p_AdmissionType,
             Priority = p_Priority, ExpectedStayDays = p_ExpectedStayDays,
-            ProvisionalDiagnosis = p_ProvisionalDiagnosis, InsuranceStatus = p_InsuranceStatus,
+            AdmissionReason = p_AdmissionReason, InsuranceStatus = p_InsuranceStatus,
             UpdatedBy = p_User
         WHERE AdmissionId = p_AdmissionId AND IsDeleted = 0;
         SELECT ROW_COUNT() AS AffectedRows;
@@ -410,24 +410,24 @@ CREATE PROCEDURE hospital.SpIpdAdmissionRequest(
     IN p_Specialty VARCHAR(100),
     IN p_AdmissionType VARCHAR(50),
     IN p_Priority VARCHAR(20),
-    IN p_ProvisionalDiagnosis VARCHAR(500),
+    IN p_AdmissionReason VARCHAR(500),
     IN p_RequestedBy VARCHAR(150),
     IN p_Status VARCHAR(20),
     IN p_User VARCHAR(100)
 )
 BEGIN
     IF p_Opt = 'LIST' THEN
-        SELECT RequestId, RequestDate, Uhid, PatientName, Specialty, AdmissionType,
-               Priority, ProvisionalDiagnosis, RequestedBy, Status
+        SELECT RequestId, RequestDate, Uhid, PatientName, Specialty, AdmissionType, Priority,
+               AdmissionReason, RequestedBy, Status
         FROM IPD_AdmissionRequest
         WHERE IsDeleted = 0
-        ORDER BY RequestId DESC;
+        ORDER BY CASE Status WHEN 'Pending' THEN 1 WHEN 'Admitted' THEN 2 ELSE 3 END, RequestId DESC;
 
     ELSEIF p_Opt = 'INSERT' THEN
         INSERT INTO IPD_AdmissionRequest (Uhid, PatientName, Specialty, AdmissionType, Priority,
-                                          ProvisionalDiagnosis, RequestedBy, Status, CreatedBy)
+                                          AdmissionReason, RequestedBy, Status, CreatedBy)
         VALUES (p_Uhid, p_PatientName, p_Specialty, p_AdmissionType, p_Priority,
-                p_ProvisionalDiagnosis, p_RequestedBy, 'Pending', p_User);
+                p_AdmissionReason, p_RequestedBy, 'Pending', p_User);
         SELECT LAST_INSERT_ID() AS RequestId;
 
     ELSEIF p_Opt = 'UPDATESTATUS' THEN

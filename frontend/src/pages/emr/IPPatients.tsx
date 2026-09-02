@@ -129,8 +129,8 @@ export const IPPatients = () => {
           admissionDate: adm.AdmissionDate,
           dischargeDate: adm.DischargeDate,
           dischargeStatus: adm.Status === 'Discharged' ? 'Discharged' : 'Admitted',
-          chiefComplaint: adm.ProvisionalDiagnosis || '',
-          diagnosis: adm.ProvisionalDiagnosis || '',
+          chiefComplaint: adm.admissionReason || '',
+          diagnosis: adm.admissionReason || '',
           clinicalNotes: rounds.map((r:any) => `${r.DoctorName}: ${r.Note}`).join('\n\n') || '',
           vitals: vitals ? {
             bp: vitals.BloodPressure || '',

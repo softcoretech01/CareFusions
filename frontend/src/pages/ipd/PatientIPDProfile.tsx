@@ -9,6 +9,7 @@ import { ClinicalRounds } from '../../components/ipd/ClinicalRounds';
 import { MarGrid } from '../../components/ipd/MarGrid';
 import { InvestigationsTab } from '../../components/ipd/InvestigationsTab';
 import { OperationsTab } from '../../components/ipd/OperationsTab';
+import { PatientHistoryTab } from '../../components/ipd/PatientHistoryTab';
 import toast from 'react-hot-toast';
 
 export const PatientIPDProfile = () => {
@@ -16,7 +17,7 @@ export const PatientIPDProfile = () => {
   const navigate = useNavigate();
   const { patients, beds, wards, requestDischarge } = useIPD();
 
-  const [activeTab, setActiveTab] = useState('nursing');
+  const [activeTab, setActiveTab] = useState('history');
   const [dischargeMedicines, setDischargeMedicines] = useState<DischargeItem[]>([]);
   const [dischargeSummary, setDischargeSummary] = useState('');
   const [clinicalNotes, setClinicalNotes] = useState('');
@@ -86,6 +87,7 @@ export const PatientIPDProfile = () => {
   const hasOperations = patient?.operations && patient.operations.length > 0;
   const showOperations = isCurrentOT || hasOperations;
   const TABS = [
+    { id: 'history', label: 'History', icon: History },
     { id: 'nursing', label: 'Nursing Flowsheet', icon: Activity },
     { id: 'rounds', label: 'Clinical Rounds', icon: Stethoscope },
     { id: 'mar', label: 'MAR (Medications)', icon: Pill },
@@ -123,14 +125,14 @@ export const PatientIPDProfile = () => {
             <p className="text-xs text-slate-500 mt-0.5">{patient.specialty}</p>
           </div>
 
-          <div className="mt-4 pt-4 border-t border-slate-100">
-            <p className="text-xs font-bold text-slate-400 uppercase mb-1">Provisional Diagnosis</p>
-            <p className="font-medium text-slate-700 text-sm">{patient.provisionalDiagnosis || 'Pending'}</p>
+          <div className="pt-4 border-t border-slate-100">
+            <p className="text-xs font-bold text-slate-400 uppercase mb-1">Admission Reason</p>
+            <p className="font-medium text-slate-700 text-sm">{patient.admissionReason || 'Pending'}</p>
           </div>
         </div>
       </div>
 
-      {/* â”€â”€ CENTER — Tabs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ────────────────────────────────────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Tab bar */}
         <div className="flex gap-1 bg-white border border-slate-200 rounded-2xl p-1 mb-4 overflow-x-auto shrink-0">
@@ -195,8 +197,7 @@ export const PatientIPDProfile = () => {
                       <p className="text-sm text-slate-700">
                         <strong>Admission Date:</strong> {new Date(patient.admissionDate).toLocaleDateString()}<br />
                         <strong>Admitting Doctor:</strong> {patient.admittingDoctor}<br />
-                        <strong>Specialty:</strong> {patient.specialty}<br />
-                        <strong>Provisional Diagnosis:</strong> {patient.provisionalDiagnosis}
+                        <strong>Admission Reason:</strong> {patient.admissionReason}
                       </p>
                     </div>
                     <div>
@@ -279,6 +280,10 @@ export const PatientIPDProfile = () => {
             </div>
           )}
 
+          {/* HISTORY TAB */}
+          {activeTab === 'history' && (
+            <PatientHistoryTab patient={patient} />
+          )}
 
         </div>
       </div>

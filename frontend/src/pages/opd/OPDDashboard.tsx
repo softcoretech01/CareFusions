@@ -13,10 +13,12 @@ export const OPDDashboard = () => {
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   const dd = String(d.getDate()).padStart(2, '0');
   const today = `${yyyy}-${mm}-${dd}`;
-  const [dateFrom, setDateFrom] = useState(today);
+  const firstDayOfMonth = `${yyyy}-${mm}-01`;
+  
+  const [dateFrom, setDateFrom] = useState(firstDayOfMonth);
   const [dateTo, setDateTo] = useState(today);
   
-  const [appliedDateFrom, setAppliedDateFrom] = useState(today);
+  const [appliedDateFrom, setAppliedDateFrom] = useState(firstDayOfMonth);
   const [appliedDateTo, setAppliedDateTo] = useState(today);
 
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
@@ -41,9 +43,9 @@ export const OPDDashboard = () => {
   };
 
   const handleReset = () => {
-    setDateFrom(today);
+    setDateFrom(firstDayOfMonth);
     setDateTo(today);
-    setAppliedDateFrom(today);
+    setAppliedDateFrom(firstDayOfMonth);
     setAppliedDateTo(today);
   };
 

@@ -7,13 +7,18 @@ import { OrderSourceTag, orderSource } from './OrderSourceTag';
 interface ResultViewerProps {
   patientId: string;
   category: 'Lab' | 'Radiology';
+  visitDate?: string;
   onClose: () => void;
 }
 
-export const ResultViewer: React.FC<ResultViewerProps> = ({ patientId, category, onClose }) => {
+export const ResultViewer: React.FC<ResultViewerProps> = ({ patientId, category, visitDate, onClose }) => {
   const { getOrdersByPatient } = useInvestigations();
-  const orders = getOrdersByPatient(patientId)
+  let orders = getOrdersByPatient(patientId)
     .filter(o => o.category === category && (o.status === 'Completed' || o.status === 'Partial' || o.status === 'Verified'));
+    
+  if (visitDate) {
+    orders = orders.filter(o => o.orderedAt?.slice(0, 10) === visitDate.slice(0, 10));
+  }
 
   const handlePrint = () => {
     toast.success('Printing report...');
@@ -105,6 +110,7 @@ export const ResultViewer: React.FC<ResultViewerProps> = ({ patientId, category,
                           <tr>
                             <th className="px-5 py-3 print:py-3 print:px-2">Test Name</th>
                             <th className="px-5 py-3 print:py-3 print:px-2">Result</th>
+                            <th className="px-5 py-3 print:py-3 print:px-2">Summary</th>
                             <th className="px-5 py-3 print:py-3 print:px-2">Status</th>
                             <th className="px-5 py-3 text-center print:hidden">Attachment</th>
                           </tr>
@@ -116,6 +122,9 @@ export const ResultViewer: React.FC<ResultViewerProps> = ({ patientId, category,
                               <td className={`px-5 py-3 font-mono font-bold print:py-3 print:px-2 ${test.isCritical ? 'text-red-600 print:text-red-700' : 'text-slate-800 print:text-slate-900'}`}>
                                 {test.resultValue || '-'}
                                 {test.isCritical && <span className="ml-2 text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded uppercase print:bg-transparent print:border print:border-red-600 print:text-red-700">Critical</span>}
+                              </td>
+                              <td className="px-5 py-3 text-sm text-slate-600 print:py-3 print:px-2 print:text-slate-800">
+                                {test.resultSummary || '-'}
                               </td>
                               <td className="px-5 py-3 print:py-3 print:px-2">
                                 <span className="text-xs font-bold text-green-600 flex items-center gap-1 print:text-slate-800 print:font-semibold">
@@ -159,6 +168,14 @@ export const ResultViewer: React.FC<ResultViewerProps> = ({ patientId, category,
                               {test.resultValue || 'No impression entered.'}
                             </p>
                           </div>
+                          {test.resultSummary && (
+                            <div className="mt-2">
+                              <p className="text-xs font-bold text-slate-400 uppercase mb-1 print:text-slate-600">Result Summary</p>
+                              <p className="text-sm font-medium text-slate-800 bg-slate-50 p-3 rounded-lg border border-slate-100 print:bg-transparent print:border-0 print:p-0 print:text-base print:leading-relaxed">
+                                {test.resultSummary}
+                              </p>
+                            </div>
+                          )}
                           {test.resultFile && (
                             <div className="print:hidden">
                               <p className="text-xs font-bold text-slate-400 uppercase mb-1">Attached Scan / Report</p>

@@ -143,7 +143,7 @@ def _adm_sp(db, opt, **kw):
         "p_Specialty": kw.get("specialty"), "p_AdmissionType": kw.get("admission_type"),
         "p_Priority": kw.get("priority"), "p_ExpectedStayDays": kw.get("expected_stay"),
         "p_WardId": kw.get("ward_id"), "p_BedId": kw.get("bed_id"),
-        "p_ProvisionalDiagnosis": kw.get("diagnosis"), "p_InsuranceStatus": kw.get("insurance"),
+        "p_AdmissionReason": kw.get("diagnosis"), "p_InsuranceStatus": kw.get("insurance"),
         "p_TransferReason": kw.get("reason"), "p_DischargeSummary": kw.get("summary"),
         "p_DischargedBy": kw.get("discharged_by"), "p_MedicineName": kw.get("med_name"),
         "p_Dosage": kw.get("dosage"), "p_Frequency": kw.get("frequency"),
@@ -157,7 +157,7 @@ def _req_sp(db, opt, **kw):
         "p_Opt": opt, "p_RequestId": kw.get("request_id"), "p_Uhid": kw.get("uhid"),
         "p_PatientName": kw.get("patient_name"), "p_Specialty": kw.get("specialty"),
         "p_AdmissionType": kw.get("admission_type"), "p_Priority": kw.get("priority"),
-        "p_ProvisionalDiagnosis": kw.get("diagnosis"), "p_RequestedBy": kw.get("requested_by"),
+        "p_AdmissionReason": kw.get("diagnosis"), "p_RequestedBy": kw.get("requested_by"),
         "p_Status": kw.get("st"), "p_User": kw.get("user"),
     })
 
@@ -167,12 +167,15 @@ import json
 from sqlalchemy import text
 
 def _map_admission(r) -> dict:
+    discharge_date    = getattr(r, "DischargeDate", None)
+    discharge_summary = getattr(r, "DischargeSummary", None)
+    discharged_by     = getattr(r, "DischargedBy", None)
     discharge = None
-    if r.DischargeSummary or r.DischargedBy or r.DischargeDate:
+    if discharge_summary or discharged_by or discharge_date:
         discharge = {
-            "dischargeDate": str(r.DischargeDate) if r.DischargeDate else "",
-            "dischargeSummary": r.DischargeSummary or "",
-            "dischargedBy": r.DischargedBy or "",
+            "dischargeDate": str(discharge_date) if discharge_date else "",
+            "dischargeSummary": discharge_summary or "",
+            "dischargedBy": discharged_by or "",
             "medicines": [],
         }
     return {
@@ -180,25 +183,26 @@ def _map_admission(r) -> dict:
         "admissionNumber": r.AdmissionNumber,
         "uhid": r.Uhid,
         "patientName": r.PatientName,
-        "age": r.Age,
-        "gender": r.Gender,
-        "bloodGroup": r.BloodGroup,
+        "age": getattr(r, "Age", None),
+        "gender": getattr(r, "Gender", None) or "",
+        "bloodGroup": getattr(r, "BloodGroup", None) or "",
         "admissionDate": r.AdmissionDate,
         "admittingDoctor": r.AdmittingDoctor,
         "specialty": r.Specialty,
         "admissionType": r.AdmissionType,
-        "priority": r.Priority,
-        "expectedStayDays": r.ExpectedStayDays,
+        "priority": getattr(r, "Priority", None) or "",
+        "expectedStayDays": getattr(r, "ExpectedStayDays", None),
         "status": r.Status,
         "currentWardId": r.CurrentWardId,
         "currentWardName": getattr(r, "WardName", None) or "",
         "currentBedId": r.CurrentBedId,
-        "provisionalDiagnosis": r.ProvisionalDiagnosis,
-        "insuranceStatus": r.InsuranceStatus,
+        "admissionReason": getattr(r, "AdmissionReason", None) or "",
+        "insuranceStatus": getattr(r, "InsuranceStatus", None) or "",
         "wardTransferHistory": [],
         "dischargeInfo": discharge,
         "operations": (json.loads(r.OperationsData) if isinstance(r.OperationsData, str) else r.OperationsData) if hasattr(r, "OperationsData") and r.OperationsData else [],
     }
+
 
 
 # ══════════════════════════ WARDS ══════════════════════════
@@ -351,7 +355,7 @@ def _admit_fields(p: AdmissionCreate) -> dict:
         uhid=p.uhid, patient_name=p.patientName, age=p.age, gender=p.gender,
         blood_group=p.bloodGroup, admitting_doctor=p.admittingDoctor, specialty=p.specialty,
         admission_type=p.admissionType, priority=p.priority, expected_stay=p.expectedStayDays,
-        ward_id=p.wardId, bed_id=p.bedId, diagnosis=p.provisionalDiagnosis,
+        ward_id=p.wardId, bed_id=p.bedId, diagnosis=p.admissionReason,
         insurance=p.insuranceStatus, user=p.user or "Admin",
     )
 
@@ -469,7 +473,7 @@ def list_requests(db: Session = Depends(get_db)):
         return [{
             "id": r.RequestId, "requestDate": r.RequestDate, "uhid": r.Uhid,
             "patientName": r.PatientName, "specialty": r.Specialty, "admissionType": r.AdmissionType,
-            "priority": r.Priority, "provisionalDiagnosis": r.ProvisionalDiagnosis,
+            "priority": r.Priority, "admissionReason": r.AdmissionReason,
             "requestedBy": r.RequestedBy, "status": r.Status,
         } for r in rows]
     except Exception as e:
@@ -482,7 +486,7 @@ def create_request(payload: AdmissionRequestCreate, db: Session = Depends(get_db
     try:
         row = _req_sp(db, "INSERT", uhid=payload.uhid, patient_name=payload.patientName,
                       specialty=payload.specialty, admission_type=payload.admissionType,
-                      priority=payload.priority, diagnosis=payload.provisionalDiagnosis,
+                      priority=payload.priority, diagnosis=payload.admissionReason,
                       requested_by=payload.requestedBy, user=payload.user or "Admin").fetchone()
         db.commit()
         return {"id": row.RequestId}

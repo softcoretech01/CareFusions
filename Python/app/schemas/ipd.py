@@ -117,7 +117,7 @@ class AdmissionCreate(BaseModel):
     expectedStayDays: Optional[int] = None
     wardId: Optional[int] = None
     bedId: Optional[int] = None
-    provisionalDiagnosis: Optional[str] = Field(default=None, max_length=DIAG_MAX)
+    admissionReason: Optional[str] = Field(default=None, max_length=500)
     insuranceStatus: Optional[str] = Field(default=None, max_length=50)
     operations: Optional[List[dict]] = None
     user: Optional[str] = None
@@ -190,7 +190,7 @@ class AdmissionRequestCreate(BaseModel):
     specialty: Optional[str] = Field(default=None, max_length=100)
     admissionType: Optional[str] = Field(default=None, max_length=50)
     priority: Optional[str] = Field(default=None, max_length=20)
-    provisionalDiagnosis: Optional[str] = Field(default=None, max_length=DIAG_MAX)
+    admissionReason: Optional[str] = Field(default=None, max_length=500)
     requestedBy: Optional[str] = Field(default=None, max_length=NAME_MAX)
     user: Optional[str] = None
 

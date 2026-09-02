@@ -493,8 +493,8 @@ export const Discharges = () => {
                             <p className="text-slate-700">{selectedPatient.admittingDoctor || 'N/A'}</p>
                           </div>
                           <div className="col-span-2">
-                            <p className="text-xs font-semibold text-slate-500 uppercase mb-1">Provisional Diagnosis</p>
-                            <p className="text-slate-700">{selectedPatient.provisionalDiagnosis || 'N/A'}</p>
+                            <p className="text-xs font-semibold text-slate-500 uppercase mb-1">Admission Reason</p>
+                            <p className="text-slate-700">{selectedPatient.admissionReason || 'N/A'}</p>
                           </div>
                         </div>
                       </div>

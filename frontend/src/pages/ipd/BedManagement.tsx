@@ -361,7 +361,7 @@ export const BedManagement = () => {
 
                 <div className="bg-amber-50 rounded-xl p-3 border border-amber-100">
                   <p className="text-xs text-amber-500 font-bold uppercase mb-0.5">Diagnosis</p>
-                  <p className="font-semibold text-slate-700 text-sm">{popupPatient.provisionalDiagnosis}</p>
+                  <p className="font-semibold text-slate-700 text-sm">{popupPatient.admissionReason}</p>
                 </div>
 
                 {/* Footer dates */}

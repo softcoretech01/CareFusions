@@ -94,6 +94,7 @@ interface InvestigationContextType {
   fetchRadiologyQCLogs: () => Promise<void>;
   acknowledgeRadiologyAlert: (testId: string) => Promise<void>;
   addRadiologyQCLog: (log: Omit<QCLog, 'id'>) => Promise<void>;
+  removeOrder: (orderId: string) => void;
 }
 
 const InvestigationContext = createContext<InvestigationContextType | undefined>(undefined);
@@ -140,6 +141,7 @@ export const InvestigationProvider = ({ children }: { children: ReactNode }) => 
           bodyPart: test.body_part || test.bodyPart || '',
           resultValue: test.result_value || test.resultValue || '',
           resultFile: test.result_file || test.resultFile || '',
+          resultSummary: test.result_summary || test.resultSummary || '',
           isCritical: test.is_critical || test.isCritical,
           completedAt: test.completed_at || test.completedAt,
           verifiedAt: test.verified_at || test.verifiedAt,
@@ -204,6 +206,7 @@ export const InvestigationProvider = ({ children }: { children: ReactNode }) => 
           status: test.status,
           resultValue: test.result_value || '',
           resultFile: test.result_file || '',
+          resultSummary: test.result_summary || '',
           isCritical: test.is_critical,
           completedAt: test.completed_at,
           verifiedAt: test.verified_at,
@@ -282,6 +285,7 @@ export const InvestigationProvider = ({ children }: { children: ReactNode }) => 
             testName: t.name,
             testCode: t.testCode ?? t.name,
             bodyPart: t.bodyPart || null,
+            isCritical: t.isCritical ?? false,
           }))
         });
         refresh();
@@ -500,13 +504,29 @@ export const InvestigationProvider = ({ children }: { children: ReactNode }) => 
     return orders.filter(o => o.patientId === patientId);
   };
 
+  useEffect(() => {
+    // Only radiology order logs are loaded independently right now;
+    // lab orders and logs load together in refresh().
+    fetchRadiologyQCLogs();
+  }, [fetchRadiologyQCLogs]);
+
+  const removeOrder = useCallback((orderId: string) => {
+    setOrders(prev => prev.filter(o => o.id !== orderId));
+  }, []);
+
   return (
     <InvestigationContext.Provider
       value={{
-        orders, qcLogs, catalogue, loading, hasLoaded, refresh,
+        orders,
+        qcLogs, catalogue, loading, hasLoaded, refresh,
         addOrder, updateTestResult, updateTestStatus, verifyTest, acknowledgeAlert,
-        getOrdersByPatient, addQCLog,
-        fetchRadiologyOrders, fetchRadiologyQCLogs, acknowledgeRadiologyAlert, addRadiologyQCLog,
+        getOrdersByPatient,
+        addQCLog,
+        fetchRadiologyOrders,
+        fetchRadiologyQCLogs,
+        acknowledgeRadiologyAlert,
+        addRadiologyQCLog,
+        removeOrder,
       }}
     >
       {children}

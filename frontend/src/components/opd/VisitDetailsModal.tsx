@@ -14,26 +14,32 @@ export const VisitDetailsModal = ({ visit, onClose, type }: VisitDetailsModalPro
 
   if (!visit) return null;
 
-  const getRadStatus = (uhid: string, serviceName: string, bodyPart: string, defaultStatus: string) => {
-    const patientOrders = globalOrders.filter((o: any) => o.patientId === uhid && o.category === 'Radiology');
+  const getRadStatus = (uhid: string, serviceName: string, bodyPart: string, defaultStatus: string, visitDate: string) => {
+    const patientOrders = globalOrders.filter((o: any) => o.patientId === uhid && o.category === 'Radiology' && o.orderedAt?.slice(0, 10) === visitDate.slice(0, 10));
     for (const o of patientOrders) {
       const t = o.tests.find((x: any) => x.name === (serviceName || bodyPart) || x.bodyPart === bodyPart);
-      if (t && (t.status === 'Completed' || t.status === 'Verified')) {
-        return 'Completed';
+      if (t) {
+        if (t.status === 'Completed' || t.status === 'Verified') {
+          return { status: 'Completed', summary: t.resultSummary, result: t.resultValue, resultFile: t.resultFile };
+        }
+        return { status: t.status === 'Pending' ? 'Ordered' : t.status, summary: undefined, result: undefined, resultFile: undefined };
       }
     }
-    return defaultStatus;
+    return { status: defaultStatus === 'Pending' ? 'Ordered' : defaultStatus, summary: undefined, result: undefined, resultFile: undefined };
   };
 
-  const getLabStatus = (uhid: string, testName: string, defaultStatus: string) => {
-    const patientOrders = globalOrders.filter((o: any) => o.patientId === uhid && o.category === 'Lab');
+  const getLabStatus = (uhid: string, testName: string, defaultStatus: string, visitDate: string) => {
+    const patientOrders = globalOrders.filter((o: any) => o.patientId === uhid && o.category === 'Lab' && o.orderedAt?.slice(0, 10) === visitDate.slice(0, 10));
     for (const o of patientOrders) {
       const t = o.tests.find((x: any) => x.name === testName);
-      if (t && (t.status === 'Completed' || t.status === 'Verified')) {
-        return 'Completed';
+      if (t) {
+        if (t.status === 'Completed' || t.status === 'Verified') {
+          return { status: 'Completed', summary: t.resultSummary, result: t.resultValue, resultFile: t.resultFile };
+        }
+        return { status: t.status === 'Pending' ? 'Ordered' : t.status, summary: undefined, result: undefined, resultFile: undefined };
       }
     }
-    return defaultStatus;
+    return { status: defaultStatus === 'Pending' ? 'Ordered' : defaultStatus, summary: undefined, result: undefined, resultFile: undefined };
   };
 
   return (
@@ -89,11 +95,19 @@ export const VisitDetailsModal = ({ visit, onClose, type }: VisitDetailsModalPro
             <div className="mb-6">
               <h4 className="text-sm font-bold text-slate-700 mb-2">Lab Orders</h4>
               <ul className="list-disc pl-5 text-sm text-slate-600">
-                {visit.labOrders.map((l, idx) => (
-                  <li key={l.id || idx}>
-                    {l.testName} <span className="text-xs text-slate-400">({getLabStatus(visit.uhid, l.testName, l.status)})</span>
-                  </li>
-                ))}
+                {visit.labOrders.map((l, idx) => {
+                  const labStatus = getLabStatus(visit.uhid, l.testName, l.status, visit.date);
+                  return (
+                    <li key={l.id || idx} className="mb-2">
+                      {l.testName} <span className="text-xs text-slate-400">({labStatus.status})</span>
+                      {labStatus.summary && (
+                        <div className="mt-1 pl-3 border-l-2 border-slate-200 text-xs text-slate-500 italic">
+                          <span className="font-semibold not-italic">Summary:</span> {labStatus.summary}
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           )}
@@ -102,11 +116,19 @@ export const VisitDetailsModal = ({ visit, onClose, type }: VisitDetailsModalPro
             <div className="mb-6">
               <h4 className="text-sm font-bold text-slate-700 mb-2">Radiology Orders</h4>
               <ul className="list-disc pl-5 text-sm text-slate-600">
-                {visit.radiologyOrders.map((r, idx) => (
-                  <li key={r.id || idx}>
-                    {r.bodyPart} - {r.modality} <span className="text-xs text-slate-400">({getRadStatus(visit.uhid, r.serviceName ?? '', r.bodyPart, r.status)})</span>
-                  </li>
-                ))}
+                {visit.radiologyOrders.map((r, idx) => {
+                  const radStatus = getRadStatus(visit.uhid, r.serviceName ?? '', r.bodyPart, r.status, visit.date);
+                  return (
+                    <li key={r.id || idx} className="mb-2">
+                      {r.bodyPart} - {r.modality} <span className="text-xs text-slate-400">({radStatus.status})</span>
+                      {radStatus.summary && (
+                        <div className="mt-1 pl-3 border-l-2 border-slate-200 text-xs text-slate-500 italic">
+                          <span className="font-semibold not-italic">Summary:</span> {radStatus.summary}
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           )}

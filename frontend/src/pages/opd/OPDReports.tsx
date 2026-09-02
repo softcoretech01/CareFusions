@@ -19,13 +19,14 @@ export const OPDReports = () => {
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   const dd = String(d.getDate()).padStart(2, '0');
   const today = `${yyyy}-${mm}-${dd}`;
+  const firstDayOfMonth = `${yyyy}-${mm}-01`;
 
-  const [dateFrom, setDateFrom] = useState(today);
+  const [dateFrom, setDateFrom] = useState(firstDayOfMonth);
   const [dateTo, setDateTo] = useState(today);
   const [dept, setDept] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const [appliedDateFrom, setAppliedDateFrom] = useState(today);
+  const [appliedDateFrom, setAppliedDateFrom] = useState(firstDayOfMonth);
   const [appliedDateTo, setAppliedDateTo] = useState(today);
   const [appliedDept, setAppliedDept] = useState('All');
   const [appliedSearchQuery, setAppliedSearchQuery] = useState('');
@@ -87,11 +88,11 @@ export const OPDReports = () => {
   };
 
   const handleReset = () => {
-    setDateFrom(today);
+    setDateFrom(firstDayOfMonth);
     setDateTo(today);
     setSearchQuery('');
     setDept('All');
-    setAppliedDateFrom(today);
+    setAppliedDateFrom(firstDayOfMonth);
     setAppliedDateTo(today);
     setAppliedSearchQuery('');
     setAppliedDept('All');

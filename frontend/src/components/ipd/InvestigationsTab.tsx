@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FlaskConical, Plus, Loader2, CheckCircle, Clock } from 'lucide-react';
+import { FlaskConical, Plus, Loader2, CheckCircle, Clock, Printer, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useInvestigations } from '../../contexts/InvestigationContext';
 import { OrderSourceTag, orderSource } from '../investigations/OrderSourceTag';
@@ -18,11 +18,11 @@ interface RadiologyServiceOption {
   status: string;
 }
 
-export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({ patientName, uhid }) => {
+export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({ admissionId, patientName, uhid }) => {
   // Orders + lab catalogue come from the shared Investigation context — the
   // SAME source the Lab and Radiology menus read from, so an order placed here
   // shows up there too.
-  const { catalogue, addOrder, getOrdersByPatient, loading } = useInvestigations();
+  const { catalogue, addOrder, getOrdersByPatient, loading, removeOrder } = useInvestigations();
 
   const [radiologyServices, setRadiologyServices] = useState<RadiologyServiceOption[]>([]);
   const [isAdding, setIsAdding] = useState(false);
@@ -34,6 +34,20 @@ export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({ patientNam
   const [customScan, setCustomScan] = useState('');
   const [customScanBodyPart, setCustomScanBodyPart] = useState('');
   const [placing, setPlacing] = useState(false);
+  const [isPrinting, setIsPrinting] = useState(false);
+  const [selectedForPrint, setSelectedForPrint] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!isPrinting) return;
+    const timer = window.setTimeout(() => window.print(), 300);
+    return () => clearTimeout(timer);
+  }, [isPrinting]);
+
+  useEffect(() => {
+    const clearPrint = () => setIsPrinting(false);
+    window.addEventListener('afterprint', clearPrint);
+    return () => window.removeEventListener('afterprint', clearPrint);
+  }, []);
 
   // Radiology exam list comes from the Radiology Service master.
   useEffect(() => {
@@ -144,28 +158,62 @@ export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({ patientNam
     }
   };
 
+  const getDisplayStatus = (status: string) => {
+    if (status === 'Pending') return 'Ordered';
+    if (status === 'Verified' || status === 'Completed') return 'Test Completed';
+    return status;
+  };
+
   const renderOrderCard = (order: ReturnType<typeof getOrdersByPatient>[number]) => (
     <div key={order.id} className="p-4 border border-slate-200 rounded-xl bg-white shadow-sm">
       <div className="flex items-start justify-between mb-3 border-b border-slate-100 pb-3">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="font-mono text-xs font-bold text-slate-500">ID: {order.id}</span>
-            <span className={`px-2 py-0.5 text-[10px] font-bold rounded-md uppercase ${
-              order.category === 'Lab'
-                ? 'bg-blue-50 text-blue-600 border border-blue-200'
-                : 'bg-purple-50 text-purple-600 border border-purple-200'
-            }`}>
-              {order.category}
-            </span>
-            <OrderSourceTag source={orderSource(order.type)} />
+        <div className="flex items-start gap-3">
+          <div className="pt-0.5">
+            <input 
+              type="checkbox" 
+              checked={selectedForPrint.includes(order.id)} 
+              onChange={(e) => {
+                if (e.target.checked) setSelectedForPrint([...selectedForPrint, order.id]);
+                else setSelectedForPrint(selectedForPrint.filter(id => id !== order.id));
+              }} 
+              className="w-4 h-4 text-primary border-slate-300 rounded focus:ring-primary cursor-pointer"
+              title="Select for print"
+            />
           </div>
-          <div className="text-xs text-slate-500">Ordered on {new Date(order.orderedAt).toLocaleString()}</div>
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="font-mono text-xs font-bold text-slate-500">ID: {order.id}</span>
+              <span className={`px-2 py-0.5 text-[10px] font-bold rounded-md uppercase ${
+                order.category === 'Lab'
+                  ? 'bg-blue-50 text-blue-600 border border-blue-200'
+                  : 'bg-purple-50 text-purple-600 border border-purple-200'
+              }`}>
+                {order.category}
+              </span>
+              <OrderSourceTag source={orderSource(order.type)} />
+            </div>
+            <div className="text-xs text-slate-500">Ordered on {new Date(order.orderedAt).toLocaleString()}</div>
+          </div>
         </div>
-        <div className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 border ${getStatusColor(order.status)}`}>
-          {order.status === 'Completed' || order.status === 'Verified'
-            ? <CheckCircle className="w-3.5 h-3.5" />
-            : <Clock className="w-3.5 h-3.5" />}
-          {order.status}
+        <div className="flex items-center gap-2">
+          <div className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 border ${getStatusColor(order.status)}`}>
+            {order.status === 'Completed' || order.status === 'Verified'
+              ? <CheckCircle className="w-3.5 h-3.5" />
+              : <Clock className="w-3.5 h-3.5" />}
+            {getDisplayStatus(order.status)}
+          </div>
+          <button 
+            onClick={() => removeOrder(order.id)}
+            disabled={order.status === 'Completed' || order.status === 'Verified'}
+            className={`p-1.5 rounded-lg transition-colors ${
+              order.status === 'Completed' || order.status === 'Verified'
+                ? 'opacity-50 cursor-not-allowed text-slate-400 bg-slate-100'
+                : 'hover:bg-red-50 text-red-400'
+            }`}
+            title={order.status === 'Completed' || order.status === 'Verified' ? 'Cannot delete completed test' : 'Delete Order'}
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
         </div>
       </div>
 
@@ -177,10 +225,10 @@ export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({ patientNam
             </span>
             {test.status === 'Completed' || test.status === 'Verified' ? (
               <span className="text-green-600 font-bold text-xs flex items-center gap-1">
-                <CheckCircle className="w-3.5 h-3.5" /> {test.resultValue ? `Result: ${test.resultValue}` : 'Completed'}
+                <CheckCircle className="w-3.5 h-3.5" /> {test.resultValue ? `Result: ${test.resultValue}` : 'Test Completed'}
               </span>
             ) : (
-              <span className="text-slate-400 text-xs">{test.status}</span>
+              <span className="text-slate-400 text-xs">{getDisplayStatus(test.status)}</span>
             )}
           </div>
         ))}
@@ -195,12 +243,20 @@ export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({ patientNam
           <FlaskConical className="w-5 h-5 text-primary" /> Investigations
         </h3>
         {!isAdding && (
-          <button
-            onClick={() => setIsAdding(true)}
-            className="px-4 py-2 bg-primary/10 text-primary font-bold rounded-xl text-sm flex items-center gap-2 hover:bg-primary hover:text-white transition-colors"
-          >
-            <Plus className="w-4 h-4" /> Order Investigation
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsPrinting(true)}
+              className="px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl text-sm flex items-center gap-2 hover:bg-slate-200 transition-colors"
+            >
+              <Printer className="w-4 h-4" /> Print
+            </button>
+            <button
+              onClick={() => setIsAdding(true)}
+              className="px-4 py-2 bg-primary/10 text-primary font-bold rounded-xl text-sm flex items-center gap-2 hover:bg-primary hover:text-white transition-colors"
+            >
+              <Plus className="w-4 h-4" /> Order Investigation
+            </button>
+          </div>
         )}
       </div>
 
@@ -340,6 +396,83 @@ export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({ patientNam
       ) : (
         <div className="space-y-4">{orders.map(renderOrderCard)}</div>
 
+      )}
+
+      {/* HIDDEN PRINT AREA */}
+      {isPrinting && (
+        <div id="ipd-investigations-print" className="hidden print:block print-isolated bg-white w-full h-full text-black print:p-0">
+          <div className="p-8 max-w-4xl mx-auto">
+            {/* Header */}
+            <div className="text-center border-b-2 border-slate-800 pb-6 mb-8">
+              <h1 className="text-3xl font-bold text-slate-900 tracking-tight">CAREFUSIONS HOSPITAL</h1>
+              <p className="text-sm text-slate-600 mt-1">123 Healthcare Ave, Medical District • Ph: (555) 123-4567</p>
+              <h2 className="text-xl font-bold text-slate-800 mt-4 uppercase tracking-widest">Investigations Report</h2>
+            </div>
+            
+            {/* Patient Info */}
+            <div className="grid grid-cols-2 gap-4 mb-8 p-4 bg-slate-50 border border-slate-200 rounded-lg">
+              <div>
+                <p className="text-sm text-slate-500">Patient Name</p>
+                <p className="font-bold text-slate-900">{patientName}</p>
+              </div>
+              <div>
+                <p className="text-sm text-slate-500">UHID</p>
+                <p className="font-bold text-slate-900">{uhid}</p>
+              </div>
+              <div>
+                <p className="text-sm text-slate-500">Admission ID</p>
+                <p className="font-bold text-slate-900">{admissionId}</p>
+              </div>
+              <div>
+                <p className="text-sm text-slate-500">Date Printed</p>
+                <p className="font-bold text-slate-900">{new Date().toLocaleString()}</p>
+              </div>
+            </div>
+
+            {/* Orders List */}
+            <div className="space-y-6">
+              {orders.length === 0 ? (
+                <p className="text-slate-500 italic">No investigations recorded.</p>
+              ) : (
+                (selectedForPrint.length > 0 ? orders.filter(o => selectedForPrint.includes(o.id)) : orders).map((order) => (
+                  <div key={order.id} className="border border-slate-200 rounded-lg p-4">
+                    <div className="flex justify-between items-start border-b border-slate-100 pb-2 mb-3">
+                      <div>
+                        <h4 className="font-bold text-slate-900 text-lg">{order.category} Order</h4>
+                        <p className="text-sm text-slate-500">Order ID: {order.id} • {new Date(order.orderedAt).toLocaleString()}</p>
+                      </div>
+                      <div className="text-right">
+                        <span className="font-bold text-sm bg-slate-100 px-2 py-1 rounded">{order.status}</span>
+                      </div>
+                    </div>
+                    <ul className="space-y-2 list-disc pl-5">
+                      {order.tests.map((test) => (
+                        <li key={test.id} className="text-slate-800">
+                          <span className="font-medium">
+                            {(test.bodyPart && test.name.toLowerCase() !== test.bodyPart.toLowerCase()) ? `${test.name} for ${test.bodyPart}` : test.name}
+                          </span>
+                          <span className="text-sm text-slate-500 ml-2">({test.status})</span>
+                          {test.resultValue && (
+                            <span className="block text-sm font-semibold text-slate-700 mt-0.5">Result: {test.resultValue}</span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="mt-16 pt-8 border-t border-slate-200 flex justify-between items-end text-sm text-slate-500">
+              <p>Generated by CareFusions ERP</p>
+              <div className="text-center">
+                <div className="w-48 border-b border-slate-400 mb-2"></div>
+                <p>Authorized Signature</p>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
