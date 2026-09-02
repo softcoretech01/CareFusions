@@ -417,7 +417,7 @@ export const AppointmentList = () => {
                     </div>
                   ) : editSlots.length === 0 ? (
                     <div className="py-6 border-2 border-dashed border-slate-200 rounded-xl text-center text-slate-400 text-sm font-medium px-4">
-                      No slots — this doctor has no session times configured. Set them in Doctor Schedules.
+                      No slots — this doctor has no session times configured. Set them in Admin &gt; Employee &gt; Doctor Schedules.
                     </div>
                   ) : (
                     <div className="grid grid-cols-4 gap-2">

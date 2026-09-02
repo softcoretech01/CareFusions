@@ -11,9 +11,9 @@ from app.schemas.patient_registration import (
     PatientRegistrationUpdate, 
     PatientRegistrationResponse,
     OptionsResponse,
-    TitleEnum, GenderEnum, MaritalStatusEnum, NationalIdTypeEnum,
+    TitleEnum, GenderEnum, MaritalStatusEnum,
     EmergencyRelationshipEnum, YesNoEnum, PatientTypeEnum,
-    RegistrationSourceEnum, StatusEnum
+    StatusEnum
 )
 
 logger = logging.getLogger(__name__)
@@ -71,15 +71,14 @@ def _call_sp(db: Session, opt: str, **kwargs) -> Any:
         "p_ValidTill": kwargs.get("ValidTill", None),
         "p_PatientType": kwargs.get("PatientType", None),
         "p_ReferredBy": kwargs.get("ReferredBy", None),
-        "p_PrimaryDoctor": kwargs.get("PrimaryDoctor", None),
-        "p_Department": kwargs.get("Department", None),
-        "p_RegistrationSource": kwargs.get("RegistrationSource", None),
         "p_PrivacyConsent": kwargs.get("PrivacyConsent", None),
         "p_SmsConsent": kwargs.get("SmsConsent", None),
         "p_EmailConsent": kwargs.get("EmailConsent", None),
         "p_WhatsappConsent": kwargs.get("WhatsappConsent", None),
         "p_Status": kwargs.get("Status", None),
         "p_Remarks": kwargs.get("Remarks", None),
+        "p_IsQuickRegistration": kwargs.get("IsQuickRegistration", False),
+        "p_RegistrationMode": kwargs.get("RegistrationMode", 0),
         "p_CreatedBy": kwargs.get("CreatedBy", "admin"),
         "p_ModifiedBy": kwargs.get("ModifiedBy", "admin")
     }
@@ -96,8 +95,9 @@ def _call_sp(db: Session, opt: str, **kwargs) -> Any:
             :p_EmergencyAlternateMobile, :p_EmergencyAddress, :p_Allergies, :p_ChronicDiseases, 
             :p_CurrentMedication, :p_OrganDonor, :p_Disability, :p_InsuranceRequired, 
             :p_InsuranceProvider, :p_Tpa, :p_PolicyNumber, :p_ValidTill, :p_PatientType, 
-            :p_ReferredBy, :p_PrimaryDoctor, :p_Department, :p_RegistrationSource, 
-            :p_PrivacyConsent, :p_SmsConsent, :p_EmailConsent, :p_WhatsappConsent, :p_Status, :p_Remarks, :p_CreatedBy, :p_ModifiedBy
+            :p_ReferredBy, 
+            :p_PrivacyConsent, :p_SmsConsent, :p_EmailConsent, :p_WhatsappConsent, :p_Status, :p_Remarks, 
+            :p_CreatedBy, :p_ModifiedBy, :p_IsQuickRegistration, :p_RegistrationMode
         )
     """)
 
@@ -127,11 +127,10 @@ def get_options(db: Session = Depends(get_db)):
             "Title": [e.value for e in TitleEnum],
             "Gender": [e.value for e in GenderEnum],
             "MaritalStatus": [e.value for e in MaritalStatusEnum],
-            "NationalIdType": [e.value for e in NationalIdTypeEnum],
+            "NationalIdType": ["Aadhar Card", "Voter ID", "Ration Card", "Passport", "Driving License", "Other"],
             "EmergencyRelationship": [e.value for e in EmergencyRelationshipEnum],
             "YesNo": [e.value for e in YesNoEnum],
             "PatientType": [e.value for e in PatientTypeEnum],
-            "RegistrationSource": [e.value for e in RegistrationSourceEnum],
             "Status": [e.value for e in StatusEnum],
             "BloodGroups": blood_groups
         }
@@ -232,15 +231,18 @@ def get_next_uhid(db: Session = Depends(get_db)):
     """
     try:
         year = db.execute(text("SELECT YEAR(CURDATE())")).scalar()
-        nxt = db.execute(text(
-            "SELECT AUTO_INCREMENT FROM information_schema.TABLES "
-            "WHERE TABLE_SCHEMA = 'registration' AND TABLE_NAME = 'PatientRegistration'"
-        )).scalar()
-        if not nxt:
-            nxt = db.execute(text(
-                "SELECT COALESCE(MAX(PatientId), 0) + 1 FROM registration.PatientRegistration"
-            )).scalar()
-        seq = int(nxt or 1)
+        sql = text("""
+            SELECT MAX(CAST(SUBSTRING_INDEX(Uhid, '-', -1) AS UNSIGNED))
+            FROM (
+                SELECT Uhid FROM registration.PatientRegistration WHERE Uhid LIKE 'UHID-%'
+                UNION ALL
+                SELECT Uhid FROM registration.QuickRegistration WHERE Uhid LIKE 'UHID-%'
+                UNION ALL
+                SELECT Uhid FROM registration.EmergencyRegistration WHERE Uhid LIKE 'UHID-%'
+            ) AS AllUhids
+        """)
+        max_seq = db.execute(sql).scalar()
+        seq = int(max_seq or 0) + 1
         return {"uhid": f"UHID-{year}-{seq:04d}", "nextId": seq}
     except Exception as e:
         logger.error(f"[GET /patients/next-uhid] Error: {e}")

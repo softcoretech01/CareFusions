@@ -19,9 +19,18 @@ export const Button = ({
   children,
   className = '',
   disabled,
+  size = 'md',
   ...props
 }: ButtonProps) => {
-  const baseStyles = 'inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed';
+  const getSizeStyles = () => {
+    switch (size) {
+      case 'sm': return 'px-4 py-1.5 text-sm';
+      case 'lg': return 'px-8 py-3 text-lg';
+      default: return 'px-6 py-2.5';
+    }
+  };
+
+  const baseStyles = `inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${getSizeStyles()}`;
   
   const getStyles = () => {
     // Primary (Emerald)

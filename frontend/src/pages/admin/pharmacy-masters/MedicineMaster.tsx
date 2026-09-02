@@ -16,7 +16,8 @@ interface MedicineRecord {
   category?: string;
   subCategoryId?: number;
   subCategory?: string;
-  manufacturer: string;
+  manufacturerId: number;
+  manufacturer?: string;
   strength: string;
   dosageForm: string;
   unit: string;
@@ -39,6 +40,7 @@ const emptyData: Omit<MedicineRecord, 'id'> = {
   category: '',
   subCategoryId: undefined,
   subCategory: '',
+  manufacturerId: 0,
   manufacturer: '',
   strength: '',
   dosageForm: '',
@@ -65,6 +67,7 @@ const mapApiToRecord = (item: any): MedicineRecord => ({
   category:       item.category || '',
   subCategoryId:  item.subCategoryId || undefined,
   subCategory:    item.subCategory || '',
+  manufacturerId: item.manufacturerId || 0,
   manufacturer:   item.manufacturer || '',
   strength:       item.strength || '',
   dosageForm:     item.dosageForm || '',
@@ -117,6 +120,7 @@ export const MedicineMaster = () => {
   // Dynamic lookup
   const [categoriesList, setCategoriesList] = useState<{ id: number; name: string }[]>([]);
   const [subCategoryList, setSubCategoryList] = useState<{ id: number; categoryId: number; name: string }[]>([]);
+  const [manufacturerList, setManufacturerList] = useState<{ id: number; name: string }[]>([]);
 
   /** Sub-categories under the selected medicine category. Values already used
    *  by existing medicines are kept so an older record stays editable. */
@@ -153,19 +157,22 @@ export const MedicineMaster = () => {
       // Categories come from the one Category master, narrowed to MEDICINE.
       // The old Master_MedicineCategory list was merged into it, so this is
       // the same set of names with a single place to maintain them.
-      const [catRes, subRes] = await Promise.all([
+      const [catRes, subRes, manRes] = await Promise.all([
         fetch(`${API_BASE}/categories/?status_filter=Active`),
         fetch(`${API_BASE}/sub-categories/?status_filter=Active`),
+        fetch(`${API_BASE}/manufacturers/?status_filter=Active`),
       ]);
       if (catRes.ok) {
         const data = await catRes.json();
         setCategoriesList(data.map((c: any) => ({ id: c.id, name: c.categoryName })));
       }
-      // One sub-category master serves medicines and items alike; each row
-      // names its parent category, so the list below narrows to that.
       if (subRes.ok) {
         const data = await subRes.json();
         setSubCategoryList(data.map((sc: any) => ({ id: sc.id, categoryId: sc.categoryId, name: sc.subCategoryName })));
+      }
+      if (manRes.ok) {
+        const data = await manRes.json();
+        setManufacturerList(data.map((m: any) => ({ id: m.id, name: m.manufacturerName })));
       }
     } catch (err) {
       console.error(err);
@@ -182,7 +189,7 @@ export const MedicineMaster = () => {
     if (!formData.medicineCode.trim()) newErrors.medicineCode = 'Medicine Code is required';
     if (!formData.genericName.trim()) newErrors.genericName = 'Medicine Name is required';
     if (!formData.categoryId) newErrors.categoryId = 'Category is required';
-    if (!formData.manufacturer.trim()) newErrors.manufacturer = 'Manufacturer is required';
+    if (!formData.manufacturerId) newErrors.manufacturerId = 'Manufacturer is required';
     if (!formData.strength.trim()) newErrors.strength = 'Strength is required';
     if (!formData.dosageForm.trim()) newErrors.dosageForm = 'Dosage Form is required';
     if (!formData.unit.trim()) newErrors.unit = 'Unit is required';
@@ -260,7 +267,7 @@ export const MedicineMaster = () => {
         genericName:    formData.genericName,
         categoryId:     formData.categoryId,
         subCategoryId:  formData.subCategoryId || null,
-        manufacturer:   formData.manufacturer,
+        manufacturerId: formData.manufacturerId,
         strength:       formData.strength,
         dosageForm:     formData.dosageForm,
         unit:           formData.unit,
@@ -325,7 +332,7 @@ export const MedicineMaster = () => {
       const matchesSearch = 
         record.genericName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         record.medicineCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        record.manufacturer.toLowerCase().includes(searchTerm.toLowerCase());
+        (record.manufacturer || '').toLowerCase().includes(searchTerm.toLowerCase());
       
       const matchesCategory = !filterCategory || record.category === filterCategory;
 
@@ -565,8 +572,18 @@ export const MedicineMaster = () => {
                   </div>
                   <div className="lg:col-span-2">
                     <label className="block text-sm font-medium text-slate-700 mb-1">Manufacturer <span className="text-red-500">*</span></label>
-                    <input type="text" value={formData.manufacturer} onChange={e => setFormData({...formData, manufacturer: e.target.value})} maxLength={50} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.manufacturer ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
-                    {errors.manufacturer && <p className="text-red-500 text-xs mt-1">{errors.manufacturer}</p>}
+                    <select
+                      value={formData.manufacturerId || ""}
+                      onChange={e => {
+                        const id = Number(e.target.value);
+                        setFormData({ ...formData, manufacturerId: id });
+                      }}
+                      className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.manufacturerId ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}
+                    >
+                      <option value="">Select Manufacturer</option>
+                      {manufacturerList.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                    </select>
+                    {errors.manufacturerId && <p className="text-red-500 text-xs mt-1">{errors.manufacturerId}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Strength <span className="text-red-500">*</span></label>

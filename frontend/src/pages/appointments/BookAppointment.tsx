@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Search, Building2, User, CheckCircle, UserCheck, UserPlus, Clock, AlertCircle, Calendar as CalendarIcon } from 'lucide-react';
+import { Search, Building2, Stethoscope, CheckCircle, UserCheck, UserPlus, Clock, AlertCircle, Calendar as CalendarIcon } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { useAppointments } from '../../contexts/AppointmentContext';
 import { usePatients } from '../../contexts/PatientContext';
@@ -54,7 +54,14 @@ function isSlotInPast(dateStr: string, timeStr: string): boolean {
   return slot.getTime() < Date.now();
 }
 
-export const NewAppointment = () => {
+import { useLocation } from "react-router-dom";
+
+export interface BookAppointmentProps {
+  passedPatientProps?: any;
+  onClose?: () => void;
+}
+
+export const BookAppointment = ({ passedPatientProps, onClose }: BookAppointmentProps) => {
   const { addAppointment, appointments, generateAppointmentNumber } = useAppointments();
   const { getDoctorsWithAvailability, doctorSchedules } = useDoctorSchedules();
   const { options: departmentList } = useDepartments();
@@ -64,15 +71,31 @@ export const NewAppointment = () => {
   const [step, setStep] = useState(1);
   const [patientSearch, setPatientSearch] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
-  const [selectedPatient, setSelectedPatient] = useState<GlobalPatientRecord | null>(null);
+  
+  const location = useLocation();
+  const passedPatient = passedPatientProps || location.state?.patient;
+  const [selectedPatient, setSelectedPatient] = useState<GlobalPatientRecord | null>(passedPatient || null);
+
+  useEffect(() => {
+    if (passedPatient) {
+      setFormData(prev => ({
+        ...prev,
+        patientName: passedPatient.patientName || '',
+        mobileNumber: passedPatient.mobileNumber || '',
+        email: passedPatient.email || '',
+        gender: passedPatient.gender || 'Male',
+        age: passedPatient.age ? String(passedPatient.age) : '',
+      }));
+    }
+  }, [passedPatient]);
+
   const searchRef = useRef<HTMLDivElement>(null);
 
   // A new patient's UHID is assigned by the backend when they're registered on
-  // confirm (see handleConfirm) — it is NOT invented on the client. The old code
-  // previewed a client UHID, but nothing was persisted, so two walk-ins in a row
-  // both reused the same UHID-…-000N and collided.
+  // booking (see handleConfirm) — it is NOT invented on the client. The old code
+  // generated a UHID here, which collided (every new patient got UHID-…-0001).
   const [saving, setSaving] = useState(false);
-  // Provisional preview of the UHID the backend will assign on confirm.
+  // Provisional preview of the UHID the backend will assign on booking.
   const [nextUhid, setNextUhid] = useState('');
 
   const getLocalDate = () => {
@@ -90,8 +113,6 @@ export const NewAppointment = () => {
     doctor: '',
     date: getLocalDate(),
     timeSlot: '',
-    type: 'Walk-In' as any,
-    priority: 'Normal' as any,
   });
 
   // Fetch the next UHID (quick-registration format) so it can be previewed.
@@ -156,7 +177,10 @@ export const NewAppointment = () => {
 
   const handleNext = () => setStep(prev => prev + 1);
   const handleBack = () => {
-    if (step === 1) navigate('/appointments/list');
+    if (step === 1) {
+      if (onClose) onClose();
+      else navigate('/appointments/online-booking');
+    }
     else setStep(prev => prev - 1);
   };
 
@@ -164,12 +188,12 @@ export const NewAppointment = () => {
     let uhidToUse = '';
 
     if (selectedPatient) {
-      // Existing patient — reuse their UHID.
+      // Existing patient — reuse their UHID, do NOT create a new patient.
       uhidToUse = selectedPatient.uhid;
     } else {
       // New patient — register them in the backend so they get a UNIQUE,
       // server-assigned UHID and appear in Patient Registration. Previously the
-      // client invented the UHID, so back-to-back walk-ins reused the same one.
+      // client invented the UHID, so every new booking reused the same number.
       setSaving(true);
       try {
         const now = new Date();
@@ -181,10 +205,10 @@ export const NewAppointment = () => {
             RegistrationDate: now.toISOString().split('T')[0],
             RegistrationTime: `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`,
             Title: formData.gender === 'Female' ? 'Mrs.' : 'Mr.',
-            PatientName: formData.patientName || 'Walk-in Patient',
+            PatientName: formData.patientName,
             Gender: formData.gender,
             Age: parseInt(formData.age) || 0,
-            MobileNumber: formData.mobileNumber || '0000000000',
+            MobileNumber: formData.mobileNumber,
             Department: formData.department || null,
             Doctor: formData.doctor || null,
           }),
@@ -201,14 +225,14 @@ export const NewAppointment = () => {
       addPatient({
         id: Date.now(),
         uhid: uhidToUse,
-        patientName: formData.patientName || 'Walk-in Patient',
+        patientName: formData.patientName,
         gender: formData.gender,
         age: parseInt(formData.age) || 0,
-        mobileNumber: formData.mobileNumber || '0000000000',
+        mobileNumber: formData.mobileNumber,
         email: formData.email,
         registrationDate: new Date().toISOString().split('T')[0],
         registrationTime: new Date().toLocaleTimeString(),
-        registrationType: 'Quick',
+        registrationType: 'New',
         status: 'Active',
         department: formData.department,
         doctor: formData.doctor,
@@ -221,19 +245,19 @@ export const NewAppointment = () => {
       id: Date.now() + 1,
       appointmentNumber,
       uhid: uhidToUse,
-      patientName: formData.patientName || 'Walk-in Patient',
-      mobileNumber: formData.mobileNumber || '0000000000',
+      patientName: formData.patientName,
+      mobileNumber: formData.mobileNumber,
       department: formData.department,
       doctor: formData.doctor,
       date: formData.date,
       timeSlot: formData.timeSlot,
       durationMinutes: 15,
-      type: formData.type,
-      priority: formData.priority,
+      type: 'Standard',
+      priority: 'Normal',
       status: 'Scheduled',
     });
 
-    navigate('/appointments/list');
+    navigate('/appointments/online-booking');
   };
 
   const steps = [
@@ -242,6 +266,8 @@ export const NewAppointment = () => {
     { num: 3, label: 'Schedule' },
     { num: 4, label: 'Confirm' },
   ];
+
+
 
   // Departments from the master list.
   const departments = departmentList.map(d => d.departmentName).sort();
@@ -263,15 +289,16 @@ export const NewAppointment = () => {
       )
     : [];
 
-  // Booked slots for Step 3 (shared pool with online bookings)
+  // Booked slots for Step 3
   const bookedSlots = formData.doctor && formData.date
     ? getBookedSlots(formData.doctor, formData.date, appointments)
     : new Set<string>();
 
   return (
     <div className="max-w-3xl mx-auto py-5">
+      {/* Top Header */}
       <div className="mb-5">
-        <h1 className="text-3xl font-bold text-slate-800">Book New Appointment</h1>
+        <h1 className="text-3xl font-bold text-slate-800">Book Appointment</h1>
       </div>
 
       {/* Stepper */}
@@ -301,76 +328,7 @@ export const NewAppointment = () => {
           <div className="animate-in fade-in slide-in-from-right-4 duration-500">
             <h2 className="text-xl font-bold text-slate-800 mb-4">Patient Details</h2>
 
-            {/* Existing Patient Search */}
-            <div className="mb-4" ref={searchRef}>
-              <label className="block text-sm font-semibold text-slate-600 mb-2 flex items-center gap-2">
-                <Search className="w-4 h-4 text-slate-400" />
-                Existing Patient Search
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={patientSearch}
-                  onChange={e => {
-                    setPatientSearch(e.target.value);
-                    setShowDropdown(true);
-                    if (selectedPatient) clearPatient();
-                  }}
-                  onFocus={() => patientSearch.length >= 2 && setShowDropdown(true)}
-                  placeholder="Search by UHID, Name, or Mobile number..."
-                  className={`w-full bg-slate-50 border rounded-xl py-3.5 pl-4 pr-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all ${
-                    selectedPatient ? 'border-green-300 bg-green-50' : 'border-slate-200'
-                  }`}
-                />
-                {selectedPatient && (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                    <span className="text-xs font-bold text-green-600 bg-green-100 px-2 py-0.5 rounded-full flex items-center gap-1">
-                      <UserCheck className="w-3 h-3" /> Existing Patient
-                    </span>
-                    <button onClick={clearPatient} className="text-slate-400 hover:text-red-500 transition-colors text-xs">✕</button>
-                  </div>
-                )}
-
-                {/* Dropdown Results */}
-                {showDropdown && patientResults.length > 0 && (
-                  <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-2xl shadow-lg overflow-hidden">
-                    {patientResults.map(p => (
-                      <div
-                        key={p.id}
-                        onClick={() => selectExistingPatient(p)}
-                        className="flex items-center gap-3 px-4 py-2.5 hover:bg-primary/5 cursor-pointer transition-colors border-b border-slate-50 last:border-0"
-                      >
-                        <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-sm shrink-0">
-                          {(p.patientName || 'P').charAt(0)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-semibold text-slate-800 text-sm truncate">{p.patientName}</div>
-                          <div className="text-xs text-slate-500">{p.uhid} · {p.mobileNumber} · {p.gender}{p.age ? `, ${p.age} Yrs` : ''}</div>
-                        </div>
-                        <span className="text-xs text-primary font-semibold shrink-0">Select</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {showDropdown && patientSearch.trim().length >= 2 && patientResults.length === 0 && (
-                  <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-2xl shadow-lg px-4 py-4 text-center">
-                    <UserPlus className="w-5 h-5 mx-auto text-slate-300 mb-1" />
-                    <p className="text-sm text-slate-400">No existing patient found</p>
-                    <p className="text-xs text-slate-400 mt-0.5">Fill in the details below to register as new patient</p>
-                  </div>
-                )}
-              </div>
-
-              {!selectedPatient && (
-                <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-600">
-                  <UserPlus className="w-3.5 h-3.5" />
-                  <span>New patient — UHID <span className="font-mono font-bold">{nextUhid || '…'}</span> will be added to registration on confirm</span>
-                </div>
-              )}
-            </div>
-
-            <div className="border-t border-slate-100 pt-5">
+            <div className="pt-2">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-semibold text-slate-600">Patient Information</h3>
                 {selectedPatient && (
@@ -380,33 +338,33 @@ export const NewAppointment = () => {
                 )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">UHID</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">UHID</label>
                   <input
                     type="text"
                     value={selectedPatient ? selectedPatient.uhid : (nextUhid || 'Auto-generating…')}
                     readOnly
                     disabled
-                    className="w-full px-4 py-2.5 border rounded-xl bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed font-mono font-semibold"
+                    className="w-full px-4 py-2.5 border rounded-xl text-sm bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed font-mono font-semibold"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Patient Name <span className="text-red-500">*</span></label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Full Name <span className="text-red-500">*</span></label>
                   <input
                     type="text"
                     maxLength={100}
                     value={formData.patientName}
-                    onChange={e => setFormData({ ...formData, patientName: e.target.value })}
+                    onChange={e => setFormData({ ...formData, patientName: e.target.value })} readOnly={!!selectedPatient}
                     disabled={!!selectedPatient}
-                    className={`w-full px-4 py-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors ${
+                    className={`w-full px-4 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors ${
                       selectedPatient ? 'bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed' : 'bg-slate-50 border-slate-200'
                     }`}
                     placeholder="Enter full name"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Mobile Number <span className="text-red-500">*</span></label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Mobile Number <span className="text-red-500">*</span></label>
                   <input
                     type="tel"
                     inputMode="numeric"
@@ -414,19 +372,33 @@ export const NewAppointment = () => {
                     value={formData.mobileNumber}
                     onChange={e => setFormData({ ...formData, mobileNumber: e.target.value.replace(/\D/g, '').slice(0, 10) })}
                     disabled={!!selectedPatient}
-                    className={`w-full px-4 py-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors ${
+                    className={`w-full px-4 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors ${
                       selectedPatient ? 'bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed' : 'bg-slate-50 border-slate-200'
                     }`}
-                    placeholder="Enter 10-digit number"
+                    placeholder="10-digit mobile number"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Gender</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Email Address</label>
+                  <input
+                    type="email"
+                    maxLength={100}
+                    value={formData.email}
+                    onChange={e => setFormData({ ...formData, email: e.target.value })} readOnly={!!selectedPatient}
+                    disabled={!!selectedPatient}
+                    className={`w-full px-4 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors ${
+                      selectedPatient ? 'bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed' : 'bg-slate-50 border-slate-200'
+                    }`}
+                    placeholder="Email (optional)"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Gender</label>
                   <select
                     value={formData.gender}
                     onChange={e => setFormData({ ...formData, gender: e.target.value })}
                     disabled={!!selectedPatient}
-                    className={`w-full px-4 py-2.5 border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors ${
+                    className={`w-full px-4 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors ${
                       selectedPatient ? 'bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed' : 'bg-slate-50 border-slate-200'
                     }`}
                   >
@@ -434,6 +406,21 @@ export const NewAppointment = () => {
                     <option value="Female">Female</option>
                     <option value="Other">Other</option>
                   </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Age</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="120"
+                    value={formData.age}
+                    onChange={e => setFormData({ ...formData, age: e.target.value.replace(/\D/g, '').slice(0, 3) })}
+                    disabled={!!selectedPatient}
+                    className={`w-full px-4 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors ${
+                      selectedPatient ? 'bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed' : 'bg-slate-50 border-slate-200'
+                    }`}
+                    placeholder="Years"
+                  />
                 </div>
               </div>
             </div>
@@ -451,7 +438,7 @@ export const NewAppointment = () => {
                 min={new Date().toISOString().split('T')[0]}
                 value={formData.date}
                 onChange={e => setFormData({ ...formData, date: e.target.value, doctor: '', timeSlot: '' })}
-                className="w-full px-4 py-2.5 border rounded-xl bg-slate-50 border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+                className="w-full px-4 py-2.5 border rounded-xl text-sm bg-slate-50 border-slate-200 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
               />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -509,7 +496,7 @@ export const NewAppointment = () => {
                             : 'border-slate-100 hover:border-slate-200 text-slate-600 cursor-pointer'
                         }`}
                       >
-                        <User className={`w-5 h-5 shrink-0 ${
+                        <Stethoscope className={`w-5 h-5 shrink-0 ${
                           !available ? 'text-slate-300' : formData.doctor === name ? 'text-primary' : 'text-slate-400'
                         }`} />
                         <span className="font-semibold flex-1">{name}</span>
@@ -531,11 +518,11 @@ export const NewAppointment = () => {
           </div>
         )}
 
-        {/* ─── STEP 3: Schedule Details ─── */}
+        {/* ─── STEP 3: Schedule ─── */}
         {step === 3 && (
           <div className="animate-in fade-in slide-in-from-right-4 duration-500">
             <h2 className="text-xl font-bold text-slate-800 mb-4">Schedule Details</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Appointment Date</label>
                 <div className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-slate-600 font-medium">
@@ -566,7 +553,9 @@ export const NewAppointment = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Available Slots <span className="text-red-500">*</span></label>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Available Slots <span className="text-red-500">*</span>
+                </label>
                 <div className="grid grid-cols-3 gap-2">
                   {timeSlots.length === 0 && (
                     <p className="col-span-3 text-sm text-slate-400 text-center py-6 border-2 border-dashed border-slate-200 rounded-xl">
@@ -609,31 +598,6 @@ export const NewAppointment = () => {
                 )}
               </div>
             </div>
-
-            {/* Appointment Type & Priority */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-6 border-t border-slate-100">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Appointment Type</label>
-                {/* Locked to Walk-In: this is the Walk-in Booking flow, so the
-                    appointment always stays visible in the Walk-in list. */}
-                <div className="w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-slate-500 text-sm font-medium cursor-not-allowed flex items-center gap-2">
-                  <UserCheck className="w-4 h-4 text-primary" />
-                  Walk-In
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Priority</label>
-                <select
-                  value={formData.priority}
-                  onChange={e => setFormData({ ...formData, priority: e.target.value as any })}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors text-slate-700"
-                >
-                  <option value="Normal">Normal</option>
-                  <option value="High">High</option>
-                  <option value="Emergency">Emergency</option>
-                </select>
-              </div>
-            </div>
           </div>
         )}
 
@@ -644,7 +608,7 @@ export const NewAppointment = () => {
               <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
                 <CalendarIcon className="w-8 h-8 text-primary" />
               </div>
-              <h2 className="text-2xl font-bold text-slate-800">Confirm Appointment</h2>
+              <h2 className="text-2xl font-bold text-slate-800">Confirm Booking</h2>
               <p className="text-slate-500 mt-1">Please review the details before confirming.</p>
             </div>
 
@@ -656,38 +620,31 @@ export const NewAppointment = () => {
               {selectedPatient ? `Existing Patient · UHID: ${selectedPatient.uhid}` : `New Patient · UHID: ${nextUhid || '…'}`}
             </div>
 
-            <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200 grid grid-cols-2 gap-y-6 gap-x-8 max-w-2xl mx-auto">
-              <div>
-                <span className="block text-xs font-bold text-slate-400 uppercase mb-1">Patient</span>
-                <span className="font-semibold text-slate-800">{formData.patientName || 'N/A'}</span>
-              </div>
-              <div>
-                <span className="block text-xs font-bold text-slate-400 uppercase mb-1">Mobile</span>
-                <span className="font-semibold text-slate-800">{formData.mobileNumber || 'N/A'}</span>
-              </div>
-              <div>
-                <span className="block text-xs font-bold text-slate-400 uppercase mb-1">Department</span>
-                <span className="font-semibold text-slate-800">{formData.department}</span>
-              </div>
-              <div>
-                <span className="block text-xs font-bold text-slate-400 uppercase mb-1">Doctor</span>
-                <span className="font-semibold text-slate-800">{formData.doctor}</span>
-              </div>
+            <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200 grid grid-cols-2 gap-y-5 gap-x-8 max-w-2xl mx-auto">
+              {[
+                { label: 'Patient', value: formData.patientName },
+                { label: 'Mobile', value: formData.mobileNumber },
+                { label: 'Gender / Age', value: `${formData.gender}${formData.age ? ` / ${formData.age} Yrs` : ''}` },
+                { label: 'Department', value: formData.department },
+                { label: 'Doctor', value: formData.doctor },
+              ].map(row => (
+                <div key={row.label}>
+                  <span className="block text-xs font-bold text-slate-400 uppercase mb-1">{row.label}</span>
+                  <span className="font-semibold text-slate-800">{row.value || '—'}</span>
+                </div>
+              ))}
               <div>
                 <span className="block text-xs font-bold text-slate-400 uppercase mb-1">Date &amp; Time</span>
                 <div className="flex items-center gap-2 font-semibold text-primary">
                   {formData.date} <span className="text-slate-300">•</span> {formData.timeSlot}
                 </div>
               </div>
-              <div>
-                <span className="block text-xs font-bold text-slate-400 uppercase mb-1">Type &amp; Priority</span>
-                <span className="font-semibold text-slate-800">{formData.type} ({formData.priority})</span>
-              </div>
             </div>
           </div>
         )}
       </div>
 
+      {/* Footer Navigation */}
       <div className="flex justify-between items-center mt-5">
         <Button variant="outline" onClick={handleBack}>Back</Button>
         {step < 4 ? (
@@ -696,7 +653,7 @@ export const NewAppointment = () => {
             color="primary"
             onClick={handleNext}
             disabled={
-              (step === 1 && !formData.patientName) ||
+              (step === 1 && (!formData.patientName || !formData.mobileNumber)) ||
               (step === 2 && (!formData.date || !formData.doctor)) ||
               (step === 3 && !formData.timeSlot)
             }
@@ -705,7 +662,7 @@ export const NewAppointment = () => {
           </Button>
         ) : (
           <Button variant="filled" color="primary" icon={CheckCircle} onClick={handleConfirm} disabled={saving}>
-            {saving ? 'Registering…' : 'Confirm Appointment'}
+            {saving ? 'Registering…' : 'Confirm Booking'}
           </Button>
         )}
       </div>

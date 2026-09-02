@@ -23,9 +23,6 @@ class MaritalStatusEnum(str, Enum):
     divorced = "Divorced"
     widowed = "Widowed"
 
-class NationalIdTypeEnum(str, Enum):
-    voter_id = "Voter ID"
-    ration_card = "Ration Card"
 
 class EmergencyRelationshipEnum(str, Enum):
     spouse = "Spouse"
@@ -42,12 +39,6 @@ class PatientTypeEnum(str, Enum):
     op = "OP"
     ip = "IP"
     emergency = "Emergency"
-
-class RegistrationSourceEnum(str, Enum):
-    walk_in = "Walk-In"
-    referral = "Referral"
-    online = "Online"
-    camp = "Camp"
 
 class StatusEnum(str, Enum):
     active = "Active"
@@ -72,23 +63,23 @@ class PatientRegistrationBase(BaseModel):
     AlternateMobile: Optional[str] = Field(None, min_length=10, max_length=10, pattern=r"^\d{10}$")
     Email: Optional[EmailStr] = None
     
-    Address1: str = Field(..., max_length=250)
+    Address1: Optional[str] = Field(None, max_length=250)
     Address2: Optional[str] = Field(None, max_length=250)
-    Country: str = Field("India", max_length=50)
-    State: str = Field(..., max_length=50)
+    Country: Optional[str] = Field("India", max_length=50)
+    State: Optional[str] = Field(None, max_length=50)
     District: Optional[str] = Field(None, max_length=50)
-    City: str = Field(..., max_length=50)
-    PinCode: str = Field(..., max_length=20)
+    City: Optional[str] = Field(None, max_length=50)
+    PinCode: Optional[str] = Field(None, max_length=20)
     
     AadhaarNumber: Optional[str] = Field(None, max_length=20)
     PassportNumber: Optional[str] = Field(None, max_length=20)
     PanNumber: Optional[str] = Field(None, max_length=20)
     DrivingLicense: Optional[str] = Field(None, max_length=20)
-    NationalIdType: Optional[NationalIdTypeEnum] = None
+    NationalIdType: Optional[str] = Field(None, max_length=50)
     NationalIdNumber: Optional[str] = Field(None, max_length=50)
     
-    EmergencyContactName: str = Field(..., max_length=50)
-    EmergencyRelationship: EmergencyRelationshipEnum
+    EmergencyContactName: Optional[str] = Field(None, max_length=50)
+    EmergencyRelationship: Optional[EmergencyRelationshipEnum] = None
     EmergencyMobile: Optional[str] = Field(None, min_length=10, max_length=10, pattern=r"^\d{10}$")
     EmergencyAlternateMobile: Optional[str] = Field(None, min_length=10, max_length=10, pattern=r"^\d{10}$")
     EmergencyAddress: Optional[str] = Field(None, max_length=250)
@@ -107,9 +98,6 @@ class PatientRegistrationBase(BaseModel):
     
     PatientType: PatientTypeEnum = PatientTypeEnum.op
     ReferredBy: Optional[str] = Field(None, max_length=50)
-    PrimaryDoctor: Optional[str] = Field(None, max_length=50)
-    Department: Optional[str] = Field(None, max_length=50)
-    RegistrationSource: RegistrationSourceEnum = RegistrationSourceEnum.walk_in
     
     PrivacyConsent: bool = True
     SmsConsent: bool = False
@@ -118,6 +106,8 @@ class PatientRegistrationBase(BaseModel):
     
     Status: StatusEnum = StatusEnum.active
     Remarks: Optional[str] = Field(None, max_length=250)
+    IsQuickRegistration: bool = False
+    RegistrationMode: int = 0
 
 class PatientRegistrationCreate(PatientRegistrationBase):
     Uhid: Optional[str] = None
@@ -140,6 +130,5 @@ class OptionsResponse(BaseModel):
     EmergencyRelationship: List[str]
     YesNo: List[str]
     PatientType: List[str]
-    RegistrationSource: List[str]
     Status: List[str]
     BloodGroups: List[str]

@@ -2,17 +2,20 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, Plus, Filter, Edit2, Download, Printer, Eye,
-  User, Phone, FileText, Heart, Shield, Activity, Calendar, FileDigit, AlertTriangle
+  User, Phone, FileText, Heart, Shield, Activity, Calendar, FileDigit, AlertTriangle, CalendarPlus, X
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
 
 import { exportToExcel } from '../../utils/exportToExcel';
 import { DateFilter } from '../../components/ui/DateFilter';
-import { PatientDetailsModal } from './PatientDetailsModal';interface PatientRecord {
+import { PatientDetailsModal } from './PatientDetailsModal';
+import { BookAppointment } from '../appointments/BookAppointment';
+
+interface PatientRecord {
   id: number;
   uhid: string;
   registrationDate: string;
@@ -65,10 +68,7 @@ import { PatientDetailsModal } from './PatientDetailsModal';interface PatientRec
 
   patientType: string;
   referredBy: string;
-  primaryDoctor: string;
-  department: string;
-  registrationSource: string;
-
+  
   privacyConsent: boolean;
   smsConsent: boolean;
   emailConsent: boolean;
@@ -76,6 +76,8 @@ import { PatientDetailsModal } from './PatientDetailsModal';interface PatientRec
 
   status: 'Active' | 'Inactive';
   remarks: string;
+  isQuickRegistration: boolean;
+  registrationMode: number;
 }
 
 
@@ -109,7 +111,7 @@ const initialFormState: Omit<PatientRecord, 'id'> = {
   passportNumber: '',
   panNumber: '',
   drivingLicense: '',
-  nationalIdType: '',
+  nationalIdType: 'Aadhar Card',
   nationalIdNumber: '',
 
   emergencyContactName: '',
@@ -132,28 +134,31 @@ const initialFormState: Omit<PatientRecord, 'id'> = {
 
   patientType: 'OP',
   referredBy: '',
-  primaryDoctor: '',
-  department: '',
-  registrationSource: 'Walk-In',
-
+  
   privacyConsent: true,
   smsConsent: false,
   emailConsent: false,
   whatsappConsent: false,
 
   status: 'Active',
-  remarks: ''
+  remarks: '',
+  isQuickRegistration: false,
+  registrationMode: 0
 };
 
 export const PatientRegistration = () => {
   const location = useLocation();
+  const navigate = useNavigate();
 
   const [patients, setPatients] = useState<any[]>([]);
+  const [bookAppointmentPatient, setBookAppointmentPatient] = useState<any | null>(null);
   const [options, setOptions] = useState<any>({
     Title: [], Gender: [], MaritalStatus: [], NationalIdType: [],
     EmergencyRelationship: [], YesNo: [], PatientType: [],
-    RegistrationSource: [], Status: [], BloodGroups: []
+    Status: [], BloodGroups: []
   });
+  
+  const [insuranceProviders, setInsuranceProviders] = useState<any[]>([]);
 
   const fetchOptions = async () => {
     try {
@@ -161,6 +166,12 @@ export const PatientRegistration = () => {
       if (res.ok) {
         const data = await res.json();
         setOptions(data);
+      }
+      
+      const insRes = await fetch(`${API_BASE}/insurance/providers`);
+      if (insRes.ok) {
+        const data = await insRes.json();
+        setInsuranceProviders(data);
       }
     } catch (e) {
       console.error(e);
@@ -226,16 +237,14 @@ export const PatientRegistration = () => {
           validTill: d.ValidTill,
           patientType: d.PatientType,
           referredBy: d.ReferredBy,
-          primaryDoctor: d.PrimaryDoctor,
-          department: d.Department,
-          registrationSource: d.RegistrationSource,
           privacyConsent: d.PrivacyConsent,
           smsConsent: d.SmsConsent,
           emailConsent: d.EmailConsent,
           whatsappConsent: d.WhatsappConsent,
           status: d.Status,
           remarks: d.Remarks,
-          sourceType: 'Patient'
+          sourceType: 'Patient',
+          registrationMode: d.RegistrationMode ?? 0
         })));
       }
 
@@ -253,8 +262,6 @@ export const PatientRegistration = () => {
           mobileNumber: d.MobileNumber,
           alternateMobile: d.AlternateMobile || '',
           patientType: d.VisitType || '',
-          department: d.Department || '',
-          primaryDoctor: d.Doctor || '',
           insuranceRequired: d.InsuranceRequired || 'No',
           status: d.Status,
           remarks: d.Remarks || '',
@@ -350,10 +357,10 @@ export const PatientRegistration = () => {
   const [filterStatus, setFilterStatus] = useState('');
   const today = new Date().toISOString().split('T')[0];
   const firstDay = `${today.split('-')[0]}-${today.split('-')[1]}-01`;
-  const [dateFrom, setDateFrom] = useState(firstDay);
-  const [dateTo, setDateTo] = useState(today);
-  const [appliedDateFrom, setAppliedDateFrom] = useState(firstDay);
-  const [appliedDateTo, setAppliedDateTo] = useState(today);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [appliedDateFrom, setAppliedDateFrom] = useState('');
+  const [appliedDateTo, setAppliedDateTo] = useState('');
 
   const handleSearch = () => {
     setAppliedDateFrom(dateFrom);
@@ -362,10 +369,10 @@ export const PatientRegistration = () => {
 
   const handleReset = () => {
     setSearchTerm('');
-    setDateFrom(firstDay);
-    setDateTo(today);
-    setAppliedDateFrom(firstDay);
-    setAppliedDateTo(today);
+    setDateFrom('');
+    setDateTo('');
+    setAppliedDateFrom('');
+    setAppliedDateTo('');
     setFilterPatientType('');
     setFilterGender('');
     setFilterStatus('');
@@ -495,6 +502,11 @@ export const PatientRegistration = () => {
   const handleSave = async (e: React.FormEvent, isSaveAndNew: boolean = false) => {
     e.preventDefault();
 
+    if (!selectedRecord && !formData.remarks?.trim()) {
+      toast.error('Purpose of Visit is mandatory');
+      return;
+    }
+
     // Map frontend camelCase back to backend PascalCase
     const payload = {
       RegistrationDate: formData.registrationDate,
@@ -511,21 +523,21 @@ export const PatientRegistration = () => {
       MobileNumber: formData.mobileNumber,
       AlternateMobile: formData.alternateMobile || null,
       Email: formData.email || null,
-      Address1: formData.address1,
+      Address1: formData.address1 || null,
       Address2: formData.address2 || null,
-      Country: formData.country || 'India',
-      State: formData.state,
+      Country: formData.country || null,
+      State: formData.state || null,
       District: formData.district || null,
-      City: formData.city,
-      PinCode: formData.pinCode,
+      City: formData.city || null,
+      PinCode: formData.pinCode || null,
       AadhaarNumber: formData.aadhaarNumber || null,
       PassportNumber: formData.passportNumber || null,
       PanNumber: formData.panNumber || null,
       DrivingLicense: formData.drivingLicense || null,
       NationalIdType: formData.nationalIdType || null,
       NationalIdNumber: formData.nationalIdNumber || null,
-      EmergencyContactName: formData.emergencyContactName,
-      EmergencyRelationship: formData.emergencyRelationship,
+      EmergencyContactName: formData.emergencyContactName || null,
+      EmergencyRelationship: formData.emergencyRelationship || null,
       EmergencyMobile: formData.emergencyMobile || null,
       EmergencyAlternateMobile: formData.emergencyAlternateMobile || null,
       EmergencyAddress: formData.emergencyAddress || null,
@@ -541,15 +553,14 @@ export const PatientRegistration = () => {
       ValidTill: formData.validTill || null,
       PatientType: formData.patientType || 'OP',
       ReferredBy: formData.referredBy || null,
-      PrimaryDoctor: formData.primaryDoctor || null,
-      Department: formData.department || null,
-      RegistrationSource: formData.registrationSource || 'Walk-In',
       PrivacyConsent: formData.privacyConsent ?? true,
       SmsConsent: formData.smsConsent ?? false,
       EmailConsent: formData.emailConsent ?? false,
       WhatsappConsent: formData.whatsappConsent ?? false,
       Status: formData.status || 'Active',
-      Remarks: formData.remarks || null
+      Remarks: formData.remarks || null,
+      IsQuickRegistration: formData.isQuickRegistration ?? false,
+      RegistrationMode: formData.registrationMode ?? 0
     };
 
     try {
@@ -583,6 +594,12 @@ export const PatientRegistration = () => {
         if (isSaveAndNew) {
           setFormData({ ...initialFormState, uhid: '' });
           setSelectedRecord(null);
+          // Fetch next UHID again for the new record
+          const nextRes = await fetch(`${API_BASE}/patients/next-uhid`);
+          if (nextRes.ok) {
+            const nextData = await nextRes.json();
+            setFormData(prev => ({ ...prev, uhid: nextData.uhid }));
+          }
         } else {
           setIsFormOpen(false);
           setSelectedRecord(null);
@@ -639,10 +656,19 @@ export const PatientRegistration = () => {
             </div>
             <div className="flex gap-3">
               <Button variant="outline" icon={Download} onClick={() => exportToExcel(patients, 'PatientRegistration')}>Export</Button>
-              <Button variant="filled" color="primary" icon={Plus} onClick={() => {
+              <Button variant="filled" color="primary" icon={Plus} onClick={async () => {
                 setSelectedRecord(null);
                 setFormData(initialFormState);
                 setIsFormOpen(true);
+                try {
+                  const res = await fetch(`${API_BASE}/patients/next-uhid`);
+                  if (res.ok) {
+                    const data = await res.json();
+                    setFormData(prev => ({ ...prev, uhid: data.uhid }));
+                  }
+                } catch (e) {
+                  console.error(e);
+                }
               }}>
                 Register Patient
               </Button>
@@ -749,6 +775,13 @@ export const PatientRegistration = () => {
                             >
                               <Edit2 className="w-4 h-4" />
                             </button>
+                            <button
+                              onClick={() => setBookAppointmentPatient(record)}
+                              className="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                              title="Book Appointment"
+                            >
+                              <CalendarPlus className="w-4 h-4" />
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -771,28 +804,60 @@ export const PatientRegistration = () => {
       ) : (
         <div className="absolute inset-0 flex flex-col bg-slate-50 rounded-3xl z-10 overflow-hidden">
           {/* Header */}
-          <div className="flex items-center justify-between p-6 bg-white border-b border-slate-200 shrink-0 shadow-sm z-20">
+          <div className="flex items-center justify-between p-4 bg-white border-b border-slate-200 shrink-0 shadow-sm z-20">
             <div>
-              <h2 className="text-2xl font-bold text-slate-800">
+              <h2 className="text-xl font-bold text-slate-800">
                 {selectedRecord ? 'Edit Patient' : 'Register New Patient'}
               </h2>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="bg-primary/10 text-primary px-3 py-1 rounded-full text-sm font-semibold border border-primary/20">
-                  {formData.uhid || 'Generating UHID...'}
+              <div className="flex items-center gap-4 mt-2">
+                <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full text-xs font-semibold border border-primary/20">
+                  {formData.uhid || 'Upcoming UHID Number'}
                 </span>
-                <span className="text-sm text-slate-500">Date: {formData.registrationDate}</span>
+                <span className="text-xs text-slate-500">Date: {formData.registrationDate}</span>
+                
+                <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl ml-4">
+                  <button
+                    onClick={() => handleInputChange('isQuickRegistration', false)}
+                    className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${!formData.isQuickRegistration ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                  >
+                    Normal Registration
+                  </button>
+                  <button
+                    onClick={() => handleInputChange('isQuickRegistration', true)}
+                    className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${formData.isQuickRegistration ? 'bg-primary text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                  >
+                    Quick Registration
+                  </button>
+                </div>
+
+                {!formData.isQuickRegistration && (
+                  <div className="ml-4 flex items-center gap-2">
+                    <label className="text-sm font-medium text-slate-700 whitespace-nowrap">Source:</label>
+                    <select
+                      value={formData.registrationMode}
+                      onChange={(e) => handleInputChange('registrationMode', parseInt(e.target.value))}
+                      className="px-4 py-1.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm font-medium text-slate-700 min-w-[120px]"
+                    >
+                      <option value={0}>In-Person</option>
+                      <option value={1}>Phone</option>
+                    </select>
+                  </div>
+                )}
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <Button variant="outline" onClick={() => setIsFormOpen(false)}>Cancel</Button>
-              <Button variant="outline" icon={Printer} className="hidden sm:flex"
-                onClick={() => handlePrint({ ...(selectedRecord ?? {}), ...formData })}>Print Slip</Button>
-              {!selectedRecord && (
-                <Button variant="outline" color="primary" onClick={(e) => handleSave(e, true)}>
-                  Save & New
-                </Button>
-              )}
-              <Button variant="filled" color="primary" onClick={(e) => handleSave(e, false)}>
+              <Button
+                size="sm"
+                variant="outline"
+                color="primary"
+                icon={CalendarPlus}
+                onClick={() => setBookAppointmentPatient(formData)}
+                className="whitespace-nowrap bg-emerald-50 hover:bg-emerald-100"
+              >
+                Book Appt
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setIsFormOpen(false)}>Cancel</Button>
+              <Button size="sm" variant="filled" color="primary" onClick={(e) => handleSave(e, false)}>
                 {selectedRecord ? 'Update Record' : 'Save Record'}
               </Button>
             </div>
@@ -929,307 +994,69 @@ export const PatientRegistration = () => {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Address Line 1 <span className="text-red-500">*</span></label>
-                  <input
-                    type="text"
-                    value={formData.address1}
-                    onChange={(e) => handleInputChange('address1', e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Address Line 2</label>
-                  <input
-                    type="text"
-                    value={formData.address2}
-                    onChange={(e) => handleInputChange('address2', e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Country <span className="text-red-500">*</span></label>
-                  <input
-                    type="text"
-                    value={formData.country}
-                    onChange={(e) => handleInputChange('country', e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">State <span className="text-red-500">*</span></label>
-                  <input
-                    type="text"
-                    value={formData.state}
-                    onChange={(e) => handleInputChange('state', e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">District</label>
-                  <input
-                    type="text"
-                    value={formData.district}
-                    onChange={(e) => handleInputChange('district', e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">City <span className="text-red-500">*</span></label>
-                  <input
-                    type="text"
-                    value={formData.city}
-                    onChange={(e) => handleInputChange('city', e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">PIN Code <span className="text-red-500">*</span></label>
-                  <input
-                    type="text"
-                    value={formData.pinCode}
-                    onChange={(e) => handleInputChange('pinCode', e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Section 3 - Identification */}
-            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-              <div className="flex items-center gap-2 mb-6 border-b border-slate-100 pb-3">
-                <FileDigit className="w-5 h-5 text-primary" />
-                <h3 className="text-lg font-bold text-slate-800">Identification Details</h3>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Aadhaar Number</label>
-                  <input
-                    type="text"
-                    value={formData.aadhaarNumber}
-                    onChange={(e) => handleInputChange('aadhaarNumber', e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Passport Number</label>
-                  <input
-                    type="text"
-                    value={formData.passportNumber}
-                    onChange={(e) => handleInputChange('passportNumber', e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">PAN Number</label>
-                  <input
-                    type="text"
-                    value={formData.panNumber}
-                    onChange={(e) => handleInputChange('panNumber', e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Driving License</label>
-                  <input
-                    type="text"
-                    value={formData.drivingLicense}
-                    onChange={(e) => handleInputChange('drivingLicense', e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Other ID Type</label>
-                  <select
-                    value={formData.nationalIdType}
-                    onChange={(e) => handleInputChange('nationalIdType', e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  >
-                    <option value="">Select ID Type</option>{options.NationalIdType.map((o: string) => <option key={o} value={o}>{o}</option>)}</select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Other ID Number</label>
-                  <input
-                    type="text"
-                    value={formData.nationalIdNumber}
-                    onChange={(e) => handleInputChange('nationalIdNumber', e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Section 4 - Emergency Contact */}
-            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-              <div className="flex items-center gap-2 mb-6 border-b border-slate-100 pb-3">
-                <Heart className="w-5 h-5 text-primary" />
-                <h3 className="text-lg font-bold text-slate-800">Emergency Contact</h3>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Contact Name <span className="text-red-500">*</span></label>
-                  <input
-                    type="text"
-                    value={formData.emergencyContactName}
-                    onChange={(e) => handleInputChange('emergencyContactName', e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Relationship <span className="text-red-500">*</span></label>
-                  <select
-                    value={formData.emergencyRelationship}
-                    onChange={(e) => handleInputChange('emergencyRelationship', e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  >
-                    <option value="">Select Relationship</option>{options.EmergencyRelationship.map((o: string) => <option key={o} value={o}>{o}</option>)}</select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Mobile Number <span className="text-red-500">*</span></label>
-                  <input
-                    type="text"
-                    value={formData.emergencyMobile}
-                    onChange={(e) => { const val = e.target.value; if (/^\d{0,10}$/.test(val)) handleInputChange('emergencyMobile', val); }}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary" maxLength={10} />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Alternate Mobile</label>
-                  <input
-                    type="text"
-                    value={formData.emergencyAlternateMobile}
-                    onChange={(e) => { const val = e.target.value; if (/^\d{0,10}$/.test(val)) handleInputChange('emergencyAlternateMobile', val); }}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary" maxLength={10} />
-                </div>
-                <div className="md:col-span-4">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Contact Address</label>
-                  <input
-                    type="text"
-                    value={formData.emergencyAddress}
-                    onChange={(e) => handleInputChange('emergencyAddress', e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Section 5 - Medical Information */}
-            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-              <div className="flex items-center gap-2 mb-6 border-b border-slate-100 pb-3">
-                <Activity className="w-5 h-5 text-primary" />
-                <h3 className="text-lg font-bold text-slate-800">Medical Information</h3>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Blood Group</label>
-                  <select
-                    value={formData.bloodGroup}
-                    onChange={(e) => handleInputChange('bloodGroup', e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  >
-                    <option value="">Select Blood Group</option>{options.BloodGroups.map((o: string) => <option key={o} value={o}>{o}</option>)}</select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Allergies</label>
-                  <input
-                    type="text"
-                    value={formData.allergies}
-                    onChange={(e) => handleInputChange('allergies', e.target.value)}
-                    placeholder="E.g., Penicillin, Peanuts, Dust"
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Chronic Diseases</label>
-                  <input
-                    type="text"
-                    value={formData.chronicDiseases}
-                    onChange={(e) => handleInputChange('chronicDiseases', e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Current Medication</label>
-                  <input
-                    type="text"
-                    value={formData.currentMedication}
-                    onChange={(e) => handleInputChange('currentMedication', e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Organ Donor</label>
-                  <select
-                    value={formData.organDonor}
-                    onChange={(e) => handleInputChange('organDonor', e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  >
-                    <option value="">Select Yes/No</option>{options.YesNo.map((o: string) => <option key={o} value={o}>{o}</option>)}</select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Disability (if any)</label>
-                  <input
-                    type="text"
-                    value={formData.disability}
-                    onChange={(e) => handleInputChange('disability', e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Section 6 - Insurance Information */}
-            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-              <div className="flex items-center gap-2 mb-6 border-b border-slate-100 pb-3">
-                <Shield className="w-5 h-5 text-primary" />
-                <h3 className="text-lg font-bold text-slate-800">Insurance Information</h3>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Insurance Required <span className="text-red-500">*</span></label>
-                  <select
-                    value={formData.insuranceRequired}
-                    onChange={(e) => handleInputChange('insuranceRequired', e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  >
-                    <option value="">Select Yes/No</option>{options.YesNo.map((o: string) => <option key={o} value={o}>{o}</option>)}</select>
-                </div>
-
-                {formData.insuranceRequired === 'Yes' && (
+                {!formData.isQuickRegistration && (
                   <>
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Insurance Provider <span className="text-red-500">*</span></label>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Address Line 1 <span className="text-red-500">*</span></label>
                       <input
                         type="text"
-                        value={formData.insuranceProvider}
-                        onChange={(e) => handleInputChange('insuranceProvider', e.target.value)}
+                        value={formData.address1}
+                        onChange={(e) => handleInputChange('address1', e.target.value)}
                         className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">TPA <span className="text-red-500">*</span></label>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Address Line 2</label>
                       <input
                         type="text"
-                        value={formData.tpa}
-                        onChange={(e) => handleInputChange('tpa', e.target.value)}
+                        value={formData.address2}
+                        onChange={(e) => handleInputChange('address2', e.target.value)}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Country <span className="text-red-500">*</span></label>
+                      <input
+                        type="text"
+                        value={formData.country}
+                        onChange={(e) => handleInputChange('country', e.target.value)}
                         className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Policy Number <span className="text-red-500">*</span></label>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">State <span className="text-red-500">*</span></label>
                       <input
                         type="text"
-                        value={formData.policyNumber}
-                        onChange={(e) => handleInputChange('policyNumber', e.target.value)}
+                        value={formData.state}
+                        onChange={(e) => handleInputChange('state', e.target.value)}
                         className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-1">Valid Till <span className="text-red-500">*</span></label>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">District</label>
                       <input
-                        type="date"
-                        value={formData.validTill}
-                        onChange={(e) => handleInputChange('validTill', e.target.value)}
+                        type="text"
+                        value={formData.district}
+                        onChange={(e) => handleInputChange('district', e.target.value)}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">City <span className="text-red-500">*</span></label>
+                      <input
+                        type="text"
+                        value={formData.city}
+                        onChange={(e) => handleInputChange('city', e.target.value)}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">PIN Code <span className="text-red-500">*</span></label>
+                      <input
+                        type="text"
+                        value={formData.pinCode}
+                        onChange={(e) => handleInputChange('pinCode', e.target.value)}
                         className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
                       />
                     </div>
@@ -1237,6 +1064,257 @@ export const PatientRegistration = () => {
                 )}
               </div>
             </div>
+
+            {/* Identification, Emergency, Medical, Insurance, and Consent are hidden in Quick Registration */}
+            {!formData.isQuickRegistration && (
+              <>
+                {/* Section 3 - Identification */}
+                <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                  <div className="flex items-center gap-2 mb-6 border-b border-slate-100 pb-3">
+                    <FileDigit className="w-5 h-5 text-primary" />
+                    <h3 className="text-lg font-bold text-slate-800">Identification Details</h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Aadhaar Number</label>
+                      <input
+                        type="text"
+                        value={formData.aadhaarNumber}
+                        onChange={(e) => handleInputChange('aadhaarNumber', e.target.value)}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Passport Number</label>
+                      <input
+                        type="text"
+                        value={formData.passportNumber}
+                        onChange={(e) => handleInputChange('passportNumber', e.target.value)}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">PAN Number</label>
+                      <input
+                        type="text"
+                        value={formData.panNumber}
+                        onChange={(e) => handleInputChange('panNumber', e.target.value)}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Driving License</label>
+                      <input
+                        type="text"
+                        value={formData.drivingLicense}
+                        onChange={(e) => handleInputChange('drivingLicense', e.target.value)}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Other ID Type</label>
+                      <select
+                        value={formData.nationalIdType}
+                        onChange={(e) => handleInputChange('nationalIdType', e.target.value)}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      >
+                        <option value="">Select ID Type</option>{options.NationalIdType.map((o: string) => <option key={o} value={o}>{o}</option>)}</select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Other ID Number</label>
+                      <input
+                        type="text"
+                        value={formData.nationalIdNumber}
+                        onChange={(e) => handleInputChange('nationalIdNumber', e.target.value)}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 4 - Emergency Contact */}
+                <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                  <div className="flex items-center gap-2 mb-6 border-b border-slate-100 pb-3">
+                    <Heart className="w-5 h-5 text-primary" />
+                    <h3 className="text-lg font-bold text-slate-800">Emergency Contact</h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Contact Name <span className="text-red-500">*</span></label>
+                      <input
+                        type="text"
+                        value={formData.emergencyContactName}
+                        onChange={(e) => handleInputChange('emergencyContactName', e.target.value)}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Relationship <span className="text-red-500">*</span></label>
+                      <select
+                        value={formData.emergencyRelationship}
+                        onChange={(e) => handleInputChange('emergencyRelationship', e.target.value)}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      >
+                        <option value="">Select Relationship</option>{options.EmergencyRelationship.map((o: string) => <option key={o} value={o}>{o}</option>)}</select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Mobile Number <span className="text-red-500">*</span></label>
+                      <input
+                        type="text"
+                        value={formData.emergencyMobile}
+                        onChange={(e) => { const val = e.target.value; if (/^\d{0,10}$/.test(val)) handleInputChange('emergencyMobile', val); }}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary" maxLength={10} />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Alternate Mobile</label>
+                      <input
+                        type="text"
+                        value={formData.emergencyAlternateMobile}
+                        onChange={(e) => { const val = e.target.value; if (/^\d{0,10}$/.test(val)) handleInputChange('emergencyAlternateMobile', val); }}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary" maxLength={10} />
+                    </div>
+                    <div className="md:col-span-4">
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Contact Address</label>
+                      <input
+                        type="text"
+                        value={formData.emergencyAddress}
+                        onChange={(e) => handleInputChange('emergencyAddress', e.target.value)}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 5 - Medical Information */}
+                <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                  <div className="flex items-center gap-2 mb-6 border-b border-slate-100 pb-3">
+                    <Activity className="w-5 h-5 text-primary" />
+                    <h3 className="text-lg font-bold text-slate-800">Medical Information</h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Blood Group</label>
+                      <select
+                        value={formData.bloodGroup}
+                        onChange={(e) => handleInputChange('bloodGroup', e.target.value)}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      >
+                        <option value="">Select Blood Group</option>{options.BloodGroups.map((o: string) => <option key={o} value={o}>{o}</option>)}</select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Allergies</label>
+                      <input
+                        type="text"
+                        value={formData.allergies}
+                        onChange={(e) => handleInputChange('allergies', e.target.value)}
+                        placeholder="E.g., Penicillin, Peanuts, Dust"
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Chronic Diseases</label>
+                      <input
+                        type="text"
+                        value={formData.chronicDiseases}
+                        onChange={(e) => handleInputChange('chronicDiseases', e.target.value)}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Current Medication</label>
+                      <input
+                        type="text"
+                        value={formData.currentMedication}
+                        onChange={(e) => handleInputChange('currentMedication', e.target.value)}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Organ Donor</label>
+                      <select
+                        value={formData.organDonor}
+                        onChange={(e) => handleInputChange('organDonor', e.target.value)}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      >
+                        <option value="">Select Yes/No</option>{options.YesNo.map((o: string) => <option key={o} value={o}>{o}</option>)}</select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Disability (if any)</label>
+                      <input
+                        type="text"
+                        value={formData.disability}
+                        onChange={(e) => handleInputChange('disability', e.target.value)}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 6 - Insurance Information */}
+                <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                  <div className="flex items-center gap-2 mb-6 border-b border-slate-100 pb-3">
+                    <Shield className="w-5 h-5 text-primary" />
+                    <h3 className="text-lg font-bold text-slate-800">Insurance Information</h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Insurance Required <span className="text-red-500">*</span></label>
+                      <select
+                        value={formData.insuranceRequired}
+                        onChange={(e) => handleInputChange('insuranceRequired', e.target.value)}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      >
+                        <option value="">Select Yes/No</option>{options.YesNo.map((o: string) => <option key={o} value={o}>{o}</option>)}</select>
+                    </div>
+
+                    {formData.insuranceRequired === 'Yes' && (
+                      <>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">Insurance Provider <span className="text-red-500">*</span></label>
+                          <select
+                            value={formData.insuranceProvider}
+                            onChange={(e) => handleInputChange('insuranceProvider', e.target.value)}
+                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                          >
+                            <option value="">Select Provider</option>
+                            {insuranceProviders.map((p: any) => (
+                              <option key={p.providerId} value={p.providerName}>{p.providerName}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">TPA <span className="text-red-500">*</span></label>
+                          <input
+                            type="text"
+                            value={formData.tpa}
+                            onChange={(e) => handleInputChange('tpa', e.target.value)}
+                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">Policy Number <span className="text-red-500">*</span></label>
+                          <input
+                            type="text"
+                            value={formData.policyNumber}
+                            onChange={(e) => handleInputChange('policyNumber', e.target.value)}
+                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">Valid Till <span className="text-red-500">*</span></label>
+                          <input
+                            type="date"
+                            value={formData.validTill}
+                            onChange={(e) => handleInputChange('validTill', e.target.value)}
+                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                          />
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
 
             {/* Section 7 - Registration Information */}
             <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
@@ -1255,15 +1333,6 @@ export const PatientRegistration = () => {
                     <option value="">Select Patient Type</option>{options.PatientType.map((o: string) => <option key={o} value={o}>{o}</option>)}</select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Registration Source</label>
-                  <select
-                    value={formData.registrationSource}
-                    onChange={(e) => handleInputChange('registrationSource', e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  >
-                    <option value="">Select Source</option>{options.RegistrationSource.map((o: string) => <option key={o} value={o}>{o}</option>)}</select>
-                </div>
-                <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Referred By</label>
                   <input
                     type="text"
@@ -1273,71 +1342,64 @@ export const PatientRegistration = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Primary Doctor</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Purpose of Visit {!selectedRecord && <span className="text-red-500">*</span>}</label>
                   <input
                     type="text"
-                    value={formData.primaryDoctor}
-                    onChange={(e) => handleInputChange('primaryDoctor', e.target.value)}
+                    value={formData.remarks}
+                    onChange={(e) => handleInputChange('remarks', e.target.value)}
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Department</label>
-                  <input
-                    type="text"
-                    value={formData.department}
-                    onChange={(e) => handleInputChange('department', e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    placeholder="e.g. General Checkup, Fever..."
                   />
                 </div>
               </div>
             </div>
 
-            {/* Section 8 - Consent & Privacy */}
-            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-              <div className="flex items-center gap-2 mb-6 border-b border-slate-100 pb-3">
-                <FileText className="w-5 h-5 text-primary" />
-                <h3 className="text-lg font-bold text-slate-800">Consent & Privacy</h3>
+            {!formData.isQuickRegistration && (
+              <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                <div className="flex items-center gap-2 mb-6 border-b border-slate-100 pb-3">
+                  <FileText className="w-5 h-5 text-primary" />
+                  <h3 className="text-lg font-bold text-slate-800">Consent & Privacy</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <label className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={formData.privacyConsent}
+                      onChange={(e) => handleInputChange('privacyConsent', e.target.checked)}
+                      className="w-5 h-5 text-primary border-slate-300 rounded focus:ring-primary"
+                    />
+                    <span className="font-medium text-slate-700">Privacy Consent <span className="text-red-500">*</span></span>
+                  </label>
+                  <label className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={formData.smsConsent}
+                      onChange={(e) => handleInputChange('smsConsent', e.target.checked)}
+                      className="w-5 h-5 text-primary border-slate-300 rounded focus:ring-primary"
+                    />
+                    <span className="font-medium text-slate-700">SMS Consent</span>
+                  </label>
+                  <label className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={formData.emailConsent}
+                      onChange={(e) => handleInputChange('emailConsent', e.target.checked)}
+                      className="w-5 h-5 text-primary border-slate-300 rounded focus:ring-primary"
+                    />
+                    <span className="font-medium text-slate-700">Email Consent</span>
+                  </label>
+                  <label className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={formData.whatsappConsent}
+                      onChange={(e) => handleInputChange('whatsappConsent', e.target.checked)}
+                      className="w-5 h-5 text-primary border-slate-300 rounded focus:ring-primary"
+                    />
+                    <span className="font-medium text-slate-700">WhatsApp Consent</span>
+                  </label>
+                </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <label className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={formData.privacyConsent}
-                    onChange={(e) => handleInputChange('privacyConsent', e.target.checked)}
-                    className="w-5 h-5 text-primary border-slate-300 rounded focus:ring-primary"
-                  />
-                  <span className="font-medium text-slate-700">Privacy Consent <span className="text-red-500">*</span></span>
-                </label>
-                <label className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={formData.smsConsent}
-                    onChange={(e) => handleInputChange('smsConsent', e.target.checked)}
-                    className="w-5 h-5 text-primary border-slate-300 rounded focus:ring-primary"
-                  />
-                  <span className="font-medium text-slate-700">SMS Consent</span>
-                </label>
-                <label className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={formData.emailConsent}
-                    onChange={(e) => handleInputChange('emailConsent', e.target.checked)}
-                    className="w-5 h-5 text-primary border-slate-300 rounded focus:ring-primary"
-                  />
-                  <span className="font-medium text-slate-700">Email Consent</span>
-                </label>
-                <label className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-100 transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={formData.whatsappConsent}
-                    onChange={(e) => handleInputChange('whatsappConsent', e.target.checked)}
-                    className="w-5 h-5 text-primary border-slate-300 rounded focus:ring-primary"
-                  />
-                  <span className="font-medium text-slate-700">WhatsApp Consent</span>
-                </label>
-              </div>
-            </div>
+            )}
 
 
 
@@ -1387,6 +1449,20 @@ export const PatientRegistration = () => {
               </div>
             </div>
           </motion.div>
+        </div>
+      )}
+
+      {/* Book Appointment Modal */}
+      {bookAppointmentPatient && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 sm:p-6 overflow-y-auto">
+          <div className="bg-slate-50 w-full max-w-6xl rounded-3xl overflow-hidden relative shadow-2xl flex flex-col" style={{ maxHeight: '95vh', minHeight: '80vh' }}>
+            <button onClick={() => setBookAppointmentPatient(null)} className="absolute top-4 right-4 z-50 text-slate-400 hover:text-red-500 bg-white rounded-full p-2 shadow-sm border border-slate-100 transition-colors">
+              <X className="w-5 h-5" />
+            </button>
+            <div className="overflow-y-auto flex-1">
+              <BookAppointment passedPatientProps={bookAppointmentPatient} onClose={() => setBookAppointmentPatient(null)} />
+            </div>
+          </div>
         </div>
       )}
     </div>
