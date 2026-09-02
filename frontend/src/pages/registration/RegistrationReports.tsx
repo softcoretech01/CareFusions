@@ -65,7 +65,7 @@ export const RegistrationReports = () => {
   const trendLabels = reportData?.trends?.map((t: any) => {
     if (!t.date) return '';
     const d = new Date(t.date);
-    return d.toLocaleDateString('en-US', { weekday: 'short' });
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }) || [];
   const trendValues = reportData?.trends?.map((t: any) => t.count) || [];
 
@@ -189,7 +189,7 @@ export const RegistrationReports = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm flex flex-col min-h-[350px]">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-lg font-bold text-slate-800">Registration Trends (7 Days)</h3>
+              <h3 className="text-lg font-bold text-slate-800">Registration Trends</h3>
               <LineChart className="w-5 h-5 text-slate-400" />
             </div>
             <div className="flex-1 mt-4">
