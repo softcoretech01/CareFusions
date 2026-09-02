@@ -118,7 +118,28 @@ class AdmissionCreate(BaseModel):
     wardId: Optional[int] = None
     bedId: Optional[int] = None
     admissionReason: Optional[str] = Field(default=None, max_length=500)
-    insuranceStatus: Optional[str] = Field(default=None, max_length=50)
+    
+    # Finance & Insurance fields
+    coverageType: str = "Self Pay"
+    insuranceStatus: str = "NOT_APPLICABLE"
+    financialStatus: str = "PENDING"
+    insuranceCompany: Optional[str] = None
+    tpa: Optional[str] = None
+    policyNumber: Optional[str] = None
+    memberId: Optional[str] = None
+    policyHolderName: Optional[str] = None
+    relationship: Optional[str] = None
+    policyStartDate: Optional[str] = None
+    policyEndDate: Optional[str] = None
+    preAuthNumber: Optional[str] = None
+    authStatus: Optional[str] = None
+    approvedAmount: Optional[float] = None
+    coveragePercentage: Optional[float] = None
+    deductible: Optional[float] = None
+    coPay: Optional[float] = None
+    nonCoveredAmount: Optional[float] = None
+    insuranceRemarks: Optional[str] = None
+
     operations: Optional[List[dict]] = None
     user: Optional[str] = None
 

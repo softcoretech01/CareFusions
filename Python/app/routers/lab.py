@@ -17,6 +17,8 @@ from app.database import get_db
 from app.schemas.lab import (
     OrderCreate, TestStatusUpdate, TestResultUpdate, VerifyIn, AckIn, QcCreate,
 )
+from app.routers.services import create_service_order_internal
+from app.schemas.services import ServiceOrderCreate, ServiceOrderItemCreate, OrderTypeEnum, SourceModuleEnum
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/lab", tags=["Laboratory"])
@@ -230,6 +232,58 @@ def create_order(payload: OrderCreate, db: Session = Depends(get_db)):
                         OrderedBy=payload.orderedBy, Priority=payload.priority.value,
                         ClinicalNotes=payload.clinicalNotes, Tests=tests_json,
                         User=payload.user or "Admin").fetchone()
+        
+        # Phase 3: Doctor Order Integration
+        # Create corresponding Central Service Order
+        service_items = []
+        for t in payload.tests:
+            # Fetch master price if available
+            master_price = 0.0
+            if t.testId or t.testName:
+                master_row = db.execute(
+                    text("SELECT TestPrice FROM admin.Master_LabTest WHERE (TestId = :tid OR TestName = :tname) AND IsDeleted = 0 LIMIT 1"),
+                    {"tid": t.testId, "tname": t.testName}
+                ).fetchone()
+                if master_row and master_row.TestPrice:
+                    master_price = float(master_row.TestPrice)
+            
+            service_items.append(
+                ServiceOrderItemCreate(
+                    ItemType="LAB",
+                    ItemId=str(t.testId) if t.testId else t.testName,
+                    ItemName=t.testName,
+                    MasterPrice=master_price,
+                    OriginalPrice=master_price, # Original defaults to master
+                )
+            )
+            
+        source_mod = SourceModuleEnum.OPD
+        admission_id = None
+        if payload.visitType.value == "IP": 
+            source_mod = SourceModuleEnum.IPD
+            # Try to fetch active AdmissionId for this UHID
+            adm_row = db.execute(
+                text("SELECT AdmissionId FROM hospital.IPD_Admission WHERE Uhid = :uhid AND Status = 'Admitted' AND IsDeleted = 0 ORDER BY AdmissionId DESC LIMIT 1"),
+                {"uhid": payload.uhid}
+            ).fetchone()
+            if adm_row:
+                admission_id = adm_row.AdmissionId
+                
+        elif payload.visitType.value == "ER": source_mod = SourceModuleEnum.EMERGENCY
+        
+        order_type = OrderTypeEnum.LAB
+        if payload.category.value == "Radiology": order_type = OrderTypeEnum.RADIOLOGY
+            
+        svc_order = ServiceOrderCreate(
+            OrderNo=row.OrderNumber,
+            UHID=payload.uhid,
+            AdmissionId=admission_id,
+            OrderType=order_type,
+            SourceModule=source_mod,
+            Items=service_items
+        )
+        create_service_order_internal(db, svc_order)
+        
         db.commit()
         return {"orderId": row.OrderId, "id": row.OrderNumber}
     except Exception as e:
@@ -277,10 +331,56 @@ def set_test_result(order_test_id: int, payload: TestResultUpdate, db: Session =
         is_abnormal, is_critical = interpret(
             payload.resultValue, row.NormalRange, bool(row.CriticalValueAlert)
         )
+        
+        # Phase 8: Enforce Service Release
+        release_query = text("""
+            SELECT soi.ServiceStatus
+            FROM hospital.Lab_Order h
+            JOIN Service_Order so ON so.OrderNo = h.OrderNumber
+            JOIN hospital.Lab_OrderTest t ON t.OrderId = h.OrderId
+            JOIN Service_OrderItem soi ON soi.ServiceOrderId = so.ServiceOrderId 
+                AND (soi.ItemName = t.TestName OR soi.ItemId = t.TestId)
+            WHERE t.OrderTestId = :test_id
+            LIMIT 1
+        """)
+        svc_status = db.execute(release_query, {"test_id": order_test_id}).scalar()
+        if svc_status and svc_status != 'RELEASED':
+            raise HTTPException(status_code=400, detail="This test cannot be executed because it has not passed financial clearance and Service Release.")
+        
         _order_sp(db, "SETRESULT", OrderTestId=order_test_id,
                   ResultValue=payload.resultValue, ResultFile=payload.resultFile,
                   IsAbnormal=is_abnormal, IsCritical=is_critical,
                   User=payload.user or "Admin")
+        
+        # Phase 9: Write back completion state to Service_Order backbone
+        db.execute(text("""
+            UPDATE Service_OrderItem soi
+            JOIN Service_Order so ON soi.ServiceOrderId = so.ServiceOrderId
+            JOIN hospital.Lab_Order h ON so.OrderNo = h.OrderNumber
+            JOIN hospital.Lab_OrderTest t ON t.OrderId = h.OrderId 
+                AND (soi.ItemName = t.TestName OR soi.ItemId = t.TestId)
+            SET soi.ServiceStatus = 'COMPLETED', soi.UpdatedAt = NOW()
+            WHERE t.OrderTestId = :test_id
+        """), {"test_id": order_test_id})
+        
+        # Check if all items in the parent order are now completed
+        check_all_completed = text("""
+            SELECT COUNT(*) as pending_count, MAX(so.ServiceOrderId) as parent_id
+            FROM Service_OrderItem soi
+            JOIN hospital.Lab_Order h ON so.OrderNo = h.OrderNumber
+            JOIN Service_Order so ON so.OrderNo = h.OrderNumber
+            JOIN hospital.Lab_OrderTest t ON t.OrderId = h.OrderId
+            WHERE t.OrderTestId = :test_id AND soi.ServiceOrderId = so.ServiceOrderId
+            AND soi.ServiceStatus != 'COMPLETED' AND soi.IsDeleted = 0
+        """)
+        pending_res = db.execute(check_all_completed, {"test_id": order_test_id}).fetchone()
+        
+        if pending_res and pending_res.pending_count == 0 and pending_res.parent_id:
+            db.execute(text("""
+                UPDATE Service_Order 
+                SET ServiceStatus = 'COMPLETED', OrderStatus = 'COMPLETED', UpdatedAt = NOW()
+                WHERE ServiceOrderId = :parent_id
+            """), {"parent_id": pending_res.parent_id})
         
         try:
             if payload.resultSummary is not None:

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Shield, Eye, EyeOff, Check, Stethoscope, Pill, Cloud, UserPlus, ShieldCheck, BarChart3, Heart, Plus, CalendarClock, BedDouble, ClipboardList, FlaskConical, ScanLine, ShoppingCart, Boxes, Sparkles, User } from 'lucide-react';
+import { Shield, Eye, EyeOff, Check, Stethoscope, Pill, Cloud, UserPlus, ShieldCheck, BarChart3, Heart, Plus, CalendarClock, BedDouble, ClipboardList, FlaskConical, ScanLine, ShoppingCart, Boxes, Sparkles, User, CheckCircle } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppDispatch } from '../hooks/redux';
 import { setCredentials } from '../redux/slices/authSlice';
@@ -18,6 +18,7 @@ const roles = [
   { id: 'radiology', label: 'Radiology', icon: ScanLine },
   { id: 'billing', label: 'Billing', icon: BarChart3 },
   { id: 'insurance', label: 'Insurance', icon: ShieldCheck },
+  { id: 'pro', label: 'PRO Portal', icon: CheckCircle },
   { id: 'procurement', label: 'Procurement', icon: ShoppingCart },
   { id: 'inventory', label: 'Inventory', icon: Boxes },
 ];
@@ -40,6 +41,7 @@ const ROLE_ROUTES: Record<string, string> = {
   insurance: '/insurance',
   procurement: '/procurement',
   inventory: '/inventory',
+  pro: '/pro',
 };
 
 export const Login = () => {
