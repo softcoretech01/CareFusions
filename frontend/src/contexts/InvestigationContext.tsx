@@ -504,11 +504,7 @@ export const InvestigationProvider = ({ children }: { children: ReactNode }) => 
     return orders.filter(o => o.patientId === patientId);
   };
 
-  useEffect(() => {
-    // Only radiology order logs are loaded independently right now;
-    // lab orders and logs load together in refresh().
-    fetchRadiologyQCLogs();
-  }, [fetchRadiologyQCLogs]);
+
 
   const removeOrder = useCallback((orderId: string) => {
     setOrders(prev => prev.filter(o => o.id !== orderId));
