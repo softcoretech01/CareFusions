@@ -1,4 +1,5 @@
 import logging
+import time
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -16,8 +17,14 @@ router = APIRouter(prefix="/ipd", tags=["IPD"])
 
 
 # ── SP call helpers ──────────────────────────────────────────
+_LAST_SYNC_TIME = 0
+
 def sync_wards_and_beds(db: Session):
     """Synchronize IPD_Ward and IPD_Bed tables with Mst_WardCharge configuration to align synthetic IDs."""
+    global _LAST_SYNC_TIME
+    if time.time() - _LAST_SYNC_TIME < 60:
+        return
+        
     try:
         # Fetch active records from Mst_WardCharge
         master_wards = db.execute(text("SELECT * FROM Mst_WardCharge WHERE IsDeleted = 0")).fetchall()
@@ -109,6 +116,7 @@ def sync_wards_and_beds(db: Session):
             db.execute(text("UPDATE hospital.IPD_Bed SET IsDeleted = 1"))
             
         db.commit()
+        _LAST_SYNC_TIME = time.time()
     except Exception as e:
         db.rollback()
         logger.error(f"[sync_wards_and_beds] Error: {e}")
@@ -143,7 +151,16 @@ def _adm_sp(db, opt, **kw):
         "p_Specialty": kw.get("specialty"), "p_AdmissionType": kw.get("admission_type"),
         "p_Priority": kw.get("priority"), "p_ExpectedStayDays": kw.get("expected_stay"),
         "p_WardId": kw.get("ward_id"), "p_BedId": kw.get("bed_id"),
-        "p_AdmissionReason": kw.get("diagnosis"), "p_InsuranceStatus": kw.get("insurance"),
+        "p_AdmissionReason": kw.get("diagnosis"),
+        "p_CoverageType": kw.get("coverage_type"), "p_InsuranceStatus": kw.get("insurance_status"),
+        "p_FinancialStatus": kw.get("financial_status"), "p_InsuranceCompany": kw.get("insurance_company"),
+        "p_TPA": kw.get("tpa"), "p_PolicyNumber": kw.get("policy_number"), "p_MemberID": kw.get("member_id"),
+        "p_PolicyHolderName": kw.get("policy_holder_name"), "p_Relationship": kw.get("relationship"),
+        "p_PolicyStartDate": kw.get("policy_start_date"), "p_PolicyEndDate": kw.get("policy_end_date"),
+        "p_PreAuthNumber": kw.get("pre_auth_number"), "p_AuthStatus": kw.get("auth_status"),
+        "p_ApprovedAmount": kw.get("approved_amount"), "p_CoveragePercentage": kw.get("coverage_percentage"),
+        "p_Deductible": kw.get("deductible"), "p_CoPay": kw.get("co_pay"),
+        "p_NonCoveredAmount": kw.get("non_covered_amount"), "p_InsuranceRemarks": kw.get("insurance_remarks"),
         "p_TransferReason": kw.get("reason"), "p_DischargeSummary": kw.get("summary"),
         "p_DischargedBy": kw.get("discharged_by"), "p_MedicineName": kw.get("med_name"),
         "p_Dosage": kw.get("dosage"), "p_Frequency": kw.get("frequency"),
@@ -197,10 +214,29 @@ def _map_admission(r) -> dict:
         "currentWardName": getattr(r, "WardName", None) or "",
         "currentBedId": r.CurrentBedId,
         "admissionReason": getattr(r, "AdmissionReason", None) or "",
-        "insuranceStatus": getattr(r, "InsuranceStatus", None) or "",
+        "coverageType": getattr(r, "CoverageType", None) or "Self Pay",
+        "insuranceStatus": getattr(r, "InsuranceStatus", None) or "NOT_APPLICABLE",
+        "financialStatus": getattr(r, "FinancialStatus", None) or "PENDING",
+        "insuranceCompany": getattr(r, "InsuranceCompany", None),
+        "tpa": getattr(r, "TPA", None),
+        "policyNumber": getattr(r, "PolicyNumber", None),
+        "memberId": getattr(r, "MemberID", None),
+        "policyHolderName": getattr(r, "PolicyHolderName", None),
+        "relationship": getattr(r, "Relationship", None),
+        "policyStartDate": str(r.PolicyStartDate) if getattr(r, "PolicyStartDate", None) else None,
+        "policyEndDate": str(r.PolicyEndDate) if getattr(r, "PolicyEndDate", None) else None,
+        "preAuthNumber": getattr(r, "PreAuthNumber", None),
+        "authStatus": getattr(r, "AuthStatus", None),
+        "approvedAmount": float(r.ApprovedAmount) if getattr(r, "ApprovedAmount", None) is not None else None,
+        "coveragePercentage": float(r.CoveragePercentage) if getattr(r, "CoveragePercentage", None) is not None else None,
+        "deductible": float(r.Deductible) if getattr(r, "Deductible", None) is not None else None,
+        "coPay": float(r.CoPay) if getattr(r, "CoPay", None) is not None else None,
+        "nonCoveredAmount": float(r.NonCoveredAmount) if getattr(r, "NonCoveredAmount", None) is not None else None,
+        "insuranceRemarks": getattr(r, "InsuranceRemarks", None),
         "wardTransferHistory": [],
         "dischargeInfo": discharge,
         "operations": (json.loads(r.OperationsData) if isinstance(r.OperationsData, str) else r.OperationsData) if hasattr(r, "OperationsData") and r.OperationsData else [],
+        "hasReleasedOT": getattr(r, "HasReleasedOT", False),
     }
 
 
@@ -343,6 +379,21 @@ def list_admissions(db: Session = Depends(get_db)):
             adm["wardTransferHistory"] = t_by_adm.get(r.AdmissionId, [])
             if adm["dischargeInfo"] is not None:
                 adm["dischargeInfo"]["medicines"] = m_by_adm.get(r.AdmissionId, [])
+                
+            has_ot = False
+            try:
+                ot_query_broad = text("""
+                    SELECT 1 FROM Service_Order so
+                    JOIN Service_OrderItem soi ON so.ServiceOrderId = soi.ServiceOrderId
+                    WHERE so.AdmissionId = :adm_id AND soi.ServiceStatus IN ('RELEASED', 'COMPLETED') 
+                      AND (so.OrderType LIKE '%OT%' OR so.OrderType = 'SURGERY' OR soi.ItemType LIKE '%OT%')
+                    LIMIT 1
+                """)
+                has_ot = db.execute(ot_query_broad, {"adm_id": r.AdmissionId}).scalar() is not None
+            except Exception:
+                pass
+            adm["hasReleasedOT"] = has_ot
+            
             out.append(adm)
         return out
     except Exception as e:
@@ -356,7 +407,16 @@ def _admit_fields(p: AdmissionCreate) -> dict:
         blood_group=p.bloodGroup, admitting_doctor=p.admittingDoctor, specialty=p.specialty,
         admission_type=p.admissionType, priority=p.priority, expected_stay=p.expectedStayDays,
         ward_id=p.wardId, bed_id=p.bedId, diagnosis=p.admissionReason,
-        insurance=p.insuranceStatus, user=p.user or "Admin",
+        coverage_type=p.coverageType, insurance_status=p.insuranceStatus,
+        financial_status=p.financialStatus, insurance_company=p.insuranceCompany,
+        tpa=p.tpa, policy_number=p.policyNumber, member_id=p.memberId,
+        policy_holder_name=p.policyHolderName, relationship=p.relationship,
+        policy_start_date=p.policyStartDate, policy_end_date=p.policyEndDate,
+        pre_auth_number=p.preAuthNumber, auth_status=p.authStatus,
+        approved_amount=p.approvedAmount, coverage_percentage=p.coveragePercentage,
+        deductible=p.deductible, co_pay=p.coPay,
+        non_covered_amount=p.nonCoveredAmount, insurance_remarks=p.insuranceRemarks,
+        user=p.user or "Admin",
     )
 
 
@@ -375,7 +435,30 @@ def admit_patient(payload: AdmissionCreate, db: Session = Depends(get_db)):
                 db.rollback()
                 logger.error(f"Failed to update OperationsData on admit: {e}")
         created = _adm_sp(db, "GETBYID", admission_id=row.AdmissionId).fetchone()
-        return _map_admission(created)
+        
+        # Check for released OT
+        has_ot = False
+        try:
+            ot_query_broad = text("""
+                SELECT 1 FROM Service_Order so
+                JOIN Service_OrderItem soi ON so.ServiceOrderId = soi.ServiceOrderId
+                WHERE so.AdmissionId = :adm_id AND soi.ServiceStatus IN ('RELEASED', 'COMPLETED') 
+                  AND (so.OrderType LIKE '%OT%' OR so.OrderType = 'SURGERY' OR soi.ItemType LIKE '%OT%')
+                LIMIT 1
+            """)
+            has_ot = db.execute(ot_query_broad, {"adm_id": row.AdmissionId}).scalar() is not None
+        except Exception:
+            pass
+            
+        r_dict = dict(created._mapping)
+        r_dict["HasReleasedOT"] = has_ot
+        
+        # Use a dummy object to pass dict items
+        class DummyRow:
+            def __init__(self, d):
+                self.__dict__.update(d)
+        
+        return _map_admission(DummyRow(r_dict))
     except Exception as e:
         db.rollback()
         logger.error(f"[POST /ipd/admissions] {e}")
@@ -453,16 +536,115 @@ def request_discharge(admission_id: int, payload: DischargeRequest, db: Session 
 @router.patch("/admissions/{admission_id}/discharge")
 def discharge(admission_id: int, payload: DischargeRequest, db: Session = Depends(get_db)):
     try:
+        # Phase 10: Enforce Final Bill Clearance before discharge
+        adm_status = db.execute(text("SELECT FinancialStatus FROM hospital.IPD_Admission WHERE AdmissionId = :id"), {"id": admission_id}).scalar()
+        if adm_status and adm_status != 'CLEARED':
+            raise HTTPException(status_code=400, detail="Cannot discharge patient until Final IPD Bill is CLEARED.")
+            
         _adm_sp(db, "DISCHARGE", admission_id=admission_id, summary=payload.dischargeSummary,
                 discharged_by=payload.dischargedBy, user=payload.user or "Admin")
         if payload.medicines:
             _save_discharge_meds(db, admission_id, payload.medicines)
+            
+        # Free up the bed
+        db.execute(text("""
+            UPDATE hospital.IPD_Bed b
+            JOIN hospital.IPD_Admission a ON a.CurrentBedId = b.BedId
+            SET b.Status = 'Available'
+            WHERE a.AdmissionId = :id
+        """), {"id": admission_id})
+        
         db.commit()
         return {"message": "Patient discharged"}
+    except HTTPException:
+        raise
     except Exception as e:
         db.rollback()
         logger.error(f"[PATCH /ipd/admissions/{admission_id}/discharge] {e}")
         raise HTTPException(status_code=500, detail="Failed to discharge patient")
+
+@router.get("/admissions/{admission_id}/bill")
+def get_ipd_bill(admission_id: int, db: Session = Depends(get_db)):
+    """
+    Phase 10: Compile IPD charges dynamically from Service_Order and Ward Charges.
+    """
+    try:
+        adm = _adm_sp(db, "GETBYID", admission_id=admission_id).fetchone()
+        if not adm:
+            raise HTTPException(status_code=404, detail="Admission not found")
+            
+        # 1. Ward Charges (simplified: 1 day minimum)
+        from datetime import datetime
+        adm_date = adm.AdmissionDate
+        days = (datetime.now() - adm_date).days if adm_date else 1
+        if days <= 0: days = 1
+        
+        ward_charge = 1500.0 # Default mock ward charge
+        try:
+            w_row = db.execute(text("SELECT TestPrice FROM admin.Master_WardCharge WHERE WardId = :wid"), {"wid": adm.CurrentWardId}).fetchone()
+            if w_row and w_row.TestPrice: ward_charge = float(w_row.TestPrice)
+        except Exception:
+            pass
+            
+        total_ward_charge = ward_charge * days
+        
+        # 2. Service Charges (Lab, Radiology, etc) from Central Service_Order
+        svc_query = text("""
+            SELECT ItemName, ItemType, PROPrice, AuthorizedDiscount, PatientResponsibility, ServiceStatus
+            FROM Service_OrderItem soi
+            JOIN Service_Order so ON so.ServiceOrderId = soi.ServiceOrderId
+            WHERE so.AdmissionId = :adm_id AND soi.IsDeleted = 0
+        """)
+        svc_items = db.execute(svc_query, {"adm_id": admission_id}).fetchall()
+        
+        services_breakdown = []
+        total_service_charges = 0.0
+        
+        for item in svc_items:
+            net_price = float(item.PROPrice or 0) - float(item.AuthorizedDiscount or 0)
+            services_breakdown.append({
+                "itemName": item.ItemName,
+                "itemType": item.ItemType,
+                "status": item.ServiceStatus,
+                "amount": net_price
+            })
+            total_service_charges += net_price
+            
+        # 3. Advances Paid
+        advances_paid = 0.0
+        # Check Billing_Advance for this UHID where status is PAID (optional for future)
+        adv_query = text("""
+            SELECT SUM(TotalAmount) FROM Billing_Advance 
+            WHERE UHID = :uhid AND Status = 'PAID' AND SourceModule = 'IPD'
+        """)
+        try:
+            adv_res = db.execute(adv_query, {"uhid": adm.Uhid}).scalar()
+            if adv_res: advances_paid = float(adv_res)
+        except Exception:
+            pass
+        
+        total_bill = total_ward_charge + total_service_charges
+        net_payable = total_bill - advances_paid
+        
+        return {
+            "admissionId": admission_id,
+            "patientName": adm.PatientName,
+            "uhid": adm.Uhid,
+            "daysAdmitted": days,
+            "roomCharges": total_ward_charge,
+            "servicesBreakdown": services_breakdown,
+            "totalServiceCharges": total_service_charges,
+            "pharmacyCharges": 0.0,
+            "totalBill": total_bill,
+            "advancesPaid": advances_paid,
+            "netPayable": net_payable,
+            "financialStatus": adm.FinancialStatus or 'PENDING'
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[GET /ipd/admissions/{admission_id}/bill] {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate bill")
 
 
 # ══════════════════════════ ADMISSION REQUESTS ══════════════════════════

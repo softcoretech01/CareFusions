@@ -24,7 +24,8 @@ from app.routers import (
     purchase_requisition, rfq, vendor_quotation, purchase_order, goods_receipt, purchase_return,
     vendor_catalog, approval, procurement_dashboard,
     doctor_specialization, housekeeping, ipd_clinical, pharmacy, insurance, inventory, executive,
-    scheduled_reports, minor_operation, major_operation, ward_charge
+    scheduled_reports, minor_operation, major_operation, ward_charge, services, pro,
+    billing_advance, insurance_claims
 )
 
 
@@ -88,15 +89,20 @@ app.include_router(op_billing.router, prefix="/api/v1")
 app.include_router(ip_billing.router, prefix="/api/v1")
 app.include_router(billing_reports.router, prefix="/api/v1")
 app.include_router(radiology_orders.router, prefix="/api/v1")
-app.include_router(radiology_qc.router, prefix="/api/v1")
-app.include_router(service.router, prefix="/api/v1")
-app.include_router(tax.router, prefix="/api/v1")
-app.include_router(payment_mode.router, prefix="/api/v1")
+app.include_router(ward_charge.router, prefix="/api/v1")
+app.include_router(services.router, prefix="/api/v1")
+app.include_router(pro.router, prefix="/api/v1")
+app.include_router(billing_advance.router, prefix="/api/v1")
+app.include_router(insurance_claims.router, prefix="/api/v1")
 app.include_router(insurance_provider.router, prefix="/api/v1")
 app.include_router(tpa.router, prefix="/api/v1")
 app.include_router(vendor.router, prefix="/api/v1")
 app.include_router(category.router, prefix="/api/v1")
 app.include_router(sub_category.router, prefix="/api/v1")
+app.include_router(radiology_qc.router, prefix="/api/v1")
+app.include_router(service.router, prefix="/api/v1")
+app.include_router(tax.router, prefix="/api/v1")
+app.include_router(payment_mode.router, prefix="/api/v1")
 app.include_router(uom.router, prefix="/api/v1")
 app.include_router(item.router, prefix="/api/v1")
 app.include_router(catalog.router, prefix="/api/v1")
@@ -163,6 +169,9 @@ app.include_router(scheduled_reports.router,      prefix="/api/v1")
 app.include_router(permission.router,            prefix="/api/v1")
 app.include_router(auth.router,                  prefix="/api/v1")
 app.include_router(op_billing.router,            prefix="/api/v1")
+app.include_router(services.router,              prefix="/api/v1")
+app.include_router(pro.router,                   prefix="/api/v1")
+app.include_router(billing_advance.router,       prefix="/api/v1")
 app.include_router(purchase_requisition.router,  prefix="/api/v1")
 app.include_router(rfq.router,                   prefix="/api/v1")
 app.include_router(upload.router,                prefix="/api/v1")

@@ -114,6 +114,9 @@ const ReportBuilderPage = lazy(() => import('../pages/executive/ReportBuilderPag
 const AuditLogsPage = lazy(() => import('../pages/executive/AuditLogsPage').then(m => ({ default: (m as any).AuditLogsPage ?? (m as any).default })));
 const SettingsPage = lazy(() => import('../pages/executive/SettingsPage').then(m => ({ default: (m as any).SettingsPage ?? (m as any).default })));
 
+import { PROLayout } from '../layouts/PROLayout';
+const PRODashboard = lazy(() => import('../pages/pro/PRODashboard').then(m => ({ default: (m as any).PRODashboard ?? (m as any).default })));
+
 const HospitalMaster = lazy(() => import('../pages/admin/organization-masters/HospitalMaster').then(m => ({ default: (m as any).HospitalMaster ?? (m as any).default })));
 const BranchMaster = lazy(() => import('../pages/admin/organization-masters/BranchMaster').then(m => ({ default: (m as any).BranchMaster ?? (m as any).default })));
 const DepartmentMaster = lazy(() => import('../pages/admin/organization-masters/DepartmentMaster').then(m => ({ default: (m as any).DepartmentMaster ?? (m as any).default })));
@@ -616,6 +619,20 @@ export const router = createBrowserRouter([
       { path: 'ledger', element: <StockLedger /> },
       { path: 'category-ledger', element: <CategoryLedger /> },
       { path: 'reports', element: <InventoryReports /> },
+    ]
+  },
+  {
+    path: '/pro',
+    element: <PROLayout />,
+    children: [
+      {
+        index: true,
+        element: <Navigate to="/pro/approvals" replace />
+      },
+      {
+        path: 'approvals',
+        element: <PRODashboard />
+      }
     ]
   },
   {

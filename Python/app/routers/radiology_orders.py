@@ -5,6 +5,8 @@ from typing import List, Dict, Any
 from app.database import get_db
 from app.schemas.radiology import RadiologyOrderResponse, RadiologyTestUpdate, RadiologyOrderCreate
 import uuid
+from app.routers.services import create_service_order_internal
+from app.schemas.services import ServiceOrderCreate, ServiceOrderItemCreate, OrderTypeEnum, SourceModuleEnum
 
 router = APIRouter(
     prefix="/radiology/orders",
@@ -136,6 +138,7 @@ def create_radiology_order(order_data: RadiologyOrderCreate, db: Session = Depen
         
         order_id = db.execute(text("SELECT LAST_INSERT_ID()")).scalar()
         
+        service_items = []
         for test in order_data.tests:
             test_query = text("""
                 INSERT INTO hospital.Rad_OrderTest (OrderId, TestCode, TestName, BodyPart, Status)
@@ -147,6 +150,49 @@ def create_radiology_order(order_data: RadiologyOrderCreate, db: Session = Depen
                 "test_name": test.testName,
                 "body_part": test.body_part
             })
+            
+            # Fetch master price if available
+            master_price = 0.0
+            if test.testId or test.testName:
+                master_row = db.execute(
+                    text("SELECT TestPrice FROM admin.Master_RadiologyService WHERE (ServiceId = :tid OR ServiceName = :tname) AND IsDeleted = 0 LIMIT 1"),
+                    {"tid": test.testId, "tname": test.testName}
+                ).fetchone()
+                if master_row and master_row.TestPrice:
+                    master_price = float(master_row.TestPrice)
+
+            service_items.append(
+                ServiceOrderItemCreate(
+                    ItemType="RADIOLOGY",
+                    ItemId=str(test.testId) if test.testId else test.testName,
+                    ItemName=test.testName,
+                    MasterPrice=master_price,
+                    OriginalPrice=master_price, # Original defaults to master
+                )
+            )
+
+        source_mod = SourceModuleEnum.OPD
+        admission_id = None
+        if order_data.visit_type == "IP": 
+            source_mod = SourceModuleEnum.IPD
+            adm_row = db.execute(
+                text("SELECT AdmissionId FROM hospital.IPD_Admission WHERE Uhid = :uhid AND Status = 'Admitted' AND IsDeleted = 0 ORDER BY AdmissionId DESC LIMIT 1"),
+                {"uhid": order_data.uhid}
+            ).fetchone()
+            if adm_row:
+                admission_id = adm_row.AdmissionId
+                
+        elif order_data.visit_type == "ER": source_mod = SourceModuleEnum.EMERGENCY
+            
+        svc_order = ServiceOrderCreate(
+            OrderNo=order_number,
+            UHID=order_data.uhid,
+            AdmissionId=admission_id,
+            OrderType=OrderTypeEnum.RADIOLOGY,
+            SourceModule=source_mod,
+            Items=service_items
+        )
+        create_service_order_internal(db, svc_order)
             
         db.commit()
         return {"order_id": order_id, "order_number": order_number, "message": "Order created successfully"}
@@ -162,6 +208,21 @@ def update_radiology_test(order_id: int, test_id: str, test_data: RadiologyTestU
         # We will assume test_id passed here is order_test_id.
         order_test_id_int = int(test_id.replace("TEST-", "")) if isinstance(test_id, str) and test_id.startswith("TEST-") else int(test_id)
         
+        # Phase 8: Enforce Service Release
+        release_query = text("""
+            SELECT soi.ServiceStatus
+            FROM hospital.Rad_Order h
+            JOIN Service_Order so ON so.OrderNo = h.OrderNumber
+            JOIN hospital.Rad_OrderTest t ON t.OrderId = h.OrderId
+            JOIN Service_OrderItem soi ON soi.ServiceOrderId = so.ServiceOrderId 
+                AND (soi.ItemName = t.TestName OR soi.ItemId = t.TestId)
+            WHERE t.OrderTestId = :test_id
+            LIMIT 1
+        """)
+        svc_status = db.execute(release_query, {"test_id": order_test_id_int}).scalar()
+        if svc_status and svc_status != 'RELEASED':
+            raise HTTPException(status_code=400, detail="This test cannot be executed because it has not passed financial clearance and Service Release.")
+        
         result = _call_sp(
             db, "UPDATE_RESULT",
             order_id=order_id,
@@ -171,6 +232,36 @@ def update_radiology_test(order_id: int, test_id: str, test_data: RadiologyTestU
             is_critical=1 if test_data.is_critical else 0,
             user_id="Admin",
         ).fetchone()
+        
+        # Phase 9: Write back completion state to Service_Order backbone
+        db.execute(text("""
+            UPDATE Service_OrderItem soi
+            JOIN Service_Order so ON soi.ServiceOrderId = so.ServiceOrderId
+            JOIN hospital.Rad_Order h ON so.OrderNo = h.OrderNumber
+            JOIN hospital.Rad_OrderTest t ON t.OrderId = h.OrderId 
+                AND (soi.ItemName = t.TestName OR soi.ItemId = t.TestId)
+            SET soi.ServiceStatus = 'COMPLETED', soi.UpdatedAt = NOW()
+            WHERE t.OrderTestId = :test_id
+        """), {"test_id": order_test_id_int})
+        
+        # Check if all items in the parent order are now completed
+        check_all_completed = text("""
+            SELECT COUNT(*) as pending_count, MAX(so.ServiceOrderId) as parent_id
+            FROM Service_OrderItem soi
+            JOIN Service_Order so ON soi.ServiceOrderId = so.ServiceOrderId
+            JOIN hospital.Rad_Order h ON so.OrderNo = h.OrderNumber
+            JOIN hospital.Rad_OrderTest t ON t.OrderId = h.OrderId
+            WHERE t.OrderTestId = :test_id
+            AND soi.ServiceStatus != 'COMPLETED' AND soi.IsDeleted = 0
+        """)
+        pending_res = db.execute(check_all_completed, {"test_id": order_test_id_int}).fetchone()
+        
+        if pending_res and pending_res.pending_count == 0 and pending_res.parent_id:
+            db.execute(text("""
+                UPDATE Service_Order 
+                SET ServiceStatus = 'COMPLETED', OrderStatus = 'COMPLETED', UpdatedAt = NOW()
+                WHERE ServiceOrderId = :parent_id
+            """), {"parent_id": pending_res.parent_id})
         
         try:
             if test_data.result_summary is not None:

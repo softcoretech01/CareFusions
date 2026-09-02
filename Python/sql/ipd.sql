@@ -75,7 +75,28 @@ CREATE TABLE IF NOT EXISTS hospital.IPD_Admission (
     CurrentWardId       INT          NULL,
     CurrentBedId        INT          NULL,
     AdmissionReason VARCHAR(500) NULL,
-    InsuranceStatus     VARCHAR(50)  NULL,
+    
+    -- Finance & Insurance
+    CoverageType        ENUM('Self Pay','Insurance') NOT NULL DEFAULT 'Self Pay',
+    InsuranceStatus     ENUM('NOT_APPLICABLE','PENDING','APPROVED','REJECTED') NOT NULL DEFAULT 'NOT_APPLICABLE',
+    FinancialStatus     ENUM('PENDING','ADVANCE_PENDING','PARTIALLY_PAID','READY_FOR_DISCHARGE','FULLY_PAID','REFUND_PENDING','CLEARED') NOT NULL DEFAULT 'PENDING',
+    InsuranceCompany    VARCHAR(150) NULL,
+    TPA                 VARCHAR(150) NULL,
+    PolicyNumber        VARCHAR(100) NULL,
+    MemberID            VARCHAR(100) NULL,
+    PolicyHolderName    VARCHAR(150) NULL,
+    Relationship        VARCHAR(50)  NULL,
+    PolicyStartDate     DATE         NULL,
+    PolicyEndDate       DATE         NULL,
+    PreAuthNumber       VARCHAR(100) NULL,
+    AuthStatus          VARCHAR(50)  NULL,
+    ApprovedAmount      DECIMAL(10,2) NULL,
+    CoveragePercentage  DECIMAL(5,2) NULL,
+    Deductible          DECIMAL(10,2) NULL,
+    CoPay               DECIMAL(10,2) NULL,
+    NonCoveredAmount    DECIMAL(10,2) NULL,
+    InsuranceRemarks    TEXT         NULL,
+    
     OperationsData      JSON         NULL,
     DischargeDate       DATE         NULL,
     DischargeSummary    TEXT         NULL,
@@ -259,7 +280,25 @@ CREATE PROCEDURE hospital.SpIpdAdmission(
     IN p_WardId INT,
     IN p_BedId INT,
     IN p_AdmissionReason VARCHAR(500),
+    IN p_CoverageType VARCHAR(20),
     IN p_InsuranceStatus VARCHAR(50),
+    IN p_FinancialStatus VARCHAR(50),
+    IN p_InsuranceCompany VARCHAR(150),
+    IN p_TPA VARCHAR(150),
+    IN p_PolicyNumber VARCHAR(100),
+    IN p_MemberID VARCHAR(100),
+    IN p_PolicyHolderName VARCHAR(150),
+    IN p_Relationship VARCHAR(50),
+    IN p_PolicyStartDate DATE,
+    IN p_PolicyEndDate DATE,
+    IN p_PreAuthNumber VARCHAR(100),
+    IN p_AuthStatus VARCHAR(50),
+    IN p_ApprovedAmount DECIMAL(10,2),
+    IN p_CoveragePercentage DECIMAL(5,2),
+    IN p_Deductible DECIMAL(10,2),
+    IN p_CoPay DECIMAL(10,2),
+    IN p_NonCoveredAmount DECIMAL(10,2),
+    IN p_InsuranceRemarks TEXT,
     IN p_TransferReason VARCHAR(255),
     IN p_DischargeSummary TEXT,
     IN p_DischargedBy VARCHAR(150),
@@ -281,7 +320,11 @@ BEGIN
         SELECT AdmissionId, AdmissionNumber, Uhid, PatientName, Age, Gender, BloodGroup,
                AdmissionDate, AdmittingDoctor, Specialty, AdmissionType, Priority,
                ExpectedStayDays, Status, CurrentWardId, CurrentBedId, AdmissionReason,
-               InsuranceStatus, OperationsData, DischargeDate, DischargeSummary, DischargedBy
+               CoverageType, InsuranceStatus, FinancialStatus, InsuranceCompany, TPA, PolicyNumber,
+               MemberID, PolicyHolderName, Relationship, PolicyStartDate, PolicyEndDate,
+               PreAuthNumber, AuthStatus, ApprovedAmount, CoveragePercentage, Deductible, CoPay,
+               NonCoveredAmount, InsuranceRemarks,
+               OperationsData, DischargeDate, DischargeSummary, DischargedBy
         FROM IPD_Admission
         WHERE IsDeleted = 0
         ORDER BY AdmissionId DESC;
@@ -290,7 +333,11 @@ BEGIN
         SELECT AdmissionId, AdmissionNumber, Uhid, PatientName, Age, Gender, BloodGroup,
                AdmissionDate, AdmittingDoctor, Specialty, AdmissionType, Priority,
                ExpectedStayDays, Status, CurrentWardId, CurrentBedId, AdmissionReason,
-               InsuranceStatus, OperationsData, DischargeDate, DischargeSummary, DischargedBy
+               CoverageType, InsuranceStatus, FinancialStatus, InsuranceCompany, TPA, PolicyNumber,
+               MemberID, PolicyHolderName, Relationship, PolicyStartDate, PolicyEndDate,
+               PreAuthNumber, AuthStatus, ApprovedAmount, CoveragePercentage, Deductible, CoPay,
+               NonCoveredAmount, InsuranceRemarks,
+               OperationsData, DischargeDate, DischargeSummary, DischargedBy
         FROM IPD_Admission
         WHERE AdmissionId = p_AdmissionId AND IsDeleted = 0;
 
@@ -320,11 +367,17 @@ BEGIN
         INSERT INTO IPD_Admission (
             AdmissionNumber, Uhid, PatientName, Age, Gender, BloodGroup, AdmittingDoctor,
             Specialty, AdmissionType, Priority, ExpectedStayDays, Status, CurrentWardId,
-            CurrentBedId, AdmissionReason, InsuranceStatus, CreatedBy
+            CurrentBedId, AdmissionReason, CoverageType, InsuranceStatus, FinancialStatus,
+            InsuranceCompany, TPA, PolicyNumber, MemberID, PolicyHolderName, Relationship,
+            PolicyStartDate, PolicyEndDate, PreAuthNumber, AuthStatus, ApprovedAmount,
+            CoveragePercentage, Deductible, CoPay, NonCoveredAmount, InsuranceRemarks, CreatedBy
         ) VALUES (
             v_Num, p_Uhid, p_PatientName, p_Age, p_Gender, p_BloodGroup, p_AdmittingDoctor,
             p_Specialty, p_AdmissionType, p_Priority, p_ExpectedStayDays, 'Admitted', p_WardId,
-            p_BedId, p_AdmissionReason, p_InsuranceStatus, p_User
+            p_BedId, p_AdmissionReason, p_CoverageType, p_InsuranceStatus, p_FinancialStatus,
+            p_InsuranceCompany, p_TPA, p_PolicyNumber, p_MemberID, p_PolicyHolderName, p_Relationship,
+            p_PolicyStartDate, p_PolicyEndDate, p_PreAuthNumber, p_AuthStatus, p_ApprovedAmount,
+            p_CoveragePercentage, p_Deductible, p_CoPay, p_NonCoveredAmount, p_InsuranceRemarks, p_User
         );
 
         IF p_BedId IS NOT NULL THEN
@@ -338,7 +391,16 @@ BEGIN
         SET PatientName = p_PatientName, Age = p_Age, Gender = p_Gender, BloodGroup = p_BloodGroup,
             AdmittingDoctor = p_AdmittingDoctor, Specialty = p_Specialty, AdmissionType = p_AdmissionType,
             Priority = p_Priority, ExpectedStayDays = p_ExpectedStayDays,
-            AdmissionReason = p_AdmissionReason, InsuranceStatus = p_InsuranceStatus,
+            AdmissionReason = p_AdmissionReason, 
+            CoverageType = COALESCE(p_CoverageType, CoverageType),
+            InsuranceStatus = COALESCE(p_InsuranceStatus, InsuranceStatus),
+            FinancialStatus = COALESCE(p_FinancialStatus, FinancialStatus),
+            InsuranceCompany = p_InsuranceCompany, TPA = p_TPA, PolicyNumber = p_PolicyNumber,
+            MemberID = p_MemberID, PolicyHolderName = p_PolicyHolderName, Relationship = p_Relationship,
+            PolicyStartDate = p_PolicyStartDate, PolicyEndDate = p_PolicyEndDate,
+            PreAuthNumber = p_PreAuthNumber, AuthStatus = p_AuthStatus, ApprovedAmount = p_ApprovedAmount,
+            CoveragePercentage = p_CoveragePercentage, Deductible = p_Deductible, CoPay = p_CoPay,
+            NonCoveredAmount = p_NonCoveredAmount, InsuranceRemarks = p_InsuranceRemarks,
             UpdatedBy = p_User
         WHERE AdmissionId = p_AdmissionId AND IsDeleted = 0;
         SELECT ROW_COUNT() AS AffectedRows;

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Syringe, Save } from 'lucide-react';
+import { Syringe, Save, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useIPD } from '../../contexts/IPDContext';
 
@@ -11,7 +11,11 @@ export const OperationsTab = ({ patientId }: OperationsTabProps) => {
   const { patients, wards, refreshAll } = useIPD();
   const patient = patients.find(p => p.id === patientId);
   const currentWard = wards.find(w => w.id === patient?.currentWardId);
-  const isOT = currentWard?.type === 'OT' || currentWard?.name.toUpperCase().includes('OT');
+  const inOTWard = currentWard?.type === 'OT' || currentWard?.name.toUpperCase().includes('OT');
+  
+  // Phase 12: Operations EMR Rule - Strict gate based on Service Release
+  const hasRelease = patient?.hasReleasedOT;
+  const isOT = inOTWard && hasRelease;
   
   const [savingOps, setSavingOps] = useState(false);
   const [opsData, setOpsData] = useState<any[]>([]);
@@ -66,6 +70,16 @@ export const OperationsTab = ({ patientId }: OperationsTabProps) => {
           </button>
         )}
       </div>
+
+      {inOTWard && !hasRelease && (
+        <div className="mx-6 mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+          <div>
+            <h4 className="text-sm font-bold text-amber-800">Operation Restricted</h4>
+            <p className="text-xs text-amber-700 mt-1">This patient does not have an active, released Service Order for an Operation. The PRO must approve the Operation Order before execution can begin in the EMR.</p>
+          </div>
+        </div>
+      )}
 
       <div className="p-6 space-y-4">
         {!opsData || opsData.length === 0 ? (
