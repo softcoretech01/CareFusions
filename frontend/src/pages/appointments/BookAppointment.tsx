@@ -115,51 +115,56 @@ export const BookAppointment = ({ passedPatientProps, onClose }: BookAppointment
     timeSlot: '',
   });
 
-  // Fetch the next UHID (quick-registration format) so it can be previewed.
+  // Keep the UHID preview in sync with the current table max whenever the form
+  // is in "new patient" mode (no existing patient selected).
   useEffect(() => {
+    if (selectedPatient) return;
+    let cancelled = false;
     (async () => {
       try {
         const res = await fetch(`${import.meta.env.VITE_API_URL}/quick-registrations/next-uhid`);
-        if (res.ok) {
-          const data = await res.json();
-          setNextUhid(data.uhid ?? '');
-        }
-      } catch { /* offline — field falls back to placeholder text */ }
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled && data?.nextUhid) setNextUhid(data.nextUhid);
+      } catch {
+        /* non-fatal — real UHID assigned on submit */
+      }
     })();
-  }, []);
+    return () => { cancelled = true; };
+  }, [selectedPatient]);
 
-  // Close dropdown when clicking outside
+  // Click outside to close patient dropdown
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
         setShowDropdown(false);
       }
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Filter patients based on search
-  const patientResults = patientSearch.trim().length >= 2
+  // Filter patients for search
+  const patientResults = patientSearch.length >= 2
     ? patients.filter(p =>
-        (p.patientName || '').toLowerCase().includes(patientSearch.toLowerCase()) ||
-        (p.uhid || '').toLowerCase().includes(patientSearch.toLowerCase()) ||
-        (p.mobileNumber || '').includes(patientSearch)
-      ).slice(0, 6)
+        p.patientName.toLowerCase().includes(patientSearch.toLowerCase()) ||
+        p.uhid.toLowerCase().includes(patientSearch.toLowerCase()) ||
+        p.mobileNumber.includes(patientSearch)
+      ).slice(0, 5)
     : [];
 
-  const selectExistingPatient = (p: GlobalPatientRecord) => {
-    setSelectedPatient(p);
-    setPatientSearch(p.patientName || '');
-    setShowDropdown(false);
+  const selectExistingPatient = (patient: GlobalPatientRecord) => {
+    setSelectedPatient(patient);
     setFormData(prev => ({
       ...prev,
-      patientName: p.patientName || '',
-      mobileNumber: p.mobileNumber || '',
-      email: p.email || '',
-      gender: p.gender || 'Male',
-      age: p.age ? String(p.age) : '',
+      patientName: patient.patientName,
+      mobileNumber: patient.mobileNumber,
+      email: patient.email || '',
+      gender: patient.gender,
+      age: String(patient.age),
     }));
+    setPatientSearch(`${patient.patientName} (${patient.uhid})`);
+    setShowDropdown(false);
   };
 
   const clearPatient = () => {
@@ -192,8 +197,7 @@ export const BookAppointment = ({ passedPatientProps, onClose }: BookAppointment
       uhidToUse = selectedPatient.uhid;
     } else {
       // New patient — register them in the backend so they get a UNIQUE,
-      // server-assigned UHID and appear in Patient Registration. Previously the
-      // client invented the UHID, so every new booking reused the same number.
+      // server-assigned UHID and appear in Patient Registration.
       setSaving(true);
       try {
         const now = new Date();
@@ -216,7 +220,7 @@ export const BookAppointment = ({ passedPatientProps, onClose }: BookAppointment
         if (!res.ok) throw new Error(await res.text());
         const created = await res.json();
         uhidToUse = created.Uhid;
-      } catch (e) {
+      } catch {
         setSaving(false);
         toast.error('Could not register the new patient. Please try again.');
         return;
@@ -257,7 +261,25 @@ export const BookAppointment = ({ passedPatientProps, onClose }: BookAppointment
       status: 'Scheduled',
     });
 
-    navigate('/appointments/online-booking');
+    toast.success(`Appointment ${appointmentNumber} Confirmed Successfully!`);
+
+    if (onClose) {
+      onClose();
+    } else {
+      setStep(1);
+      clearPatient();
+      setFormData({
+        patientName: '',
+        mobileNumber: '',
+        email: '',
+        gender: 'Male',
+        age: '',
+        department: '',
+        doctor: '',
+        date: getLocalDate(),
+        timeSlot: '',
+      });
+    }
   };
 
   const steps = [
@@ -266,8 +288,6 @@ export const BookAppointment = ({ passedPatientProps, onClose }: BookAppointment
     { num: 3, label: 'Schedule' },
     { num: 4, label: 'Confirm' },
   ];
-
-
 
   // Departments from the master list.
   const departments = departmentList.map(d => d.departmentName).sort();

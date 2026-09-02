@@ -73,7 +73,7 @@ export const DoctorConsultation = () => {
   const isAdmitted = latestAdmission && (latestAdmission.status === 'Admitted' || latestAdmission.status === 'Discharge Requested');
   const hasAdmissionRequest = admissionRequests?.some(r => r.uhid === visit?.uhid && r.status === 'Pending');
   const [activeTab, setActiveTab] = useState('history');
-  
+
   // Printing state
   const [printTab, setPrintTab] = useState<'prescription' | 'lab' | 'radiology' | null>(null);
   const [selectedPrintLab, setSelectedPrintLab] = useState<string[]>([]);
@@ -250,15 +250,15 @@ export const DoctorConsultation = () => {
       const n = rxForm.freqN ? '1' : '0';
       freqParts.push(`${m}-${a}-${n}`);
     }
-    
+
     if (rxForm.duration) {
       freqParts.push(`(${rxForm.duration})`);
     }
-    
+
     if (freqParts.length > 0) {
       finalQty += finalQty ? ` | ${freqParts.join(' ')}` : freqParts.join(' ');
     }
-    
+
     if (rxForm.instructions) {
       finalQty += finalQty ? ` - ${rxForm.instructions}` : rxForm.instructions;
     }
@@ -275,15 +275,15 @@ export const DoctorConsultation = () => {
       quantity: finalQty.trim(),
       alerts: [],
     };
-    
+
     addPrescription(visit.id, item);
-    setRxForm({ 
-      type: '' as PrescriptionItem['type'], 
-      medicineId: '', 
-      medicineName: '', 
+    setRxForm({
+      type: '' as PrescriptionItem['type'],
+      medicineId: '',
+      medicineName: '',
       quantity: '',
-      freqM: false, freqA: false, freqN: false, 
-      duration: '', instructions: '', uom: '' 
+      freqM: false, freqA: false, freqN: false,
+      duration: '', instructions: '', uom: ''
     });
     toast.success('Added to prescription');
   };
@@ -296,7 +296,7 @@ export const DoctorConsultation = () => {
     }
     const test = apiLabTests.find(t => t.code === labForm.testCode);
     if (!test) return;
-    
+
     if (visit?.labOrders.find(o => o.testCode === test.code)) {
       toast.error('Test already added');
       return;
@@ -679,10 +679,9 @@ export const DoctorConsultation = () => {
                     value={rxForm.medicineId}
                     hint={selectedStock === undefined ? null : (
                       <div className="absolute top-full mt-1.5 left-0 flex items-center gap-2 text-xs">
-                        <span className={`px-2 py-0.5 rounded-full font-medium ${
-                          selectedStock <= 0 ? 'bg-red-50 text-red-600'
+                        <span className={`px-2 py-0.5 rounded-full font-medium ${selectedStock <= 0 ? 'bg-red-50 text-red-600'
                             : selectedStock < 10 ? 'bg-amber-50 text-amber-700'
-                            : 'bg-emerald-50 text-emerald-700'}`}>
+                              : 'bg-emerald-50 text-emerald-700'}`}>
                           {selectedStock <= 0
                             ? 'Out of stock at pharmacy'
                             : `${selectedStock} in stock at pharmacy`}
@@ -698,12 +697,12 @@ export const DoctorConsultation = () => {
                     }))}
                   />
                 </div>
-                
+
                 <div className="w-[420px] shrink-0">
                   <label className={labelCls}>
                     {rxForm.uom ? `Dosage Frequency (${rxForm.uom})` : 'Dosage Frequency'}
                   </label>
-                  
+
                   <div className="flex items-center gap-3 mb-2">
                     <input
                       type="text"
@@ -712,38 +711,38 @@ export const DoctorConsultation = () => {
                       onChange={e => setRxForm(f => ({ ...f, quantity: e.target.value }))}
                       className="w-[140px] px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary h-[42px]"
                     />
-                    
+
                     <div className="flex-1 flex items-center justify-between bg-white border border-slate-200 rounded-xl px-4 py-2.5 h-[42px]">
                       <label className="flex items-center gap-1.5 cursor-pointer">
-                        <input 
-                          type="checkbox" 
+                        <input
+                          type="checkbox"
                           checked={rxForm.freqM}
                           onChange={e => setRxForm(f => ({ ...f, freqM: e.target.checked }))}
-                          className="w-4 h-4 rounded text-primary focus:ring-primary border-slate-300" 
+                          className="w-4 h-4 rounded text-primary focus:ring-primary border-slate-300"
                         />
                         <span className="text-sm font-bold text-slate-700">Mor</span>
                       </label>
                       <label className="flex items-center gap-1.5 cursor-pointer">
-                        <input 
-                          type="checkbox" 
+                        <input
+                          type="checkbox"
                           checked={rxForm.freqA}
                           onChange={e => setRxForm(f => ({ ...f, freqA: e.target.checked }))}
-                          className="w-4 h-4 rounded text-primary focus:ring-primary border-slate-300" 
+                          className="w-4 h-4 rounded text-primary focus:ring-primary border-slate-300"
                         />
                         <span className="text-sm font-bold text-slate-700">Aft</span>
                       </label>
                       <label className="flex items-center gap-1.5 cursor-pointer">
-                        <input 
-                          type="checkbox" 
+                        <input
+                          type="checkbox"
                           checked={rxForm.freqN}
                           onChange={e => setRxForm(f => ({ ...f, freqN: e.target.checked }))}
-                          className="w-4 h-4 rounded text-primary focus:ring-primary border-slate-300" 
+                          className="w-4 h-4 rounded text-primary focus:ring-primary border-slate-300"
                         />
                         <span className="text-sm font-bold text-slate-700">Night</span>
                       </label>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center gap-2 mt-2">
                     <input
                       type="text"
@@ -849,13 +848,13 @@ export const DoctorConsultation = () => {
                         <div className="flex items-start justify-between mb-3 border-b border-slate-100 pb-3">
                           <div className="flex items-start gap-3">
                             <div className="pt-0.5">
-                              <input 
-                                type="checkbox" 
-                                checked={selectedPrintLab.includes(l.id)} 
+                              <input
+                                type="checkbox"
+                                checked={selectedPrintLab.includes(l.id)}
                                 onChange={(e) => {
                                   if (e.target.checked) setSelectedPrintLab([...selectedPrintLab, l.id]);
                                   else setSelectedPrintLab(selectedPrintLab.filter(id => id !== l.id));
-                                }} 
+                                }}
                                 className="w-4 h-4 text-primary border-slate-300 rounded focus:ring-primary cursor-pointer"
                                 title="Select for print"
                               />
@@ -873,11 +872,10 @@ export const DoctorConsultation = () => {
                               <div className="text-xs text-slate-500">Ordered on {visit.date}</div>
                             </div>
                           </div>
-                          <div className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 border ${
-                            l.status === 'Completed' || l.status === 'Verified' || l.status === 'Resulted'
+                          <div className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 border ${l.status === 'Completed' || l.status === 'Verified' || l.status === 'Resulted'
                               ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
                               : 'bg-amber-100 text-amber-700 border-amber-200'
-                          }`}>
+                            }`}>
                             {l.status === 'Completed' || l.status === 'Verified' || l.status === 'Resulted'
                               ? <CheckCircle className="w-3.5 h-3.5" />
                               : <Clock className="w-3.5 h-3.5" />}
@@ -963,13 +961,13 @@ export const DoctorConsultation = () => {
                         <div className="flex items-start justify-between mb-3 border-b border-slate-100 pb-3">
                           <div className="flex items-start gap-3">
                             <div className="pt-0.5">
-                              <input 
-                                type="checkbox" 
-                                checked={selectedPrintRad.includes(r.id)} 
+                              <input
+                                type="checkbox"
+                                checked={selectedPrintRad.includes(r.id)}
                                 onChange={(e) => {
                                   if (e.target.checked) setSelectedPrintRad([...selectedPrintRad, r.id]);
                                   else setSelectedPrintRad(selectedPrintRad.filter(id => id !== r.id));
-                                }} 
+                                }}
                                 className="w-4 h-4 text-primary border-slate-300 rounded focus:ring-primary cursor-pointer"
                                 title="Select for print"
                               />
@@ -987,11 +985,10 @@ export const DoctorConsultation = () => {
                               <div className="text-xs text-slate-500">Ordered on {visit.date}</div>
                             </div>
                           </div>
-                          <div className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 border ${
-                            r.status === 'Completed' || r.status === 'Verified' || r.status === 'Reported'
+                          <div className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 border ${r.status === 'Completed' || r.status === 'Verified' || r.status === 'Reported'
                               ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
                               : 'bg-amber-100 text-amber-700 border-amber-200'
-                          }`}>
+                            }`}>
                             {r.status === 'Completed' || r.status === 'Verified' || r.status === 'Reported'
                               ? <CheckCircle className="w-3.5 h-3.5" />
                               : <Clock className="w-3.5 h-3.5" />}
@@ -1043,12 +1040,12 @@ export const DoctorConsultation = () => {
                 <div>
                   <div className="flex items-center gap-2 mb-2">
                     <h4 className="text-xs font-bold text-slate-500 uppercase">Next Follow-Up</h4>
-                    <button 
-                      onClick={() => { 
-                        setIsFinalizing(false); 
+                    <button
+                      onClick={() => {
+                        setIsFinalizing(false);
                         setFollowUpForm({ date: visit.followUp?.followUpDate || '', notes: visit.followUp?.specialInstructions || '' });
-                        setShowFinalizeModal(true); 
-                      }} 
+                        setShowFinalizeModal(true);
+                      }}
                       className="p-1 text-indigo-600 hover:bg-indigo-50 rounded"
                     >
                       <Edit2 className="w-3 h-3" />
@@ -1191,12 +1188,12 @@ export const DoctorConsultation = () => {
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Admission Reason</label>
-                  <textarea 
-                    value={admitForm.admissionReason} 
-                    onChange={e => setAdmitForm({ ...admitForm, admissionReason: e.target.value })} 
-                    className={`${inputCls} resize-none`} 
-                    rows={2} 
-                    placeholder="Enter reason for admission..." 
+                  <textarea
+                    value={admitForm.admissionReason}
+                    onChange={e => setAdmitForm({ ...admitForm, admissionReason: e.target.value })}
+                    className={`${inputCls} resize-none`}
+                    rows={2}
+                    placeholder="Enter reason for admission..."
                   />
                 </div>
               </div>
@@ -1222,33 +1219,33 @@ export const DoctorConsultation = () => {
             </div>
             <div className="p-6">
               {isFinalizing && <p className="text-sm text-slate-600 mb-4">Would you like to schedule a follow-up before closing this visit?</p>}
-              
+
               <div className="space-y-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Next Follow-Up Date (Optional)</label>
-                  <input 
-                    type="date" 
-                    value={followUpForm.date} 
+                  <input
+                    type="date"
+                    value={followUpForm.date}
                     min={new Date().toISOString().split('T')[0]}
-                    onChange={e => setFollowUpForm({ ...followUpForm, date: e.target.value })} 
-                    className={inputCls} 
+                    onChange={e => setFollowUpForm({ ...followUpForm, date: e.target.value })}
+                    className={inputCls}
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Instructions / Notes (Optional)</label>
-                  <textarea 
-                    value={followUpForm.notes} 
-                    onChange={e => setFollowUpForm({ ...followUpForm, notes: e.target.value })} 
-                    className={`${inputCls} resize-none`} 
-                    rows={3} 
-                    placeholder="E.g., Review lab results, continue meds..." 
+                  <textarea
+                    value={followUpForm.notes}
+                    onChange={e => setFollowUpForm({ ...followUpForm, notes: e.target.value })}
+                    className={`${inputCls} resize-none`}
+                    rows={3}
+                    placeholder="E.g., Review lab results, continue meds..."
                   />
                 </div>
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-6 mt-2 border-t border-slate-100">
                 <button onClick={() => setShowFinalizeModal(false)} className="px-4 py-2 text-slate-500 font-bold hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
-                <button onClick={() => { 
+                <button onClick={() => {
                   if (followUpForm.date || followUpForm.notes) {
                     updateVisit(visit.id, {
                       followUp: {
@@ -1262,7 +1259,7 @@ export const DoctorConsultation = () => {
                   if (isFinalizing) {
                     handleFinalizeVisit();
                   }
-                  setShowFinalizeModal(false); 
+                  setShowFinalizeModal(false);
                 }} className={`px-6 py-2 ${isFinalizing ? 'bg-green-600 hover:bg-green-700' : 'bg-indigo-600 hover:bg-indigo-700'} text-white font-bold rounded-xl transition-colors shadow-sm`}>
                   {isFinalizing ? 'Confirm & Finalize' : 'Save Changes'}
                 </button>

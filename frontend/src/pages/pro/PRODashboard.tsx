@@ -1,231 +1,171 @@
-import { useState, useEffect } from 'react';
-import axios from 'axios';
-import toast from 'react-hot-toast';
-import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/Card';
-import { Button } from '../../components/ui/Button';
-import { Loader2, CheckCircle, Clock } from 'lucide-react';
-import clsx from 'clsx';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  Clock, CheckCircle, XCircle, ShieldAlert, DollarSign,
+  ClipboardList, Activity, BarChart2, AlertCircle, Loader
+} from 'lucide-react';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+const API = 'http://localhost:8000/api/v1/pro';
 
-interface PROOrderItem {
-  ServiceOrderItemId: int;
-  ItemName: string;
-  Quantity: number;
-  MasterPrice: number;
-  PROPrice: number;
-  AuthorizedDiscount: number;
-  InsuranceCoveredAmount: number;
-  PatientResponsibility: number;
-  PROStatus: string;
-}
+const StatCard = ({
+  title, value, icon: Icon, color, onClick
+}: {
+  title: string; value: number | string; icon: any; color: string; onClick?: () => void;
+}) => (
+  <div
+    onClick={onClick}
+    className={`bg-white rounded-2xl p-5 border border-slate-100 shadow-sm hover:shadow-md transition-all duration-200 ${onClick ? 'cursor-pointer hover:-translate-y-0.5' : ''}`}
+  >
+    <div className="flex items-center justify-between mb-3">
+      <p className="text-sm font-medium text-slate-500">{title}</p>
+      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${color}`}>
+        <Icon className="w-5 h-5" />
+      </div>
+    </div>
+    <p className="text-3xl font-bold text-slate-800">{value ?? 0}</p>
+  </div>
+);
 
-interface PROOrder {
-  ServiceOrderId: number;
-  OrderNo: string;
-  OrderType: string;
-  UHID: string;
-  OrderDate: string;
-  Items: PROOrderItem[];
-}
+const StatusBadge = ({ status }: { status: string }) => {
+  const map: Record<string, string> = {
+    PENDING: 'bg-amber-100 text-amber-700',
+    APPROVED: 'bg-emerald-100 text-emerald-700',
+    REJECTED: 'bg-red-100 text-red-700',
+    UNDER_REVIEW: 'bg-blue-100 text-blue-700',
+    RELEASED: 'bg-teal-100 text-teal-700',
+  };
+  return (
+    <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold ${map[status] ?? 'bg-slate-100 text-slate-600'}`}>
+      {status?.replace(/_/g, ' ')}
+    </span>
+  );
+};
 
 export const PRODashboard = () => {
-  const [orders, setOrders] = useState<PROOrder[]>([]);
+  const navigate = useNavigate();
+  const [kpis, setKpis] = useState<any>(null);
+  const [pendingOrders, setPendingOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState<number | null>(null);
-
-  const fetchOrders = async () => {
-    try {
-      const { data } = await axios.get(`${API_URL}/pro/orders/pending`);
-      setOrders(data);
-    } catch (error: any) {
-      toast.error(error.response?.data?.detail || 'Failed to fetch pending orders');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchOrders();
+    const loadData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const [kpiRes, ordersRes] = await Promise.all([
+          fetch(`${API}/dashboard/kpis`),
+          fetch(`${API}/orders/pending`)
+        ]);
+        if (!kpiRes.ok) throw new Error('Failed to load KPIs');
+        setKpis(await kpiRes.json());
+        if (ordersRes.ok) setPendingOrders(await ordersRes.json());
+      } catch (e: any) {
+        setError(e.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
   }, []);
 
-  const handleUpdateItem = (orderId: number, itemId: number, field: keyof PROOrderItem, value: number) => {
-    setOrders(prev => prev.map(order => {
-      if (order.ServiceOrderId !== orderId) return order;
-      
-      const newItems = order.Items.map(item => {
-        if (item.ServiceOrderItemId !== itemId) return item;
-        
-        const updated = { ...item, [field]: value };
-        
-        // Auto-calculate logic if needed for UI convenience
-        if (field === 'PROPrice' || field === 'AuthorizedDiscount') {
-            const net = updated.PROPrice - updated.AuthorizedDiscount;
-            // Defaults to putting everything in PatientResponsibility if not mapped
-            if (updated.InsuranceCoveredAmount === 0) {
-                updated.PatientResponsibility = net;
-            }
-        }
-        
-        if (field === 'InsuranceCoveredAmount') {
-            const net = updated.PROPrice - updated.AuthorizedDiscount;
-            updated.PatientResponsibility = net - value;
-        }
-        
-        return updated;
-      });
-      return { ...order, Items: newItems };
-    }));
-  };
+  if (loading) return (
+    <div className="flex items-center justify-center h-64">
+      <Loader className="w-8 h-8 animate-spin text-emerald-500" />
+      <span className="ml-3 text-slate-500 font-medium">Loading dashboard...</span>
+    </div>
+  );
 
-  const approveOrder = async (order: PROOrder) => {
-    setSaving(order.ServiceOrderId);
-    try {
-      // Validate locally first
-      for (const item of order.Items) {
-        const net = item.PROPrice - item.AuthorizedDiscount;
-        const sum = item.InsuranceCoveredAmount + item.PatientResponsibility;
-        if (Math.abs(net - sum) > 0.01) {
-          toast.error(`Math Error on ${item.ItemName}: Net (${net}) != Ins (${item.InsuranceCoveredAmount}) + Pat (${item.PatientResponsibility})`);
-          setSaving(null);
-          return;
-        }
-      }
-
-      await axios.post(`${API_URL}/pro/orders/${order.ServiceOrderId}/approve`, {
-        Items: order.Items.map(item => ({
-          ServiceOrderItemId: item.ServiceOrderItemId,
-          PROPrice: item.PROPrice,
-          AuthorizedDiscount: item.AuthorizedDiscount,
-          InsuranceCoveredAmount: item.InsuranceCoveredAmount,
-          PatientResponsibility: item.PatientResponsibility
-        }))
-      });
-      toast.success(`Order ${order.OrderNo} Approved successfully`);
-      fetchOrders();
-    } catch (error: any) {
-      toast.error(error.response?.data?.detail || 'Failed to approve order');
-    } finally {
-      setSaving(null);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="h-full flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+  if (error) return (
+    <div className="bg-red-50 border border-red-200 rounded-2xl p-6 flex items-center gap-3">
+      <AlertCircle className="w-6 h-6 text-red-500 shrink-0" />
+      <div>
+        <p className="font-semibold text-red-700">Failed to load dashboard</p>
+        <p className="text-sm text-red-500 mt-1">{error}</p>
       </div>
-    );
-  }
+    </div>
+  );
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-10">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Pending Approvals</h1>
-          <p className="text-slate-500 mt-1">Review and approve price details for service orders.</p>
-        </div>
-        <div className="bg-blue-50 text-blue-700 px-4 py-2 rounded-full font-medium text-sm flex items-center gap-2">
-          <Clock className="w-4 h-4" />
-          {orders.length} Orders Pending
+    <div className="space-y-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-slate-800">PRO Dashboard</h1>
+        <p className="text-slate-500 text-sm mt-1">Patient Relations Officer — Financial Review & Approval Control</p>
+      </div>
+
+      {/* KPI Cards — Row 1: Pending */}
+      <div>
+        <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Pending Reviews</h2>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          <StatCard title="Total Pending" value={kpis?.pending_reviews} icon={Clock} color="bg-amber-50 text-amber-600" onClick={() => navigate('/pro/service-orders')} />
+          <StatCard title="OPD Pending" value={kpis?.opd_pending} icon={ClipboardList} color="bg-blue-50 text-blue-600" onClick={() => navigate('/pro/service-orders')} />
+          <StatCard title="IPD Pending" value={kpis?.ipd_pending} icon={Activity} color="bg-indigo-50 text-indigo-600" onClick={() => navigate('/pro/service-orders')} />
+          <StatCard title="Operations Pending" value={kpis?.operations_pending} icon={BarChart2} color="bg-purple-50 text-purple-600" onClick={() => navigate('/pro/service-orders')} />
+          <StatCard title="Insurance Pending" value={kpis?.insurance_pending} icon={ShieldAlert} color="bg-orange-50 text-orange-600" onClick={() => navigate('/pro/insurance-payments')} />
         </div>
       </div>
 
-      {orders.length === 0 ? (
-        <Card className="p-12 text-center border-dashed">
-          <div className="w-16 h-16 bg-green-50 text-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
-            <CheckCircle className="w-8 h-8" />
-          </div>
-          <h3 className="text-lg font-bold text-slate-800 mb-2">All Caught Up!</h3>
-          <p className="text-slate-500">There are no pending orders requiring your approval.</p>
-        </Card>
-      ) : (
-        <div className="space-y-6">
-          {orders.map((order) => (
-            <Card key={order.ServiceOrderId} className="overflow-hidden border-slate-200/60 shadow-sm hover:shadow-md transition-shadow">
-              <div className="bg-slate-50/80 px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-                <div>
-                  <h3 className="font-bold text-slate-800 text-lg flex items-center gap-3">
-                    {order.OrderNo}
-                    <span className={clsx(
-                      "px-2.5 py-0.5 rounded-full text-xs font-semibold",
-                      order.OrderType === 'LAB' ? "bg-purple-100 text-purple-700" : "bg-teal-100 text-teal-700"
-                    )}>
-                      {order.OrderType}
-                    </span>
-                  </h3>
-                  <div className="flex gap-4 mt-1 text-sm text-slate-500">
-                    <span>UHID: <span className="font-medium text-slate-700">{order.UHID}</span></span>
-                    <span>Date: {new Date(order.OrderDate).toLocaleString()}</span>
-                  </div>
-                </div>
-                <Button 
-                  onClick={() => approveOrder(order)}
-                  disabled={saving === order.ServiceOrderId}
-                  className="bg-blue-600 hover:bg-blue-700 text-white min-w-[120px]"
-                >
-                  {saving === order.ServiceOrderId ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle className="w-4 h-4 mr-2" />}
-                  Approve Order
-                </Button>
-              </div>
-              <div className="p-0">
-                <table className="w-full text-sm text-left">
-                  <thead className="text-xs text-slate-500 bg-white uppercase border-b border-slate-100">
-                    <tr>
-                      <th className="px-6 py-4">Service Name</th>
-                      <th className="px-6 py-4 w-32">Master Price</th>
-                      <th className="px-6 py-4 w-32">PRO Price</th>
-                      <th className="px-6 py-4 w-32">Discount</th>
-                      <th className="px-6 py-4 w-32">Insurance</th>
-                      <th className="px-6 py-4 w-32">Patient</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {order.Items.map((item) => (
-                      <tr key={item.ServiceOrderItemId} className="bg-white hover:bg-slate-50/50 transition-colors">
-                        <td className="px-6 py-4 font-medium text-slate-700">{item.ItemName}</td>
-                        <td className="px-6 py-4 text-slate-500">₹{item.MasterPrice}</td>
-                        <td className="px-6 py-4">
-                          <input 
-                            type="number"
-                            className="w-full border-slate-200 rounded-lg p-2 text-sm focus:ring-blue-500 focus:border-blue-500"
-                            value={item.PROPrice}
-                            onChange={(e) => handleUpdateItem(order.ServiceOrderId, item.ServiceOrderItemId, 'PROPrice', parseFloat(e.target.value) || 0)}
-                          />
-                        </td>
-                        <td className="px-6 py-4">
-                          <input 
-                            type="number"
-                            className="w-full border-slate-200 rounded-lg p-2 text-sm focus:ring-blue-500 focus:border-blue-500"
-                            value={item.AuthorizedDiscount}
-                            onChange={(e) => handleUpdateItem(order.ServiceOrderId, item.ServiceOrderItemId, 'AuthorizedDiscount', parseFloat(e.target.value) || 0)}
-                          />
-                        </td>
-                        <td className="px-6 py-4">
-                          <input 
-                            type="number"
-                            className="w-full border-slate-200 rounded-lg p-2 text-sm focus:ring-blue-500 focus:border-blue-500"
-                            value={item.InsuranceCoveredAmount}
-                            onChange={(e) => handleUpdateItem(order.ServiceOrderId, item.ServiceOrderItemId, 'InsuranceCoveredAmount', parseFloat(e.target.value) || 0)}
-                          />
-                        </td>
-                        <td className="px-6 py-4">
-                          <input 
-                            type="number"
-                            className="w-full border-slate-200 rounded-lg p-2 text-sm focus:ring-blue-500 focus:border-blue-500"
-                            value={item.PatientResponsibility}
-                            readOnly
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
-          ))}
+      {/* KPI Cards — Row 2: Status */}
+      <div>
+        <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Today's Activity</h2>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          <StatCard title="Approved Today" value={kpis?.approved_today} icon={CheckCircle} color="bg-emerald-50 text-emerald-600" onClick={() => navigate('/pro/approvals')} />
+          <StatCard title="Rejected Today" value={kpis?.rejected_today} icon={XCircle} color="bg-red-50 text-red-600" onClick={() => navigate('/pro/approvals')} />
+          <StatCard title="Payment Pending" value={kpis?.payment_pending} icon={DollarSign} color="bg-yellow-50 text-yellow-600" onClick={() => navigate('/pro/insurance-payments')} />
+          <StatCard title="Services Released" value={kpis?.services_released} icon={CheckCircle} color="bg-teal-50 text-teal-600" onClick={() => navigate('/pro/approvals')} />
+          <StatCard title="Awaiting Clearance" value={kpis?.services_awaiting_clearance} icon={Clock} color="bg-slate-100 text-slate-600" onClick={() => navigate('/pro/approvals')} />
         </div>
-      )}
+      </div>
+
+      {/* Pending Reviews Table */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+          <h2 className="font-bold text-slate-700">Pending PRO Reviews</h2>
+          <button onClick={() => navigate('/pro/service-orders')} className="text-sm font-semibold text-emerald-600 hover:text-emerald-700">View All →</button>
+        </div>
+        {pendingOrders.length === 0 ? (
+          <div className="text-center py-12 text-slate-400">
+            <CheckCircle className="w-12 h-12 mx-auto mb-3 text-emerald-300" />
+            <p className="font-medium">No pending reviews</p>
+            <p className="text-sm">All service orders have been reviewed.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-slate-50 text-slate-500">
+                  <th className="px-4 py-3 text-left font-semibold">#</th>
+                  <th className="px-4 py-3 text-left font-semibold">Order No</th>
+                  <th className="px-4 py-3 text-left font-semibold">Patient</th>
+                  <th className="px-4 py-3 text-left font-semibold">Type</th>
+                  <th className="px-4 py-3 text-left font-semibold">PRO Status</th>
+                  <th className="px-4 py-3 text-left font-semibold">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pendingOrders.slice(0, 10).map((order: any, idx: number) => (
+                  <tr key={order.ServiceOrderId} className="border-t border-slate-50 hover:bg-slate-50 transition-colors">
+                    <td className="px-4 py-3 text-slate-400">{idx + 1}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-slate-600">{order.OrderNo}</td>
+                    <td className="px-4 py-3 font-medium text-slate-700">{order.PatientName ?? order.UHID}</td>
+                    <td className="px-4 py-3 text-slate-500">{order.SourceModule}</td>
+                    <td className="px-4 py-3"><StatusBadge status={order.PROStatus} /></td>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => navigate('/pro/service-orders')}
+                        className="text-xs bg-emerald-600 text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-emerald-700 transition-colors"
+                      >
+                        Review
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

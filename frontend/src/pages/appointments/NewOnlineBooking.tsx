@@ -93,16 +93,18 @@ export const NewOnlineBooking = () => {
 
   // Fetch the next UHID (quick-registration format) so it can be previewed.
   useEffect(() => {
+    if (selectedPatient) return;
+    let cancelled = false;
     (async () => {
       try {
         const res = await fetch(`${import.meta.env.VITE_API_URL}/quick-registrations/next-uhid`);
-        if (res.ok) {
-          const data = await res.json();
-          setNextUhid(data.uhid ?? '');
-        }
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled && data?.nextUhid) setNextUhid(data.nextUhid);
       } catch { /* offline — field falls back to placeholder text */ }
     })();
-  }, []);
+    return () => { cancelled = true; };
+  }, [selectedPatient]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -230,7 +232,22 @@ export const NewOnlineBooking = () => {
       status: 'Scheduled',
     });
 
-    navigate('/appointments/online-booking');
+    toast.success(`Appointment ${appointmentNumber} Confirmed Successfully!`);
+
+    // Reset form for next booking on step 1
+    setStep(1);
+    clearPatient();
+    setFormData({
+      patientName: '',
+      mobileNumber: '',
+      email: '',
+      gender: 'Male',
+      age: '',
+      department: '',
+      doctor: '',
+      date: getLocalDate(),
+      timeSlot: '',
+    });
   };
 
   const steps = [
@@ -239,8 +256,6 @@ export const NewOnlineBooking = () => {
     { num: 3, label: 'Schedule' },
     { num: 4, label: 'Confirm' },
   ];
-
-
 
   // Departments from the master list.
   const departments = departmentList.map(d => d.departmentName).sort();

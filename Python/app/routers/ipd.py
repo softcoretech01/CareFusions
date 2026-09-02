@@ -383,8 +383,8 @@ def list_admissions(db: Session = Depends(get_db)):
             has_ot = False
             try:
                 ot_query_broad = text("""
-                    SELECT 1 FROM Service_Order so
-                    JOIN Service_OrderItem soi ON so.ServiceOrderId = soi.ServiceOrderId
+                    SELECT 1 FROM hospital.Service_Order so
+                    JOIN hospital.Service_OrderItem soi ON so.ServiceOrderId = soi.ServiceOrderId
                     WHERE so.AdmissionId = :adm_id AND soi.ServiceStatus IN ('RELEASED', 'COMPLETED') 
                       AND (so.OrderType LIKE '%OT%' OR so.OrderType = 'SURGERY' OR soi.ItemType LIKE '%OT%')
                     LIMIT 1
@@ -440,8 +440,8 @@ def admit_patient(payload: AdmissionCreate, db: Session = Depends(get_db)):
         has_ot = False
         try:
             ot_query_broad = text("""
-                SELECT 1 FROM Service_Order so
-                JOIN Service_OrderItem soi ON so.ServiceOrderId = soi.ServiceOrderId
+                SELECT 1 FROM hospital.Service_Order so
+                JOIN hospital.Service_OrderItem soi ON so.ServiceOrderId = soi.ServiceOrderId
                 WHERE so.AdmissionId = :adm_id AND soi.ServiceStatus IN ('RELEASED', 'COMPLETED') 
                   AND (so.OrderType LIKE '%OT%' OR so.OrderType = 'SURGERY' OR soi.ItemType LIKE '%OT%')
                 LIMIT 1
@@ -590,9 +590,10 @@ def get_ipd_bill(admission_id: int, db: Session = Depends(get_db)):
         
         # 2. Service Charges (Lab, Radiology, etc) from Central Service_Order
         svc_query = text("""
-            SELECT ItemName, ItemType, PROPrice, AuthorizedDiscount, PatientResponsibility, ServiceStatus
-            FROM Service_OrderItem soi
-            JOIN Service_Order so ON so.ServiceOrderId = soi.ServiceOrderId
+            SELECT soi.ItemName, soi.ItemType, soi.PROPrice, soi.AuthorizedDiscount,
+                   soi.PatientResponsibility, soi.ServiceStatus
+            FROM hospital.Service_OrderItem soi
+            JOIN hospital.Service_Order so ON so.ServiceOrderId = soi.ServiceOrderId
             WHERE so.AdmissionId = :adm_id AND soi.IsDeleted = 0
         """)
         svc_items = db.execute(svc_query, {"adm_id": admission_id}).fetchall()
@@ -612,10 +613,15 @@ def get_ipd_bill(admission_id: int, db: Session = Depends(get_db)):
             
         # 3. Advances Paid
         advances_paid = 0.0
-        # Check Billing_Advance for this UHID where status is PAID (optional for future)
+        # SourceModule lives on Service_Order, not Billing_Advance, so the IPD filter has to come
+        # through the join. Sum PaidAmount (what was actually collected), not TotalAmount (what
+        # was demanded) — a PARTIALLY_PAID row would otherwise credit the patient the full bill.
         adv_query = text("""
-            SELECT SUM(TotalAmount) FROM Billing_Advance 
-            WHERE UHID = :uhid AND Status = 'PAID' AND SourceModule = 'IPD'
+            SELECT SUM(adv.PaidAmount)
+            FROM hospital.Billing_Advance adv
+            JOIN hospital.Service_Order so ON so.ServiceOrderId = adv.ServiceOrderId
+            WHERE adv.UHID = :uhid AND adv.Status = 'PAID'
+              AND so.SourceModule = 'IPD' AND adv.IsDeleted = 0
         """)
         try:
             adv_res = db.execute(adv_query, {"uhid": adm.Uhid}).scalar()

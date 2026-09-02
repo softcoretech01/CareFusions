@@ -9,7 +9,8 @@ const roles = [
   { id: 'admin', label: 'Admin', icon: User },
   { id: 'executive', label: 'CEO / Executive', icon: Sparkles },
   { id: 'registration', label: 'Registration', icon: UserPlus },
-  { id: 'appointments', label: 'Appointments', icon: CalendarClock },
+
+
   { id: 'opd', label: 'OPD Doctor', icon: Stethoscope },
   { id: 'ipd', label: 'IPD Ward', icon: BedDouble },
   { id: 'emr', label: 'EMR Portal', icon: ClipboardList },
@@ -318,7 +319,7 @@ export const Login = () => {
               <motion.a whileHover={{ x: 3 }} href="#" className="text-sm font-bold text-primary hover:text-primary-hover">Forgot Password?</motion.a>
             </div>
 
-              <motion.button
+            <motion.button
               whileHover={{ scale: 1.01, boxShadow: '0 10px 25px -5px rgba(8,100,80, 0.4)' }}
               whileTap={{ scale: 0.98 }}
               type="submit"

@@ -336,9 +336,9 @@ def set_test_result(order_test_id: int, payload: TestResultUpdate, db: Session =
         release_query = text("""
             SELECT soi.ServiceStatus
             FROM hospital.Lab_Order h
-            JOIN Service_Order so ON so.OrderNo = h.OrderNumber
+            JOIN hospital.Service_Order so ON so.OrderNo = h.OrderNumber
             JOIN hospital.Lab_OrderTest t ON t.OrderId = h.OrderId
-            JOIN Service_OrderItem soi ON soi.ServiceOrderId = so.ServiceOrderId 
+            JOIN hospital.Service_OrderItem soi ON soi.ServiceOrderId = so.ServiceOrderId 
                 AND (soi.ItemName = t.TestName OR soi.ItemId = t.TestId)
             WHERE t.OrderTestId = :test_id
             LIMIT 1
@@ -354,8 +354,8 @@ def set_test_result(order_test_id: int, payload: TestResultUpdate, db: Session =
         
         # Phase 9: Write back completion state to Service_Order backbone
         db.execute(text("""
-            UPDATE Service_OrderItem soi
-            JOIN Service_Order so ON soi.ServiceOrderId = so.ServiceOrderId
+            UPDATE hospital.Service_OrderItem soi
+            JOIN hospital.Service_Order so ON soi.ServiceOrderId = so.ServiceOrderId
             JOIN hospital.Lab_Order h ON so.OrderNo = h.OrderNumber
             JOIN hospital.Lab_OrderTest t ON t.OrderId = h.OrderId 
                 AND (soi.ItemName = t.TestName OR soi.ItemId = t.TestId)
@@ -366,9 +366,9 @@ def set_test_result(order_test_id: int, payload: TestResultUpdate, db: Session =
         # Check if all items in the parent order are now completed
         check_all_completed = text("""
             SELECT COUNT(*) as pending_count, MAX(so.ServiceOrderId) as parent_id
-            FROM Service_OrderItem soi
+            FROM hospital.Service_OrderItem soi
             JOIN hospital.Lab_Order h ON so.OrderNo = h.OrderNumber
-            JOIN Service_Order so ON so.OrderNo = h.OrderNumber
+            JOIN hospital.Service_Order so ON so.OrderNo = h.OrderNumber
             JOIN hospital.Lab_OrderTest t ON t.OrderId = h.OrderId
             WHERE t.OrderTestId = :test_id AND soi.ServiceOrderId = so.ServiceOrderId
             AND soi.ServiceStatus != 'COMPLETED' AND soi.IsDeleted = 0
@@ -377,7 +377,7 @@ def set_test_result(order_test_id: int, payload: TestResultUpdate, db: Session =
         
         if pending_res and pending_res.pending_count == 0 and pending_res.parent_id:
             db.execute(text("""
-                UPDATE Service_Order 
+                UPDATE hospital.Service_Order 
                 SET ServiceStatus = 'COMPLETED', OrderStatus = 'COMPLETED', UpdatedAt = NOW()
                 WHERE ServiceOrderId = :parent_id
             """), {"parent_id": pending_res.parent_id})

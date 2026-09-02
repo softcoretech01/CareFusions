@@ -9,11 +9,11 @@ import {
 const DEPT_ALL = 'All';
 
 const COL_CONFIG = [
-  { status: 'Nursing Assessment',   label: 'Triage / Nursing',   icon: UserCheck,   color: 'text-amber-500',  hdr: 'bg-amber-50/60' },
-  { status: 'Waiting for Doctor',   label: 'Waiting for Doctor', icon: Clock,       color: 'text-blue-500',   hdr: 'bg-blue-50/60'  },
-  { status: 'Consulting',           label: 'Consulting',         icon: Stethoscope, color: 'text-purple-500', hdr: 'bg-purple-50/60'},
-  { status: 'Investigation Pending',label: 'Investigations',     icon: FlaskConical,color: 'text-orange-500', hdr: 'bg-orange-50/60'},
-  { status: 'Completed',            label: 'Completed',          icon: CheckCircle, color: 'text-green-500',  hdr: 'bg-green-50/60' },
+  { status: 'Nursing Assessment', label: 'Triage / Nursing', icon: UserCheck, color: 'text-amber-500', hdr: 'bg-amber-50/60' },
+  { status: 'Waiting for Doctor', label: 'Waiting for Doctor', icon: Clock, color: 'text-blue-500', hdr: 'bg-blue-50/60' },
+  { status: 'Consulting', label: 'Consulting', icon: Stethoscope, color: 'text-purple-500', hdr: 'bg-purple-50/60' },
+  { status: 'Investigation Pending', label: 'Investigations', icon: FlaskConical, color: 'text-orange-500', hdr: 'bg-orange-50/60' },
+  { status: 'Completed', label: 'Completed', icon: CheckCircle, color: 'text-green-500', hdr: 'bg-green-50/60' },
 ];
 
 export const OPDQueueBoard = () => {
@@ -38,9 +38,8 @@ export const OPDQueueBoard = () => {
     });
 
   const VisitCard = ({ visit, colStatus }: { visit: typeof filtered[0]; colStatus: string }) => (
-    <div className={`bg-white rounded-2xl border shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden ${
-      visit.priority === 'Emergency' ? 'border-red-300' : 'border-slate-200'
-    }`}>
+    <div className={`bg-white rounded-2xl border shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden ${visit.priority === 'Emergency' ? 'border-red-300' : 'border-slate-200'
+      }`}>
       {visit.priority === 'Emergency' && <div className="h-1 bg-red-500 animate-pulse" />}
       <div className="p-4">
         {/* Token + name */}
@@ -144,11 +143,10 @@ export const OPDQueueBoard = () => {
             <button
               key={dept}
               onClick={() => setSelectedDept(dept)}
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
-                selectedDept === dept
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${selectedDept === dept
                   ? 'bg-primary text-white shadow-sm'
                   : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
-              }`}
+                }`}
             >
               {dept}
             </button>

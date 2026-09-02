@@ -19,7 +19,7 @@ class ClaimUpdate(BaseModel):
 def list_claims(status: str = None, uhid: str = None, db: Session = Depends(get_db)):
     """List insurance claims"""
     try:
-        query = "SELECT * FROM Billing_InsuranceClaim WHERE IsDeleted = 0"
+        query = "SELECT * FROM hospital.Billing_InsuranceClaim WHERE IsDeleted = 0"
         params = {}
         if status:
             query += " AND Status = :status"
@@ -51,11 +51,11 @@ def list_claims(status: str = None, uhid: str = None, db: Session = Depends(get_
 def update_claim(claim_id: int, payload: ClaimUpdate, db: Session = Depends(get_db)):
     """Update claim status (SUBMITTED, SETTLED, REJECTED)"""
     try:
-        claim = db.execute(text("SELECT * FROM Billing_InsuranceClaim WHERE ClaimId = :id AND IsDeleted = 0"), {"id": claim_id}).fetchone()
+        claim = db.execute(text("SELECT * FROM hospital.Billing_InsuranceClaim WHERE ClaimId = :id AND IsDeleted = 0"), {"id": claim_id}).fetchone()
         if not claim:
             raise HTTPException(status_code=404, detail="Claim not found")
             
-        update_query = "UPDATE Billing_InsuranceClaim SET Status = :status, UpdatedAt = NOW()"
+        update_query = "UPDATE hospital.Billing_InsuranceClaim SET Status = :status, UpdatedAt = NOW()"
         params = {"status": payload.status, "id": claim_id}
         
         if payload.status == 'SUBMITTED':

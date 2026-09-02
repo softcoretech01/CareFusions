@@ -1,5 +1,5 @@
 from pydantic import BaseModel, constr
-from typing import List, Optional
+from typing import List, Optional, Any
 from datetime import datetime
 
 class RadiologyTestBase(BaseModel):
@@ -25,9 +25,15 @@ class RadiologyTestUpdate(BaseModel):
     is_critical: bool = False
 
 class RadiologyTestCreate(BaseModel):
+    testId: Optional[Any] = None
+    test_id: Optional[Any] = None
     testName: str
     testCode: Optional[str] = None
+    test_code: Optional[str] = None
+    bodyPart: Optional[str] = None
     body_part: Optional[str] = None
+    isCritical: Optional[bool] = False
+    is_critical: Optional[bool] = False
 
 class RadiologyTestResponse(RadiologyTestBase):
     order_test_id: int
