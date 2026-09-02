@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Loader, CheckCircle, XCircle, Clock, Activity, ChevronRight, Eye } from 'lucide-react';
+import { Loader, CheckCircle, XCircle, Clock, Activity, ChevronRight, Eye, Search, Calendar, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-const API = 'http://localhost:8000/api/v1/pro';
+const API = (import.meta.env.VITE_API_URL as string || 'http://localhost:8000/api/v1') + '/pro';
 
 const StatusBadge = ({ status }: { status?: string }) => {
   if (!status) return null;
@@ -38,6 +38,9 @@ export const ApprovalsRelease = () => {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
   useEffect(() => {
     const load = async () => {
@@ -62,13 +65,24 @@ export const ApprovalsRelease = () => {
     load();
   }, [activeTab]);
 
+  const filtered = orders.filter(o => {
+    if (dateFrom && o.OrderDate < dateFrom) return false;
+    if (dateTo && o.OrderDate > dateTo + 'T23:59:59') return false;
+    if (!search) return true;
+    const s = search.toLowerCase();
+    return (
+      o.OrderNo?.toLowerCase().includes(s) ||
+      o.UHID?.toLowerCase().includes(s) ||
+      o.PatientName?.toLowerCase().includes(s)
+    );
+  });
+
   const renderPendingTab = () => (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
           <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
-            <th className="px-4 py-3 text-left font-semibold">#</th>
-            <th className="px-4 py-3 text-left font-semibold">Order No</th>
+            <th className="px-4 py-3 text-left font-semibold">S.No</th>
             <th className="px-4 py-3 text-left font-semibold">Patient</th>
             <th className="px-4 py-3 text-left font-semibold">UHID</th>
             <th className="px-4 py-3 text-left font-semibold">Type</th>
@@ -77,10 +91,9 @@ export const ApprovalsRelease = () => {
           </tr>
         </thead>
         <tbody>
-          {orders.map((o: any, idx: number) => (
+          {filtered.map((o: any, idx: number) => (
             <tr key={o.ServiceOrderId} className="border-t border-slate-50 hover:bg-amber-50/30">
               <td className="px-4 py-3 text-slate-400">{idx + 1}</td>
-              <td className="px-4 py-3 font-mono text-xs text-slate-600">{o.OrderNo}</td>
               <td className="px-4 py-3 font-medium text-slate-700">{o.PatientName ?? '—'}</td>
               <td className="px-4 py-3 text-slate-500">{o.UHID}</td>
               <td className="px-4 py-3"><span className="bg-slate-100 text-slate-600 text-xs px-2 py-0.5 rounded-full">{o.SourceModule}</span></td>
@@ -105,8 +118,7 @@ export const ApprovalsRelease = () => {
       <table className="w-full text-sm">
         <thead>
           <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
-            <th className="px-4 py-3 text-left font-semibold">#</th>
-            <th className="px-4 py-3 text-left font-semibold">Order No</th>
+            <th className="px-4 py-3 text-left font-semibold">S.No</th>
             <th className="px-4 py-3 text-left font-semibold">Patient</th>
             <th className="px-4 py-3 text-left font-semibold">Type</th>
             <th className="px-4 py-3 text-left font-semibold">PRO Status</th>
@@ -115,10 +127,9 @@ export const ApprovalsRelease = () => {
           </tr>
         </thead>
         <tbody>
-          {orders.map((o: any, idx: number) => (
+          {filtered.map((o: any, idx: number) => (
             <tr key={o.ServiceOrderId} className="border-t border-slate-50 hover:bg-emerald-50/20">
               <td className="px-4 py-3 text-slate-400">{idx + 1}</td>
-              <td className="px-4 py-3 font-mono text-xs text-slate-600">{o.OrderNo}</td>
               <td className="px-4 py-3 font-medium text-slate-700">{o.PatientName ?? '—'}</td>
               <td className="px-4 py-3"><span className="bg-slate-100 text-slate-600 text-xs px-2 py-0.5 rounded-full">{o.SourceModule}</span></td>
               <td className="px-4 py-3"><StatusBadge status={o.PROStatus} /></td>
@@ -136,18 +147,16 @@ export const ApprovalsRelease = () => {
       <table className="w-full text-sm">
         <thead>
           <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
-            <th className="px-4 py-3 text-left font-semibold">#</th>
-            <th className="px-4 py-3 text-left font-semibold">Order No</th>
+            <th className="px-4 py-3 text-left font-semibold">S.No</th>
             <th className="px-4 py-3 text-left font-semibold">Patient</th>
             <th className="px-4 py-3 text-left font-semibold">Type</th>
             <th className="px-4 py-3 text-left font-semibold">PRO Status</th>
           </tr>
         </thead>
         <tbody>
-          {orders.map((o: any, idx: number) => (
+          {filtered.map((o: any, idx: number) => (
             <tr key={o.ServiceOrderId} className="border-t border-slate-50 hover:bg-red-50/20">
               <td className="px-4 py-3 text-slate-400">{idx + 1}</td>
-              <td className="px-4 py-3 font-mono text-xs text-slate-600">{o.OrderNo}</td>
               <td className="px-4 py-3 font-medium text-slate-700">{o.PatientName ?? '—'}</td>
               <td className="px-4 py-3"><span className="bg-slate-100 text-slate-600 text-xs px-2 py-0.5 rounded-full">{o.SourceModule}</span></td>
               <td className="px-4 py-3"><StatusBadge status={o.PROStatus} /></td>
@@ -168,8 +177,7 @@ export const ApprovalsRelease = () => {
       <table className="w-full text-sm">
         <thead>
           <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
-            <th className="px-4 py-3 text-left font-semibold">#</th>
-            <th className="px-4 py-3 text-left font-semibold">Order No</th>
+            <th className="px-4 py-3 text-left font-semibold">S.No</th>
             <th className="px-4 py-3 text-left font-semibold">Patient</th>
             <th className="px-4 py-3 text-left font-semibold">PRO</th>
             <th className="px-4 py-3 text-left font-semibold">Payment</th>
@@ -178,10 +186,9 @@ export const ApprovalsRelease = () => {
           </tr>
         </thead>
         <tbody>
-          {orders.map((o: any, idx: number) => (
+          {filtered.map((o: any, idx: number) => (
             <tr key={o.ServiceOrderId} className="border-t border-slate-50 hover:bg-teal-50/20">
               <td className="px-4 py-3 text-slate-400">{idx + 1}</td>
-              <td className="px-4 py-3 font-mono text-xs text-slate-600">{o.OrderNo}</td>
               <td className="px-4 py-3 font-medium text-slate-700">{o.PatientName ?? '—'}</td>
               <td className="px-4 py-3"><StatusBadge status={o.PROStatus} /></td>
               <td className="px-4 py-3"><StatusBadge status={o.PaymentStatus} /></td>
@@ -198,9 +205,43 @@ export const ApprovalsRelease = () => {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-800">Approvals & Release</h1>
-        <p className="text-slate-500 text-sm mt-1">Review pending services, track approvals, rejections, and release monitor</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800">Approvals & Release</h1>
+          <p className="text-slate-500 text-sm mt-1">Review pending services, track approvals, rejections, and release monitor</p>
+        </div>
+        <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-sm shrink-0">
+          <span className="text-slate-500 text-sm font-medium">From :</span>
+          <div className="relative">
+            <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={e => setDateFrom(e.target.value)}
+              className="pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+            />
+          </div>
+          <span className="text-slate-500 text-sm font-medium ml-1">to :</span>
+          <div className="relative">
+            <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <input
+              type="date"
+              value={dateTo}
+              onChange={e => setDateTo(e.target.value)}
+              className="pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+            />
+          </div>
+          <div className="w-px h-6 bg-slate-200 mx-1"></div>
+          <button className="bg-[#086450] text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-[#075342] transition-colors">
+            Search
+          </button>
+          <button
+            onClick={() => { setDateFrom(''); setDateTo(''); }}
+            className="bg-slate-100 text-slate-700 px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-slate-200 transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm">
@@ -216,6 +257,30 @@ export const ApprovalsRelease = () => {
               {tab.label}
             </button>
           ))}
+        </div>
+
+        {/* Search bar & Filters */}
+        <div className="px-4 py-3 border-b border-slate-100 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3 flex-1 min-w-[300px]">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search Order No, UHID, Patient..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="pl-9 pr-8 py-2 rounded-xl border border-slate-200 text-sm w-full focus:outline-none focus:ring-2 focus:ring-emerald-400"
+              />
+              {search && (
+                <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          </div>
+          <span className="inline-flex items-center gap-1.5 bg-slate-50 text-slate-600 border border-slate-200 rounded-full px-3 py-1 text-xs font-semibold">
+            {filtered.length} Total
+          </span>
         </div>
 
         {loading ? (

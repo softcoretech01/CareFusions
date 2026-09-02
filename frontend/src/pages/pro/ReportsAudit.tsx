@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Loader, FileText, History, Search, RefreshCw, AlertCircle } from 'lucide-react';
+import { Loader, FileText, History, Search, RefreshCw, AlertCircle, Calendar, X } from 'lucide-react';
 
-const API = 'http://localhost:8000/api/v1/pro';
+const API = (import.meta.env.VITE_API_URL as string || 'http://localhost:8000/api/v1') + '/pro';
 
 const REPORT_TYPES = [
   'Daily PRO Approval Report',
@@ -62,6 +62,8 @@ export const ReportsAudit = () => {
   }, [activeTab]);
 
   const filteredLogs = auditLogs.filter(log => {
+    if (dateFrom && log.CreatedAt < dateFrom) return false;
+    if (dateTo && log.CreatedAt > dateTo + 'T23:59:59') return false;
     if (!search) return true;
     const s = search.toLowerCase();
     return (
@@ -74,9 +76,43 @@ export const ReportsAudit = () => {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-800">Reports & Audit</h1>
-        <p className="text-slate-500 text-sm mt-1">Generate PRO reports and track all audit events</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800">Reports & Audit</h1>
+          <p className="text-slate-500 text-sm mt-1">Generate PRO reports and track all audit events</p>
+        </div>
+        <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-sm shrink-0">
+          <span className="text-slate-500 text-sm font-medium">From :</span>
+          <div className="relative">
+            <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={e => setDateFrom(e.target.value)}
+              className="pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+            />
+          </div>
+          <span className="text-slate-500 text-sm font-medium ml-1">to :</span>
+          <div className="relative">
+            <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <input
+              type="date"
+              value={dateTo}
+              onChange={e => setDateTo(e.target.value)}
+              className="pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+            />
+          </div>
+          <div className="w-px h-6 bg-slate-200 mx-1"></div>
+          <button className="bg-[#086450] text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-[#075342] transition-colors">
+            Search
+          </button>
+          <button
+            onClick={() => { setDateFrom(''); setDateTo(''); }}
+            className="bg-slate-100 text-slate-700 px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-slate-200 transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm">
@@ -172,20 +208,30 @@ export const ReportsAudit = () => {
         {/* Audit Tab */}
         {activeTab === 'audit' && (
           <div>
-            <div className="px-4 py-3 border-b border-slate-50 flex items-center gap-3">
-              <div className="relative flex-1 max-w-sm">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Search audit logs..."
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  className="pl-9 pr-4 py-2 rounded-xl border border-slate-200 text-sm w-full focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                />
+            <div className="px-4 py-3 border-b border-slate-50 flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-3 flex-1 min-w-[300px]">
+                <div className="relative flex-1 max-w-sm">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search audit logs..."
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    className="pl-9 pr-8 py-2 rounded-xl border border-slate-200 text-sm w-full focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                  />
+                  {search && (
+                    <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+                <button onClick={loadAudit} className="w-9 h-9 border border-slate-200 rounded-xl flex items-center justify-center text-slate-500 hover:bg-slate-50 shrink-0">
+                  <RefreshCw className="w-4 h-4" />
+                </button>
               </div>
-              <button onClick={loadAudit} className="w-9 h-9 border border-slate-200 rounded-xl flex items-center justify-center text-slate-500 hover:bg-slate-50">
-                <RefreshCw className="w-4 h-4" />
-              </button>
+              <span className="inline-flex items-center gap-1.5 bg-slate-50 text-slate-600 border border-slate-200 rounded-full px-3 py-1 text-xs font-semibold">
+                {filteredLogs.length} Total
+              </span>
             </div>
 
             {loading ? (
@@ -208,8 +254,7 @@ export const ReportsAudit = () => {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
-                      <th className="px-4 py-3 text-left font-semibold">#</th>
-                      <th className="px-4 py-3 text-left font-semibold">Order</th>
+                      <th className="px-4 py-3 text-left font-semibold">S.No</th>
                       <th className="px-4 py-3 text-left font-semibold">UHID</th>
                       <th className="px-4 py-3 text-left font-semibold">Patient</th>
                       <th className="px-4 py-3 text-left font-semibold">Action</th>
@@ -224,7 +269,6 @@ export const ReportsAudit = () => {
                     {filteredLogs.map((log: any, idx: number) => (
                       <tr key={log.LogId} className="border-t border-slate-50 hover:bg-slate-50">
                         <td className="px-4 py-3 text-slate-400">{idx + 1}</td>
-                        <td className="px-4 py-3 font-mono text-xs text-slate-600">{log.ServiceOrderId}</td>
                         <td className="px-4 py-3 text-slate-500">{log.UHID ?? '—'}</td>
                         <td className="px-4 py-3 text-slate-600">{log.PatientName ?? '—'}</td>
                         <td className="px-4 py-3"><ActionBadge action={log.Action} /></td>
