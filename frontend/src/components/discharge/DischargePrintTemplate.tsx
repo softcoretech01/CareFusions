@@ -94,7 +94,7 @@ export const DischargePrintTemplate = ({
           <div className="space-y-6 mb-8">
             <div>
               <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest border-b-2 border-slate-800 mb-2 pb-1">Diagnosis</h3>
-              <p className="text-sm text-slate-800 font-bold whitespace-pre-wrap leading-relaxed">{patient.provisionalDiagnosis || 'No diagnosis recorded'}</p>
+              <p className="text-sm text-slate-800 font-bold whitespace-pre-wrap leading-relaxed">{patient.admissionReason || 'No diagnosis recorded'}</p>
             </div>
             
             <div>

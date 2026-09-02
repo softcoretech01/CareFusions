@@ -354,7 +354,7 @@ export const ClaimsManagement = () => {
       insurer: provider?.providerName ?? form.insurer,
       preAuthId: relatedPreAuth?.preAuthId,
       admissionId: matchedAdmission?.id,        // real FK to the IPD stay
-      diagnosis: matchedAdmission?.provisionalDiagnosis || 'General Claim',
+      diagnosis: matchedAdmission?.admissionReason || 'General Claim',
       amount: billed,
       preAuth: Number(form.preAuthorizedAmount) || 0,
       claimedAmount: claimed,

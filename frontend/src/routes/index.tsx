@@ -181,6 +181,7 @@ const OPBilling = lazy(() => import('../pages/billing/OPBilling').then(m => ({ d
 const IPBilling = lazy(() => import('../pages/billing/IPBilling').then(m => ({ default: (m as any).IPBilling ?? (m as any).default })));
 const BillingReports = lazy(() => import('../pages/billing/BillingReports').then(m => ({ default: (m as any).BillingReports ?? (m as any).default })));
 const BillingPrintTemplate = lazy(() => import('../pages/billing/BillingPrintTemplate').then(m => ({ default: (m as any).BillingPrintTemplate ?? (m as any).default })));
+const AdvancePayments = lazy(() => import('../pages/billing/AdvancePayments').then(m => ({ default: (m as any).AdvancePayments ?? (m as any).default })));
 const RetailPOS = lazy(() => import('../pages/pharmacy/RetailPOS').then(m => ({ default: (m as any).RetailPOS ?? (m as any).default })));
 const RetailReports = lazy(() => import('../pages/pharmacy/RetailReports').then(m => ({ default: (m as any).RetailReports ?? (m as any).default })));
 const Returns = lazy(() => import('../pages/pharmacy/Returns').then(m => ({ default: (m as any).Returns ?? (m as any).default })));
@@ -483,6 +484,10 @@ export const router = createBrowserRouter([
       {
         path: 'ip',
         element: <IPBilling />
+      },
+      {
+        path: 'advance-payments',
+        element: <AdvancePayments />
       },
       {
         path: 'reports',

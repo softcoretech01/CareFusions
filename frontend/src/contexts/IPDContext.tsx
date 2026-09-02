@@ -29,7 +29,7 @@ export interface AdmissionRequest {
   specialty: string;
   admissionType: string;
   priority: string;
-  provisionalDiagnosis: string;
+  admissionReason: string;
   requestedBy: string; // Doctor Name
   status: 'Pending' | 'Admitted' | 'Cancelled';
 }
@@ -77,7 +77,7 @@ export interface IPDPatient {
   currentWardId: number | null;
   currentWardName: string;
   currentBedId: number | null;
-  provisionalDiagnosis: string;
+  admissionReason: string;
   insuranceStatus: string;
   wardTransferHistory: WardTransferRecord[];
   dischargeInfo: DischargeInfo | null;

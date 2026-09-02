@@ -88,7 +88,7 @@ const TestResultEditor = ({ test, handleSaveResult, patientId }: any) => {
               <p className="text-xs text-blue-600 font-medium">Uploaded: {test.resultFile}</p>
               <button
                 type="button"
-                onClick={() => window.open(`${API_BASE.replace('/api/v1', '')}/uploads/${patientId}_${test.resultFile}`, '_blank')}
+                onClick={() => window.open(`${API_BASE.replace('/api/v1', '')}/uploads/${encodeURIComponent(patientId + '_' + test.resultFile)}`, '_blank')}
                 className="p-1 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition-colors"
                 title="View Result File"
               >

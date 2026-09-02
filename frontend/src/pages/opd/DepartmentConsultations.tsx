@@ -12,7 +12,7 @@ export const DepartmentConsultations = () => {
   const { orders: globalOrders } = useInvestigations();
   const navigate = useNavigate();
 
-  const todayDate = new Date();  const formatYYYYMMDD = (d: Date) => {
+  const todayDate = new Date(); const formatYYYYMMDD = (d: Date) => {
     const yyyy = d.getFullYear();
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const dd = String(d.getDate()).padStart(2, '0');
@@ -20,12 +20,19 @@ export const DepartmentConsultations = () => {
   };
 
   const todayStr = formatYYYYMMDD(todayDate);
-  const [dateFrom, setDateFrom] = useState(todayStr);
+  
+  const firstDayOfMonth = (() => {
+    const yyyy = todayDate.getFullYear();
+    const mm = String(todayDate.getMonth() + 1).padStart(2, '0');
+    return `${yyyy}-${mm}-01`;
+  })();
+
+  const [dateFrom, setDateFrom] = useState(firstDayOfMonth);
   const [dateTo, setDateTo] = useState(todayStr);
 
-  const [viewerState, setViewerState] = useState<{ patientId: string; category: 'Lab' | 'Radiology' } | null>(null);
+  const [viewerState, setViewerState] = useState<{ patientId: string; category: 'Lab' | 'Radiology'; visitDate?: string } | null>(null);
 
-  const [appliedDateFrom, setAppliedDateFrom] = useState(todayStr);
+  const [appliedDateFrom, setAppliedDateFrom] = useState(firstDayOfMonth);
   const [appliedDateTo, setAppliedDateTo] = useState(todayStr);
 
   // Convert the URL param back to the proper department name for filtering
@@ -34,26 +41,26 @@ export const DepartmentConsultations = () => {
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
 
-  const getLabStatus = (uhid: string, testName: string, defaultStatus: string) => {
-    const patientOrders = globalOrders.filter((o: any) => o.patientId === uhid && o.category === 'Lab');
+  const getLabStatus = (uhid: string, testName: string, defaultStatus: string, visitDate: string) => {
+    const patientOrders = globalOrders.filter((o: any) => o.patientId === uhid && o.category === 'Lab' && o.orderedAt?.slice(0, 10) === visitDate.slice(0, 10));
     for (const o of patientOrders) {
       const t = o.tests.find((x: any) => x.name === testName);
       if (t && (t.status === 'Completed' || t.status === 'Verified')) {
         return 'Completed';
       }
     }
-    return defaultStatus;
+    return defaultStatus === 'Pending' ? 'Ordered' : defaultStatus;
   };
 
-  const getRadStatus = (uhid: string, serviceName: string, bodyPart: string, defaultStatus: string) => {
-    const patientOrders = globalOrders.filter((o: any) => o.patientId === uhid && o.category === 'Radiology');
+  const getRadStatus = (uhid: string, serviceName: string, bodyPart: string, defaultStatus: string, visitDate: string) => {
+    const patientOrders = globalOrders.filter((o: any) => o.patientId === uhid && o.category === 'Radiology' && o.orderedAt?.slice(0, 10) === visitDate.slice(0, 10));
     for (const o of patientOrders) {
       const t = o.tests.find((x: any) => x.name === (serviceName || bodyPart) || x.bodyPart === bodyPart);
       if (t && (t.status === 'Completed' || t.status === 'Verified')) {
         return 'Completed';
       }
     }
-    return defaultStatus;
+    return defaultStatus === 'Pending' ? 'Ordered' : defaultStatus;
   };
 
   const parseDate = (dStr: string) => {
@@ -93,9 +100,9 @@ export const DepartmentConsultations = () => {
   };
 
   const handleReset = () => {
-    setDateFrom(todayStr);
+    setDateFrom(firstDayOfMonth);
     setDateTo(todayStr);
-    setAppliedDateFrom(todayStr);
+    setAppliedDateFrom(firstDayOfMonth);
     setAppliedDateTo(todayStr);
   };
 
@@ -106,48 +113,43 @@ export const DepartmentConsultations = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col 2xl:flex-row 2xl:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800">{formattedDept} Consultations</h1>
+          <h1 className="text-2xl font-bold text-slate-800">{formattedDept} Consultations</h1>
         </div>
-        
-        <DateFilter
-          dateFrom={dateFrom}
-          dateTo={dateTo}
-          onDateFromChange={setDateFrom}
-          onDateToChange={setDateTo}
-          onSearch={handleSearch}
-          onReset={handleReset}
-        />
-      </div>
 
-      <div className="grid grid-cols-3 gap-4">
-        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center shrink-0">
-            <Clock className="w-6 h-6 text-blue-600" />
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-3">
+            <div className="bg-white px-5 py-3 rounded-xl border border-slate-100 shadow-sm flex items-center gap-3 min-w-[150px]">
+              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center shrink-0">
+                <Clock className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-slate-800 leading-none">{pending.length}</div>
+                <div className="text-[11px] text-slate-500 font-bold uppercase tracking-wide mt-1">Waiting</div>
+              </div>
+            </div>
+            <div className="bg-white px-5 py-3 rounded-xl border border-slate-100 shadow-sm flex items-center gap-3 min-w-[150px]">
+              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center shrink-0">
+                <Stethoscope className="w-5 h-5 text-green-600" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-slate-800 leading-none">{completed.length}</div>
+                <div className="text-[11px] text-slate-500 font-bold uppercase tracking-wide mt-1">Completed</div>
+              </div>
+            </div>
           </div>
-          <div>
-            <div className="text-2xl font-bold text-slate-800">{pending.length}</div>
-            <div className="text-xs text-slate-500 font-bold uppercase tracking-wide">Waiting</div>
-          </div>
-        </div>
-        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center shrink-0">
-            <Activity className="w-6 h-6 text-purple-600" />
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-slate-800">{consulting.length}</div>
-            <div className="text-xs text-slate-500 font-bold uppercase tracking-wide">Consulting</div>
-          </div>
-        </div>
-        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center shrink-0">
-            <Stethoscope className="w-6 h-6 text-green-600" />
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-slate-800">{completed.length}</div>
-            <div className="text-xs text-slate-500 font-bold uppercase tracking-wide">Completed</div>
-          </div>
+
+          <div className="hidden md:block w-px h-8 bg-slate-200"></div>
+
+          <DateFilter
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            onDateFromChange={setDateFrom}
+            onDateToChange={setDateTo}
+            onSearch={handleSearch}
+            onReset={handleReset}
+          />
         </div>
       </div>
 
@@ -195,12 +197,11 @@ export const DepartmentConsultations = () => {
                       <div className="text-xs text-slate-400">{visit.timeSlot}</div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                        visit.status === 'Completed' ? 'bg-green-100 text-green-700' :
-                        visit.status === 'Consulting' ? 'bg-purple-100 text-purple-700' :
-                        visit.status === 'Waiting for Doctor' ? 'bg-blue-100 text-blue-700' :
-                        'bg-slate-100 text-slate-600'
-                      }`}>
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${visit.status === 'Completed' ? 'bg-green-100 text-green-700' :
+                          visit.status === 'Consulting' ? 'bg-purple-100 text-purple-700' :
+                            visit.status === 'Waiting for Doctor' ? 'bg-blue-100 text-blue-700' :
+                              'bg-slate-100 text-slate-600'
+                        }`}>
                         {visit.status}
                       </span>
                     </td>
@@ -208,25 +209,23 @@ export const DepartmentConsultations = () => {
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => navigate(`/opd/visit/${visit.id}`)}
-                          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
-                            visit.status === 'Completed'
+                          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${visit.status === 'Completed'
                               ? 'bg-amber-50 text-amber-600 hover:bg-amber-100'
                               : 'bg-primary/10 text-primary hover:bg-primary hover:text-white'
-                          }`}
+                            }`}
                         >
-                          <Edit2 className="w-3.5 h-3.5" /> 
+                          <Edit2 className="w-3.5 h-3.5" />
                           {visit.status === 'Completed' ? 'Edit EMR' : 'Open EMR'}
                         </button>
-                        
+
                         {visit.labOrders && visit.labOrders.length > 0 && (
                           <button
-                            onClick={() => setViewerState({ patientId: visit.uhid, category: 'Lab' })}
-                            disabled={!visit.labOrders.some((o: any) => getLabStatus(visit.uhid, o.testName, o.status) === 'Completed')}
-                            className={`flex items-center justify-center w-7 h-7 rounded-lg transition-colors ${
-                              visit.labOrders.some((o: any) => getLabStatus(visit.uhid, o.testName, o.status) === 'Completed')
+                            onClick={() => setViewerState({ patientId: visit.uhid, category: 'Lab', visitDate: visit.date })}
+                            disabled={!visit.labOrders.some((o: any) => getLabStatus(visit.uhid, o.testName, o.status, visit.date) === 'Completed')}
+                            className={`flex items-center justify-center w-7 h-7 rounded-lg transition-colors ${visit.labOrders.some((o: any) => getLabStatus(visit.uhid, o.testName, o.status, visit.date) === 'Completed')
                                 ? 'bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white'
                                 : 'bg-slate-50 text-slate-300 cursor-not-allowed'
-                            }`}
+                              }`}
                             title="View Lab Result"
                           >
                             <FlaskConical className="w-3.5 h-3.5" />
@@ -235,13 +234,12 @@ export const DepartmentConsultations = () => {
 
                         {visit.radiologyOrders && visit.radiologyOrders.length > 0 && (
                           <button
-                            onClick={() => setViewerState({ patientId: visit.uhid, category: 'Radiology' })}
-                            disabled={!visit.radiologyOrders.some((o: any) => getRadStatus(visit.uhid, o.serviceName, o.bodyPart, o.status) === 'Completed')}
-                            className={`flex items-center justify-center w-7 h-7 rounded-lg transition-colors ${
-                              visit.radiologyOrders.some((o: any) => getRadStatus(visit.uhid, o.serviceName, o.bodyPart, o.status) === 'Completed')
+                            onClick={() => setViewerState({ patientId: visit.uhid, category: 'Radiology', visitDate: visit.date })}
+                            disabled={!visit.radiologyOrders.some((o: any) => getRadStatus(visit.uhid, o.serviceName, o.bodyPart, o.status, visit.date) === 'Completed')}
+                            className={`flex items-center justify-center w-7 h-7 rounded-lg transition-colors ${visit.radiologyOrders.some((o: any) => getRadStatus(visit.uhid, o.serviceName, o.bodyPart, o.status, visit.date) === 'Completed')
                                 ? 'bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white'
                                 : 'bg-slate-50 text-slate-300 cursor-not-allowed'
-                            }`}
+                              }`}
                             title="View Radiology Result"
                           >
                             <ScanLine className="w-3.5 h-3.5" />
@@ -258,10 +256,11 @@ export const DepartmentConsultations = () => {
       </div>
 
       {viewerState && (
-        <ResultViewer 
-          patientId={viewerState.patientId} 
-          category={viewerState.category} 
-          onClose={() => setViewerState(null)} 
+        <ResultViewer
+          patientId={viewerState.patientId}
+          category={viewerState.category}
+          visitDate={viewerState.visitDate}
+          onClose={() => setViewerState(null)}
         />
       )}
     </div>

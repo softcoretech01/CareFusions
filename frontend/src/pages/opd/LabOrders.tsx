@@ -17,26 +17,27 @@ export const LabOrders = () => {
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   const dd = String(d.getDate()).padStart(2, '0');
   const today = `${yyyy}-${mm}-${dd}`;
+  const firstDayOfMonth = `${yyyy}-${mm}-01`;
   const [searchQuery, setSearchQuery] = useState('');
-  const [dateFrom, setDateFrom] = useState(today);
+  const [dateFrom, setDateFrom] = useState(firstDayOfMonth);
   const [dateTo, setDateTo] = useState(today);
   
-  const [viewerState, setViewerState] = useState<{ patientId: string; category: 'Lab' | 'Radiology' } | null>(null);
+  const [viewerState, setViewerState] = useState<{ patientId: string; category: 'Lab' | 'Radiology'; visitDate?: string } | null>(null);
 
-  const [appliedDateFrom, setAppliedDateFrom] = useState(today);
+  const [appliedDateFrom, setAppliedDateFrom] = useState(firstDayOfMonth);
   const [appliedDateTo, setAppliedDateTo] = useState(today);
 
   const [appliedSearchQuery, setAppliedSearchQuery] = useState('');
 
-  const getLabStatus = (uhid: string, testName: string, defaultStatus: string) => {
-    const patientOrders = globalOrders.filter((o: any) => o.patientId === uhid && o.category === 'Lab');
+  const getLabStatus = (uhid: string, testName: string, defaultStatus: string, visitDate: string) => {
+    const patientOrders = globalOrders.filter((o: any) => o.patientId === uhid && o.category === 'Lab' && o.orderedAt?.slice(0, 10) === visitDate.slice(0, 10));
     for (const o of patientOrders) {
       const t = o.tests.find((x: any) => x.name === testName);
       if (t && (t.status === 'Completed' || t.status === 'Verified')) {
         return 'Completed';
       }
     }
-    return defaultStatus;
+    return defaultStatus === 'Pending' ? 'Ordered' : defaultStatus;
   };
 
   const parseDate = (dStr: string) => {
@@ -73,10 +74,10 @@ export const LabOrders = () => {
   };
 
   const handleReset = () => {
-    setDateFrom(today);
+    setDateFrom(firstDayOfMonth);
     setDateTo(today);
     setSearchQuery('');
-    setAppliedDateFrom(today);
+    setAppliedDateFrom(firstDayOfMonth);
     setAppliedDateTo(today);
     setAppliedSearchQuery('');
   };
@@ -149,7 +150,7 @@ export const LabOrders = () => {
                     <td className="px-6 py-4">
                       <div className="space-y-1">
                         {visit.labOrders.map((order: any, idx: number) => {
-                          const realStatus = getLabStatus(visit.uhid, order.testName, order.status);
+                          const realStatus = getLabStatus(visit.uhid, order.testName, order.status, visit.date);
                           return (
                           <div key={order.id || idx} className="flex items-center gap-2">
                             <span className="text-sm font-medium text-slate-700">{order.testName}</span>
@@ -169,7 +170,7 @@ export const LabOrders = () => {
                     <td className="px-6 py-4">
                       <div className="space-y-1">
                         {visit.labOrders.map((order: any, idx: number) => {
-                          const realStatus = getLabStatus(visit.uhid, order.testName, order.status);
+                          const realStatus = getLabStatus(visit.uhid, order.testName, order.status, visit.date);
                           return (
                           <div key={order.id || idx} className="flex items-center">
                             <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-md ${
@@ -191,14 +192,14 @@ export const LabOrders = () => {
                           <Eye className="w-3.5 h-3.5" /> View
                         </button>
                         <button
-                          onClick={() => setViewerState({ patientId: visit.uhid, category: 'Lab' })}
-                          disabled={!visit.labOrders.some((o: any) => getLabStatus(visit.uhid, o.testName, o.status) === 'Completed')}
+                          onClick={() => setViewerState({ patientId: visit.uhid, category: 'Lab', visitDate: visit.date })}
+                          disabled={!visit.labOrders.some((o: any) => getLabStatus(visit.uhid, o.testName, o.status, visit.date) === 'Completed')}
                           className={`flex items-center justify-center w-7 h-7 rounded-lg transition-colors ${
-                            visit.labOrders.some((o: any) => getLabStatus(visit.uhid, o.testName, o.status) === 'Completed')
+                            visit.labOrders.some((o: any) => getLabStatus(visit.uhid, o.testName, o.status, visit.date) === 'Completed')
                               ? 'bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white'
                               : 'bg-slate-50 text-slate-300 cursor-not-allowed'
                           }`}
-                          title="View Lab Result"
+                          title="View Result"
                         >
                           <FlaskConical className="w-3.5 h-3.5" />
                         </button>
@@ -224,6 +225,7 @@ export const LabOrders = () => {
         <ResultViewer 
           patientId={viewerState.patientId} 
           category={viewerState.category} 
+          visitDate={viewerState.visitDate}
           onClose={() => setViewerState(null)} 
         />
       )}

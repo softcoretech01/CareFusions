@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Pill, Plus, Check, Loader2, Trash2 } from 'lucide-react';
+import { Pill, Plus, Check, Loader2, Trash2, Printer } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { MedicineSearch, loadMedicines, medicineLabel, type MasterMedicine } from '../ui/MedicineSearch';
 
@@ -28,9 +28,28 @@ export const MarGrid: React.FC<MarGridProps> = ({ patientId }) => {
   const [formData, setFormData] = useState({
     medicineId: '',
     dosage: '',
-    frequency: 'OD',
+    frequencyType: 'Scheduled' as 'Scheduled' | 'SOS' | 'STAT',
+    scheduledSlots: {
+      Morning: false,
+      Afternoon: false,
+      Evening: false,
+      Night: false
+    } as Record<string, boolean>,
     route: 'Oral'
   });
+  const [isPrinting, setIsPrinting] = useState(false);
+
+  useEffect(() => {
+    if (!isPrinting) return;
+    const timer = window.setTimeout(() => window.print(), 300);
+    return () => clearTimeout(timer);
+  }, [isPrinting]);
+
+  useEffect(() => {
+    const clearPrint = () => setIsPrinting(false);
+    window.addEventListener('afterprint', clearPrint);
+    return () => window.removeEventListener('afterprint', clearPrint);
+  }, []);
 
   const fetchMedications = async () => {
     setIsLoading(true);
@@ -82,6 +101,15 @@ export const MarGrid: React.FC<MarGridProps> = ({ patientId }) => {
     const med = medicines.find(m => m.id === Number(formData.medicineId));
     if (!med) return;
 
+    const isScheduled = formData.frequencyType === 'Scheduled';
+    const activeSlots = Object.keys(formData.scheduledSlots).filter(k => formData.scheduledSlots[k]);
+    if (isScheduled && activeSlots.length === 0) {
+      toast.error('Please select at least one time slot');
+      return;
+    }
+
+    const finalFrequency = isScheduled ? activeSlots.join(', ') : formData.frequencyType;
+
     // A brand-new MAR entry has no administrations yet. Crucially we must NOT
     // send `administrations` here: the backend treats a present administrations
     // object as an "update the admin checkboxes on an existing med" call, so an
@@ -92,7 +120,7 @@ export const MarGrid: React.FC<MarGridProps> = ({ patientId }) => {
         medicineId: med.id,
         medicineName: medicineLabel(med),
         dosage: formData.dosage,
-        frequency: formData.frequency,
+        frequency: finalFrequency,
         route: formData.route,
       }
     };
@@ -106,7 +134,13 @@ export const MarGrid: React.FC<MarGridProps> = ({ patientId }) => {
       if (res.ok) {
         toast.success('Medication added to MAR');
         setIsAdding(false);
-        setFormData({ medicineId: '', dosage: '', frequency: 'OD', route: 'Oral' });
+        setFormData({ 
+          medicineId: '', 
+          dosage: '', 
+          frequencyType: 'Scheduled',
+          scheduledSlots: { Morning: false, Afternoon: false, Evening: false, Night: false },
+          route: 'Oral' 
+        });
         fetchMedications();
       } else {
         toast.error('Failed to add medication');
@@ -180,12 +214,20 @@ export const MarGrid: React.FC<MarGridProps> = ({ patientId }) => {
           <Pill className="w-5 h-5 text-primary" /> Medication Administration Record (MAR)
         </h3>
         {!isAdding && (
-          <button
-            onClick={() => setIsAdding(true)}
-            className="px-4 py-2 bg-primary/10 text-primary font-bold rounded-xl text-sm flex items-center gap-2 hover:bg-primary hover:text-white transition-colors"
-          >
-            <Plus className="w-4 h-4" /> Add Medication
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsPrinting(true)}
+              className="px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl text-sm flex items-center gap-2 hover:bg-slate-200 transition-colors"
+            >
+              <Printer className="w-4 h-4" /> Print
+            </button>
+            <button
+              onClick={() => setIsAdding(true)}
+              className="px-4 py-2 bg-primary/10 text-primary font-bold rounded-xl text-sm flex items-center gap-2 hover:bg-primary hover:text-white transition-colors"
+            >
+              <Plus className="w-4 h-4" /> Add Medication
+            </button>
+          </div>
         )}
       </div>
 
@@ -207,17 +249,6 @@ export const MarGrid: React.FC<MarGridProps> = ({ patientId }) => {
                 <input required type="text" placeholder="e.g. 500mg" value={formData.dosage} onChange={e => setFormData({ ...formData, dosage: e.target.value })} className={inputCls} />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Frequency</label>
-                <select value={formData.frequency} onChange={e => setFormData({ ...formData, frequency: e.target.value })} className={inputCls}>
-                  <option value="OD">OD (Once daily)</option>
-                  <option value="BD">BD (Twice daily)</option>
-                  <option value="TDS">TDS (Thrice daily)</option>
-                  <option value="QID">QID (Four times daily)</option>
-                  <option value="SOS">SOS (As needed)</option>
-                  <option value="STAT">STAT (Immediately)</option>
-                </select>
-              </div>
-              <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Route</label>
                 <select value={formData.route} onChange={e => setFormData({ ...formData, route: e.target.value })} className={inputCls}>
                   <option value="Oral">Oral</option>
@@ -228,6 +259,43 @@ export const MarGrid: React.FC<MarGridProps> = ({ patientId }) => {
                   <option value="Drops">Drops</option>
                 </select>
               </div>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Schedule</label>
+              <div className="flex items-center gap-4 bg-white p-3 rounded-xl border border-slate-200">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" checked={formData.frequencyType === 'Scheduled'} onChange={() => setFormData({ ...formData, frequencyType: 'Scheduled' })} className="text-primary focus:ring-primary" />
+                  <span className="text-sm font-bold text-slate-700">Scheduled Times</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" checked={formData.frequencyType === 'SOS'} onChange={() => setFormData({ ...formData, frequencyType: 'SOS' })} className="text-primary focus:ring-primary" />
+                  <span className="text-sm font-bold text-slate-700">SOS (As needed)</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" checked={formData.frequencyType === 'STAT'} onChange={() => setFormData({ ...formData, frequencyType: 'STAT' })} className="text-primary focus:ring-primary" />
+                  <span className="text-sm font-bold text-slate-700">STAT (Immediately)</span>
+                </label>
+              </div>
+
+              {formData.frequencyType === 'Scheduled' && (
+                <div className="mt-3 flex items-center gap-4 flex-wrap bg-primary/5 p-3 rounded-xl border border-primary/10">
+                  {timeSlots.map(slot => (
+                    <label key={slot} className="flex items-center gap-2 cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={formData.scheduledSlots[slot]}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          scheduledSlots: { ...formData.scheduledSlots, [slot]: e.target.checked }
+                        })}
+                        className="w-4 h-4 rounded text-primary border-slate-300 focus:ring-primary"
+                      />
+                      <span className="text-sm font-bold text-slate-700">{slot}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="flex justify-end gap-2">
               <button type="button" onClick={() => setIsAdding(false)} className="px-4 py-2 bg-slate-200 text-slate-700 font-bold rounded-xl text-sm hover:bg-slate-300 transition-colors">Cancel</button>
@@ -273,19 +341,26 @@ export const MarGrid: React.FC<MarGridProps> = ({ patientId }) => {
                   </td>
                   {timeSlots.map(slot => {
                     const isGiven = med.administrations?.[slot];
+                    const isScheduledStyle = timeSlots.some(s => med.frequency.includes(s));
+                    const isActionable = isScheduledStyle ? med.frequency.includes(slot) : true;
+                    
                     return (
                       <td key={slot} className="px-2 py-3 text-center">
-                        <button
-                          onClick={() => toggleAdministration(med.id, med.medicineId, slot)}
-                          className={`w-8 h-8 mx-auto rounded-lg flex items-center justify-center transition-colors border ${
-                            isGiven
-                              ? 'bg-emerald-500 border-emerald-600 text-white shadow-sm'
-                              : 'bg-white border-slate-200 text-slate-300 hover:border-emerald-300 hover:text-emerald-400'
-                          }`}
-                          title={isGiven ? `Given in ${slot}` : `Mark given in ${slot}`}
-                        >
-                          {isGiven && <Check className="w-5 h-5" />}
-                        </button>
+                        {isActionable ? (
+                          <button
+                            onClick={() => toggleAdministration(med.id, med.medicineId, slot)}
+                            className={`w-8 h-8 mx-auto rounded-lg flex items-center justify-center transition-colors border ${
+                              isGiven
+                                ? 'bg-emerald-500 border-emerald-600 text-white shadow-sm'
+                                : 'bg-white border-slate-200 text-slate-300 hover:border-emerald-300 hover:text-emerald-400'
+                            }`}
+                            title={isGiven ? `Given in ${slot}` : `Mark given in ${slot}`}
+                          >
+                            {isGiven && <Check className="w-5 h-5" />}
+                          </button>
+                        ) : (
+                          <span className="text-slate-300 font-bold">-</span>
+                        )}
                       </td>
                     );
                   })}
@@ -302,6 +377,82 @@ export const MarGrid: React.FC<MarGridProps> = ({ patientId }) => {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* HIDDEN PRINT AREA */}
+      {isPrinting && (
+        <div id="ipd-mar-print" className="hidden print:block print-isolated bg-white w-full h-full text-black print:p-0">
+          <div className="p-8 max-w-4xl mx-auto">
+            {/* Header */}
+            <div className="text-center border-b-2 border-slate-800 pb-6 mb-8">
+              <h1 className="text-3xl font-bold text-slate-900 tracking-tight">CAREFUSIONS HOSPITAL</h1>
+              <p className="text-sm text-slate-600 mt-1">123 Healthcare Ave, Medical District • Ph: (555) 123-4567</p>
+              <h2 className="text-xl font-bold text-slate-800 mt-4 uppercase tracking-widest">Medication Administration Record (MAR)</h2>
+            </div>
+            
+            {/* Patient Info */}
+            <div className="grid grid-cols-2 gap-4 mb-8 p-4 bg-slate-50 border border-slate-200 rounded-lg">
+              <div>
+                <p className="text-sm text-slate-500">Admission ID</p>
+                <p className="font-bold text-slate-900">{patientId}</p>
+              </div>
+              <div>
+                <p className="text-sm text-slate-500">Date Printed</p>
+                <p className="font-bold text-slate-900">{new Date().toLocaleString()}</p>
+              </div>
+            </div>
+
+            {/* MAR List */}
+            <div className="space-y-6">
+              {medications.length === 0 ? (
+                <p className="text-slate-500 italic">No medications recorded.</p>
+              ) : (
+                <table className="w-full text-sm text-left border-collapse border border-slate-300">
+                  <thead className="bg-slate-100">
+                    <tr>
+                      <th className="border border-slate-300 px-4 py-2 font-bold text-slate-800">Medication</th>
+                      <th className="border border-slate-300 px-4 py-2 font-bold text-slate-800 text-center">Dosage</th>
+                      <th className="border border-slate-300 px-4 py-2 font-bold text-slate-800 text-center">Route</th>
+                      <th className="border border-slate-300 px-4 py-2 font-bold text-slate-800 text-center">Freq</th>
+                      {timeSlots.map(slot => (
+                        <th key={slot} className="border border-slate-300 px-2 py-2 font-bold text-slate-800 text-center">{slot}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {medications.map(med => (
+                      <tr key={med.id}>
+                        <td className="border border-slate-300 px-4 py-2 font-medium text-slate-900">{med.medicineName}</td>
+                        <td className="border border-slate-300 px-4 py-2 text-center text-slate-700">{med.dosage}</td>
+                        <td className="border border-slate-300 px-4 py-2 text-center text-slate-700">{med.route}</td>
+                        <td className="border border-slate-300 px-4 py-2 text-center font-bold text-slate-800">{med.frequency}</td>
+                        {timeSlots.map(slot => {
+                          const isGiven = med.administrations[slot];
+                          const isScheduledStyle = timeSlots.some(s => med.frequency.includes(s));
+                          const isActionable = isScheduledStyle ? med.frequency.includes(slot) : true;
+                          return (
+                            <td key={slot} className="border border-slate-300 px-2 py-2 text-center font-bold">
+                              {isActionable ? (isGiven ? '✓' : '') : '-'}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="mt-16 pt-8 border-t border-slate-200 flex justify-between items-end text-sm text-slate-500">
+              <p>Generated by CareFusions ERP</p>
+              <div className="text-center">
+                <div className="w-48 border-b border-slate-400 mb-2"></div>
+                <p>Nurse Signature</p>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

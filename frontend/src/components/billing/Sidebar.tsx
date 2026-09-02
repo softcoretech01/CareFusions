@@ -6,11 +6,13 @@ import {
   FileText,
   CreditCard,
   PieChart,
-  LogOut
+  LogOut,
+  Wallet
 } from 'lucide-react';
 
 const MENU_ITEMS = [
   { path: '/billing', label: 'Dashboard', icon: LayoutDashboard },
+  { path: '/billing/advance-payments', label: 'Advance Payments', icon: Wallet },
   { path: '/billing/op', label: 'OP Billing', icon: FileText },
   { path: '/billing/ip', label: 'IP Billing', icon: CreditCard },
   { path: '/billing/reports', label: 'Reports', icon: PieChart }

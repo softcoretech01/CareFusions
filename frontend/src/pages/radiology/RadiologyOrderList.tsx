@@ -329,7 +329,7 @@ export const RadiologyOrderList = () => {
                             <div className="flex items-center gap-1.5 shrink-0">
                               <button
                                 type="button"
-                                onClick={() => window.open(`${API_BASE.replace('/api/v1', '')}/uploads/${activeOrder?.patientId}_${tempResults[test.id].resultFile}`, '_blank')}
+                                onClick={() => window.open(`${API_BASE.replace('/api/v1', '')}/uploads/${encodeURIComponent(activeOrder.patientId + '_' + tempResults[test.id].resultFile)}`, '_blank')}
                                 title="View Uploaded File"
                                 className="p-2.5 bg-purple-50 border border-purple-200 text-purple-600 hover:bg-purple-100 hover:border-purple-300 rounded-lg transition-colors flex items-center justify-center shadow-sm"
                               >

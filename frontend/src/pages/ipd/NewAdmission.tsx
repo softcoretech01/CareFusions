@@ -32,11 +32,20 @@ export const NewAdmission = () => {
     admissionType: 'General',
     priority: 'Normal',
     expectedStayDays: 3,
-    provisionalDiagnosis: '',
+    admissionReason: '',
     insuranceStatus: 'Self Pay',
     wardId: '',
     roomNumber: '',
     bedId: '',
+    financialCoverageType: 'Self Pay',
+    insurancePolicyId: '',
+    insuranceAuthorizationNumber: '',
+    insuranceAuthStatus: 'Not Applicable',
+    insuranceApprovedAmount: '',
+    coveragePercentage: '',
+    patientCoPay: '',
+    deductible: '',
+    nonCoveredAmount: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -70,7 +79,7 @@ export const NewAdmission = () => {
         specialty: req.specialty,
         admissionType: req.admissionType,
         priority: req.priority,
-        provisionalDiagnosis: req.provisionalDiagnosis,
+        admissionReason: req.admissionReason || '',
       }));
     }
   }, [state]);
@@ -178,8 +187,17 @@ export const NewAdmission = () => {
       status: 'Admitted',
       currentWardId: Number(form.wardId),
       currentBedId: Number(form.bedId),
-      provisionalDiagnosis: form.provisionalDiagnosis,
+      admissionReason: form.admissionReason,
+      financialCoverageType: form.financialCoverageType,
       insuranceStatus: form.insuranceStatus,
+      insurancePolicyId: form.insurancePolicyId ? Number(form.insurancePolicyId) : undefined,
+      insuranceAuthorizationNumber: form.insuranceAuthorizationNumber || undefined,
+      insuranceAuthStatus: form.insuranceAuthStatus,
+      insuranceApprovedAmount: form.insuranceApprovedAmount ? Number(form.insuranceApprovedAmount) : undefined,
+      coveragePercentage: form.coveragePercentage ? Number(form.coveragePercentage) : undefined,
+      patientCoPay: form.patientCoPay ? Number(form.patientCoPay) : undefined,
+      deductible: form.deductible ? Number(form.deductible) : undefined,
+      nonCoveredAmount: form.nonCoveredAmount ? Number(form.nonCoveredAmount) : undefined,
       operations: selectedOperations,
     });
 
@@ -328,9 +346,10 @@ export const NewAdmission = () => {
                 <option>General</option><option>Surgical</option><option>ICU</option><option>Maternity</option>
               </select>
             </div>
+            </div>
             <div>
-              <label className={labelCls}>Provisional Diagnosis</label>
-              <input type="text" maxLength={500} value={form.provisionalDiagnosis} onChange={e => setForm({ ...form, provisionalDiagnosis: e.target.value })} className={fieldCls()} />
+              <label className={labelCls}>Admission Reason</label>
+              <input type="text" maxLength={500} value={form.admissionReason} onChange={e => setForm({ ...form, admissionReason: e.target.value })} className={fieldCls()} />
             </div>
           </div>
         </div>
@@ -361,11 +380,57 @@ export const NewAdmission = () => {
               <Err f="roomNumber" />
             </div>
             <div>
-              <label className={labelCls}>Insurance Status</label>
-              <select value={form.insuranceStatus} onChange={e => setForm({ ...form, insuranceStatus: e.target.value })} className={fieldCls()}>
-                <option>Self Pay</option><option>Covered</option><option>Pending Approval</option>
+              <label className={labelCls}>Financial Coverage</label>
+              <select value={form.financialCoverageType} onChange={e => setForm({ ...form, financialCoverageType: e.target.value as any })} className={fieldCls()}>
+                <option value="Self Pay">Self Pay</option>
+                <option value="Insurance">Insurance</option>
               </select>
             </div>
+            {form.financialCoverageType === 'Insurance' && (
+              <>
+                <div>
+                  <label className={labelCls}>Insurance Policy ID</label>
+                  <input type="number" value={form.insurancePolicyId} onChange={e => setForm({ ...form, insurancePolicyId: e.target.value })} className={fieldCls()} placeholder="Policy ID" />
+                </div>
+                <div>
+                  <label className={labelCls}>Insurance Status</label>
+                  <select value={form.insuranceStatus} onChange={e => setForm({ ...form, insuranceStatus: e.target.value })} className={fieldCls()}>
+                    <option value="Insurance - Pending Approval">Pending Approval</option>
+                    <option value="Insurance - Approved">Approved</option>
+                    <option value="Insurance - Rejected">Rejected</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={labelCls}>Auth Number</label>
+                  <input type="text" value={form.insuranceAuthorizationNumber} onChange={e => setForm({ ...form, insuranceAuthorizationNumber: e.target.value })} className={fieldCls()} placeholder="Authorization Number" />
+                </div>
+                <div>
+                  <label className={labelCls}>Auth Status</label>
+                  <select value={form.insuranceAuthStatus} onChange={e => setForm({ ...form, insuranceAuthStatus: e.target.value })} className={fieldCls()}>
+                    <option value="Not Applicable">Not Applicable</option>
+                    <option value="Pending">Pending</option>
+                    <option value="Approved">Approved</option>
+                    <option value="Denied">Denied</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={labelCls}>Approved Amount</label>
+                  <input type="number" value={form.insuranceApprovedAmount} onChange={e => setForm({ ...form, insuranceApprovedAmount: e.target.value })} className={fieldCls()} placeholder="Amount" />
+                </div>
+                <div>
+                  <label className={labelCls}>Coverage %</label>
+                  <input type="number" value={form.coveragePercentage} onChange={e => setForm({ ...form, coveragePercentage: e.target.value })} className={fieldCls()} placeholder="%" />
+                </div>
+                <div>
+                  <label className={labelCls}>Patient Co-Pay</label>
+                  <input type="number" value={form.patientCoPay} onChange={e => setForm({ ...form, patientCoPay: e.target.value })} className={fieldCls()} placeholder="Co-Pay Amount" />
+                </div>
+                <div>
+                  <label className={labelCls}>Deductible</label>
+                  <input type="number" value={form.deductible} onChange={e => setForm({ ...form, deductible: e.target.value })} className={fieldCls()} placeholder="Deductible" />
+                </div>
+              </>
+            )}
           </div>
 
           {/* Visual Bed Selection */}

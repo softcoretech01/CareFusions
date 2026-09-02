@@ -26,7 +26,7 @@ interface TransferWithPatient {
   gender?: string;
   admittingDoctor?: string;
   specialty?: string;
-  provisionalDiagnosis?: string;
+  admissionReason?: string;
 }
 
 export const WardTransfers = () => {
@@ -101,7 +101,7 @@ export const WardTransfers = () => {
             gender: p.gender,
             admittingDoctor: p.admittingDoctor,
             specialty: p.specialty,
-            provisionalDiagnosis: p.provisionalDiagnosis,
+            admissionReason: p.admissionReason,
           });
         });
       }
@@ -519,7 +519,7 @@ export const WardTransfers = () => {
                   </div>
                   <div className="col-span-2">
                     <p className="text-xs text-slate-500">Diagnosis</p>
-                    <p className="font-semibold text-slate-700">{viewTransfer.provisionalDiagnosis}</p>
+                    <p className="font-semibold text-slate-700">{viewTransfer.admissionReason}</p>
                   </div>
                 </div>
               </div>

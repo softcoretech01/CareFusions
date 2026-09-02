@@ -21,8 +21,9 @@ interface ApiRadiologyService {
   name: string;
   modality: string;
 }
-import { User, AlertTriangle, Hash, Activity, Pill, FlaskConical, ScanLine, CheckCircle, Plus, Trash2, Eye, BookOpen, ArrowLeft, RefreshCw, History, Calendar } from 'lucide-react';
+import { User, AlertTriangle, Hash, Activity, Pill, FlaskConical, ScanLine, CheckCircle, Plus, Trash2, Eye, BookOpen, ArrowLeft, RefreshCw, History, Calendar, Edit2, X, Printer, Search, Stethoscope, ChevronRight, Clock, FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { UnifiedPatientHistory } from '../../components/emr/UnifiedPatientHistory';
 
 const TABS = [
   { id: 'history', label: 'History', icon: History },
@@ -57,7 +58,7 @@ export const DoctorConsultation = () => {
   const {
     getVisitById, addDiagnosis, removeDiagnosis,
     addPrescription, removePrescription, addLabOrder, removeLabOrder,
-    addRadiologyOrder, removeRadiologyOrder, finalizeVisit, updateVisitStatus, visits
+    addRadiologyOrder, removeRadiologyOrder, finalizeVisit, updateVisit, updateVisitStatus, visits
   } = useOPDVisits();
 
   const { appointments, updateAppointmentStatus } = useAppointments();
@@ -67,13 +68,30 @@ export const DoctorConsultation = () => {
   const navigate = useNavigate();
 
   const visit = getVisitById(Number(visitId));
-  const isAdmitted = patients?.some(p => p.uhid === visit?.uhid && p.status === 'Admitted');
+  const patientAdmissions = patients?.filter(p => p.uhid === visit?.uhid) || [];
+  const latestAdmission = patientAdmissions.length > 0 ? patientAdmissions[0] : null;
+  const isAdmitted = latestAdmission && (latestAdmission.status === 'Admitted' || latestAdmission.status === 'Discharge Requested');
   const hasAdmissionRequest = admissionRequests?.some(r => r.uhid === visit?.uhid && r.status === 'Pending');
   const [activeTab, setActiveTab] = useState('history');
+  
+  // Printing state
+  const [printTab, setPrintTab] = useState<'prescription' | 'lab' | 'radiology' | null>(null);
+  const [selectedPrintLab, setSelectedPrintLab] = useState<string[]>([]);
+  const [selectedPrintRad, setSelectedPrintRad] = useState<string[]>([]);
 
-  const patientHistory = visits
-    .filter(v => v.uhid === visit?.uhid && v.id !== visit?.id && v.status === 'Completed')
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  useEffect(() => {
+    if (!printTab) return;
+    const timer = window.setTimeout(() => window.print(), 300);
+    return () => clearTimeout(timer);
+  }, [printTab]);
+
+  useEffect(() => {
+    const clearPrint = () => setPrintTab(null);
+    window.addEventListener('afterprint', clearPrint);
+    return () => window.removeEventListener('afterprint', clearPrint);
+  }, []);
+
+
 
   // Backstop ref — declared here so all hooks are above the early-return guard.
   const syncingRef = useRef(false);
@@ -192,14 +210,17 @@ export const DoctorConsultation = () => {
   // Lab local state (checked IDs)
   const selectedStock = typeof rxForm.medicineId === 'number'
     ? counterStock[rxForm.medicineId] : undefined;
-  const [selectedLabs, setSelectedLabs] = useState<string[]>([]);
+  const [labForm, setLabForm] = useState({ testCode: '', clinicalNotes: '' });
   const [radForm, setRadForm] = useState({ serviceName: '', bodyPart: '' });
   const [showAdmitModal, setShowAdmitModal] = useState(false);
-  const [admitForm, setAdmitForm] = useState({ specialty: 'General Medicine', type: 'General', priority: 'Normal' });
+  const [admitForm, setAdmitForm] = useState({ specialty: 'General Medicine', type: 'General', priority: 'Normal', admissionReason: '' });
+
+  const [showFinalizeModal, setShowFinalizeModal] = useState(false);
+  const [isFinalizing, setIsFinalizing] = useState(false);
+  const [followUpForm, setFollowUpForm] = useState({ date: '', notes: '' });
 
   useEffect(() => {
     if (visit) {
-      setSelectedLabs(visit.labOrders.map(l => l.testCode));
     }
   }, [visit]);
 
@@ -268,25 +289,31 @@ export const DoctorConsultation = () => {
   };
 
 
-  const toggleLabOrder = (test: ApiLabTest) => {
-    const isSelected = selectedLabs.includes(test.code);
-    if (isSelected) {
-      const order = visit.labOrders.find(o => o.testCode === test.code);
-      if (order) removeLabOrder(visit.id, order.id);
-      setSelectedLabs(prev => prev.filter(c => c !== test.code));
-    } else {
-      const order: LabOrder = {
-        id: Date.now().toString(),
-        testId: test.testId,
-        testName: test.name,
-        testCode: test.code,
-        priority: 'Routine',
-        clinicalNotes: '',
-        status: 'Ordered',
-      };
-      addLabOrder(visit.id, order);
-      setSelectedLabs(prev => [...prev, test.code]);
+  const handleAddLab = () => {
+    if (!labForm.testCode) {
+      toast.error('Select a lab test');
+      return;
     }
+    const test = apiLabTests.find(t => t.code === labForm.testCode);
+    if (!test) return;
+    
+    if (visit?.labOrders.find(o => o.testCode === test.code)) {
+      toast.error('Test already added');
+      return;
+    }
+
+    const order: LabOrder = {
+      id: crypto.randomUUID(),
+      testId: test.testId,
+      testName: test.name,
+      testCode: test.code,
+      priority: 'Routine',
+      clinicalNotes: labForm.clinicalNotes,
+      status: 'Ordered'
+    };
+    addLabOrder(visit.id, order);
+    toast.success('Added lab order');
+    setLabForm({ testCode: '', clinicalNotes: '' });
   };
 
   const handleAddRadiology = () => {
@@ -472,7 +499,7 @@ export const DoctorConsultation = () => {
       specialty: admitForm.specialty,
       admissionType: admitForm.type,
       priority: admitForm.priority,
-      provisionalDiagnosis: visit.diagnoses.length > 0 ? visit.diagnoses.map(d => d.description).join(', ') : '',
+      admissionReason: admitForm.admissionReason,
       requestedBy: 'Dr. on duty'
     });
 
@@ -483,10 +510,19 @@ export const DoctorConsultation = () => {
     if (!visit.isFinalized) {
       handleFinalizeVisit();
     } else {
-      // Already finalised — still make sure nothing added since then is stranded.
       syncInvestigationOrders();
     }
     toast.success('Admission Request Sent to IPD');
+  };
+
+  const getLabOrderId = (l: any, i: number) => {
+    const go = globalOrders.find(o => o.category === 'Lab' && o.patientId === visit.uhid && o.orderedAt?.slice(0, 10) === visit.date?.slice(0, 10) && o.tests.some(t => t.name === l.testName));
+    return go ? go.id : (l.id || `TMP-${i}`);
+  };
+
+  const getRadOrderId = (r: any, i: number) => {
+    const go = globalOrders.find(o => o.category === 'Radiology' && o.patientId === visit.uhid && o.orderedAt?.slice(0, 10) === visit.date?.slice(0, 10) && o.tests.some(t => t.name === (r.serviceName || r.bodyPart)));
+    return go ? go.id : (r.id || `TMP-${i}`);
   };
 
   return (
@@ -621,58 +657,20 @@ export const DoctorConsultation = () => {
 
           {/* ── HISTORY TAB ── */}
           {activeTab === 'history' && (
-            <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6">
-              <h3 className="font-bold text-slate-800 mb-6">Patient History</h3>
-              {patientHistory.length === 0 ? (
-                <div className="text-center py-12 text-slate-400 font-medium">
-                  NO History
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {patientHistory.map((past, i) => (
-                    <div key={past.id || i} className="p-4 border border-slate-100 rounded-2xl bg-slate-50/50">
-                      <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
-                        <div>
-                          <p className="font-bold text-slate-800 text-sm flex items-center gap-2">
-                            <Calendar className="w-4 h-4 text-primary" /> {past.date}
-                          </p>
-                          <p className="text-xs text-slate-500 mt-1">Visit: {past.visitNumber} · Dept: {past.department}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm font-bold text-slate-700">{past.doctorName}</p>
-                        </div>
-                      </div>
-
-                      {past.diagnoses.length > 0 && (
-                        <div className="mb-3">
-                          <h4 className="text-xs font-bold text-slate-500 uppercase mb-1">Diagnoses</h4>
-                          <p className="text-sm text-slate-700">{past.diagnoses.map(d => d.description).join(', ')}</p>
-                        </div>
-                      )}
-
-                      {past.prescriptions.length > 0 && (
-                        <div>
-                          <h4 className="text-xs font-bold text-slate-500 uppercase mb-1">Prescriptions</h4>
-                          <div className="space-y-1">
-                            {past.prescriptions.map((p, i) => (
-                              <p key={p.id || i} className="text-sm text-slate-700">
-                                • {p.medicineName} <span className="text-slate-400">(Qty: {p.quantity} {UOM_MAP[p.type] || ''})</span>
-                              </p>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <UnifiedPatientHistory patientUhid={visit.uhid} />
           )}
 
           {/* ── PRESCRIPTION TAB (Simplified) ── */}
           {activeTab === 'prescription' && (
             <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6">
-              <h3 className="font-bold text-slate-800 mb-4">Add Medicine</h3>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-bold text-slate-800">Add Medicine</h3>
+                {visit.prescriptions.length > 0 && (
+                  <button onClick={() => setPrintTab('prescription')} className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors font-medium">
+                    <Printer className="w-4 h-4" /> Print
+                  </button>
+                )}
+              </div>
 
               <div className="flex items-start gap-4 mb-6 bg-slate-50 p-4 pb-8 rounded-2xl border border-slate-100">
                 <div className="flex-1 relative">
@@ -801,38 +799,112 @@ export const DoctorConsultation = () => {
           {/* ── LAB ORDERS TAB (Simplified) ── */}
           {activeTab === 'lab' && (
             <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6">
-              <h3 className="font-bold text-slate-800 mb-4 flex items-center justify-between">
-                <span>Laboratory Tests Master</span>
-                <span className="text-xs bg-primary text-white px-2 py-1 rounded-lg">{selectedLabs.length} Selected</span>
-              </h3>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-bold text-slate-800">Add Lab Order</h3>
+                {visit.labOrders.length > 0 && (
+                  <button onClick={() => setPrintTab('lab')} className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors font-medium">
+                    <Printer className="w-4 h-4" /> Print
+                  </button>
+                )}
+              </div>
 
-              {labTestsLoading ? (
-                <div className="text-sm text-slate-400 py-6 text-center">Loading lab tests...</div>
-              ) : apiLabTests.length === 0 ? (
-                <div className="text-sm text-slate-400 py-6 text-center">No active lab tests found. Please add tests in Lab Master.</div>
-              ) : (
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {apiLabTests.map(test => {
-                    const checked = selectedLabs.includes(test.code);
-                    return (
-                      <label
-                        key={test.code}
-                        className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${checked ? 'bg-primary/5 border-primary/40' : 'bg-slate-50 border-slate-200 hover:border-primary/30'
-                          }`}
-                      >
-                        <input
-                          type="checkbox"
-                          className="mt-0.5 w-4 h-4 accent-primary rounded"
-                          checked={checked}
-                          onChange={() => toggleLabOrder(test)}
-                        />
-                        <div className="flex-1">
-                          <div className={`text-sm font-bold ${checked ? 'text-primary' : 'text-slate-700'}`}>{test.name}</div>
-                          <div className="text-[10px] text-slate-400 mt-0.5">{test.category}</div>
+              <div className="flex items-end gap-3 mb-6 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                <div className="w-1/3">
+                  <label className={labelCls}>Lab Test</label>
+                  <select
+                    value={labForm.testCode}
+                    onChange={e => setLabForm(f => ({ ...f, testCode: e.target.value }))}
+                    className={inputCls}
+                  >
+                    <option value="">Select Test...</option>
+                    {apiLabTests.map(test => (
+                      <option key={test.code} value={test.code}>{test.name} ({test.category})</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex-1">
+                  <label className={labelCls}>Clinical Notes</label>
+                  <input
+                    type="text"
+                    placeholder="e.g., Fasting 12 hours"
+                    value={labForm.clinicalNotes}
+                    onChange={e => setLabForm(f => ({ ...f, clinicalNotes: e.target.value }))}
+                    className={`${inputCls} w-full`}
+                  />
+                </div>
+                <button
+                  onClick={handleAddLab}
+                  className="px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary/90 transition-colors h-[42px] flex items-center justify-center shrink-0"
+                >
+                  <Plus className="w-4 h-4 mr-1" /> Add
+                </button>
+              </div>
+
+              {visit.labOrders.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-bold text-slate-600 mb-3">Ordered Tests</h4>
+                  <div className="space-y-2">
+                    {visit.labOrders.map((l, i) => (
+                      <div key={l.id || i} className="p-4 border border-slate-200 rounded-xl bg-white shadow-sm">
+                        <div className="flex items-start justify-between mb-3 border-b border-slate-100 pb-3">
+                          <div className="flex items-start gap-3">
+                            <div className="pt-0.5">
+                              <input 
+                                type="checkbox" 
+                                checked={selectedPrintLab.includes(l.id)} 
+                                onChange={(e) => {
+                                  if (e.target.checked) setSelectedPrintLab([...selectedPrintLab, l.id]);
+                                  else setSelectedPrintLab(selectedPrintLab.filter(id => id !== l.id));
+                                }} 
+                                className="w-4 h-4 text-primary border-slate-300 rounded focus:ring-primary cursor-pointer"
+                                title="Select for print"
+                              />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="font-mono text-xs font-bold text-slate-500">ID: {getLabOrderId(l, i)}</span>
+                                <span className="px-2 py-0.5 text-[10px] font-bold rounded-md uppercase bg-blue-50 text-blue-600 border border-blue-200">
+                                  {apiLabTests.find(t => t.code === l.testCode)?.category || 'Lab'}
+                                </span>
+                                <span className="px-2 py-0.5 text-[10px] font-bold rounded-md uppercase border bg-amber-50 text-amber-700 border-amber-200 flex items-center gap-1">
+                                  <Activity className="w-3 h-3" /> Applied in OPD
+                                </span>
+                              </div>
+                              <div className="text-xs text-slate-500">Ordered on {visit.date}</div>
+                            </div>
+                          </div>
+                          <div className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 border ${
+                            l.status === 'Completed' || l.status === 'Verified' || l.status === 'Resulted'
+                              ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
+                              : 'bg-amber-100 text-amber-700 border-amber-200'
+                          }`}>
+                            {l.status === 'Completed' || l.status === 'Verified' || l.status === 'Resulted'
+                              ? <CheckCircle className="w-3.5 h-3.5" />
+                              : <Clock className="w-3.5 h-3.5" />}
+                            {l.status === 'Pending' ? 'Ordered' : (l.status === 'Verified' || l.status === 'Completed' || l.status === 'Resulted' ? 'Test Completed' : (l.status || 'Ordered'))}
+                          </div>
                         </div>
-                      </label>
-                    );
-                  })}
+
+                        <div className="flex items-center justify-between text-sm py-1">
+                          <span className="font-medium text-slate-700">
+                            {l.testName} {l.clinicalNotes && <span className="text-slate-400 font-normal">({l.clinicalNotes})</span>}
+                          </span>
+                          <div className="flex items-center gap-4">
+                            {l.status === 'Completed' || l.status === 'Verified' || l.status === 'Resulted' ? (
+                              <span className="text-green-600 font-bold text-xs flex items-center gap-1">
+                                <CheckCircle className="w-3.5 h-3.5" /> {l.result ? `Result: ${l.result}` : 'Test Completed'}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 text-xs">{l.status === 'Pending' ? 'Ordered' : (l.status || 'Ordered')}</span>
+                            )}
+                            <button onClick={() => removeLabOrder(visit.id, l.id)} className="p-1.5 hover:bg-red-50 rounded-lg transition-colors">
+                              <Trash2 className="w-4 h-4 text-red-400" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -841,7 +913,14 @@ export const DoctorConsultation = () => {
           {/* ── RADIOLOGY TAB (Simplified) ── */}
           {activeTab === 'radiology' && (
             <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6">
-              <h3 className="font-bold text-slate-800 mb-4">Add Radiology Order</h3>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-bold text-slate-800">Add Radiology Order</h3>
+                {visit.radiologyOrders.length > 0 && (
+                  <button onClick={() => setPrintTab('radiology')} className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors font-medium">
+                    <Printer className="w-4 h-4" /> Print
+                  </button>
+                )}
+              </div>
 
               <div className="flex items-end gap-3 mb-6 bg-slate-50 p-4 rounded-2xl border border-slate-100">
                 <div className="w-1/3">
@@ -880,16 +959,63 @@ export const DoctorConsultation = () => {
                   <h4 className="text-sm font-bold text-slate-600 mb-3">Ordered Scans</h4>
                   <div className="space-y-2">
                     {visit.radiologyOrders.map((r, i) => (
-                      <div key={r.id || i} className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-200">
-                        <div className="flex items-center gap-3">
-                          <span className="text-xs font-bold bg-purple-50 text-purple-700 px-2.5 py-1 rounded-lg">
-                            {r.modality}
-                          </span>
-                          <span className="font-bold text-slate-800">{r.bodyPart}</span>
+                      <div key={r.id || i} className="p-4 border border-slate-200 rounded-xl bg-white shadow-sm">
+                        <div className="flex items-start justify-between mb-3 border-b border-slate-100 pb-3">
+                          <div className="flex items-start gap-3">
+                            <div className="pt-0.5">
+                              <input 
+                                type="checkbox" 
+                                checked={selectedPrintRad.includes(r.id)} 
+                                onChange={(e) => {
+                                  if (e.target.checked) setSelectedPrintRad([...selectedPrintRad, r.id]);
+                                  else setSelectedPrintRad(selectedPrintRad.filter(id => id !== r.id));
+                                }} 
+                                className="w-4 h-4 text-primary border-slate-300 rounded focus:ring-primary cursor-pointer"
+                                title="Select for print"
+                              />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="font-mono text-xs font-bold text-slate-500">ID: {getRadOrderId(r, i)}</span>
+                                <span className="px-2 py-0.5 text-[10px] font-bold rounded-md uppercase bg-purple-50 text-purple-600 border border-purple-200">
+                                  {r.modality}
+                                </span>
+                                <span className="px-2 py-0.5 text-[10px] font-bold rounded-md uppercase border bg-amber-50 text-amber-700 border-amber-200 flex items-center gap-1">
+                                  <Activity className="w-3 h-3" /> Applied in OPD
+                                </span>
+                              </div>
+                              <div className="text-xs text-slate-500">Ordered on {visit.date}</div>
+                            </div>
+                          </div>
+                          <div className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 border ${
+                            r.status === 'Completed' || r.status === 'Verified' || r.status === 'Reported'
+                              ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
+                              : 'bg-amber-100 text-amber-700 border-amber-200'
+                          }`}>
+                            {r.status === 'Completed' || r.status === 'Verified' || r.status === 'Reported'
+                              ? <CheckCircle className="w-3.5 h-3.5" />
+                              : <Clock className="w-3.5 h-3.5" />}
+                            {r.status === 'Pending' ? 'Ordered' : (r.status === 'Verified' || r.status === 'Completed' || r.status === 'Reported' ? 'Test Completed' : (r.status || 'Ordered'))}
+                          </div>
                         </div>
-                        <button onClick={() => removeRadiologyOrder(visit.id, r.id)} className="p-1.5 hover:bg-red-50 rounded-lg transition-colors">
-                          <Trash2 className="w-4 h-4 text-red-400" />
-                        </button>
+
+                        <div className="flex items-center justify-between text-sm py-1">
+                          <span className="font-medium text-slate-700">
+                            {r.bodyPart} {r.serviceName && <span className="text-slate-400 font-normal">({r.serviceName})</span>}
+                          </span>
+                          <div className="flex items-center gap-4">
+                            {r.status === 'Completed' || r.status === 'Verified' || r.status === 'Reported' ? (
+                              <span className="text-green-600 font-bold text-xs flex items-center gap-1">
+                                <CheckCircle className="w-3.5 h-3.5" /> {r.result ? `Result: ${r.result}` : 'Test Completed'}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 text-xs">{r.status === 'Pending' ? 'Ordered' : (r.status || 'Ordered')}</span>
+                            )}
+                            <button onClick={() => removeRadiologyOrder(visit.id, r.id)} className="p-1.5 hover:bg-red-50 rounded-lg transition-colors">
+                              <Trash2 className="w-4 h-4 text-red-400" />
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -903,7 +1029,7 @@ export const DoctorConsultation = () => {
             <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 space-y-6">
               <h3 className="font-bold text-slate-800 text-xl">Visit Summary — {visit.visitNumber}</h3>
 
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-4 gap-6">
                 <div>
                   <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Patient</h4>
                   <p className="font-bold text-slate-800">{visit.patientName}</p>
@@ -913,6 +1039,34 @@ export const DoctorConsultation = () => {
                   <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Visit</h4>
                   <p className="font-bold text-slate-800">{visit.visitNumber}</p>
                   <p className="text-sm text-slate-500">{visit.date} &middot; {visit.doctorName}</p>
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <h4 className="text-xs font-bold text-slate-500 uppercase">Next Follow-Up</h4>
+                    <button 
+                      onClick={() => { 
+                        setIsFinalizing(false); 
+                        setFollowUpForm({ date: visit.followUp?.followUpDate || '', notes: visit.followUp?.specialInstructions || '' });
+                        setShowFinalizeModal(true); 
+                      }} 
+                      className="p-1 text-indigo-600 hover:bg-indigo-50 rounded"
+                    >
+                      <Edit2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                  {visit.followUp?.followUpDate ? (
+                    <p className="font-bold text-indigo-600">{new Date(visit.followUp.followUpDate).toLocaleDateString()}</p>
+                  ) : (
+                    <p className="text-sm text-slate-400 italic">Not scheduled</p>
+                  )}
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Instructions / Notes</h4>
+                  {visit.followUp?.specialInstructions ? (
+                    <p className="text-sm text-slate-600">{visit.followUp.specialInstructions}</p>
+                  ) : (
+                    <p className="text-sm text-slate-400 italic">None</p>
+                  )}
                 </div>
               </div>
 
@@ -981,7 +1135,7 @@ export const DoctorConsultation = () => {
                   </>
                 ) : (
                   <>
-                    <button onClick={handleFinalizeVisit}
+                    <button onClick={() => { setIsFinalizing(true); setFollowUpForm({ date: visit.followUp?.followUpDate || '', notes: visit.followUp?.specialInstructions || '' }); setShowFinalizeModal(true); }}
                       className="px-8 py-3 bg-green-600 text-white rounded-xl text-sm font-bold hover:bg-green-700 transition-colors shadow-sm flex items-center gap-2">
                       <CheckCircle className="w-4 h-4" />
                       Finalize Visit
@@ -1013,32 +1167,203 @@ export const DoctorConsultation = () => {
       </div>
 
       {showAdmitModal && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-              <h2 className="text-lg font-bold text-slate-800">Recommend Admission</h2>
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="bg-gradient-to-r from-red-600 to-red-700 px-6 py-4 flex justify-between items-center text-white">
+              <h3 className="font-bold text-lg flex items-center gap-2"><Plus className="w-5 h-5" /> Recommend Admission</h3>
+              <button onClick={() => setShowAdmitModal(false)} className="p-1 hover:bg-white/20 rounded-lg transition-colors"><X className="w-5 h-5" /></button>
             </div>
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Specialty</label>
-                <input value={admitForm.specialty} onChange={e => setAdmitForm({ ...admitForm, specialty: e.target.value })} className={inputCls} />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Admission Type</label>
-                <select value={admitForm.type} onChange={e => setAdmitForm({ ...admitForm, type: e.target.value })} className={inputCls}>
-                  <option>General</option><option>ICU</option><option>Surgical</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Priority</label>
-                <select value={admitForm.priority} onChange={e => setAdmitForm({ ...admitForm, priority: e.target.value })} className={inputCls}>
-                  <option>Normal</option><option>Emergency</option>
-                </select>
+            <div className="p-6">
+              <div className="space-y-4">
+                <div>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Admission Type</label>
+                  <select value={admitForm.type} onChange={e => setAdmitForm({ ...admitForm, type: e.target.value })} className={inputCls}>
+                    <option>General</option><option>Day Care</option><option>ICU</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Priority</label>
+                  <select value={admitForm.priority} onChange={e => setAdmitForm({ ...admitForm, priority: e.target.value })} className={inputCls}>
+                    <option>Normal</option><option>Emergency</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Admission Reason</label>
+                  <textarea 
+                    value={admitForm.admissionReason} 
+                    onChange={e => setAdmitForm({ ...admitForm, admissionReason: e.target.value })} 
+                    className={`${inputCls} resize-none`} 
+                    rows={2} 
+                    placeholder="Enter reason for admission..." 
+                  />
+                </div>
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 mt-4">
                 <button onClick={() => setShowAdmitModal(false)} className="px-4 py-2 text-slate-500 font-bold hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
-                <button onClick={handleRecommendAdmission} className="px-6 py-2 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-colors">Confirm & Admit</button>
+                <button onClick={handleRecommendAdmission} className="px-6 py-2 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-colors shadow-sm">Submit Request</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showFinalizeModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 px-6 py-4 flex justify-between items-center text-white">
+              <h3 className="font-bold text-lg flex items-center gap-2">
+                {isFinalizing ? <CheckCircle className="w-5 h-5" /> : <Calendar className="w-5 h-5" />}
+                {isFinalizing ? 'Finalize Visit' : 'Schedule Follow-Up'}
+              </h3>
+              <button onClick={() => setShowFinalizeModal(false)} className="p-1 hover:bg-white/20 rounded-lg transition-colors"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-6">
+              {isFinalizing && <p className="text-sm text-slate-600 mb-4">Would you like to schedule a follow-up before closing this visit?</p>}
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Next Follow-Up Date (Optional)</label>
+                  <input 
+                    type="date" 
+                    value={followUpForm.date} 
+                    min={new Date().toISOString().split('T')[0]}
+                    onChange={e => setFollowUpForm({ ...followUpForm, date: e.target.value })} 
+                    className={inputCls} 
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Instructions / Notes (Optional)</label>
+                  <textarea 
+                    value={followUpForm.notes} 
+                    onChange={e => setFollowUpForm({ ...followUpForm, notes: e.target.value })} 
+                    className={`${inputCls} resize-none`} 
+                    rows={3} 
+                    placeholder="E.g., Review lab results, continue meds..." 
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-6 mt-2 border-t border-slate-100">
+                <button onClick={() => setShowFinalizeModal(false)} className="px-4 py-2 text-slate-500 font-bold hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
+                <button onClick={() => { 
+                  if (followUpForm.date || followUpForm.notes) {
+                    updateVisit(visit.id, {
+                      followUp: {
+                        followUpDate: followUpForm.date,
+                        specialInstructions: followUpForm.notes,
+                        reviewInterval: '',
+                        requiredInvestigations: ''
+                      }
+                    });
+                  }
+                  if (isFinalizing) {
+                    handleFinalizeVisit();
+                  }
+                  setShowFinalizeModal(false); 
+                }} className={`px-6 py-2 ${isFinalizing ? 'bg-green-600 hover:bg-green-700' : 'bg-indigo-600 hover:bg-indigo-700'} text-white font-bold rounded-xl transition-colors shadow-sm`}>
+                  {isFinalizing ? 'Confirm & Finalize' : 'Save Changes'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* HIDDEN PRINT AREA */}
+      {printTab && (
+        <div id="opd-print-area" className="hidden print:block print-isolated bg-white w-full h-full text-black print:p-0">
+          <div className="p-8">
+            {/* Header */}
+            <div className="flex justify-between items-start border-b-2 border-slate-800 pb-6 mb-8">
+              <div>
+                <h1 className="text-3xl font-black text-slate-900 tracking-tight">CAREFUSIONS</h1>
+                <p className="text-slate-500 font-medium">Excellence in Healthcare</p>
+              </div>
+              <div className="text-right text-sm">
+                <p className="font-bold text-slate-800">Date: {visit.date}</p>
+                <p className="text-slate-600">Visit No: {visit.visitNumber}</p>
+              </div>
+            </div>
+
+            {/* Patient Info */}
+            <div className="flex justify-between mb-8 text-sm p-4 bg-slate-50 rounded-xl border border-slate-200">
+              <div>
+                <p className="text-slate-500 mb-1">Patient Name</p>
+                <p className="font-bold text-slate-800 text-lg">{visit.patientName}</p>
+              </div>
+              <div>
+                <p className="text-slate-500 mb-1">UHID</p>
+                <p className="font-bold text-slate-800">{visit.uhid}</p>
+              </div>
+              <div>
+                <p className="text-slate-500 mb-1">Age / Gender</p>
+                <p className="font-bold text-slate-800">{visit.age}Y / {visit.gender}</p>
+              </div>
+              <div>
+                <p className="text-slate-500 mb-1">Doctor</p>
+                <p className="font-bold text-slate-800">{visit.doctorName}</p>
+              </div>
+            </div>
+
+            {/* Content based on printTab */}
+            {printTab === 'prescription' && (
+              <div>
+                <h2 className="text-xl font-bold text-slate-800 mb-4 border-b border-slate-200 pb-2">Prescription</h2>
+                <div className="space-y-4">
+                  {visit.prescriptions.map((p, i) => (
+                    <div key={i} className="flex justify-between items-start p-3 border-b border-slate-100">
+                      <div>
+                        <p className="font-bold text-slate-800 text-lg">{p.medicineName}</p>
+                        <p className="text-sm text-slate-600 mt-1">{p.instructions || 'As prescribed'}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-slate-700">Qty: {p.quantity} {UOM_MAP[p.type] || ''}</p>
+                        <p className="text-sm text-slate-500 mt-1">{p.duration || ''}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {printTab === 'lab' && (
+              <div>
+                <h2 className="text-xl font-bold text-slate-800 mb-4 border-b border-slate-200 pb-2">Lab Orders</h2>
+                <div className="space-y-3">
+                  {(selectedPrintLab.length > 0 ? visit.labOrders.filter((l: any) => selectedPrintLab.includes(l.id)) : visit.labOrders).map((l: any, i: number) => (
+                    <div key={i} className="p-3 border-b border-slate-100 flex justify-between">
+                      <p className="font-bold text-slate-800">{l.testName}</p>
+                      <p className="text-sm text-slate-600">{l.clinicalNotes}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {printTab === 'radiology' && (
+              <div>
+                <h2 className="text-xl font-bold text-slate-800 mb-4 border-b border-slate-200 pb-2">Radiology Orders</h2>
+                <div className="space-y-3">
+                  {(selectedPrintRad.length > 0 ? visit.radiologyOrders.filter((r: any) => selectedPrintRad.includes(r.id)) : visit.radiologyOrders).map((r: any, i: number) => (
+                    <div key={i} className="p-3 border-b border-slate-100 flex justify-between">
+                      <p className="font-bold text-slate-800">{r.bodyPart} <span className="text-slate-500">({r.modality})</span></p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Footer */}
+            <div className="mt-16 pt-8 border-t border-slate-200 flex justify-between items-end">
+              <div className="text-xs text-slate-400">
+                <p>Generated on {new Date().toLocaleString()}</p>
+                <p>This is a computer generated document.</p>
+              </div>
+              <div className="text-center">
+                <div className="w-48 border-b border-slate-400 mb-2"></div>
+                <p className="text-sm font-bold text-slate-600">Doctor's Signature</p>
               </div>
             </div>
           </div>
