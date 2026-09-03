@@ -362,9 +362,22 @@ export const DoctorMaster = () => {
     setIsFormOpen(true);
   };
 
+  // The API returns null for every field a doctor has not filled in, and feeding null
+  // to an input's `value` makes React warn and flip that input from uncontrolled to
+  // controlled mid-edit. Merging over the empty shape guarantees each field is a
+  // defined value of the right type, whatever the row happens to hold.
+  const toFormData = (record: DoctorRecord): Omit<DoctorRecord, 'id'> => {
+    const merged: any = { ...emptyDoctorData };
+    (Object.keys(emptyDoctorData) as Array<keyof Omit<DoctorRecord, 'id'>>).forEach(key => {
+      const value = (record as any)[key];
+      if (value !== null && value !== undefined) merged[key] = value;
+    });
+    return merged;
+  };
+
   const handleEdit = (record: DoctorRecord) => {
     setSelectedRecord(record);
-    setFormData(record);
+    setFormData(toFormData(record));
     setErrors({});
     setActiveTab('general');
     setIsFormOpen(true);

@@ -23,15 +23,16 @@ BEGIN
         Uhid,
         PatientName,
         'New' AS RegistrationType,
-        Department,
-        PrimaryDoctor AS Doctor,
+        COALESCE(Department, '') AS Department,
+        COALESCE(PrimaryDoctor, '') AS Doctor,
         TIME(CreatedDate) AS RegistrationTime,
         'Active' AS Status,
         Gender,
         Age,
         MobileNumber
     FROM registration.PatientRegistration
-    WHERE RegistrationDate = CURDATE()
+    WHERE (RegistrationDate = CURDATE() OR DATE(CreatedDate) = CURDATE())
+      AND (IsDeleted = 0 OR IsDeleted IS NULL)
 
     UNION ALL
 
@@ -39,15 +40,16 @@ BEGIN
         Uhid,
         PatientName,
         'Quick' AS RegistrationType,
-        Department,
-        Doctor,
-        RegistrationTime,
-        Status,
+        COALESCE(VisitType, 'General') AS Department,
+        '' AS Doctor,
+        COALESCE(RegistrationTime, TIME(CreatedDate)) AS RegistrationTime,
+        COALESCE(Status, 'Active') AS Status,
         Gender,
         Age,
         MobileNumber
     FROM registration.QuickRegistration
-    WHERE RegistrationDate = CURDATE()
+    WHERE (RegistrationDate = CURDATE() OR DATE(CreatedDate) = CURDATE())
+      AND (IsDeleted = 0 OR IsDeleted IS NULL)
 
     UNION ALL
 
@@ -57,13 +59,14 @@ BEGIN
         'Emergency' AS RegistrationType,
         'Emergency' AS Department,
         'Emergency' AS Doctor,
-        RegistrationTime,
-        Status,
+        COALESCE(RegistrationTime, TIME(CreatedDate)) AS RegistrationTime,
+        COALESCE(Status, 'Active') AS Status,
         Gender,
         ApproximateAge AS Age,
         EmergencyContactPhone AS MobileNumber
     FROM registration.EmergencyRegistration
-    WHERE RegistrationDate = CURDATE()
+    WHERE (RegistrationDate = CURDATE() OR DATE(CreatedDate) = CURDATE())
+      AND (IsDeleted = 0 OR IsDeleted IS NULL)
 
     ORDER BY RegistrationTime DESC;
 END$$
