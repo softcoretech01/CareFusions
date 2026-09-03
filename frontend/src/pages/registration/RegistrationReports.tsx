@@ -138,7 +138,7 @@ export const RegistrationReports = () => {
             className={`bg-white rounded-3xl p-6 border ${activeView === 'TOTAL' ? 'border-blue-500 ring-4 ring-blue-50' : 'border-slate-100'} shadow-sm flex items-center gap-3 xl:gap-4 hover:shadow-md transition-all cursor-pointer`}
           >
             <div className="w-12 h-12 xl:w-14 xl:h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
-              <Users className="w-7 h-7" />
+              <Users className="w-6 h-6 xl:w-7 xl:h-7" />
             </div>
             <div>
               <div className="text-slate-500 text-sm font-medium mb-1">Total Registrations</div>
@@ -151,7 +151,7 @@ export const RegistrationReports = () => {
             className={`bg-white rounded-3xl p-6 border ${activeView === 'OP' ? 'border-emerald-500 ring-4 ring-emerald-50' : 'border-slate-100'} shadow-sm flex items-center gap-3 xl:gap-4 hover:shadow-md transition-all cursor-pointer`}
           >
             <div className="w-12 h-12 xl:w-14 xl:h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <Activity className="w-7 h-7" />
+              <Activity className="w-6 h-6 xl:w-7 xl:h-7" />
             </div>
             <div>
               <div className="text-slate-500 text-sm font-medium mb-1">OPD Patients</div>
@@ -164,7 +164,7 @@ export const RegistrationReports = () => {
             className={`bg-white rounded-3xl p-6 border ${activeView === 'EMERGENCY' ? 'border-orange-500 ring-4 ring-orange-50' : 'border-slate-100'} shadow-sm flex items-center gap-3 xl:gap-4 hover:shadow-md transition-all cursor-pointer`}
           >
             <div className="w-12 h-12 xl:w-14 xl:h-14 rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center">
-              <Heart className="w-7 h-7" />
+              <Heart className="w-6 h-6 xl:w-7 xl:h-7" />
             </div>
             <div>
               <div className="text-slate-500 text-sm font-medium mb-1">Emergency</div>
@@ -177,7 +177,7 @@ export const RegistrationReports = () => {
             className={`bg-white rounded-3xl p-6 border ${activeView === 'IP' ? 'border-purple-500 ring-4 ring-purple-50' : 'border-slate-100'} shadow-sm flex items-center gap-3 xl:gap-4 hover:shadow-md transition-all cursor-pointer`}
           >
             <div className="w-12 h-12 xl:w-14 xl:h-14 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center">
-              <Shield className="w-7 h-7" />
+              <Shield className="w-6 h-6 xl:w-7 xl:h-7" />
             </div>
             <div>
               <div className="text-slate-500 text-sm font-medium mb-1">IP Admissions</div>
@@ -189,7 +189,7 @@ export const RegistrationReports = () => {
               bill has no registration row to filter it down to. */}
           <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm flex items-center gap-3 xl:gap-4">
             <div className="w-12 h-12 xl:w-14 xl:h-14 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center">
-              <Pill className="w-7 h-7" />
+              <Pill className="w-6 h-6 xl:w-7 xl:h-7" />
             </div>
             <div>
               <div className="text-slate-500 text-sm font-medium mb-1">Pharmacy Bills</div>

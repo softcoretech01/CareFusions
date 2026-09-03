@@ -12,8 +12,7 @@ from app.schemas.patient_registration import (
     PatientRegistrationResponse,
     OptionsResponse,
     TitleEnum, GenderEnum, MaritalStatusEnum,
-    EmergencyRelationshipEnum, YesNoEnum, PatientTypeEnum,
-    StatusEnum
+    EmergencyRelationshipEnum, YesNoEnum, PatientTypeEnum
 )
 
 logger = logging.getLogger(__name__)
@@ -78,7 +77,6 @@ def _call_sp(db: Session, opt: str, **kwargs) -> Any:
         "p_SmsConsent": kwargs.get("SmsConsent", None),
         "p_EmailConsent": kwargs.get("EmailConsent", None),
         "p_WhatsappConsent": kwargs.get("WhatsappConsent", None),
-        "p_Status": kwargs.get("Status", None),
         "p_Remarks": kwargs.get("Remarks", None),
         "p_CreatedBy": kwargs.get("CreatedBy", "admin"),
         "p_ModifiedBy": kwargs.get("ModifiedBy", "admin")
@@ -97,7 +95,7 @@ def _call_sp(db: Session, opt: str, **kwargs) -> Any:
             :p_CurrentMedication, :p_OrganDonor, :p_Disability, :p_InsuranceRequired, 
             :p_InsuranceProvider, :p_Tpa, :p_PolicyNumber, :p_ValidTill, :p_PatientType, 
             :p_ReferredBy, :p_PrimaryDoctor, :p_Department, :p_RegistrationSource,
-            :p_PrivacyConsent, :p_SmsConsent, :p_EmailConsent, :p_WhatsappConsent, :p_Status, :p_Remarks, 
+            :p_PrivacyConsent, :p_SmsConsent, :p_EmailConsent, :p_WhatsappConsent, :p_Remarks, 
             :p_CreatedBy, :p_ModifiedBy
         )
     """)
@@ -132,7 +130,6 @@ def get_options(db: Session = Depends(get_db)):
             "EmergencyRelationship": [e.value for e in EmergencyRelationshipEnum],
             "YesNo": [e.value for e in YesNoEnum],
             "PatientType": [e.value for e in PatientTypeEnum],
-            "Status": [e.value for e in StatusEnum],
             "BloodGroups": blood_groups
         }
         return options

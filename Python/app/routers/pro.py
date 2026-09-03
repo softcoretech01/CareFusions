@@ -43,19 +43,33 @@ def get_dashboard_kpis(db: Session = Depends(get_db)):
 
 @router.get("/orders", response_model=List[pro_schema.PROOrderResponse])
 def get_pro_orders(
-    source_module: Optional[str] = None, 
+    source_module: Optional[str] = None,
     status: Optional[str] = None,
     payment_status: Optional[str] = None,
+    order_type: Optional[str] = None,
+    exclude_order_type: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
     try:
         where_clauses = ["so.IsDeleted = 0"]
         params = {}
-        
+
         if source_module:
             where_clauses.append("so.SourceModule = :source_module")
             params['source_module'] = source_module
-            
+
+        # The Operations screen is defined by what was ordered, not by which module
+        # raised it -- an operation on an IPD admission is still an operation. So it
+        # filters on order_type, and the OPD/IPD screens exclude that type, keeping
+        # every order on exactly one screen.
+        if order_type:
+            where_clauses.append("so.OrderType = :order_type")
+            params['order_type'] = order_type
+
+        if exclude_order_type:
+            where_clauses.append("so.OrderType <> :exclude_order_type")
+            params['exclude_order_type'] = exclude_order_type
+
         if status:
             where_clauses.append("so.PROStatus = :status")
             params['status'] = status
@@ -74,12 +88,10 @@ def get_pro_orders(
         orders_query = text(f"""
             SELECT so.*,
                    COALESCE(
-                       p.PatientName,
-                       src.PatientName,
-                       -- Orders raised straight through the PRO/OPD endpoints have no Lab_Order or
-                       -- Rad_Order row to borrow from, but the UHID identifies the patient, so take
-                       -- the name off their most recent order. Doctor and department get no such
-                       -- fallback: those vary per order and must not be inherited from another one.
+                       NULLIF(TRIM(p.PatientName), ''),
+                       NULLIF(TRIM(src.PatientName), ''),
+                       NULLIF(TRIM(adm.PatientName), ''),
+                       NULLIF(TRIM(pr.PatientName), ''),
                        (SELECT x.PatientName
                           FROM (
                               SELECT Uhid, PatientName, OrderedAt FROM hospital.Lab_Order
@@ -92,19 +104,35 @@ def get_pro_orders(
                    ) as PatientName,
                    COALESCE(
                        (SELECT d.DoctorName FROM admin.Master_Doctor_Header d WHERE d.DoctorId = so.DoctorId LIMIT 1),
+                       CASE WHEN NULLIF(TRIM(src.OrderedBy), '') NOT IN ('Doctor', 'doctor', 'Dr', 'Dr.') 
+                            THEN NULLIF(TRIM(src.OrderedBy), '') END,
+                       NULLIF(TRIM(adm.AdmittingDoctor), ''),
+                       (SELECT app.Doctor FROM admin.Trn_Appointment app WHERE app.Uhid = so.UHID AND app.IsDeleted = 0 ORDER BY app.AppointmentId DESC LIMIT 1),
+                       NULLIF(TRIM(pr.PrimaryDoctor), ''),
                        NULLIF(TRIM(src.OrderedBy), '')
                    ) as DoctorName,
                    COALESCE(
                        (SELECT dept.DepartmentName FROM admin.Master_Department dept WHERE dept.DepartmentId = so.DepartmentId LIMIT 1),
+                       NULLIF(TRIM(adm.Specialty), ''),
+                       (SELECT app.Department FROM admin.Trn_Appointment app WHERE app.Uhid = so.UHID AND app.IsDeleted = 0 ORDER BY app.AppointmentId DESC LIMIT 1),
                        (SELECT prof.DepartmentName
                           FROM admin.Master_DoctorProfessional_Detail prof
                           JOIN admin.Master_Doctor_Header dh ON dh.DoctorId = prof.DoctorId
                          WHERE dh.IsDeleted = 0
-                           AND TRIM(dh.DoctorName) = TRIM(REPLACE(REPLACE(COALESCE(src.OrderedBy, ''), 'Dr.', ''), 'Dr ', ''))
-                         LIMIT 1)
+                           AND (
+                               TRIM(dh.DoctorName) = TRIM(REPLACE(REPLACE(COALESCE(src.OrderedBy, ''), 'Dr.', ''), 'Dr ', ''))
+                               OR TRIM(dh.DoctorName) = TRIM(REPLACE(REPLACE(COALESCE(adm.AdmittingDoctor, ''), 'Dr.', ''), 'Dr ', ''))
+                           )
+                         LIMIT 1),
+                       NULLIF(TRIM(pr.Department), '')
                    ) as DepartmentName
             FROM hospital.Service_Order so
             LEFT JOIN registration.Patient p ON so.UHID = p.Uhid
+            LEFT JOIN registration.PatientRegistration pr ON so.UHID = pr.Uhid
+            LEFT JOIN hospital.IPD_Admission adm ON (
+                (so.AdmissionId IS NOT NULL AND adm.AdmissionId = so.AdmissionId)
+                OR (so.AdmissionId IS NULL AND so.SourceModule = 'IPD' AND adm.Uhid = so.UHID AND adm.IsDeleted = 0)
+            )
             LEFT JOIN (
                 SELECT OrderNumber, PatientName, OrderedBy FROM hospital.Lab_Order
                 UNION ALL
@@ -147,6 +175,44 @@ def log_pro_audit(db: Session, order_id: int, item_id: int, uhid: str, action: s
         "action": action, "prev": prev, "new_val": new_val, 
         "reason": reason, "changed_by": changed_by
     })
+
+def release_order_items(db: Session, order_id: int, released_by: str, reason: str):
+    """Give every item on the order an ACTIVE release row, skipping any that has one.
+
+    Service_Release carries a unique index (ux_service_release_active) permitting a
+    single ACTIVE row per item. Both release paths used to INSERT ... SELECT over the
+    order's items with no guard, so releasing an order whose items were already
+    released — approving an order a second time, or a double-clicked Approve — blew
+    up with a raw "Duplicate entry ... for key 'ux_service_release_active'" 500 even
+    though the first approval had fully succeeded.
+
+    The existing-release check is a separate query rather than a NOT EXISTS inside the
+    INSERT because MySQL refuses to select from the table being inserted into.
+    """
+    items = db.execute(text("""
+        SELECT ServiceOrderItemId FROM hospital.Service_OrderItem
+        WHERE ServiceOrderId = :order_id AND IsDeleted = 0
+    """), {"order_id": order_id}).fetchall()
+    if not items:
+        return
+
+    released = db.execute(text("""
+        SELECT sr.ServiceOrderItemId
+        FROM hospital.Service_Release sr
+        JOIN hospital.Service_OrderItem soi ON soi.ServiceOrderItemId = sr.ServiceOrderItemId
+        WHERE soi.ServiceOrderId = :order_id AND sr.ReleaseStatus = 'ACTIVE'
+    """), {"order_id": order_id}).fetchall()
+    already = {r.ServiceOrderItemId for r in released}
+
+    for row in items:
+        if row.ServiceOrderItemId in already:
+            continue
+        db.execute(text("""
+            INSERT INTO hospital.Service_Release
+                (ServiceOrderItemId, ReleaseDate, ReleasedBy, ReleaseStatus, ReleaseReason)
+            VALUES (:item_id, NOW(), :released_by, 'ACTIVE', :reason)
+        """), {"item_id": row.ServiceOrderItemId, "released_by": released_by, "reason": reason})
+
 
 @router.post("/orders/{order_id}/approve")
 def approve_pro_order(order_id: int, payload: pro_schema.PROOrderApproveRequest, db: Session = Depends(get_db)):
@@ -195,25 +261,22 @@ def approve_pro_order(order_id: int, payload: pro_schema.PROOrderApproveRequest,
         pending_result = db.execute(text("SELECT COUNT(*) as pending_count FROM hospital.Service_OrderItem WHERE ServiceOrderId = :order_id AND PROStatus != 'APPROVED' AND IsDeleted = 0"), {"order_id": order_id}).fetchone()
         
         if pending_result.pending_count == 0:
-            sum_result = db.execute(text("SELECT SUM(PatientResponsibility) as total_patient_resp, MAX(so.SourceModule) as source_module FROM hospital.Service_OrderItem soi JOIN hospital.Service_Order so ON so.ServiceOrderId = soi.ServiceOrderId WHERE soi.ServiceOrderId = :order_id AND soi.IsDeleted = 0"), {"order_id": order_id}).fetchone()
+            sum_result = db.execute(text("SELECT SUM(PatientResponsibility) as total_patient_resp FROM hospital.Service_OrderItem soi WHERE soi.ServiceOrderId = :order_id AND soi.IsDeleted = 0"), {"order_id": order_id}).fetchone()
             total_patient_resp = sum_result.total_patient_resp or 0
-            source_module = sum_result.source_module
-            
-            if total_patient_resp == 0 or source_module == 'IPD':
-                financial_status = 'CLEARED' if total_patient_resp == 0 else 'NOT_CLEARED'
-                payment_status = 'NOT_REQUIRED' if total_patient_resp == 0 else 'UNPAID'
-                
-                db.execute(text("UPDATE hospital.Service_Order SET PROStatus = 'APPROVED', FinancialStatus = :financial_status, ServiceStatus = 'RELEASED', PaymentStatus = :payment_status, UpdatedAt = NOW() WHERE ServiceOrderId = :order_id"), {"order_id": order_id, "financial_status": financial_status, "payment_status": payment_status})
-                db.execute(text("UPDATE hospital.Service_OrderItem SET FinancialStatus = :financial_status, ServiceStatus = 'RELEASED', PaymentStatus = :payment_status, UpdatedAt = NOW() WHERE ServiceOrderId = :order_id"), {"order_id": order_id, "financial_status": financial_status, "payment_status": payment_status})
-                
-                db.execute(text("""
-                    INSERT INTO hospital.Service_Release (ServiceOrderItemId, ReleaseDate, ReleasedBy, ReleaseStatus, ReleaseReason)
-                    SELECT ServiceOrderItemId, NOW(), 'SYSTEM_PRO_AUTO_RELEASE', 'ACTIVE', :reason
-                    FROM hospital.Service_OrderItem WHERE ServiceOrderId = :order_id AND IsDeleted = 0
-                """), {"order_id": order_id, "reason": 'Zero patient responsibility' if total_patient_resp == 0 else 'IPD Continuous Billing'})
-                
+
+            # Only an order the patient owes nothing on releases on approval. IPD used
+            # to release too, on continuous billing settled at discharge, which meant an
+            # approved IPD order never raised an advance and so never reached the
+            # advance-billing screen. Now every order carrying a patient balance raises
+            # one and stays NOT_RELEASED (its default) until that advance is paid.
+            if total_patient_resp == 0:
+                db.execute(text("UPDATE hospital.Service_Order SET PROStatus = 'APPROVED', FinancialStatus = 'CLEARED', ServiceStatus = 'RELEASED', PaymentStatus = 'NOT_REQUIRED', UpdatedAt = NOW() WHERE ServiceOrderId = :order_id"), {"order_id": order_id})
+                db.execute(text("UPDATE hospital.Service_OrderItem SET FinancialStatus = 'CLEARED', ServiceStatus = 'RELEASED', PaymentStatus = 'NOT_REQUIRED', UpdatedAt = NOW() WHERE ServiceOrderId = :order_id"), {"order_id": order_id})
+
+                release_order_items(db, order_id, 'SYSTEM_PRO_AUTO_RELEASE', 'Zero patient responsibility')
+
                 for item in payload.Items:
-                    log_pro_audit(db, order_id, item.ServiceOrderItemId, uhid, 'SERVICE_RELEASED', 'PENDING', 'RELEASED', "Auto Release (Zero Resp / IPD)")
+                    log_pro_audit(db, order_id, item.ServiceOrderItemId, uhid, 'SERVICE_RELEASED', 'PENDING', 'RELEASED', "Auto Release (Zero Responsibility)")
             else:
                 db.execute(text("UPDATE hospital.Service_Order SET PROStatus = 'APPROVED', FinancialStatus = 'NOT_CLEARED', PaymentStatus = 'UNPAID', UpdatedAt = NOW() WHERE ServiceOrderId = :order_id"), {"order_id": order_id})
                 db.execute(text("UPDATE hospital.Service_OrderItem SET FinancialStatus = 'NOT_CLEARED', PaymentStatus = 'UNPAID', UpdatedAt = NOW() WHERE ServiceOrderId = :order_id"), {"order_id": order_id})
@@ -480,11 +543,9 @@ def record_advance_payment(order_id: int, payload: pro_schema.AdvancePaymentRequ
         """), {"pay_status": pay_status, "fin_status": fin_status, "is_full": 1 if is_full else 0, "order_id": order_id})
         
         if is_full:
-            db.execute(text("""
-                INSERT INTO hospital.Service_Release (ServiceOrderItemId, ReleaseDate, ReleasedBy, ReleaseStatus, ReleaseReason)
-                SELECT ServiceOrderItemId, NOW(), 'PAYMENT_CLEARANCE_SYSTEM', 'ACTIVE', 'Full Advance Payment Received'
-                FROM hospital.Service_OrderItem WHERE ServiceOrderId = :order_id AND IsDeleted = 0
-            """), {"order_id": order_id})
+            release_order_items(
+                db, order_id, 'PAYMENT_CLEARANCE_SYSTEM', 'Full Advance Payment Received',
+            )
             
         log_pro_audit(db, order_id, None, uhid, 'PAYMENT_RECORDED', 'UNPAID', pay_status, f"Paid ₹{payload.PaidAmount} via {payload.PaymentMode}")
         db.commit()

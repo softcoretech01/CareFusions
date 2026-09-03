@@ -26,7 +26,7 @@ BEGIN
         Department,
         PrimaryDoctor AS Doctor,
         TIME(CreatedDate) AS RegistrationTime,
-        Status,
+        'Active' AS Status,
         Gender,
         Age,
         MobileNumber

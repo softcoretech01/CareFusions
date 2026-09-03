@@ -21,7 +21,7 @@ CREATE PROCEDURE SpGetRegistrationReports(
     TRUNCATE TABLE TempAllRegistrations;
     
     INSERT INTO TempAllRegistrations
-    SELECT PatientId, Uhid, PatientName, RegistrationDate, CreatedDate, PatientType, Status
+    SELECT PatientId, Uhid, PatientName, RegistrationDate, CreatedDate, PatientType, 'Active' AS Status
     FROM PatientRegistration
     WHERE (p_StartDate IS NULL OR DATE(RegistrationDate) >= p_StartDate)
       AND (p_EndDate IS NULL OR DATE(RegistrationDate) <= p_EndDate);

@@ -18,6 +18,7 @@ from app.schemas.lab import (
     OrderCreate, TestStatusUpdate, TestResultUpdate, VerifyIn, AckIn, QcCreate,
 )
 from app.routers.services import create_service_order_internal
+from app.routers._service_clearance import blocked_order_numbers
 from app.schemas.services import ServiceOrderCreate, ServiceOrderItemCreate, OrderTypeEnum, SourceModuleEnum
 
 logger = logging.getLogger(__name__)
@@ -187,7 +188,18 @@ def list_orders(category: Optional[str] = None,
         by_order: dict = {}
         for t in lines:
             by_order.setdefault(t.OrderId, []).append(_map_test(t))
-        return [_map_order(h, by_order.get(h.OrderId, [])) for h in headers]
+        orders = [_map_order(h, by_order.get(h.OrderId, [])) for h in headers]
+
+        # Hold back tests the PRO desk has not cleared. Completed work is exempt —
+        # a finished test and its result belong on the worklist whatever the
+        # billing state, and pulling them would lose results.
+        blocked = blocked_order_numbers(db, "LAB")
+        if blocked:
+            orders = [
+                o for o in orders
+                if o["id"] not in blocked or str(o.get("status") or "").lower() == "completed"
+            ]
+        return orders
     except Exception as e:
         logger.error(f"[GET /lab/orders] {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch orders")
@@ -225,11 +237,20 @@ def create_order(payload: OrderCreate, db: Session = Depends(get_db)):
         "testId": t.testId, "testCode": t.testCode, "testName": t.testName,
         "bodyPart": t.bodyPart, "normalRange": t.normalRange, "unit": t.unit,
     } for t in payload.tests])
+    ordered_by = payload.orderedBy
+    if (not ordered_by or ordered_by.strip() in ("Doctor", "doctor")) and payload.uhid:
+        adm_doc = db.execute(
+            text("SELECT AdmittingDoctor FROM hospital.IPD_Admission WHERE Uhid = :uhid AND Status = 'Admitted' AND IsDeleted = 0 ORDER BY AdmissionId DESC LIMIT 1"),
+            {"uhid": payload.uhid}
+        ).scalar()
+        if adm_doc and adm_doc.strip():
+            ordered_by = adm_doc.strip()
+
     try:
         row = _order_sp(db, "CREATE",
                         Category=payload.category.value, VisitType=payload.visitType.value,
                         Uhid=payload.uhid, PatientName=payload.patientName,
-                        OrderedBy=payload.orderedBy, Priority=payload.priority.value,
+                        OrderedBy=ordered_by, Priority=payload.priority.value,
                         ClinicalNotes=payload.clinicalNotes, Tests=tests_json,
                         User=payload.user or "Admin").fetchone()
         

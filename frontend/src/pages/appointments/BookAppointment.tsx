@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Search, Building2, Stethoscope, CheckCircle, UserCheck, UserPlus, Clock, AlertCircle, Calendar as CalendarIcon } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { useAppointments } from '../../contexts/AppointmentContext';
+import type { AppointmentRecord } from '../../contexts/AppointmentContext';
 import { usePatients } from '../../contexts/PatientContext';
 import type { GlobalPatientRecord } from '../../contexts/PatientContext';
 import { useNavigate } from 'react-router-dom';
@@ -74,9 +75,17 @@ export const BookAppointment = ({ passedPatientProps, onClose }: BookAppointment
   
   const location = useLocation();
   const passedPatient = passedPatientProps || location.state?.patient;
-  const [selectedPatient, setSelectedPatient] = useState<GlobalPatientRecord | null>(passedPatient || null);
+  // A patient handed to us only counts as "existing" once it has been persisted
+  // -- i.e. it carries a database id alongside its UHID. An in-progress
+  // registration form has a *preview* UHID and no id; treating that as an
+  // existing patient booked the appointment against a UHID no patient owned.
+  const isPersistedPatient = Boolean(passedPatient?.id && passedPatient?.uhid);
+  const [selectedPatient, setSelectedPatient] = useState<GlobalPatientRecord | null>(
+    isPersistedPatient ? passedPatient : null
+  );
 
   useEffect(() => {
+    setSelectedPatient(isPersistedPatient ? passedPatient : null);
     if (passedPatient) {
       setFormData(prev => ({
         ...prev,
@@ -87,7 +96,8 @@ export const BookAppointment = ({ passedPatientProps, onClose }: BookAppointment
         age: passedPatient.age ? String(passedPatient.age) : '',
       }));
     }
-  }, [passedPatient]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [passedPatient, isPersistedPatient]);
 
   const searchRef = useRef<HTMLDivElement>(null);
 
@@ -152,6 +162,47 @@ export const BookAppointment = ({ passedPatientProps, onClose }: BookAppointment
         p.mobileNumber.includes(patientSearch)
       ).slice(0, 5)
     : [];
+
+  // Everything already booked for this patient, newest first. Shown on step 1 so
+  // the desk can see the patient's history before adding another appointment --
+  // which doctor they usually see, whether they no-showed, and (below) whether
+  // they already have one open.
+  const patientHistory = selectedPatient
+    ? appointments
+        .filter(a => a.uhid === selectedPatient.uhid)
+        .sort((a, b) => (b.date + b.timeSlot).localeCompare(a.date + a.timeSlot))
+    : [];
+
+  const today = getLocalDate();
+  const openAppointment = patientHistory.find(
+    a => a.date >= today && ['Scheduled', 'Checked-In', 'Waiting', 'Consulting'].includes(a.status)
+  );
+
+  // Where the booking lands depends on how the patient reached us. Someone
+  // standing at the desk (In-Person registration, and quick/emergency
+  // registrations, which are walk-ins by definition) joins today's waiting list
+  // straight away; a Phone registration is only Scheduled until they turn up and
+  // are checked in. A walk-in booking for a *later* date is Scheduled too -- it
+  // has no business sitting in today's live queue.
+  const isPhoneRegistration =
+    Number((selectedPatient as any)?.registrationMode ?? (passedPatient as any)?.registrationMode ?? 0) === 1;
+  const bookingStatus: AppointmentRecord['status'] =
+    !isPhoneRegistration && formData.date === getLocalDate() ? 'Waiting' : 'Scheduled';
+
+  const historyStatusClass = (status: string) => {
+    if (status === 'Completed') return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+    if (status === 'Cancelled') return 'bg-red-50 text-red-700 border-red-200';
+    if (status === 'No-Show') return 'bg-amber-50 text-amber-700 border-amber-200';
+    if (status === 'Scheduled') return 'bg-primary/10 text-primary border-primary/20';
+    return 'bg-slate-100 text-slate-600 border-slate-200';
+  };
+
+  const formatHistoryDate = (d: string) => {
+    const parsed = new Date(`${d}T00:00:00`);
+    return Number.isNaN(parsed.getTime())
+      ? d
+      : parsed.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
 
   const selectExistingPatient = (patient: GlobalPatientRecord) => {
     setSelectedPatient(patient);
@@ -258,10 +309,14 @@ export const BookAppointment = ({ passedPatientProps, onClose }: BookAppointment
       durationMinutes: 15,
       type: 'Standard',
       priority: 'Normal',
-      status: 'Scheduled',
+      status: bookingStatus,
     });
 
-    toast.success(`Appointment ${appointmentNumber} Confirmed Successfully!`);
+    toast.success(
+      bookingStatus === 'Waiting'
+        ? `Appointment ${appointmentNumber} confirmed — patient added to today's waiting list.`
+        : `Appointment ${appointmentNumber} Confirmed Successfully!`
+    );
 
     if (onClose) {
       onClose();
@@ -444,6 +499,64 @@ export const BookAppointment = ({ passedPatientProps, onClose }: BookAppointment
                 </div>
               </div>
             </div>
+
+            {selectedPatient && (
+              <div className="mt-6 border-t border-slate-200 pt-5">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-slate-600 flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-slate-400" />
+                    Appointment History
+                  </h3>
+                  <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-full font-semibold">
+                    {patientHistory.length} total
+                  </span>
+                </div>
+
+                {openAppointment && (
+                  <div className="mb-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-px" />
+                    <span>
+                      This patient already has an open appointment —{' '}
+                      <span className="font-semibold">{openAppointment.appointmentNumber}</span> on{' '}
+                      {formatHistoryDate(openAppointment.date)} at {openAppointment.timeSlot} with{' '}
+                      {openAppointment.doctor || 'an unassigned doctor'}.
+                    </span>
+                  </div>
+                )}
+
+                {patientHistory.length === 0 ? (
+                  <p className="text-sm text-slate-400 italic py-2">
+                    No previous appointments — this is their first booking.
+                  </p>
+                ) : (
+                  <div className="max-h-52 overflow-y-auto rounded-xl border border-slate-200 divide-y divide-slate-100">
+                    {patientHistory.slice(0, 6).map(a => (
+                      <div key={a.id} className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-slate-700">
+                            {formatHistoryDate(a.date)} · {a.timeSlot}
+                          </p>
+                          <p className="text-xs text-slate-500 truncate">
+                            {a.department || '—'}
+                            {a.doctor ? ` · ${a.doctor}` : ''}
+                            {a.appointmentNumber ? ` · ${a.appointmentNumber}` : ''}
+                          </p>
+                        </div>
+                        <span className={`shrink-0 text-xs px-2 py-1 rounded-full border font-semibold ${historyStatusClass(a.status)}`}>
+                          {a.status}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {patientHistory.length > 6 && (
+                  <p className="text-xs text-slate-400 mt-2">
+                    Showing the 6 most recent of {patientHistory.length}.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         )}
 

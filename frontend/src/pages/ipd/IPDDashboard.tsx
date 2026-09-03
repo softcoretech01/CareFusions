@@ -143,7 +143,7 @@ export const IPDDashboard = () => {
 
   // Analytics Calculations
   const admissionsInPeriod = patients.filter(p => isDateInRange(p.admissionDate)).length;
-  const dischargesInPeriod = patients.filter(p => p.status === 'Discharged' && (p.dischargeDate ? isDateInRange(p.dischargeDate) : isDateInRange(p.admissionDate))).length;
+  const dischargesInPeriod = patients.filter(p => p.status === 'Discharged' && (p.dischargeInfo?.dischargeDate ? isDateInRange(p.dischargeInfo.dischargeDate) : isDateInRange(p.admissionDate))).length;
   
   // ALOS Calculation
   const alos = 4.2; // Dummy calculation
