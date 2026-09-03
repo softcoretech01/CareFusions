@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { uid } from '../../utils/uid';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useOPDVisits } from '../../contexts/OPDVisitContext';
 import { useAppointments } from '../../contexts/AppointmentContext';
@@ -303,7 +304,7 @@ export const DoctorConsultation = () => {
     }
 
     const order: LabOrder = {
-      id: crypto.randomUUID(),
+      id: uid(),
       testId: test.testId,
       testName: test.name,
       testCode: test.code,
@@ -325,7 +326,7 @@ export const DoctorConsultation = () => {
     if (!svc) return;
 
     const order: RadiologyOrder = {
-      id: crypto.randomUUID(),
+      id: uid(),
       serviceName: svc.name,
       modality: svc.modality as RadiologyOrder['modality'],
       bodyPart: radForm.bodyPart || svc.name,

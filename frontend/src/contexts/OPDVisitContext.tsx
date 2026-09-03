@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
+import { uid } from '../utils/uid';
 
 // ── Status flow ────────────────────────────────────────────────────────────
 export type OPDVisitStatus =
@@ -214,13 +215,13 @@ export const OPDVisitProvider = ({ children }: { children: ReactNode }) => {
           prescriptions: d.prescriptions || [],
           labOrders: (d.labOrders || []).map((l: any) => ({
             ...l,
-            id: l.id || (l.LabOrderId ? String(l.LabOrderId) : crypto.randomUUID()),
+            id: l.id || (l.LabOrderId ? String(l.LabOrderId) : uid()),
           })),
           radiologyOrders: (d.radiologyOrders || []).map((r: any) => ({
             ...r,
             // Ensure every radiology order has a stable `id` that removeRadiologyOrder can match.
             // Backend rows come as { RadiologyOrderId, BodyPart, ... } with no `id` field.
-            id: r.id || (r.RadiologyOrderId ? String(r.RadiologyOrderId) : crypto.randomUUID()),
+            id: r.id || (r.RadiologyOrderId ? String(r.RadiologyOrderId) : uid()),
           })),
           procedures: [],
         }));
