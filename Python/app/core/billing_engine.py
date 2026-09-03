@@ -49,18 +49,24 @@ def load_advance_for_update(db: Session, advance_id: int) -> dict:
 
 
 def live_advance_for_order(db: Session, order_id: int, *, for_update: bool = False):
-    """The order's single live advance bill, if it has one.
+    """The ordering EVENT's single live advance bill, if it has one.
 
-    ``ux_billing_advance_live_order`` guarantees there is at most one, so this
-    cannot silently pick between duplicates the way the old
-    ``ORDER BY AdvanceId DESC LIMIT 1`` did.
+    Scoped to the order group, not the single service order. One "Update EMR"
+    click becomes a lab order and a radiology order, and raising a bill against
+    each handed the patient two bills for one visit -- which is exactly what the
+    billing desk was looking at: ₹200 and ₹100 for one patient, ₹250 and
+    ₹1,999.97 for another, from one ordering event each.
+
+    ``ux_advance_live_group`` guarantees there is at most one live bill per
+    group, so this cannot silently pick between duplicates.
     """
     lock = " FOR UPDATE" if for_update else ""
     row = db.execute(text(f"""
         SELECT * FROM hospital.Billing_Advance
-        WHERE ServiceOrderId = :oid AND IsDeleted = 0 AND Status <> 'CANCELLED'
+        WHERE ServiceOrderId IN :oids AND IsDeleted = 0 AND Status <> 'CANCELLED'
+        ORDER BY AdvanceId
         LIMIT 1{lock}
-    """), {"oid": order_id}).fetchone()
+    """), {"oids": tuple(gate.orders_in_group(db, order_id))}).fetchone()
     return dict(row._mapping) if row else None
 
 
@@ -88,6 +94,7 @@ def upsert_advance_for_order(db: Session, *, order_id: int, uhid: str,
     with no refund recorded.
     """
     amount = money(amount)
+    group = gate.order_group_of(db, order_id)
     existing = live_advance_for_order(db, order_id, for_update=True)
 
     if existing:
@@ -115,16 +122,17 @@ def upsert_advance_for_order(db: Session, *, order_id: int, uhid: str,
     advance_no = f"ADV-{order_id}-{uuid.uuid4().hex[:8].upper()}"
     db.execute(text("""
         INSERT INTO hospital.Billing_Advance
-            (AdvanceNo, ServiceOrderId, UHID, TotalAmount, PaidAmount,
+            (AdvanceNo, ServiceOrderId, OrderGroupNo, UHID, TotalAmount, PaidAmount,
              RefundedAmount, Status, CreatedBy)
-        VALUES (:no, :oid, :uhid, :amount, 0.00, 0.00, 'PENDING', :by)
-    """), {"no": advance_no, "oid": order_id, "uhid": uhid,
+        VALUES (:no, :oid, :grp, :uhid, :amount, 0.00, 0.00, 'PENDING', :by)
+    """), {"no": advance_no, "oid": order_id, "grp": group, "uhid": uhid,
            "amount": amount, "by": created_by})
     advance_id = db.execute(text("SELECT LAST_INSERT_ID()")).scalar()
     return {
         "AdvanceId": advance_id, "AdvanceNo": advance_no,
-        "ServiceOrderId": order_id, "UHID": uhid, "TotalAmount": amount,
-        "PaidAmount": ZERO, "RefundedAmount": ZERO, "Status": "PENDING",
+        "ServiceOrderId": order_id, "OrderGroupNo": group, "UHID": uhid,
+        "TotalAmount": amount, "PaidAmount": ZERO, "RefundedAmount": ZERO,
+        "Status": "PENDING",
     }
 
 
@@ -310,14 +318,19 @@ def apply_financial_status(db: Session, order_id: int) -> None:
     else:
         payment_status, financial_status = "UNPAID", "NOT_CLEARED"
 
+    # One bill settles the whole ordering event, so every order under it moves
+    # together. Updating only the order that happened to be passed in left its
+    # sibling UNPAID against a bill that was fully collected.
+    orders = gate.orders_in_group(db, order_id)
     db.execute(text("""
         UPDATE hospital.Service_OrderItem
         SET PaymentStatus = :pay, FinancialStatus = :fin, UpdatedAt = NOW()
-        WHERE ServiceOrderId = :oid AND IsDeleted = 0
+        WHERE ServiceOrderId IN :oids AND IsDeleted = 0
           AND PROStatus = 'APPROVED' AND ServiceStatus <> 'CANCELLED'
-    """), {"pay": payment_status, "fin": financial_status, "oid": order_id})
+    """), {"pay": payment_status, "fin": financial_status, "oids": tuple(orders)})
 
-    gate.sync_order_from_items(db, order_id)
+    for oid in orders:
+        gate.sync_order_from_items(db, oid)
 
 
 def release_eligible_items(db: Session, order_id: int, *, released_by: str,
@@ -333,9 +346,9 @@ def release_eligible_items(db: Session, order_id: int, *, released_by: str,
     """
     rows = db.execute(text("""
         SELECT ServiceOrderItemId FROM hospital.Service_OrderItem
-        WHERE ServiceOrderId = :oid AND IsDeleted = 0
+        WHERE ServiceOrderId IN :oids AND IsDeleted = 0
         ORDER BY ServiceOrderItemId
-    """), {"oid": order_id}).fetchall()
+    """), {"oids": tuple(gate.orders_in_group(db, order_id))}).fetchall()
 
     released = []
     for row in rows:
@@ -400,10 +413,17 @@ def reverse_payment(db: Session, *, payment_id: int, by: str, reason: str) -> di
         if alloc.ServiceOrderId:
             touched_orders.add(alloc.ServiceOrderId)
 
+    # Revoke across the whole ordering EVENT, not just the order the allocation
+    # names. One advance bill covers every order in the group, so when its money
+    # goes away every service it unlocked has to close again -- otherwise the
+    # sibling order keeps an ACTIVE release against a bill that is back to
+    # PENDING, which is the "RELEASED but UNPAID" state the gate exists to
+    # prevent. (Reversing a group payment left the CT released and unpaid.)
     for order_id in touched_orders:
-        gate.revoke_releases_for_order(
-            db, order_id, by=by,
-            reason=f"Payment {row.ReceiptNo} reversed: {reason}"[:500])
+        for sibling in gate.orders_in_group(db, order_id):
+            gate.revoke_releases_for_order(
+                db, sibling, by=by,
+                reason=f"Payment {row.ReceiptNo} reversed: {reason}"[:500])
         apply_financial_status(db, order_id)
 
     return {"PaymentId": payment_id, "ReceiptNo": row.ReceiptNo,
@@ -458,8 +478,11 @@ def refund_advance(db: Session, *, advance_id: int, amount, reason: str,
     # strength of that money are withdrawn and the statuses recomputed.
     responsibility, paid = gate.order_financials(db, order_id)
     if paid + CENT < responsibility:
-        gate.revoke_releases_for_order(
-            db, order_id, by=by, reason=f"Refund {refund_no}: {reason}"[:500])
+        # Group-wide, for the same reason as a reversal: the refunded bill backed
+        # every service in the ordering event.
+        for sibling in gate.orders_in_group(db, order_id):
+            gate.revoke_releases_for_order(
+                db, sibling, by=by, reason=f"Refund {refund_no}: {reason}"[:500])
     apply_financial_status(db, order_id)
 
     return {"RefundNo": refund_no, "Amount": amount,

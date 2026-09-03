@@ -68,11 +68,26 @@ _ADVANCE_SELECT = """
                (SELECT app.Department FROM admin.Trn_Appointment app
                  WHERE app.Uhid = adv.UHID AND app.IsDeleted = 0
                  ORDER BY app.AppointmentId DESC LIMIT 1),
+               -- Resolve through the ORDERING DOCTOR's own department. This is the
+               -- step that actually answers for an OPD lab or radiology advance:
+               -- those service orders carry no DepartmentId, there is no admission,
+               -- and often no appointment either -- which is why every row on this
+               -- screen showed a dash while the PRO screen (which does this lookup)
+               -- showed the real department.
+               (SELECT prof.DepartmentName
+                  FROM admin.Master_DoctorProfessional_Detail prof
+                  JOIN admin.Master_Doctor_Header dh ON dh.DoctorId = prof.DoctorId
+                 WHERE dh.IsDeleted = 0
+                   AND TRIM(dh.DoctorName) = TRIM(REPLACE(REPLACE(
+                       COALESCE(src.OrderedBy, adm.AdmittingDoctor, ''), 'Dr.', ''), 'Dr ', ''))
+                 LIMIT 1),
                NULLIF(TRIM(pr.Department), '')
            ) AS DepartmentName,
            COALESCE(
                (SELECT d.DoctorName FROM admin.Master_Doctor_Header d
                  WHERE d.DoctorId = so.DoctorId LIMIT 1),
+               CASE WHEN NULLIF(TRIM(src.OrderedBy), '') NOT IN ('Doctor', 'doctor', 'Dr', 'Dr.')
+                    THEN NULLIF(TRIM(src.OrderedBy), '') END,
                NULLIF(TRIM(adm.AdmittingDoctor), ''),
                NULLIF(TRIM(pr.PrimaryDoctor), '')
            ) AS DoctorName,
@@ -84,6 +99,7 @@ _ADVANCE_SELECT = """
                NULLIF(TRIM(p.PatientName), ''),
                NULLIF(TRIM(pr.PatientName), ''),
                NULLIF(TRIM(adm.PatientName), ''),
+               NULLIF(TRIM(src.PatientName), ''),
                (SELECT x.PatientName
                   FROM (
                       SELECT Uhid, PatientName, OrderedAt FROM hospital.Lab_Order
@@ -100,23 +116,34 @@ _ADVANCE_SELECT = """
     LEFT JOIN hospital.Service_Order so ON so.ServiceOrderId = adv.ServiceOrderId
     LEFT JOIN registration.Patient p ON p.Uhid = adv.UHID
     LEFT JOIN registration.PatientRegistration pr ON pr.Uhid = adv.UHID
+    LEFT JOIN (
+        SELECT OrderNumber, PatientName, OrderedBy FROM hospital.Lab_Order
+        UNION ALL
+        SELECT OrderNumber, PatientName, OrderedBy FROM hospital.Rad_Order
+    ) src ON src.OrderNumber = so.OrderNo
     LEFT JOIN hospital.IPD_Admission adm ON (
         (so.AdmissionId IS NOT NULL AND adm.AdmissionId = so.AdmissionId)
         OR (so.AdmissionId IS NULL AND so.SourceModule = 'IPD'
             AND adm.Uhid = adv.UHID AND adm.IsDeleted = 0)
     )
+    -- Aggregated by ORDERING EVENT, because one advance bill now covers the whole
+    -- event. Keyed on the service order alone, a bill covering a lab order and a
+    -- radiology order listed only the lab's tests and only the lab's charges,
+    -- while its total said otherwise.
     LEFT JOIN (
-        SELECT ServiceOrderId,
-               GROUP_CONCAT(ItemName ORDER BY ServiceOrderItemId SEPARATOR ', ') AS ServiceSummary,
-               SUM(GrossAmount)            AS GrossAmount,
-               SUM(AuthorizedDiscount)     AS DiscountAmount,
-               SUM(NetAmount)              AS NetAmount,
-               SUM(InsuranceCoveredAmount) AS InsuranceCoveredAmount,
-               SUM(PatientResponsibility)  AS PatientResponsibility
-        FROM hospital.Service_OrderItem
-        WHERE IsDeleted = 0 AND PROStatus = 'APPROVED' AND ServiceStatus <> 'CANCELLED'
-        GROUP BY ServiceOrderId
-    ) agg ON agg.ServiceOrderId = adv.ServiceOrderId
+        SELECT COALESCE(o.OrderGroupNo, o.OrderNo) AS OrderGroupNo,
+               GROUP_CONCAT(i.ItemName ORDER BY i.ServiceOrderItemId SEPARATOR ', ') AS ServiceSummary,
+               SUM(i.GrossAmount)            AS GrossAmount,
+               SUM(i.AuthorizedDiscount)     AS DiscountAmount,
+               SUM(i.NetAmount)              AS NetAmount,
+               SUM(i.InsuranceCoveredAmount) AS InsuranceCoveredAmount,
+               SUM(i.PatientResponsibility)  AS PatientResponsibility
+        FROM hospital.Service_OrderItem i
+        JOIN hospital.Service_Order o ON o.ServiceOrderId = i.ServiceOrderId
+        WHERE i.IsDeleted = 0 AND o.IsDeleted = 0
+          AND i.PROStatus = 'APPROVED' AND i.ServiceStatus <> 'CANCELLED'
+        GROUP BY COALESCE(o.OrderGroupNo, o.OrderNo)
+    ) agg ON agg.OrderGroupNo = COALESCE(so.OrderGroupNo, so.OrderNo)
 """
 
 
@@ -126,13 +153,24 @@ def list_advance_bills(
     status: Optional[str] = Query(None, description="Filter by Status, e.g. PAID or PENDING"),
     db: Session = Depends(get_db),
 ):
-    """All advance bills, newest first, with the charge breakdown behind each."""
+    """Advance bills the billing desk can act on, newest first.
+
+    Bills whose service order was voided are excluded. Cancelling a duplicate
+    order cancels its advance bill, but the bill row stays for the audit trail --
+    and this screen was listing all of them, so the duplicates the PRO screen had
+    just been cleared of reappeared here as CANCELLED rows with an amount and a
+    tick beside them. Pass ``status=CANCELLED`` to see them deliberately.
+    """
     try:
-        where = ["adv.IsDeleted = 0"]
+        where = ["adv.IsDeleted = 0", "COALESCE(so.IsDeleted, 0) = 0"]
         params = {}
         if status:
             where.append("adv.Status = :status")
             params["status"] = status
+        else:
+            # A cancelled bill is history, not work. Showing it alongside payable
+            # ones invited someone to try to collect against it.
+            where.append("adv.Status <> 'CANCELLED'")
         rows = db.execute(
             text(f"{_ADVANCE_SELECT} WHERE {' AND '.join(where)} ORDER BY adv.AdvanceId DESC"),
             params).fetchall()
@@ -154,6 +192,7 @@ def get_pending_advance_bills(db: Session = Depends(get_db)):
         rows = db.execute(text(f"""
             {_ADVANCE_SELECT}
             WHERE adv.IsDeleted = 0
+              AND COALESCE(so.IsDeleted, 0) = 0
               AND adv.Status IN ('PENDING', 'PARTIALLY_PAID')
               AND (adv.TotalAmount - adv.PaidAmount + adv.RefundedAmount) > 0
             ORDER BY adv.CreatedAt DESC
