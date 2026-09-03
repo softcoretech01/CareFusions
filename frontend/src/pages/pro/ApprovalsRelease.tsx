@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Loader, CheckCircle, XCircle, Clock, ChevronRight, Eye, Search, Calendar, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { OrderDetailDrawer } from '../../components/pro/OrderDetailDrawer';
 
 const API = (import.meta.env.VITE_API_URL as string || 'http://localhost:8000/api/v1') + '/pro';
 
@@ -31,6 +32,8 @@ const TABS = [
   { label: 'Rejected', value: 'rejected', icon: XCircle },
 ];
 
+import { monthStart, today } from '../../components/ui/DateFilter';
+
 export const ApprovalsRelease = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('pending');
@@ -38,12 +41,11 @@ export const ApprovalsRelease = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const now = new Date();
-  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-  const currentDate = now.toISOString().split('T')[0];
 
-  const [dateFrom, setDateFrom] = useState(currentMonthStart);
-  const [dateTo, setDateTo] = useState(currentDate);
+  const [dateFrom, setDateFrom] = useState(monthStart());
+  const [dateTo, setDateTo] = useState(today());
+  // Which order the detail drawer is showing. Null = closed.
+  const [detailOrderId, setDetailOrderId] = useState<number | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -79,6 +81,18 @@ export const ApprovalsRelease = () => {
     );
   });
 
+  /** Opens the read-only detail drawer for one order. */
+  const ViewButton = ({ order }: { order: any }) => (
+    <button
+      onClick={() => setDetailOrderId(order.ServiceOrderId)}
+      title={`View ${order.OrderNo ?? 'order'} details`}
+      aria-label={`View details for ${order.PatientName ?? order.UHID}`}
+      className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-slate-200 text-slate-500 hover:text-[#086450] hover:border-emerald-300 hover:bg-emerald-50 transition-colors"
+    >
+      <Eye className="w-4 h-4" />
+    </button>
+  );
+
   const renderPendingTab = () => (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
@@ -101,12 +115,15 @@ export const ApprovalsRelease = () => {
               <td className="px-4 py-3"><span className="bg-slate-100 text-slate-600 text-xs px-2 py-0.5 rounded-full">{o.SourceModule}</span></td>
               <td className="px-4 py-3"><StatusBadge status={o.PROStatus} /></td>
               <td className="px-4 py-3">
-                <button
-                  onClick={() => navigate('/pro/service-orders')}
-                  className="flex items-center gap-1 text-xs bg-emerald-600 text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-emerald-700 transition-colors"
-                >
-                  <ChevronRight className="w-3 h-3" /> Review
-                </button>
+                <div className="flex items-center gap-2">
+                  <ViewButton order={o} />
+                  <button
+                    onClick={() => navigate('/pro/service-orders')}
+                    className="flex items-center gap-1 text-xs bg-emerald-600 text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-emerald-700 transition-colors"
+                  >
+                    <ChevronRight className="w-3 h-3" /> Review
+                  </button>
+                </div>
               </td>
             </tr>
           ))}
@@ -126,6 +143,7 @@ export const ApprovalsRelease = () => {
             <th className="px-4 py-3 text-left font-semibold">PRO Status</th>
             <th className="px-4 py-3 text-left font-semibold">Payment</th>
             <th className="px-4 py-3 text-left font-semibold">Financial</th>
+            <th className="px-4 py-3 text-left font-semibold">Action</th>
           </tr>
         </thead>
         <tbody>
@@ -137,6 +155,7 @@ export const ApprovalsRelease = () => {
               <td className="px-4 py-3"><StatusBadge status={o.PROStatus} /></td>
               <td className="px-4 py-3"><StatusBadge status={o.PaymentStatus} /></td>
               <td className="px-4 py-3"><StatusBadge status={o.FinancialStatus} /></td>
+              <td className="px-4 py-3"><ViewButton order={o} /></td>
             </tr>
           ))}
         </tbody>
@@ -153,6 +172,7 @@ export const ApprovalsRelease = () => {
             <th className="px-4 py-3 text-left font-semibold">Patient</th>
             <th className="px-4 py-3 text-left font-semibold">Type</th>
             <th className="px-4 py-3 text-left font-semibold">PRO Status</th>
+            <th className="px-4 py-3 text-left font-semibold">Action</th>
           </tr>
         </thead>
         <tbody>
@@ -162,14 +182,13 @@ export const ApprovalsRelease = () => {
               <td className="px-4 py-3 font-medium text-slate-700">{o.PatientName ?? '—'}</td>
               <td className="px-4 py-3"><span className="bg-slate-100 text-slate-600 text-xs px-2 py-0.5 rounded-full">{o.SourceModule}</span></td>
               <td className="px-4 py-3"><StatusBadge status={o.PROStatus} /></td>
+              <td className="px-4 py-3"><ViewButton order={o} /></td>
             </tr>
           ))}
         </tbody>
       </table>
     </div>
   );
-
-
 
   return (
     <div className="space-y-5">
@@ -267,6 +286,8 @@ export const ApprovalsRelease = () => {
             : renderRejectedTab()
         }
       </div>
+
+      <OrderDetailDrawer orderId={detailOrderId} onClose={() => setDetailOrderId(null)} />
     </div>
   );
 };

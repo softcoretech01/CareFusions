@@ -44,6 +44,10 @@ class OrderCreate(BaseModel):
     clinicalNotes: Optional[str] = None
     tests: List[TestCreate]
     user: Optional[str] = None
+    # Ties this order to the other orders raised by the same "Update EMR" click,
+    # so the PRO desk reviews one ordering event as one row rather than one row
+    # per source table. Optional: an order without it is a group of one.
+    orderGroupNo: Optional[str] = None
 
 class TestStatusUpdate(BaseModel):
     status: TestStatus

@@ -108,6 +108,57 @@ def compute_item_amounts(*, quantity, pro_price, discount, insurance_cover,
     )
 
 
+# ── Master price ───────────────────────────────────────────────────────────
+# Where each kind of service keeps its catalogue price. The master price is the
+# ceiling the PRO may discount from, so it has to come from the catalogue: when
+# the client supplies it (which ``POST /pro/orders/create`` used to allow) the
+# read-only rule is worth nothing, because the caller simply declares a master
+# price high enough for whatever it wants to charge.
+_MASTER_PRICE_SOURCES = {
+    "LAB": [
+        ("admin.Master_LabTest", "TestPrice", "TestId", "TestName"),
+        ("admin.Master_Service", "StandardPrice", "ServiceId", "ServiceName"),
+    ],
+    "RADIOLOGY": [
+        ("admin.Master_RadiologyService", "ServicePrice", "RadiologyServiceId", "ServiceName"),
+        ("admin.Master_Service", "StandardPrice", "ServiceId", "ServiceName"),
+    ],
+    "OPERATION": [
+        ("admin.Mst_MajorOperation", "defaultCharge", "id", "operationName"),
+        ("admin.Mst_MinorOperation", "defaultCharge", "id", "operationName"),
+        ("admin.Master_Service", "StandardPrice", "ServiceId", "ServiceName"),
+    ],
+    "OTHER": [
+        ("admin.Master_Service", "StandardPrice", "ServiceId", "ServiceName"),
+        ("admin.Master_Procedure", "ProcedurePrice", "ProcedureId", "ProcedureName"),
+    ],
+}
+
+
+def lookup_master_price(db: Session, *, item_type: str, item_id=None,
+                        item_name: Optional[str] = None) -> Optional[Decimal]:
+    """The catalogue price for a service, or None if it is not in any catalogue.
+
+    Matched by id first, then by name, across the catalogues that can hold that
+    item type. Returns None rather than zero when nothing matches, so the caller
+    can tell "this service is free" apart from "this service is unknown".
+    """
+    for table, price_col, id_col, name_col in _MASTER_PRICE_SOURCES.get(
+            (item_type or "OTHER").upper(), _MASTER_PRICE_SOURCES["OTHER"]):
+        for column, value in ((id_col, item_id), (name_col, item_name)):
+            if value in (None, "", "None"):
+                continue
+            try:
+                row = db.execute(text(
+                    f"SELECT {price_col} AS p FROM {table} WHERE {column} = :v LIMIT 1"
+                ), {"v": value}).fetchone()
+            except Exception:
+                break  # table or column absent in this deployment; try the next source
+            if row is not None and row.p is not None:
+                return money(row.p)
+    return None
+
+
 def validate_pricing(*, item_name: str, master_price, quantity, pro_price,
                      discount) -> Optional[str]:
     """Return a human-readable rejection reason, or None if the pricing is legal.
@@ -200,30 +251,59 @@ class ReleaseDecision:
         return " ".join(self.blockers) if self.blockers else ""
 
 
+def order_group_of(db: Session, service_order_id: int) -> Optional[str]:
+    """The ordering event this service order belongs to."""
+    return db.execute(text("""
+        SELECT COALESCE(OrderGroupNo, OrderNo) FROM hospital.Service_Order
+        WHERE ServiceOrderId = :oid
+    """), {"oid": service_order_id}).scalar()
+
+
+def orders_in_group(db: Session, service_order_id: int) -> list:
+    """Every live service order raised by the same ordering event, this one included."""
+    group = order_group_of(db, service_order_id)
+    if not group:
+        return [service_order_id]
+    rows = db.execute(text("""
+        SELECT ServiceOrderId FROM hospital.Service_Order
+        WHERE COALESCE(OrderGroupNo, OrderNo) = :g AND IsDeleted = 0
+    """), {"g": group}).fetchall()
+    return [r.ServiceOrderId for r in rows] or [service_order_id]
+
+
 def order_financials(db: Session, service_order_id: int) -> tuple[Decimal, Decimal]:
-    """(what the patient owes on this order, what has actually been collected).
+    """(what the patient owes for this ordering EVENT, what has been collected).
 
-    Responsibility counts APPROVED items only -- a rejected item is not payable,
-    and including it would make an order permanently unpayable.
+    Scoped to the order GROUP, not the single service order. One click of
+    "Update EMR" becomes a lab order and a radiology order -- two service orders,
+    because the execution gate needs one per source order -- but it is one
+    decision, it raises one advance bill, and the patient pays it once. Asking
+    per-order what was collected would compare one order's charge against a bill
+    covering both, and no item would ever look paid.
 
-    Collected is taken from the live advance bill net of refunds. Payment rows
-    in Billing_Payment are the ledger; ``Billing_Advance.PaidAmount`` is the
-    running total the payment and reversal routines maintain in the same
-    transaction, so the two agree by construction and legacy rows written before
-    the ledger existed still report correctly.
+    Responsibility counts APPROVED items only: a rejected item is not payable,
+    and including it would make a group permanently unpayable.
+
+    Collected is the group's live advance bill net of refunds. Payment rows in
+    Billing_Payment are the ledger; ``Billing_Advance.PaidAmount`` is the running
+    total the payment and reversal routines maintain in the same transaction, so
+    the two agree by construction and legacy rows written before the ledger
+    existed still report correctly.
     """
+    orders = orders_in_group(db, service_order_id)
+
     resp = db.execute(text("""
         SELECT COALESCE(SUM(PatientResponsibility), 0) AS total
         FROM hospital.Service_OrderItem
-        WHERE ServiceOrderId = :oid AND IsDeleted = 0 AND PROStatus = 'APPROVED'
+        WHERE ServiceOrderId IN :oids AND IsDeleted = 0 AND PROStatus = 'APPROVED'
           AND ServiceStatus <> 'CANCELLED'
-    """), {"oid": service_order_id}).scalar()
+    """), {"oids": tuple(orders)}).scalar()
 
     paid = db.execute(text("""
         SELECT COALESCE(SUM(PaidAmount - RefundedAmount), 0) AS paid
         FROM hospital.Billing_Advance
-        WHERE ServiceOrderId = :oid AND IsDeleted = 0 AND Status <> 'CANCELLED'
-    """), {"oid": service_order_id}).scalar()
+        WHERE ServiceOrderId IN :oids AND IsDeleted = 0 AND Status <> 'CANCELLED'
+    """), {"oids": tuple(orders)}).scalar()
 
     return money(resp), money(paid)
 
@@ -306,9 +386,9 @@ def evaluate_release(db: Session, item_id: int, *, for_update: bool = False) -> 
         advance = db.execute(text("""
             SELECT AdvanceId, TotalAmount, PaidAmount, RefundedAmount, Status
             FROM hospital.Billing_Advance
-            WHERE ServiceOrderId = :oid AND IsDeleted = 0 AND Status <> 'CANCELLED'
+            WHERE ServiceOrderId IN :oids AND IsDeleted = 0 AND Status <> 'CANCELLED'
             LIMIT 1
-        """), {"oid": order["ServiceOrderId"]}).fetchone()
+        """), {"oids": tuple(orders_in_group(db, order["ServiceOrderId"]))}).fetchone()
 
         if not advance:
             blockers.append(

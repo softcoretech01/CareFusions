@@ -75,7 +75,7 @@ const ReviewModal = ({
 
   useEffect(() => {
     const uhid = (row.UHID || '').trim();
-    if (!uhid) { setPolicy(null); return; }
+    if (!uhid || row.SourceModule === 'OPD') { setPolicy(null); return; }
     let cancelled = false;
     setPolicyLoading(true);
     (async () => {
@@ -288,55 +288,57 @@ const ReviewModal = ({
             </section>
 
             {/* Insurance on file — read-only; this screen approves prices, not cover. */}
-            <section>
-              <div className="flex items-center gap-2 mb-3">
-                <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400">Insurance</h3>
-              </div>
+            {row.SourceModule !== 'OPD' && (
+              <section>
+                <div className="flex items-center gap-2 mb-3">
+                  <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                  <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400">Insurance</h3>
+                </div>
 
-              {policyLoading ? (
-                <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm text-slate-400 italic">
-                  Checking for a policy…
-                </div>
-              ) : !policy ? (
-                <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm text-slate-500">
-                  No insurance policy on file — this is a <span className="font-semibold text-slate-700">self-pay</span> patient.
-                </div>
-              ) : (
-                <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4">
-                  <div className="flex flex-wrap items-center gap-2 mb-4">
-                    <span className="text-sm font-bold text-slate-800">{policy.insurerName || '—'}</span>
-                    {policy.planName && <span className="text-xs text-slate-500">· {policy.planName}</span>}
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
-                      policy.status === 'Active'
-                        ? 'bg-emerald-100 text-emerald-700'
-                        : 'bg-red-100 text-red-700'
-                    }`}>
-                      {policy.status || 'Unknown'}
-                    </span>
-                    {policy.networkHospital && (
-                      <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-emerald-50 text-emerald-600 border border-emerald-200">
-                        Network Hospital
+                {policyLoading ? (
+                  <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm text-slate-400 italic">
+                    Checking for a policy…
+                  </div>
+                ) : !policy ? (
+                  <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm text-slate-500">
+                    No insurance policy on file — this is a <span className="font-semibold text-slate-700">self-pay</span> patient.
+                  </div>
+                ) : (
+                  <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4">
+                    <div className="flex flex-wrap items-center gap-2 mb-4">
+                      <span className="text-sm font-bold text-slate-800">{policy.insurerName || '—'}</span>
+                      {policy.planName && <span className="text-xs text-slate-500">· {policy.planName}</span>}
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                        policy.status === 'Active'
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : 'bg-red-100 text-red-700'
+                      }`}>
+                        {policy.status || 'Unknown'}
                       </span>
+                      {policy.networkHospital && (
+                        <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-emerald-50 text-emerald-600 border border-emerald-200">
+                          Network Hospital
+                        </span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                      <InfoRow label="Policy Number" value={policy.policyNumber} />
+                      <InfoRow label="TPA" value={policy.tpaName} />
+                      <InfoRow label="Valid Until" value={policy.validUntil ? String(policy.validUntil).slice(0, 10) : null} />
+                      {policy.sumInsured != null && <InfoRow label="Sum Insured" value={inr(policy.sumInsured)} />}
+                      {policy.balanceAmount != null && <InfoRow label="Balance" value={inr(policy.balanceAmount)} />}
+                      {policy.copayPercentage != null && <InfoRow label="Co-Pay" value={`${policy.copayPercentage}%`} />}
+                    </div>
+                    {policy.source === 'registration' && (
+                      <p className="text-xs text-slate-500 mt-3">
+                        From the patient's registration record — no formal policy exists under
+                        Insurance &gt; Policies, so there is no sum insured or balance to bill against.
+                      </p>
                     )}
                   </div>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-                    <InfoRow label="Policy Number" value={policy.policyNumber} />
-                    <InfoRow label="TPA" value={policy.tpaName} />
-                    <InfoRow label="Valid Until" value={policy.validUntil ? String(policy.validUntil).slice(0, 10) : null} />
-                    {policy.sumInsured != null && <InfoRow label="Sum Insured" value={inr(policy.sumInsured)} />}
-                    {policy.balanceAmount != null && <InfoRow label="Balance" value={inr(policy.balanceAmount)} />}
-                    {policy.copayPercentage != null && <InfoRow label="Co-Pay" value={`${policy.copayPercentage}%`} />}
-                  </div>
-                  {policy.source === 'registration' && (
-                    <p className="text-xs text-slate-500 mt-3">
-                      From the patient's registration record — no formal policy exists under
-                      Insurance &gt; Policies, so there is no sum insured or balance to bill against.
-                    </p>
-                  )}
-                </div>
-              )}
-            </section>
+                )}
+              </section>
+            )}
 
             {/* Service Items */}
             <section>
@@ -603,67 +605,76 @@ const ServiceOrdersPage = ({ module }: { module: 'OPD' | 'IPD' | 'EMERGENCY' }) 
     );
   });
 
-  // A patient's outstanding lab and radiology orders are reviewed as one unit, so they collapse
-  // into a single row. Orders already approved or rejected stay separate — the history reads
-  // better one order at a time, and there is nothing left to decide on them together.
+  // One row per ORDERING EVENT.
+  //
+  // A doctor who ticks two lab tests and a scan and presses "Update EMR" once has
+  // made a single decision, but it reaches the backend as a Lab_Order and a
+  // Rad_Order and so becomes two service orders. OrderGroupNo is what the backend
+  // stamps on both, so grouping on it puts that one decision on one row carrying
+  // all three tests — and the doctor's NEXT order gets a new group, and its own row.
+  //
+  // This used to group only PENDING orders, and by UHID alone. That was wrong at
+  // both ends: every outstanding order a patient had ever accumulated collapsed
+  // into one row regardless of when it was ordered, while approved and rejected
+  // orders were never grouped at all — which is why one patient showed five
+  // separate approved rows for what were three visits to the order screen.
   const rows = useMemo(() => {
     const groups = new Map<string, any[]>();
-    const decided: any[] = [];
 
     for (const o of filtered) {
-      if (isPendingOrder(o)) {
-        const key = o.UHID || `order-${o.ServiceOrderId}`;
-        if (!groups.has(key)) groups.set(key, []);
-        groups.get(key)!.push(o);
-      } else {
-        decided.push(o);
-      }
+      // Orders written before OrderGroupNo existed fall back to their own id, so
+      // each is a group of one rather than all of them merging under `undefined`.
+      const key = o.OrderGroupNo || `order-${o.ServiceOrderId}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(o);
     }
 
     const firstOf = (list: any[], field: string) => list.find(o => o[field])?.[field] ?? null;
 
-    const pendingRows = [...groups.entries()].map(([uhid, list]) => {
+    // A status shared by every order in the group is the group's status; a group
+    // that is part approved and part rejected is neither, and says so.
+    const rollup = (list: any[], field: string) => {
+      const values = new Set(list.map(o => o[field]).filter(Boolean));
+      return values.size === 1 ? [...values][0] : 'MIXED';
+    };
+
+    // Payment is only ever PAID or UNPAID — a bill is settled or it is not, and
+    // "MIXED" told the billing desk nothing it could act on.
+    //
+    // The group is PAID only when every order in it is settled. Anything else,
+    // including a group that is part paid, reads UNPAID: money is still owed on
+    // the amount this row is showing, and rounding that up to PAID would say the
+    // opposite. NOT_REQUIRED counts as settled — there is nothing to collect.
+    const paymentRollup = (list: any[]) =>
+      list.every(o => o.PaymentStatus === 'PAID' || o.PaymentStatus === 'NOT_REQUIRED')
+        ? 'PAID'
+        : 'UNPAID';
+
+    return [...groups.entries()].map(([key, list]) => {
       const latest = list.reduce((a, b) => (new Date(a.OrderDate) >= new Date(b.OrderDate) ? a : b));
-      const payments = new Set(list.map(o => o.PaymentStatus));
       return {
-        key: `group-${uhid}`,
+        key: `group-${key}`,
         orders: list,
         isGroup: list.length > 1,
-        UHID: uhid,
+        UHID: firstOf(list, 'UHID'),
         PatientName: firstOf(list, 'PatientName'),
         DoctorName: firstOf(list, 'DoctorName'),
         DepartmentName: firstOf(list, 'DepartmentName'),
         SourceModule: latest.SourceModule,
         OrderDate: latest.OrderDate,
-        PROStatus: 'PENDING',
-        PaymentStatus: payments.size === 1 ? list[0].PaymentStatus : 'MIXED',
+        PROStatus: rollup(list, 'PROStatus'),
+        PaymentStatus: paymentRollup(list),
         amount: list.reduce((sum, o) => sum + orderTotal(o), 0),
       };
-    });
-
-    const decidedRows = decided.map(o => ({
-      key: `order-${o.ServiceOrderId}`,
-      orders: [o],
-      isGroup: false,
-      UHID: o.UHID,
-      PatientName: o.PatientName,
-      DoctorName: o.DoctorName,
-      DepartmentName: o.DepartmentName,
-      SourceModule: o.SourceModule,
-      OrderDate: o.OrderDate,
-      PROStatus: o.PROStatus,
-      PaymentStatus: o.PaymentStatus,
-      amount: orderTotal(o),
-    }));
-
-    return [...pendingRows, ...decidedRows].sort(
-      (a, b) => new Date(b.OrderDate).getTime() - new Date(a.OrderDate).getTime()
-    );
+    }).sort((a, b) => new Date(b.OrderDate).getTime() - new Date(a.OrderDate).getTime());
   }, [filtered]);
 
-  const pendingCount = orders.filter(isPendingOrder).length;
-  const approvedCount = orders.filter(o => o.PROStatus === 'APPROVED').length;
-  const rejectedCount = orders.filter(o => o.PROStatus === 'REJECTED').length;
+  // Counted in rows, not raw service orders, so the chips agree with the grid.
+  // Counting orders meant the header said "6 Total" above four visible rows,
+  // because one ordering event can be several service orders.
+  const pendingCount = rows.filter(isPendingOrder).length;
+  const approvedCount = rows.filter(r => r.PROStatus === 'APPROVED').length;
+  const rejectedCount = rows.filter(r => r.PROStatus === 'REJECTED').length;
 
   return (
     <div className="space-y-5">
@@ -753,7 +764,7 @@ const ServiceOrdersPage = ({ module }: { module: 'OPD' | 'IPD' | 'EMERGENCY' }) 
                 <span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block" /> {rejectedCount} Rejected
               </span>
               <span className="inline-flex items-center gap-1.5 bg-slate-50 text-slate-600 border border-slate-200 rounded-full px-3 py-1 text-xs font-semibold">
-                {orders.length} Total
+                {rows.length} Total
               </span>
             </div>
           )}

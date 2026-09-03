@@ -59,6 +59,9 @@ class RadiologyOrderCreate(BaseModel):
     ordered_by: Optional[str] = None
     priority: str = "Routine"
     tests: List[RadiologyTestCreate]
+    # Shared with the lab order raised by the same "Update EMR" click. See
+    # services.create_service_order_internal.
+    order_group_no: Optional[str] = None
 
 class RadiologyOrderResponse(RadiologyOrderBase):
     order_id: int

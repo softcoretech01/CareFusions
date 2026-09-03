@@ -46,6 +46,10 @@ export interface InvestigationOrder {
   mobileNumber?: string;
   tests: InvestigationTest[];
   status: 'Pending' | 'Sample Collected' | 'Sample Accepted' | 'Processing' | 'Partial' | 'Completed' | 'Verified';
+  // Shared by every order raised from the same "Update EMR" click, so the PRO
+  // desk reviews one ordering event as one row instead of one row per source
+  // table. Optional: an order without it is a group of one.
+  orderGroupNo?: string;
 }
 
 export interface QCLog {
@@ -278,6 +282,7 @@ export const InvestigationProvider = ({ children }: { children: ReactNode }) => 
           patientName: order.patientName,
           orderedBy: order.orderedBy,
           priority: 'Routine',
+          orderGroupNo: order.orderGroupNo ?? null,
           // testId is the master link; testCode must be the real code, not the
           // test name. Sending the name as the code meant SpLabOrder could not
           // find the master row, so NormalRange/Unit arrived empty and results
@@ -307,6 +312,7 @@ export const InvestigationProvider = ({ children }: { children: ReactNode }) => 
           patient_name: order.patientName,
           ordered_by: order.orderedBy,
           priority: 'Routine',
+          order_group_no: order.orderGroupNo ?? null,
           tests: order.tests.map(t => ({
             testName: t.name,
             testCode: t.testCode || t.name,

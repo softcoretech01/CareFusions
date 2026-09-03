@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Loader, AlertCircle, ShieldCheck, DollarSign, Search, Calendar, X } from 'lucide-react';
+import { Loader, AlertCircle, ShieldCheck, DollarSign, Search, Calendar, X, CheckCircle, Ban } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const API = (import.meta.env.VITE_API_URL as string || 'http://localhost:8000/api/v1') + '/pro';
+const API_BASE = import.meta.env.VITE_API_URL as string || 'http://localhost:8000/api/v1';
 
 const StatusBadge = ({ status }: { status?: string }) => {
   if (!status) return null;
@@ -16,6 +18,7 @@ const StatusBadge = ({ status }: { status?: string }) => {
     UNPAID: 'bg-orange-100 text-orange-700',
     PAID: 'bg-green-100 text-green-700',
     NOT_REQUIRED: 'bg-slate-100 text-slate-500',
+    CLAIMED: 'bg-indigo-100 text-indigo-700',
   };
   return (
     <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold ${map[status] ?? 'bg-slate-100 text-slate-600'}`}>
@@ -32,6 +35,8 @@ const EmptyState = ({ icon: Icon, message }: { icon: any; message: string }) => 
   </div>
 );
 
+import { monthStart, today } from '../../components/ui/DateFilter';
+
 export const InsurancePayments = () => {
   const [activeTab, setActiveTab] = useState<'insurance' | 'payments'>('insurance');
   const [insuranceClaims, setInsuranceClaims] = useState<any[]>([]);
@@ -39,12 +44,12 @@ export const InsurancePayments = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const now = new Date();
-  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-  const currentDate = now.toISOString().split('T')[0];
 
-  const [dateFrom, setDateFrom] = useState(currentMonthStart);
-  const [dateTo, setDateTo] = useState(currentDate);
+  const [dateFrom, setDateFrom] = useState(monthStart());
+  const [dateTo, setDateTo] = useState(today());
+
+  const [reviewAuth, setReviewAuth] = useState<any>(null);
+  const [approvedAmount, setApprovedAmount] = useState<string>('');
 
   useEffect(() => {
     const load = async () => {
@@ -72,7 +77,7 @@ export const InsurancePayments = () => {
     if (dateTo && c.CreatedAt > dateTo + 'T23:59:59') return false;
     if (!search) return true;
     const s = search.toLowerCase();
-    return c.ClaimNo?.toLowerCase().includes(s) || c.UHID?.toLowerCase().includes(s) || String(c.ServiceOrderId).includes(s);
+    return c.PreAuthNumber?.toLowerCase().includes(s) || c.UHID?.toLowerCase().includes(s) || String(c.ServiceOrderId).includes(s);
   });
 
   const filteredBills = advanceBills.filter(b => {
@@ -82,6 +87,31 @@ export const InsurancePayments = () => {
     const s = search.toLowerCase();
     return b.AdvanceNo?.toLowerCase().includes(s) || b.UHID?.toLowerCase().includes(s) || String(b.ServiceOrderId).includes(s);
   });
+
+  const handleReviewAction = async (status: 'Approved' | 'Rejected') => {
+    if (!reviewAuth) return;
+    try {
+      const res = await fetch(`${API_BASE}/insurance/pre-auths/${reviewAuth.PreAuthId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          status,
+          approvedAmount: Number(approvedAmount) || 0
+        })
+      });
+      if (!res.ok) throw new Error('Failed to update pre-authorization status');
+      
+      toast.success(`Pre-Authorization ${status}`);
+      setInsuranceClaims(prev => prev.map(c => 
+        c.PreAuthId === reviewAuth.PreAuthId 
+          ? { ...c, Status: status.toUpperCase(), ApprovedAmount: Number(approvedAmount) || 0 }
+          : c
+      ));
+      setReviewAuth(null);
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
 
   return (
     <div className="space-y-5">
@@ -133,7 +163,6 @@ export const InsurancePayments = () => {
         <div className="flex border-b border-slate-100 px-2 pt-2">
           {([
             { label: 'Insurance Authorization', value: 'insurance', icon: ShieldCheck },
-            { label: 'Payment Pending', value: 'payments', icon: DollarSign },
           ] as any[]).map((tab: any) => (
             <button
               key={tab.value}
@@ -186,20 +215,36 @@ export const InsurancePayments = () => {
                 <thead>
                   <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
                     <th className="px-4 py-3 text-left font-semibold">S.No</th>
-                    <th className="px-4 py-3 text-left font-semibold">Claim No</th>
+                    <th className="px-4 py-3 text-left font-semibold">Auth No</th>
                     <th className="px-4 py-3 text-left font-semibold">UHID</th>
-                    <th className="px-4 py-3 text-left font-semibold">Claim Amount</th>
+                    <th className="px-4 py-3 text-left font-semibold">Requested</th>
+                    <th className="px-4 py-3 text-left font-semibold">Approved</th>
                     <th className="px-4 py-3 text-left font-semibold">Status</th>
+                    <th className="px-4 py-3 text-center font-semibold">Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredClaims.map((claim: any, idx: number) => (
-                    <tr key={claim.ClaimId ?? idx} className="border-t border-slate-50 hover:bg-slate-50">
+                    <tr key={claim.PreAuthId ?? idx} className="border-t border-slate-50 hover:bg-slate-50">
                       <td className="px-4 py-3 text-slate-400">{idx + 1}</td>
-                      <td className="px-4 py-3 font-mono text-xs text-slate-600">{claim.ClaimNo}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-slate-600">{claim.PreAuthNumber || '—'}</td>
                       <td className="px-4 py-3 text-slate-600">{claim.UHID}</td>
-                      <td className="px-4 py-3 font-semibold text-slate-700">₹{parseFloat(claim.ClaimAmount ?? 0).toFixed(2)}</td>
+                      <td className="px-4 py-3 font-semibold text-slate-700">₹{parseFloat(claim.RequestedAmount ?? 0).toFixed(2)}</td>
+                      <td className="px-4 py-3 font-semibold text-slate-700">₹{parseFloat(claim.ApprovedAmount ?? 0).toFixed(2)}</td>
                       <td className="px-4 py-3"><StatusBadge status={claim.Status} /></td>
+                      <td className="px-4 py-3 text-center">
+                        {claim.Status === 'PENDING' && (
+                          <button
+                            onClick={() => {
+                              setReviewAuth(claim);
+                              setApprovedAmount(claim.RequestedAmount?.toString() || '0');
+                            }}
+                            className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-lg text-xs font-semibold hover:bg-emerald-100 transition-colors"
+                          >
+                            Review
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -237,6 +282,54 @@ export const InsurancePayments = () => {
           )
         )}
       </div>
+
+      {reviewAuth && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <h2 className="text-lg font-bold text-slate-800">Review Pre-Authorization</h2>
+              <button onClick={() => setReviewAuth(null)} className="p-2 hover:bg-slate-200 rounded-full">
+                <X className="w-5 h-5 text-slate-500" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="bg-slate-50 rounded-xl p-3 text-sm grid grid-cols-2 gap-2">
+                <div><span className="text-slate-500">Auth No:</span> <span className="font-semibold text-slate-700">{reviewAuth.PreAuthNumber || '—'}</span></div>
+                <div><span className="text-slate-500">UHID:</span> <span className="font-semibold text-slate-700">{reviewAuth.UHID}</span></div>
+                <div><span className="text-slate-500">Patient:</span> <span className="font-semibold text-slate-700">{reviewAuth.PatientName || '—'}</span></div>
+                <div><span className="text-slate-500">Requested:</span> <span className="font-semibold text-emerald-700">₹{parseFloat(reviewAuth.RequestedAmount || 0).toFixed(2)}</span></div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">Approved Amount (₹) <span className="text-red-500">*</span></label>
+                <input 
+                  type="text" 
+                  inputMode="numeric"
+                  value={approvedAmount}
+                  onChange={(e) => setApprovedAmount(e.target.value.replace(/\D/g, ''))}
+                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                  placeholder="Enter approved amount"
+                />
+              </div>
+
+              <div className="pt-2 flex gap-3">
+                <button 
+                  onClick={() => handleReviewAction('Rejected')}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-rose-50 text-rose-600 font-bold rounded-xl hover:bg-rose-100 transition-colors"
+                >
+                  <Ban className="w-4 h-4" /> Reject
+                </button>
+                <button 
+                  onClick={() => handleReviewAction('Approved')}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-colors"
+                >
+                  <CheckCircle className="w-4 h-4" /> Approve
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

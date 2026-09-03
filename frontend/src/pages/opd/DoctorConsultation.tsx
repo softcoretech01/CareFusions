@@ -96,6 +96,11 @@ export const DoctorConsultation = () => {
 
   // Backstop ref — declared here so all hooks are above the early-return guard.
   const syncingRef = useRef(false);
+  // Test names this component has already pushed, by category. Written before
+  // the await so two overlapping syncs cannot both decide to send the same test.
+  const pushedRef = useRef<{ Lab: Set<string>; Radiology: Set<string> }>({
+    Lab: new Set(), Radiology: new Set(),
+  });
 
   // ── Lab Tests from Master API ──
   const [apiLabTests, setApiLabTests] = useState<ApiLabTest[]>([]);
@@ -362,29 +367,50 @@ export const DoctorConsultation = () => {
    */
   const syncInvestigationOrders = async (): Promise<boolean> => {
     const sameVisitDay = (iso?: string) => !!iso && iso.slice(0, 10) === visit.date?.slice(0, 10);
-    const sentFor = (category: 'Lab' | 'Radiology') =>
-      new Set(
-        globalOrders
-          .filter(o => o.category === category && o.patientId === visit.uhid && sameVisitDay(o.orderedAt))
-          .flatMap(o => o.tests.map(t => t.name))
-      );
+    const norm = (n?: string) => (n ?? '').trim().toLowerCase();
 
-    const newLabs = visit.labOrders.filter(l => !sentFor('Lab').has(l.testName));
+    // Two sources of truth, because neither is sufficient alone:
+    //  - globalOrders is what the backend has confirmed, but it is refreshed
+    //    asynchronously AFTER the POST, so a second call landing before that
+    //    refresh saw an empty set and re-sent everything. That is how one entry
+    //    became five "Urine Routine" orders.
+    //  - pushedRef is what THIS component has already sent, updated
+    //    synchronously, so back-to-back calls cannot both think they are first.
+    // The backend now rejects duplicates regardless; these keep the pointless
+    // round trip from happening at all.
+    const sentFor = (category: 'Lab' | 'Radiology') => {
+      const confirmed = globalOrders
+        .filter(o => o.category === category && o.patientId === visit.uhid && sameVisitDay(o.orderedAt))
+        .flatMap(o => o.tests.map(t => norm(t.name)));
+      return new Set([...confirmed, ...pushedRef.current[category]]);
+    };
+
+    const newLabs = visit.labOrders.filter(l => !sentFor('Lab').has(norm(l.testName)));
     // A radiology order lacking a serviceName was loaded from the backend
     // (which drops the field). It was already pushed to the lab during the
     // session it was created. We cannot re-push it anyway because we'd send
     // 'Head' as the test name, creating a garbage duplicate.
-    const newRads = visit.radiologyOrders.filter(r => r.serviceName && !sentFor('Radiology').has(r.serviceName));
+    const newRads = visit.radiologyOrders.filter(r => r.serviceName && !sentFor('Radiology').has(norm(r.serviceName)));
 
     const mkId = () => Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
+
+    // One id for this whole submission. The lab tests and the scans a doctor
+    // ticks before pressing Update EMR are ONE clinical decision, but they go to
+    // two different endpoints and become two service orders — so without a
+    // shared id the PRO desk saw a separate row to review for each. Minted per
+    // sync, so the next time the doctor adds an order it is a new group and a
+    // new row.
+    const groupNo = `GRP-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
     let ok = true;
 
     if (newLabs.length > 0) {
+      newLabs.forEach(l => pushedRef.current.Lab.add(norm(l.testName)));
       // testId/testCode are what link the order line to Master_LabTest, which is
       // where NormalRange and Unit come from. Sending only the name left every
       // line without a reference range for the lab to report against.
       ok = await addGlobalInvestigationOrder({
         id: `LAB-${Date.now().toString().slice(-6)}`,
+        orderGroupNo: groupNo,
         type: 'OP',
         category: 'Lab',
         patientId: visit.uhid,
@@ -403,8 +429,10 @@ export const DoctorConsultation = () => {
     }
 
     if (newRads.length > 0) {
+      newRads.forEach(r => pushedRef.current.Radiology.add(norm(r.serviceName)));
       ok = await addGlobalInvestigationOrder({
         id: `RAD-${Date.now().toString().slice(-6)}`,
+        orderGroupNo: groupNo,
         type: 'OP',
         category: 'Radiology',
         patientId: visit.uhid,
@@ -416,7 +444,12 @@ export const DoctorConsultation = () => {
       }) && ok;
     }
 
-    if (!ok) toast.error('Some orders could not be sent to the Lab/Radiology worklist. Please retry.');
+    if (!ok) {
+      // A failed push must not stay marked as sent, or the retry the message
+      // asks for would find everything "already sent" and post nothing.
+      pushedRef.current = { Lab: new Set(), Radiology: new Set() };
+      toast.error('Some orders could not be sent to the Lab/Radiology worklist. Please retry.');
+    }
     return ok;
   };
 
@@ -485,7 +518,17 @@ export const DoctorConsultation = () => {
     // order this patient had ever had, so a legitimate repeat of the same test
     // on a later date was silently dropped, and neither copy passed testId — so
     // orders raised from here also arrived at the lab with no reference range.
-    const sent = await syncInvestigationOrders();
+    // The debounce, this button and handleRecommendAdmission all call the same
+    // sync. Only the debounce took the in-flight lock, so a click landing while
+    // it ran started a second concurrent push of the same orders.
+    if (syncingRef.current) return;
+    syncingRef.current = true;
+    let sent = false;
+    try {
+      sent = await syncInvestigationOrders();
+    } finally {
+      syncingRef.current = false;
+    }
     if (!sent) return;
 
     toast.success('EMR Updated Successfully');
@@ -513,8 +556,9 @@ export const DoctorConsultation = () => {
     // both the work and the charges.
     if (!visit.isFinalized) {
       handleFinalizeVisit();
-    } else {
-      syncInvestigationOrders();
+    } else if (!syncingRef.current) {
+      syncingRef.current = true;
+      syncInvestigationOrders().finally(() => { syncingRef.current = false; });
     }
     toast.success('Admission Request Sent to IPD');
   };

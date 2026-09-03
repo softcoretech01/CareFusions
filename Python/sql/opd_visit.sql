@@ -81,12 +81,14 @@ CREATE TABLE IF NOT EXISTS Trn_OpdVisitLabOrder (
     ClinicalNotes TEXT NULL,
     Status VARCHAR(50) NULL,
     Result TEXT NULL,
+    ResultSummary TEXT NULL,
     FOREIGN KEY (VisitId) REFERENCES Trn_OpdVisit(VisitId) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS Trn_OpdVisitRadiologyOrder (
     RadiologyOrderId INT AUTO_INCREMENT PRIMARY KEY,
     VisitId INT NOT NULL,
+    ServiceName VARCHAR(200) NULL,
     Modality VARCHAR(100) NULL,
     BodyPart VARCHAR(100) NULL,
     Indication TEXT NULL,
@@ -94,8 +96,34 @@ CREATE TABLE IF NOT EXISTS Trn_OpdVisitRadiologyOrder (
     ContrastRequired TINYINT(1) DEFAULT 0,
     SpecialInstructions TEXT NULL,
     Status VARCHAR(50) NULL,
+    Result TEXT NULL,
+    ResultSummary TEXT NULL,
     FOREIGN KEY (VisitId) REFERENCES Trn_OpdVisit(VisitId) ON DELETE CASCADE
 );
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Retrofit for databases created before these columns existed.
+--
+-- CREATE TABLE IF NOT EXISTS is a no-op on a table that already exists, so it
+-- never adds a new column to a live database -- only to a fresh one. SpOpdVisit
+-- selects L.ResultSummary and R.ResultSummary, so on every existing deployment
+-- GET /opd-visits/schedule failed with "Unknown column 'L.ResultSummary'", which
+-- surfaced in the browser as a CORS error (an unhandled 500 never reaches the
+-- CORS middleware) and left the whole OPD consultation screen blank.
+--
+-- Every schema change to the tables above needs a matching ALTER here.
+-- ─────────────────────────────────────────────────────────────────────────────
+ALTER TABLE hospital.Trn_OpdVisitLabOrder
+    ADD COLUMN IF NOT EXISTS ResultSummary TEXT NULL AFTER Result;
+
+ALTER TABLE hospital.Trn_OpdVisitRadiologyOrder
+    ADD COLUMN IF NOT EXISTS ServiceName VARCHAR(200) NULL AFTER VisitId;
+
+ALTER TABLE hospital.Trn_OpdVisitRadiologyOrder
+    ADD COLUMN IF NOT EXISTS Result TEXT NULL AFTER Status;
+
+ALTER TABLE hospital.Trn_OpdVisitRadiologyOrder
+    ADD COLUMN IF NOT EXISTS ResultSummary TEXT NULL AFTER Result;
 
 CREATE TABLE IF NOT EXISTS Trn_OpdVisitProcedure (
     ProcedureId INT AUTO_INCREMENT PRIMARY KEY,
@@ -185,6 +213,7 @@ BEGIN
                 SELECT JSON_ARRAYAGG(
                     JSON_OBJECT(
                         'id', R.RadiologyOrderId,
+                        'serviceName', R.ServiceName,
                         'modality', R.Modality,
                         'bodyPart', R.BodyPart,
                         'indication', R.Indication,
@@ -374,8 +403,9 @@ BEGIN
         -- Process Radiology Orders
         IF p_RadiologyOrdersJson IS NOT NULL THEN
             DELETE FROM hospital.Trn_OpdVisitRadiologyOrder WHERE VisitId = v_VisitId;
-            INSERT INTO hospital.Trn_OpdVisitRadiologyOrder (VisitId, Modality, BodyPart, Indication, Priority, ContrastRequired, SpecialInstructions, Status)
+            INSERT INTO hospital.Trn_OpdVisitRadiologyOrder (VisitId, ServiceName, Modality, BodyPart, Indication, Priority, ContrastRequired, SpecialInstructions, Status)
             SELECT v_VisitId, 
+                   JSON_UNQUOTE(JSON_EXTRACT(value, '$.serviceName')),
                    JSON_UNQUOTE(JSON_EXTRACT(value, '$.modality')),
                    JSON_UNQUOTE(JSON_EXTRACT(value, '$.bodyPart')),
                    JSON_UNQUOTE(JSON_EXTRACT(value, '$.indication')),

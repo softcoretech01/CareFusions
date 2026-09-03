@@ -1,5 +1,6 @@
 import logging
 import time
+from datetime import datetime
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -616,11 +617,21 @@ def request_discharge(admission_id: int, payload: DischargeRequest, db: Session 
 @router.patch("/admissions/{admission_id}/discharge")
 def discharge(admission_id: int, payload: DischargeRequest, db: Session = Depends(get_db)):
     try:
-        # Phase 10: Enforce Final Bill Clearance before discharge
-        adm_status = db.execute(text("SELECT FinancialStatus FROM hospital.IPD_Admission WHERE AdmissionId = :id"), {"id": admission_id}).scalar()
-        if adm_status and adm_status != 'CLEARED':
-            raise HTTPException(status_code=400, detail="Cannot discharge patient until Final IPD Bill is CLEARED.")
-            
+        # Financial clearance before discharge, decided from the LEDGER.
+        #
+        # This read one nullable status column and checked
+        # `if adm_status and adm_status != 'CLEARED'` -- so an admission whose
+        # FinancialStatus was NULL (which is every admission that never had it
+        # written) discharged with any outstanding balance. Fail-open on the last
+        # gate in the workflow.
+        blockers = _discharge_blockers(db, admission_id)
+        if blockers:
+            raise HTTPException(status_code=409, detail={
+                "message": "This patient cannot be discharged yet.",
+                "blockers": blockers,
+            })
+
+        
         _adm_sp(db, "DISCHARGE", admission_id=admission_id, summary=payload.dischargeSummary,
                 discharged_by=payload.dischargedBy, user=payload.user or "Admin")
         if payload.medicines:
@@ -643,89 +654,244 @@ def discharge(admission_id: int, payload: DischargeRequest, db: Session = Depend
         logger.error(f"[PATCH /ipd/admissions/{admission_id}/discharge] {e}")
         raise HTTPException(status_code=500, detail="Failed to discharge patient")
 
-@router.get("/admissions/{admission_id}/bill")
-def get_ipd_bill(admission_id: int, db: Session = Depends(get_db)):
+def compute_final_bill(db: Session, admission_id: int) -> dict:
+    """The IPD final bill, from the ledger.
+
+    Every number here was wrong before, in ways that all pushed the same
+    direction -- the patient was asked to pay too much, or discharged owing
+    money:
+
+    * services were charged at ``PROPrice - AuthorizedDiscount``, which ignores
+      Quantity (so a x3 item billed as x1) and ignores insurance (so the patient
+      was charged the insurer's share as well). ``PatientResponsibility`` is the
+      figure the PRO desk computed and the advance bill was raised against, and
+      it is what the patient owes;
+    * rejected and cancelled items were billed, so a service nobody performed
+      appeared as a charge;
+    * advances were summed by UHID across EVERY admission that patient had ever
+      had, so a previous stay's advance was credited against this bill;
+    * ``RefundedAmount`` was ignored, so money already handed back was still
+      counted as paid;
+    * only ``Status = 'PAID'`` advances counted, so a part-paid advance credited
+      nothing at all.
+
+    The advance figure now comes from ``Billing_PaymentAllocation`` joined to
+    ``Billing_Payment``, restricted to ACTIVE rows -- which is what makes
+    "do not credit a reversed payment" expressible at all.
     """
-    Phase 10: Compile IPD charges dynamically from Service_Order and Ward Charges.
+    adm = _adm_sp(db, "GETBYID", admission_id=admission_id).fetchone()
+    if not adm:
+        raise HTTPException(status_code=404, detail="Admission not found")
+
+    # ── Ward charges ────────────────────────────────────────────────────────
+    adm_date = adm.AdmissionDate
+    days = (datetime.now() - adm_date).days if adm_date else 1
+    if days <= 0:
+        days = 1
+
+    ward_charge = 0.0
+    try:
+        w_row = db.execute(text(
+            "SELECT TestPrice FROM admin.Master_WardCharge WHERE WardId = :wid"
+        ), {"wid": adm.CurrentWardId}).fetchone()
+        if w_row and w_row.TestPrice:
+            ward_charge = float(w_row.TestPrice)
+    except Exception:
+        pass
+    total_ward_charge = round(ward_charge * days, 2)
+
+    # ── Service charges: approved, live items only ──────────────────────────
+    svc_items = db.execute(text("""
+        SELECT soi.ServiceOrderItemId, soi.ItemName, soi.ItemType, soi.Quantity,
+               soi.GrossAmount, soi.AuthorizedDiscount, soi.NetAmount,
+               soi.InsuranceCoveredAmount, soi.PatientResponsibility,
+               soi.ServiceStatus, soi.PROStatus, so.OrderNo
+        FROM hospital.Service_OrderItem soi
+        JOIN hospital.Service_Order so ON so.ServiceOrderId = soi.ServiceOrderId
+        WHERE so.AdmissionId = :adm_id
+          AND soi.IsDeleted = 0
+          AND soi.PROStatus = 'APPROVED'
+          AND soi.ServiceStatus <> 'CANCELLED'
+          AND so.OrderStatus <> 'CANCELLED'
+        ORDER BY soi.ServiceOrderItemId
+    """), {"adm_id": admission_id}).fetchall()
+
+    services_breakdown = []
+    gross_services = discount_services = insurance_services = patient_services = 0.0
+    for item in svc_items:
+        services_breakdown.append({
+            "serviceOrderItemId": item.ServiceOrderItemId,
+            "orderNo": item.OrderNo,
+            "itemName": item.ItemName,
+            "itemType": item.ItemType,
+            "quantity": int(item.Quantity or 1),
+            "status": item.ServiceStatus,
+            "gross": float(item.GrossAmount or 0),
+            "discount": float(item.AuthorizedDiscount or 0),
+            "net": float(item.NetAmount or 0),
+            "insurance": float(item.InsuranceCoveredAmount or 0),
+            "amount": float(item.PatientResponsibility or 0),
+        })
+        gross_services += float(item.GrossAmount or 0)
+        discount_services += float(item.AuthorizedDiscount or 0)
+        insurance_services += float(item.InsuranceCoveredAmount or 0)
+        patient_services += float(item.PatientResponsibility or 0)
+
+    # ── Advance actually collected against THIS admission ───────────────────
+    # Only ACTIVE payments with ACTIVE allocations, net of refunds. Scoped to
+    # the admission through the service order, not to the patient.
+    advances_paid = float(db.execute(text("""
+        SELECT COALESCE(SUM(alloc.AllocatedAmount), 0)
+        FROM hospital.Billing_PaymentAllocation alloc
+        JOIN hospital.Billing_Payment pay ON pay.PaymentId = alloc.PaymentId
+        JOIN hospital.Service_Order so ON so.ServiceOrderId = alloc.ServiceOrderId
+        WHERE so.AdmissionId = :adm_id
+          AND alloc.Status = 'ACTIVE' AND pay.Status = 'ACTIVE'
+    """), {"adm_id": admission_id}).scalar() or 0)
+
+    refunded = float(db.execute(text("""
+        SELECT COALESCE(SUM(r.Amount), 0)
+        FROM hospital.Billing_Refund r
+        JOIN hospital.Service_Order so ON so.ServiceOrderId = r.ServiceOrderId
+        WHERE so.AdmissionId = :adm_id AND r.Status = 'PAID'
+    """), {"adm_id": admission_id}).scalar() or 0)
+
+    # Legacy advances predate the payment ledger: they were written straight to
+    # Billing_Advance.PaidAmount with no Billing_Payment row. Credit those too,
+    # but only the part no allocation already accounts for, so a bill is never
+    # credited twice for the same rupee.
+    legacy_paid = float(db.execute(text("""
+        SELECT COALESCE(SUM(GREATEST(0, adv.PaidAmount - adv.RefundedAmount - COALESCE(al.Allocated, 0))), 0)
+        FROM hospital.Billing_Advance adv
+        JOIN hospital.Service_Order so ON so.ServiceOrderId = adv.ServiceOrderId
+        LEFT JOIN (
+            SELECT alloc.AdvanceId, SUM(alloc.AllocatedAmount) AS Allocated
+            FROM hospital.Billing_PaymentAllocation alloc
+            JOIN hospital.Billing_Payment pay ON pay.PaymentId = alloc.PaymentId
+            WHERE alloc.Status = 'ACTIVE' AND pay.Status = 'ACTIVE'
+            GROUP BY alloc.AdvanceId
+        ) al ON al.AdvanceId = adv.AdvanceId
+        WHERE so.AdmissionId = :adm_id AND adv.IsDeleted = 0 AND adv.Status <> 'CANCELLED'
+    """), {"adm_id": admission_id}).scalar() or 0)
+
+    advance_available = round(advances_paid + legacy_paid - refunded, 2)
+
+    # ── Roll-up ─────────────────────────────────────────────────────────────
+    gross_charges = round(gross_services + total_ward_charge, 2)
+    net_charges = round(gross_charges - discount_services, 2)
+    # Ward charges are the patient's; only service lines carry insurance cover.
+    patient_responsibility = round(patient_services + total_ward_charge, 2)
+
+    advance_adjusted = round(min(advance_available, patient_responsibility), 2)
+    final_outstanding = round(patient_responsibility - advance_adjusted, 2)
+    refund_due = round(max(0.0, advance_available - patient_responsibility), 2)
+
+    return {
+        "admissionId": admission_id,
+        "patientName": adm.PatientName,
+        "uhid": adm.Uhid,
+        "daysAdmitted": days,
+        "roomCharges": total_ward_charge,
+        "servicesBreakdown": services_breakdown,
+        "totalServiceCharges": round(patient_services, 2),
+        "grossServiceCharges": round(gross_services, 2),
+        "pharmacyCharges": 0.0,
+        "grossCharges": gross_charges,
+        "discounts": round(discount_services, 2),
+        "netCharges": net_charges,
+        "insuranceReceivable": round(insurance_services, 2),
+        "patientResponsibility": patient_responsibility,
+        "advancesPaid": advance_available,
+        "advanceAdjusted": advance_adjusted,
+        "refundDue": refund_due,
+        "finalOutstanding": final_outstanding,
+        # Retained for the existing frontend, which reads these two names.
+        "totalBill": gross_charges,
+        "netPayable": final_outstanding,
+        "financialStatus": ('CLEARED' if final_outstanding <= 0.01 else 'PENDING'),
+    }
+
+
+def _discharge_blockers(db: Session, admission_id: int) -> list:
+    """Everything standing between this admission and a discharge.
+
+    Returns reasons rather than a bare boolean so the ward can see what to fix.
+    """
+    blockers = []
+
+    bill = compute_final_bill(db, admission_id)
+    if bill["finalOutstanding"] > 0.01:
+        blockers.append(
+            f"Outstanding balance of {bill['finalOutstanding']:.2f} on the final bill "
+            f"(patient responsibility {bill['patientResponsibility']:.2f}, "
+            f"advance adjusted {bill['advanceAdjusted']:.2f}).")
+
+    unpaid = db.execute(text("""
+        SELECT adv.AdvanceNo,
+               (adv.TotalAmount - adv.PaidAmount + adv.RefundedAmount) AS Outstanding
+        FROM hospital.Billing_Advance adv
+        JOIN hospital.Service_Order so ON so.ServiceOrderId = adv.ServiceOrderId
+        WHERE so.AdmissionId = :adm_id AND adv.IsDeleted = 0
+          AND adv.Status <> 'CANCELLED'
+          AND (adv.TotalAmount - adv.PaidAmount + adv.RefundedAmount) > 0.01
+    """), {"adm_id": admission_id}).fetchall()
+    for row in unpaid:
+        blockers.append(f"Advance bill {row.AdvanceNo} has {float(row.Outstanding):.2f} outstanding.")
+
+    in_flight = db.execute(text("""
+        SELECT soi.ItemName FROM hospital.Service_OrderItem soi
+        JOIN hospital.Service_Order so ON so.ServiceOrderId = soi.ServiceOrderId
+        WHERE so.AdmissionId = :adm_id AND soi.IsDeleted = 0
+          AND soi.ServiceStatus IN ('RELEASED', 'IN_PROGRESS')
+    """), {"adm_id": admission_id}).fetchall()
+    for row in in_flight:
+        blockers.append(f"Service '{row.ItemName}' is released but not yet completed.")
+
+    pending_auth = db.execute(text("""
+        SELECT pa.PreAuthNumber, UPPER(pa.Status) AS Status
+        FROM hospital.Ins_PreAuth pa
+        JOIN hospital.Service_Order so ON so.ServiceOrderId = pa.ServiceOrderId
+        WHERE so.AdmissionId = :adm_id
+          AND UPPER(pa.Status) IN ('PENDING', 'SUBMITTED')
+    """), {"adm_id": admission_id}).fetchall()
+    for row in pending_auth:
+        blockers.append(f"Insurance authorization {row.PreAuthNumber} is still {row.Status}.")
+
+    unreviewed = db.execute(text("""
+        SELECT COUNT(*) FROM hospital.Service_OrderItem soi
+        JOIN hospital.Service_Order so ON so.ServiceOrderId = soi.ServiceOrderId
+        WHERE so.AdmissionId = :adm_id AND soi.IsDeleted = 0
+          AND soi.PROStatus IN ('PENDING', 'UNDER_REVIEW')
+    """), {"adm_id": admission_id}).scalar()
+    if unreviewed:
+        blockers.append(f"{unreviewed} service(s) are still awaiting PRO review and pricing.")
+
+    return blockers
+
+
+@router.get("/admissions/{admission_id}/discharge-check")
+def discharge_check(admission_id: int, db: Session = Depends(get_db)):
+    """What is blocking this discharge, if anything.
+
+    Read-only, so the ward can see the position before pressing Discharge rather
+    than discovering it from a rejected request.
     """
     try:
-        adm = _adm_sp(db, "GETBYID", admission_id=admission_id).fetchone()
-        if not adm:
-            raise HTTPException(status_code=404, detail="Admission not found")
-            
-        # 1. Ward Charges (simplified: 1 day minimum)
-        from datetime import datetime
-        adm_date = adm.AdmissionDate
-        days = (datetime.now() - adm_date).days if adm_date else 1
-        if days <= 0: days = 1
-        
-        ward_charge = 1500.0 # Default mock ward charge
-        try:
-            w_row = db.execute(text("SELECT TestPrice FROM admin.Master_WardCharge WHERE WardId = :wid"), {"wid": adm.CurrentWardId}).fetchone()
-            if w_row and w_row.TestPrice: ward_charge = float(w_row.TestPrice)
-        except Exception:
-            pass
-            
-        total_ward_charge = ward_charge * days
-        
-        # 2. Service Charges (Lab, Radiology, etc) from Central Service_Order
-        svc_query = text("""
-            SELECT soi.ItemName, soi.ItemType, soi.PROPrice, soi.AuthorizedDiscount,
-                   soi.PatientResponsibility, soi.ServiceStatus
-            FROM hospital.Service_OrderItem soi
-            JOIN hospital.Service_Order so ON so.ServiceOrderId = soi.ServiceOrderId
-            WHERE so.AdmissionId = :adm_id AND soi.IsDeleted = 0
-        """)
-        svc_items = db.execute(svc_query, {"adm_id": admission_id}).fetchall()
-        
-        services_breakdown = []
-        total_service_charges = 0.0
-        
-        for item in svc_items:
-            net_price = float(item.PROPrice or 0) - float(item.AuthorizedDiscount or 0)
-            services_breakdown.append({
-                "itemName": item.ItemName,
-                "itemType": item.ItemType,
-                "status": item.ServiceStatus,
-                "amount": net_price
-            })
-            total_service_charges += net_price
-            
-        # 3. Advances Paid
-        advances_paid = 0.0
-        # SourceModule lives on Service_Order, not Billing_Advance, so the IPD filter has to come
-        # through the join. Sum PaidAmount (what was actually collected), not TotalAmount (what
-        # was demanded) — a PARTIALLY_PAID row would otherwise credit the patient the full bill.
-        adv_query = text("""
-            SELECT SUM(adv.PaidAmount)
-            FROM hospital.Billing_Advance adv
-            JOIN hospital.Service_Order so ON so.ServiceOrderId = adv.ServiceOrderId
-            WHERE adv.UHID = :uhid AND adv.Status = 'PAID'
-              AND so.SourceModule = 'IPD' AND adv.IsDeleted = 0
-        """)
-        try:
-            adv_res = db.execute(adv_query, {"uhid": adm.Uhid}).scalar()
-            if adv_res: advances_paid = float(adv_res)
-        except Exception:
-            pass
-        
-        total_bill = total_ward_charge + total_service_charges
-        net_payable = total_bill - advances_paid
-        
-        return {
-            "admissionId": admission_id,
-            "patientName": adm.PatientName,
-            "uhid": adm.Uhid,
-            "daysAdmitted": days,
-            "roomCharges": total_ward_charge,
-            "servicesBreakdown": services_breakdown,
-            "totalServiceCharges": total_service_charges,
-            "pharmacyCharges": 0.0,
-            "totalBill": total_bill,
-            "advancesPaid": advances_paid,
-            "netPayable": net_payable,
-            "financialStatus": adm.FinancialStatus or 'PENDING'
-        }
+        blockers = _discharge_blockers(db, admission_id)
+        return {"admissionId": admission_id, "canDischarge": not blockers,
+                "blockers": blockers}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[GET /ipd/admissions/{admission_id}/discharge-check] {e}")
+        raise HTTPException(status_code=500, detail="Failed to run the discharge check")
+
+
+@router.get("/admissions/{admission_id}/bill")
+def get_ipd_bill(admission_id: int, db: Session = Depends(get_db)):
+    """The IPD final bill: charges, insurance, advance adjustment, outstanding."""
+    try:
+        return compute_final_bill(db, admission_id)
     except HTTPException:
         raise
     except Exception as e:

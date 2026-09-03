@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Loader2, CheckCircle, IndianRupee, ShieldCheck, Eye, X } from 'lucide-react';
+import { Loader2, CheckCircle, IndianRupee, Eye } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { Card } from '../../components/ui/Card';
 import { DateFilter, monthStart, today } from '../../components/ui/DateFilter';
 import { fetchPatientCover, type PatientCover } from '../../utils/patientInsurance';
+import { OrderDetailDrawer } from '../../components/pro/OrderDetailDrawer';
+import { AdvancePaymentDialog } from '../../components/billing/AdvancePaymentDialog';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
 
@@ -21,6 +23,11 @@ interface AdvanceBill {
   Status: string;
   CreatedAt: string;
   UpdatedAt?: string | null;
+  // Resolved server-side from the service order behind the advance.
+  VisitType?: string | null;      // OP | IP | EMG
+  DepartmentName?: string | null;
+  DoctorName?: string | null;
+  ServiceSummary?: string | null;
 }
 
 const isPending = (b: AdvanceBill) => b.Status !== 'PAID' && b.Status !== 'CANCELLED';
@@ -30,13 +37,19 @@ const statusChip = (status: string) =>
     : status === 'CANCELLED' ? 'bg-slate-200 text-slate-600'
     : 'bg-amber-100 text-amber-700';
 
+// OP / IP / EMG are read at a glance, so they get distinct colours rather than
+// three identical grey pills.
+const visitChip = (visit: string) =>
+  visit === 'IP' ? 'bg-indigo-100 text-indigo-700'
+    : visit === 'EMG' ? 'bg-red-100 text-red-700'
+    : 'bg-sky-100 text-sky-700';
+
 const inr = (v: any) =>
   `₹${(parseFloat(v ?? 0) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const AdvancePayments = () => {
   const [bills, setBills] = useState<AdvanceBill[]>([]);
   const [loading, setLoading] = useState(true);
-  const [paying, setPaying] = useState<number | null>(null);
   const [fromDate, setFromDate] = useState(monthStart);
   const [toDate, setToDate] = useState(today);
 
@@ -58,18 +71,17 @@ const AdvancePayments = () => {
     fetchBills();
   }, []);
 
-  // An insured patient's advance is settled against their cover rather than
-  // collected at the counter, so the row offers that instead of a cash payment.
-  // Keyed by UHID because several bills can belong to one patient.
+  // Whatever cover each patient holds, for context inside the payment dialog.
+  // It is NOT a payment method: approved cover is deducted from what the patient
+  // owes at PRO review, so what reaches this screen is already the patient's own
+  // share. Keyed by UHID because several bills can belong to one patient.
   const [covers, setCovers] = useState<Record<string, PatientCover | null>>({});
-  const [coversLoading, setCoversLoading] = useState(false);
 
   useEffect(() => {
     const uhids = Array.from(new Set(bills.map(b => b.UHID).filter(Boolean)));
     const missing = uhids.filter(u => !(u in covers));
     if (missing.length === 0) return;
     let cancelled = false;
-    setCoversLoading(true);
     (async () => {
       const found = await Promise.all(missing.map(u => fetchPatientCover(u)));
       if (cancelled) return;
@@ -78,69 +90,28 @@ const AdvancePayments = () => {
         missing.forEach((u, i) => { next[u] = found[i]; });
         return next;
       });
-      setCoversLoading(false);
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bills]);
 
-  // Detail view. The advance row itself carries only money and a ServiceOrderId, so
-  // the order behind it is fetched on open — that is where the actual services being
-  // charged for live.
+  // Which advance's order the detail panel is showing. Null = closed.
+  //
+  // The panel is the same OrderDetailDrawer the PRO desk uses, fed by
+  // GET /pro/orders/{id}/detail. The old modal here showed four fields and a
+  // price table, and got them by pulling EVERY order for the patient's UHID and
+  // filtering client-side — so it could not show the patient, the admission, the
+  // advance's own receipts, the insurance authorization or the audit trail, and
+  // it re-implemented a view that already existed.
   const [viewing, setViewing] = useState<AdvanceBill | null>(null);
-  const [order, setOrder] = useState<any | null>(null);
-  const [orderLoading, setOrderLoading] = useState(false);
 
-  useEffect(() => {
-    if (!viewing) { setOrder(null); return; }
-    let cancelled = false;
-    setOrderLoading(true);
-    (async () => {
-      try {
-        const { data } = await axios.get(`${API_URL}/pro/orders/by-uhid/${encodeURIComponent(viewing.UHID)}`);
-        const match = Array.isArray(data)
-          ? data.find((o: any) => o.ServiceOrderId === viewing.ServiceOrderId)
-          : null;
-        if (!cancelled) setOrder(match ?? null);
-      } catch {
-        if (!cancelled) setOrder(null);
-      } finally {
-        if (!cancelled) setOrderLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [viewing]);
-
-  // Esc closes the detail view.
-  useEffect(() => {
-    if (!viewing) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setViewing(null); };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [viewing]);
-
-  const settle = async (bill: AdvanceBill, byInsurance: boolean) => {
-    setPaying(bill.AdvanceId);
-    try {
-      await axios.post(`${API_URL}/billing/advance/${bill.AdvanceId}/pay`, {
-        Amount: bill.TotalAmount,
-        PaymentMode: byInsurance ? 'INSURANCE' : 'CASH',
-        PaymentReference: byInsurance
-          ? `INS-${covers[bill.UHID]?.policyNumber || bill.UHID}`
-          : 'TXN-' + Math.floor(Math.random() * 100000),
-      });
-      toast.success(
-        byInsurance
-          ? `Advance Bill ${bill.AdvanceNo} settled by insurance. Services are now unlocked.`
-          : `Advance Bill ${bill.AdvanceNo} paid. Services are now unlocked.`
-      );
-      fetchBills();
-    } catch (error: any) {
-      toast.error(error.response?.data?.detail || 'Failed to process payment');
-    } finally {
-      setPaying(null);
-    }
-  };
+  // Which bill the payment dialog is collecting for. Null = closed.
+  //
+  // Payment used to happen the instant the button was pressed: the full total,
+  // with the method guessed from whether the patient had a policy on file. The
+  // dialog shows the cashier what they are collecting for, lets them choose a
+  // real payment method, and supports part payment.
+  const [payingBill, setPayingBill] = useState<AdvanceBill | null>(null);
 
   // Filters on the date the advance was raised, which is the "Raised On" column.
   const filteredBills = bills.filter(bill => {
@@ -185,22 +156,7 @@ const AdvancePayments = () => {
           onReset={() => { setFromDate(monthStart()); setToDate(today()); }}
         />
 
-        <div className="flex flex-wrap items-center gap-3 shrink-0">
-          <span className="bg-amber-50 text-amber-700 px-4 py-2 rounded-full font-medium text-sm flex items-center gap-2 border border-amber-200">
-            <IndianRupee className="w-4 h-4" />
-            {pendingBills.length} Bill{pendingBills.length === 1 ? '' : 's'} Pending Payment
-          </span>
-          {pendingBills.length > 0 && (
-            <span className="bg-slate-50 text-slate-600 px-4 py-2 rounded-full font-medium text-sm border border-slate-200">
-              Total Due <span className="font-bold text-slate-800">{inr(totalDue)}</span>
-            </span>
-          )}
-          {totalCollected > 0 && (
-            <span className="bg-emerald-50 text-emerald-700 px-4 py-2 rounded-full font-medium text-sm border border-emerald-200">
-              Collected <span className="font-bold">{inr(totalCollected)}</span>
-            </span>
-          )}
-        </div>
+
       </div>
 
       {filteredBills.length === 0 ? (
@@ -234,9 +190,11 @@ const AdvancePayments = () => {
             <table className="w-full text-sm text-left">
               <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200 text-xs uppercase tracking-wider">
                 <tr>
-                  <th className="px-6 py-4">Advance No</th>
+                  <th className="px-6 py-4">S.No</th>
+                  <th className="px-6 py-4">Patient</th>
                   <th className="px-6 py-4">UHID</th>
-                  <th className="px-6 py-4">Service Order</th>
+                  <th className="px-6 py-4">Department</th>
+                  <th className="px-6 py-4">Type</th>
                   <th className="px-6 py-4">Raised On</th>
                   <th className="px-6 py-4 text-right">Amount Due</th>
                   <th className="px-6 py-4">Status</th>
@@ -244,11 +202,17 @@ const AdvancePayments = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredBills.map((bill) => (
+                {filteredBills.map((bill, idx) => (
                   <tr key={bill.AdvanceId} className="hover:bg-slate-50/60 transition-colors">
-                    <td className="px-6 py-4 font-mono font-semibold text-slate-800">{bill.AdvanceNo}</td>
-                    <td className="px-6 py-4 text-slate-600">{bill.UHID}</td>
-                    <td className="px-6 py-4 text-slate-500">#{bill.ServiceOrderId}</td>
+                    <td className="px-6 py-4 text-slate-400">{idx + 1}</td>
+                    <td className="px-6 py-4 font-medium text-slate-700">{bill.PatientName || '—'}</td>
+                    <td className="px-6 py-4 text-slate-600 whitespace-nowrap">{bill.UHID}</td>
+                    <td className="px-6 py-4 text-slate-600">{bill.DepartmentName || '—'}</td>
+                    <td className="px-6 py-4">
+                      {bill.VisitType
+                        ? <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${visitChip(bill.VisitType)}`}>{bill.VisitType}</span>
+                        : <span className="text-slate-300">—</span>}
+                    </td>
                     <td className="px-6 py-4 text-slate-500 text-xs">
                       {new Date(bill.CreatedAt).toLocaleString('en-IN', {
                         day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
@@ -272,17 +236,14 @@ const AdvancePayments = () => {
                       </button>
                       {(() => {
                         const cover = covers[bill.UHID];
-                        const busy = paying === bill.AdvanceId;
 
-                        // Settled bills stay listed for the record, showing how they were
-                        // cleared rather than an action that would double-collect.
+                        // Settled bills stay listed for the record, showing how they
+                        // were cleared rather than an action that would double-collect.
                         if (!isPending(bill)) {
                           return (
                             <div className="text-xs text-slate-500 leading-snug min-w-0">
                               <span className="inline-flex items-center gap-1.5 font-semibold text-slate-600">
-                                {bill.PaymentMode?.toUpperCase() === 'INSURANCE'
-                                  ? <ShieldCheck className="w-3.5 h-3.5 text-sky-600" />
-                                  : <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />}
+                                <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
                                 {bill.PaymentMode || '—'}
                               </span>
                               {bill.PaymentReference && (
@@ -294,30 +255,16 @@ const AdvancePayments = () => {
                           );
                         }
 
-                        // Wait for the cover lookup rather than offering a cash
-                        // payment on a patient who turns out to be insured.
-                        if (coversLoading && !(bill.UHID in covers)) {
-                          return (
-                            <span className="flex items-center justify-center gap-2 text-xs text-slate-400">
-                              <Loader2 className="w-4 h-4 animate-spin" /> Checking cover…
-                            </span>
-                          );
-                        }
                         return (
                           <button
-                            onClick={() => settle(bill, !!cover)}
-                            disabled={paying !== null}
+                            onClick={() => setPayingBill(bill)}
                             title={cover
-                              ? `Covered by ${cover.insurerName || 'insurance'}${cover.policyNumber ? ` · policy ${cover.policyNumber}` : ''}`
+                              ? `Patient holds cover with ${cover.insurerName || 'an insurer'} — any approved cover is already deducted from the amount due`
                               : undefined}
-                            className={`w-full flex items-center justify-center gap-2 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
-                              cover ? 'bg-sky-600 hover:bg-sky-700' : 'bg-emerald-600 hover:bg-emerald-700'
-                            }`}
+                            className="w-full flex items-center justify-center gap-2 text-white text-xs font-semibold px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 transition-colors whitespace-nowrap"
                           >
-                            {busy
-                              ? <Loader2 className="w-4 h-4 animate-spin" />
-                              : cover ? <ShieldCheck className="w-4 h-4" /> : <IndianRupee className="w-4 h-4" />}
-                            {busy ? 'Processing...' : cover ? 'Insurance Covered' : 'Process Payment'}
+                            <IndianRupee className="w-4 h-4" />
+                            Proceed to Pay
                           </button>
                         );
                       })()}
@@ -331,134 +278,19 @@ const AdvancePayments = () => {
         </div>
       )}
 
-      {viewing && (() => {
-        const cover = covers[viewing.UHID];
-        const items: any[] = order?.Items ?? [];
-        return (
-          <div
-            className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4"
-            onClick={() => setViewing(null)}
-          >
-            <div
-              role="dialog"
-              aria-modal="true"
-              aria-label="Advance details"
-              onClick={e => e.stopPropagation()}
-              className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden"
-            >
-              <div className="px-6 py-4 bg-gradient-to-r from-emerald-700 to-teal-600 text-white flex items-start justify-between gap-3 shrink-0">
-                <div className="min-w-0">
-                  <h2 className="text-lg font-bold">Advance Details</h2>
-                  <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                    <span className="font-mono text-xs bg-white/15 rounded-md px-2 py-0.5">{viewing.AdvanceNo}</span>
-                    <span className="text-xs font-semibold bg-white/15 rounded-full px-2.5 py-0.5">{viewing.Status}</span>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setViewing(null)}
-                  aria-label="Close details"
-                  className="shrink-0 p-2 rounded-xl bg-white/15 hover:bg-white/25 transition-colors"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
+      <OrderDetailDrawer
+        orderId={viewing?.ServiceOrderId ?? null}
+        onClose={() => setViewing(null)}
+      />
 
-              <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                <section>
-                  <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Patient</h3>
-                  <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 grid grid-cols-2 gap-4 text-sm">
-                    <Detail label="Name" value={viewing.PatientName || order?.PatientName} />
-                    <Detail label="UHID" value={viewing.UHID} />
-                    <Detail
-                      label="Insurance"
-                      value={cover ? `${cover.insurerName || 'Covered'}${cover.policyNumber ? ` · ${cover.policyNumber}` : ''}` : 'Self pay'}
-                    />
-                    <Detail label="Valid Until" value={cover?.validUntil ? String(cover.validUntil).slice(0, 10) : null} />
-                  </div>
-                </section>
-
-                <section>
-                  <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">Advance</h3>
-                  <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 grid grid-cols-2 gap-4 text-sm">
-                    <Detail label="Amount Due" value={inr(viewing.TotalAmount)} />
-                    <Detail label="Paid Amount" value={viewing.PaidAmount != null ? inr(viewing.PaidAmount) : null} />
-                    <Detail label="Payment Mode" value={viewing.PaymentMode} />
-                    <Detail label="Reference" value={viewing.PaymentReference} />
-                    <Detail
-                      label="Raised On"
-                      value={new Date(viewing.CreatedAt).toLocaleString('en-IN', {
-                        day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
-                      })}
-                    />
-                    <Detail
-                      label={viewing.Status === 'PAID' ? 'Settled On' : 'Last Updated'}
-                      value={viewing.UpdatedAt
-                        ? new Date(viewing.UpdatedAt).toLocaleString('en-IN', {
-                            day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
-                          })
-                        : null}
-                    />
-                  </div>
-                </section>
-
-                <section>
-                  <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">
-                    Service Order #{viewing.ServiceOrderId}
-                  </h3>
-                  {orderLoading ? (
-                    <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm text-slate-400 italic flex items-center gap-2">
-                      <Loader2 className="w-4 h-4 animate-spin" /> Loading order…
-                    </div>
-                  ) : !order ? (
-                    <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm text-slate-500">
-                      The linked service order could not be loaded.
-                    </div>
-                  ) : (
-                    <>
-                      <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 grid grid-cols-2 gap-4 text-sm mb-3">
-                        <Detail label="Order No" value={order.OrderNo} />
-                        <Detail label="Type" value={`${order.OrderType} · ${order.SourceModule}`} />
-                        <Detail label="PRO Status" value={order.PROStatus} />
-                        <Detail label="Service Status" value={order.ServiceStatus} />
-                      </div>
-                      {items.length === 0 ? (
-                        <p className="text-sm text-slate-400 italic">No service items on this order.</p>
-                      ) : (
-                        <div className="border border-slate-200 rounded-2xl overflow-hidden divide-y divide-slate-100">
-                          {items.map((it: any) => (
-                            <div key={it.ServiceOrderItemId} className="flex items-center justify-between gap-3 px-4 py-3">
-                              <div className="min-w-0">
-                                <p className="font-semibold text-slate-700 truncate">{it.ItemName}</p>
-                                <p className="text-xs text-slate-400 mt-0.5">
-                                  {it.ItemType} · Qty: {it.Quantity ?? 1}
-                                </p>
-                              </div>
-                              <span className="font-bold text-slate-700 tabular-nums shrink-0">
-                                {inr(it.NetAmount ?? it.GrossAmount ?? it.OriginalPrice)}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </>
-                  )}
-                </section>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+      <AdvancePaymentDialog
+        bill={payingBill}
+        cover={payingBill ? covers[payingBill.UHID] : null}
+        onClose={() => setPayingBill(null)}
+        onPaid={fetchBills}
+      />
     </div>
   );
 };
-
-const Detail = ({ label, value }: { label: string; value: any }) => (
-  <div className="min-w-0">
-    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{label}</p>
-    <p className="font-semibold text-slate-700 break-words">
-      {value === null || value === undefined || value === '' ? '—' : value}
-    </p>
-  </div>
-);
 
 export default AdvancePayments;

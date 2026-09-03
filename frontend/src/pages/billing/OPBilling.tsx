@@ -3,7 +3,7 @@ import { Search, Plus, User, CheckCircle } from 'lucide-react';
 
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import { DateFilter } from '../../components/ui/DateFilter';
+import { DateFilter, monthStart, today } from '../../components/ui/DateFilter';
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
 
@@ -83,8 +83,8 @@ export const OPBilling = () => {
     return today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
   })();
 
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [dateFrom, setDateFrom] = useState(monthStart());
+  const [dateTo, setDateTo] = useState(today());
 
   const [successMsg, setSuccessMsg] = useState('');
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -212,7 +212,16 @@ export const OPBilling = () => {
     .filter(p => {
       // If the patient is currently in IPD (Admitted/Discharged but not fully billed), 
       // their OP bill is handled in the IP Billing screen.
-      return !admissions.some(a => a.uhid === p.uhid);
+      if (admissions.some(a => a.uhid === p.uhid)) return false;
+
+      // Only hide the visit if they actually PAID for a bill on or after the visit date.
+      // If they have a pending bill, keep it in this list as a reminder that the visit is unpaid.
+      const hasPaidBill = bills.some(b => 
+        b.Uhid === p.uhid && 
+        b.PaymentStatus === 'Paid' &&
+        localDay(b.BillDate) >= localDay(p.date)
+      );
+      return !hasPaidBill;
     })
     // Oldest first: the longest-outstanding visit is the one most at risk of
     // never being billed.
@@ -272,10 +281,10 @@ export const OPBilling = () => {
         const price = lookup(testPrices, lab.testName) ?? DEFAULT_LAB_FEE;
         newItems.push({
           id: `LAB-${idx}`,
-          description: (lab.testName || 'General Lab') + ' (Paid in Advance)',
+          description: lab.testName || 'General Lab',
           price,
           qty: 1,
-          total: 0
+          total: price
         });
       });
     }
@@ -283,15 +292,16 @@ export const OPBilling = () => {
     if (visit.radiologyOrders && visit.radiologyOrders.length > 0) {
       const billableRads = visit.radiologyOrders.filter((rad) => rad.status !== 'Cancelled');
       billableRads.forEach((rad, idx) => {
-        const price = lookup(radPrices, rad.testName) ?? DEFAULT_RADIOLOGY_FEE;
-        const name = rad.modality || rad.testName || 'Scan';
+        const testName = rad.serviceName || rad.testName;
+        const price = lookup(radPrices, testName) ?? DEFAULT_RADIOLOGY_FEE;
+        const name = testName || rad.modality || 'Scan';
         const fullName = (rad.bodyPart && name.toLowerCase() !== rad.bodyPart.toLowerCase()) ? `${name} for ${rad.bodyPart}` : name;
         newItems.push({
           id: `RAD-${idx}`,
-          description: fullName + ' (Paid in Advance)',
+          description: fullName,
           price,
           qty: 1,
-          total: 0
+          total: price
         });
       });
     }
@@ -492,8 +502,8 @@ export const OPBilling = () => {
                 dateTo={dateTo}
                 onDateFromChange={setDateFrom}
                 onDateToChange={setDateTo}
-                defaultDateFrom={todayStr}
-                defaultDateTo={todayStr}
+                defaultDateFrom={monthStart()}
+                defaultDateTo={today()}
               />
             </div>
           </div>
