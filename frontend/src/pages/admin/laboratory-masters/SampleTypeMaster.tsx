@@ -53,6 +53,19 @@ export const SampleTypeMaster = () => {
   
   // Filter States
   const [showFilters, setShowFilters] = useState(false);
+  const [filterStatus, setFilterStatus] = useState('');
+  const [filterCollection, setFilterCollection] = useState('');
+  const [filterStorage, setFilterStorage] = useState('');
+
+  const activeFilterCount = [filterStatus, filterCollection, filterStorage].filter(Boolean).length;
+
+  const clearAll = () => {
+    setSearchTerm('');
+    setFilterStatus('');
+    setFilterCollection('');
+    setFilterStorage('');
+    setCurrentPage(1);
+  };
 
   // Form States
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -190,13 +203,25 @@ export const SampleTypeMaster = () => {
     }
   };
 
+  // Options come from the data itself: collection method and storage temperature are
+  // free text on the master, so a fixed list would go stale the moment someone types
+  // something new.
+  const distinct = (key: keyof SampleTypeRecord) =>
+    Array.from(new Set(records.map(r => (r[key] || '').toString().trim()).filter(Boolean))).sort();
+
+  const collectionOptions = distinct('collectionMethod');
+  const storageOptions = distinct('storageTemperature');
+
   const filteredRecords = records.filter(record => {
-    const matchesSearch = 
+    const matchesSearch =
       record.sampleType.toLowerCase().includes(searchTerm.toLowerCase()) ||
       record.sampleCode.toLowerCase().includes(searchTerm.toLowerCase());
-    
 
-    return matchesSearch;
+    const matchesStatus = !filterStatus || record.status === filterStatus;
+    const matchesCollection = !filterCollection || record.collectionMethod === filterCollection;
+    const matchesStorage = !filterStorage || record.storageTemperature === filterStorage;
+
+    return matchesSearch && matchesStatus && matchesCollection && matchesStorage;
   });
 
   const _totalPages = Math.max(1, Math.ceil(filteredRecords.length / itemsPerPage));
@@ -236,10 +261,15 @@ export const SampleTypeMaster = () => {
                 />
               </div>
               <div className="flex items-center gap-2">
-              <button onClick={() => setShowFilters(!showFilters)} title="Filters" className={showFilters ? "p-2 border rounded-lg transition-colors border-primary bg-primary/5 text-primary" : "p-2 border rounded-lg transition-colors border-slate-200 text-slate-500 hover:bg-slate-50"}>
+              <button onClick={() => setShowFilters(!showFilters)} title="Filters" className={`relative ${showFilters || activeFilterCount > 0 ? "p-2 border rounded-lg transition-colors border-primary bg-primary/5 text-primary" : "p-2 border rounded-lg transition-colors border-slate-200 text-slate-500 hover:bg-slate-50"}`}>
                 <Filter className="w-4 h-4" />
+                {activeFilterCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-primary text-white text-[10px] font-bold flex items-center justify-center">
+                    {activeFilterCount}
+                  </span>
+                )}
               </button>
-              <button onClick={() => { setSearchTerm(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
+              <button onClick={clearAll} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
                 <X className="w-4 h-4" />
               </button>
               <button onClick={() => exportToExcel(records, 'SampleTypeMaster')} title="Export to Excel" className="p-2 border border-emerald-200 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 transition-colors">
@@ -254,10 +284,58 @@ export const SampleTypeMaster = () => {
                   initial={{ height: 0, opacity: 0 }}
                   animate={{ height: 'auto', opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
-                  className="border-b border-slate-200 bg-slate-50/50 p-4"
+                  className="border-b border-slate-200 bg-slate-50/50 p-4 overflow-hidden"
                 >
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-500 mb-1.5">Status</label>
+                      <select
+                        value={filterStatus}
+                        onChange={e => { setFilterStatus(e.target.value); setCurrentPage(1); }}
+                        className="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      >
+                        <option value="">All statuses</option>
+                        <option value="Active">Active</option>
+                        <option value="Inactive">Inactive</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-500 mb-1.5">Collection Method</label>
+                      <select
+                        value={filterCollection}
+                        onChange={e => { setFilterCollection(e.target.value); setCurrentPage(1); }}
+                        className="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      >
+                        <option value="">All methods</option>
+                        {collectionOptions.map(o => <option key={o} value={o}>{o}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-500 mb-1.5">Storage Temperature</label>
+                      <select
+                        value={filterStorage}
+                        onChange={e => { setFilterStorage(e.target.value); setCurrentPage(1); }}
+                        className="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                      >
+                        <option value="">All temperatures</option>
+                        {storageOptions.map(o => <option key={o} value={o}>{o}</option>)}
+                      </select>
+                    </div>
                   </div>
+
+                  {activeFilterCount > 0 && (
+                    <div className="flex items-center justify-between gap-3 mt-3 pt-3 border-t border-slate-200">
+                      <span className="text-xs text-slate-500">
+                        Showing <span className="font-semibold text-slate-700">{filteredRecords.length}</span> of {records.length} sample types
+                      </span>
+                      <button
+                        onClick={clearAll}
+                        className="text-xs font-semibold text-primary hover:underline"
+                      >
+                        Clear filters
+                      </button>
+                    </div>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>

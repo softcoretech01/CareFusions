@@ -232,6 +232,75 @@ def _default_hospital(db: Session) -> str:
         return ""
 
 
+def _ensure_detail_rows(db: Session, doctor_id: int, mapped: dict):
+    """Create any missing per-doctor detail rows before an update runs.
+
+    A doctor's professional, consultation and schedule details live in child
+    tables, and SpMasterDoctor's UPDATE branch is a plain UPDATE ... WHERE
+    DoctorId = ?. Only the INSERT branch ever creates those rows, so a doctor
+    saved without them -- or created before a section existed -- could never gain
+    them: editing the record updated zero rows and the values were silently
+    dropped, while the form happily reported success. Seed the row first and the
+    procedure's UPDATE then has something to write to.
+
+    The NOT NULL columns without defaults are why the values are coalesced rather
+    than inserted as NULL.
+    """
+    def s(key):
+        value = mapped.get(key)
+        return "" if value is None else str(value)
+
+    statements = [
+        ("""
+            INSERT INTO admin.Master_DoctorProfessional_Detail
+                (DoctorId, Qualification, Specialization, HospitalName, BranchName, DepartmentName, Designation)
+            SELECT :doctor_id, :qualification, :specialization, :hospital, :branch, :department, :designation
+            FROM DUAL
+            WHERE NOT EXISTS (
+                SELECT 1 FROM admin.Master_DoctorProfessional_Detail WHERE DoctorId = :doctor_id
+            )
+         """, {
+            "doctor_id": doctor_id, "qualification": s("qualification"),
+            "specialization": s("specialization"), "hospital": s("hospital"),
+            "branch": s("branch"), "department": s("department"), "designation": s("designation"),
+         }),
+        ("""
+            INSERT INTO admin.Master_DoctorConsultation_Detail
+                (DoctorId, ConsultationFee, OpDuration)
+            SELECT :doctor_id, :consultation_fee, :op_duration
+            FROM DUAL
+            WHERE NOT EXISTS (
+                SELECT 1 FROM admin.Master_DoctorConsultation_Detail WHERE DoctorId = :doctor_id
+            )
+         """, {
+            "doctor_id": doctor_id,
+            "consultation_fee": mapped.get("consultation_fee") or 0,
+            "op_duration": mapped.get("op_duration") or 0,
+         }),
+        ("""
+            INSERT INTO admin.Master_DoctorSchedule_Detail
+                (DoctorId, AvailableDays, FromTime, ToTime, SlotDuration)
+            SELECT :doctor_id, :available_days, :from_time, :to_time, :slot_duration
+            FROM DUAL
+            WHERE NOT EXISTS (
+                SELECT 1 FROM admin.Master_DoctorSchedule_Detail WHERE DoctorId = :doctor_id
+            )
+         """, {
+            "doctor_id": doctor_id,
+            "available_days": ",".join(mapped.get("available_days") or []) if isinstance(mapped.get("available_days"), list) else s("available_days"),
+            "from_time": s("from_time"), "to_time": s("to_time"),
+            "slot_duration": mapped.get("slot_duration") or 0,
+         }),
+    ]
+
+    for sql, params in statements:
+        try:
+            db.execute(text(sql), params)
+        except Exception as e:
+            # A section that cannot be seeded should not block the rest of the save.
+            logger.warning(f"[doctors/{doctor_id}] could not seed detail row: {e}")
+
+
 @router.post("/", response_model=DoctorResponse, status_code=status.HTTP_201_CREATED)
 def create_doctor(payload: DoctorCreate, db: Session = Depends(get_db)):
     try:
@@ -358,6 +427,7 @@ def update_doctor(doctor_id: int, payload: DoctorUpdate, db: Session = Depends(g
             "remarks": kwargs.get("remarks"),
             "modified_by": kwargs.get("modifiedBy")
         }
+        _ensure_detail_rows(db, doctor_id, mapped)
         _call_sp(db, "UPDATE", **mapped)
         _save_aadhaar(db, doctor_id, kwargs.get("aadhaarCard"))
         db.commit()
