@@ -38,6 +38,8 @@ export interface InvestigationOrder {
   orderedAt: string;
   priority?: string;
   clinicalNotes?: string;
+  // Present on IPD orders so a patient's history can be grouped by admission.
+  admissionId?: number | null;
   // Carried on radiology orders, which come from their own backend.
   age?: string;
   gender?: string;
@@ -283,6 +285,7 @@ export const InvestigationProvider = ({ children }: { children: ReactNode }) => 
           tests: order.tests.map(t => ({
             testId: t.testId ?? null,
             testName: t.name,
+            testName: t.name, // send both just in case
             testCode: t.testCode ?? t.name,
             bodyPart: t.bodyPart || null,
             isCritical: t.isCritical ?? false,

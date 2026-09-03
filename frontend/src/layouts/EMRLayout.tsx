@@ -6,9 +6,6 @@ import { useAppSelector } from '../hooks/redux';
 import { useAuthRedirect, ModuleOutlet } from '../components/auth/ModuleGuard';
 
 const EMRTopBar = () => {
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-  const name = 'Admin User';
 
   return (
     <header className="h-20 bg-white border-b border-slate-100 flex items-center justify-between px-8 sticky top-0 z-10 shadow-sm">

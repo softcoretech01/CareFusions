@@ -39,8 +39,12 @@ export const InsurancePayments = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const now = new Date();
+  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+  const currentDate = now.toISOString().split('T')[0];
+
+  const [dateFrom, setDateFrom] = useState(currentMonthStart);
+  const [dateTo, setDateTo] = useState(currentDate);
 
   useEffect(() => {
     const load = async () => {
@@ -84,7 +88,6 @@ export const InsurancePayments = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Insurance & Payments</h1>
-          <p className="text-slate-500 text-sm mt-1">Monitor insurance authorizations and pending payments (read-only)</p>
         </div>
         <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-sm shrink-0">
           <span className="text-slate-500 text-sm font-medium">From :</span>

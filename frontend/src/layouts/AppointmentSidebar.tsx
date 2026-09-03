@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, CalendarPlus, Stethoscope, Globe, ListOrdered, CalendarClock, ChevronRight, ChevronDown, LogOut } from 'lucide-react';
+import { LayoutDashboard, CalendarPlus, Globe, ChevronRight, ChevronDown, LogOut } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAppDispatch } from '../hooks/redux';
 import { logout } from '../redux/slices/authSlice';

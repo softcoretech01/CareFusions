@@ -6,6 +6,7 @@ from app.database import get_db
 from app.schemas.radiology import RadiologyOrderResponse, RadiologyTestUpdate, RadiologyOrderCreate
 import uuid
 from app.routers.services import create_service_order_internal
+from app.core import workflow_gate as gate
 from app.schemas.services import ServiceOrderCreate, ServiceOrderItemCreate, OrderTypeEnum, SourceModuleEnum
 
 router = APIRouter(
@@ -74,9 +75,23 @@ def get_radiology_orders(db: Session = Depends(get_db)):
             pass
         summary_map = {r.OrderTestId: getattr(r, 'ResultSummary', None) for r in summary_rows}
 
+        # Ensure OP orders are financially released before showing them to execution departments.
+        released_orders = db.execute(text("""
+            SELECT DISTINCT so.OrderNo 
+            FROM hospital.Service_Order so
+            JOIN hospital.Service_OrderItem soi ON so.ServiceOrderId = soi.ServiceOrderId
+            WHERE soi.ServiceStatus = 'RELEASED'
+        """)).scalars().all()
+        released_set = set(released_orders)
+
         orders_dict = {}
         for row in result:
             order_id = row.OrderId
+            
+            # Filter OP orders that are not released
+            if row.VisitType == 'OP' and row.OrderNumber not in released_set:
+                continue
+                
             if order_id not in orders_dict:
                 orders_dict[order_id] = {
                     "order_id": order_id,
@@ -212,20 +227,10 @@ def update_radiology_test(order_id: int, test_id: str, test_data: RadiologyTestU
         # We will assume test_id passed here is order_test_id.
         order_test_id_int = int(test_id.replace("TEST-", "")) if isinstance(test_id, str) and test_id.startswith("TEST-") else int(test_id)
         
-        # Phase 8: Enforce Service Release
-        release_query = text("""
-            SELECT soi.ServiceStatus
-            FROM hospital.Rad_Order h
-            JOIN hospital.Service_Order so ON so.OrderNo = h.OrderNumber
-            JOIN hospital.Rad_OrderTest t ON t.OrderId = h.OrderId
-            JOIN hospital.Service_OrderItem soi ON soi.ServiceOrderId = so.ServiceOrderId 
-                AND (soi.ItemName = t.TestName OR soi.ItemId = t.TestId)
-            WHERE t.OrderTestId = :test_id
-            LIMIT 1
-        """)
-        svc_status = db.execute(release_query, {"test_id": order_test_id_int}).scalar()
-        if svc_status and svc_status != 'RELEASED':
-            raise HTTPException(status_code=400, detail="This test cannot be executed because it has not passed financial clearance and Service Release.")
+        # Service-release gate, FAIL-CLOSED -- see the note in lab.py. An order
+        # the gate cannot resolve is refused rather than waved through.
+        gate.assert_rad_test_executable(db, order_test_id_int,
+                                        action="record this radiology result")
         
         result = _call_sp(
             db, "UPDATE_RESULT",

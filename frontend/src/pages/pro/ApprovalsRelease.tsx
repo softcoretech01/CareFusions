@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Loader, CheckCircle, XCircle, Clock, Activity, ChevronRight, Eye, Search, Calendar, X } from 'lucide-react';
+import { Loader, CheckCircle, XCircle, Clock, ChevronRight, Eye, Search, Calendar, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const API = (import.meta.env.VITE_API_URL as string || 'http://localhost:8000/api/v1') + '/pro';
@@ -29,7 +29,6 @@ const TABS = [
   { label: 'Pending Approval', value: 'pending', icon: Clock },
   { label: 'Approved', value: 'approved', icon: CheckCircle },
   { label: 'Rejected', value: 'rejected', icon: XCircle },
-  { label: 'Release Monitor', value: 'release', icon: Activity },
 ];
 
 export const ApprovalsRelease = () => {
@@ -39,8 +38,12 @@ export const ApprovalsRelease = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const now = new Date();
+  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+  const currentDate = now.toISOString().split('T')[0];
+
+  const [dateFrom, setDateFrom] = useState(currentMonthStart);
+  const [dateTo, setDateTo] = useState(currentDate);
 
   useEffect(() => {
     const load = async () => {
@@ -51,7 +54,6 @@ export const ApprovalsRelease = () => {
         if (activeTab === 'pending') url += '?status=PENDING';
         else if (activeTab === 'approved') url += '?status=APPROVED';
         else if (activeTab === 'rejected') url += '?status=REJECTED';
-        else url += '?status=APPROVED'; // Release Monitor shows approved orders
 
         const res = await fetch(url);
         if (!res.ok) throw new Error('Failed to load');
@@ -167,48 +169,13 @@ export const ApprovalsRelease = () => {
     </div>
   );
 
-  const renderReleaseMonitor = () => (
-    <div className="overflow-x-auto">
-      <div className="p-4 bg-blue-50 border-b border-blue-100">
-        <p className="text-sm text-blue-700 font-medium">
-          ℹ️ Service release is fully backend-controlled. Items are only released when PRO Approved + Payment Completed + Financial Cleared.
-        </p>
-      </div>
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
-            <th className="px-4 py-3 text-left font-semibold">S.No</th>
-            <th className="px-4 py-3 text-left font-semibold">Patient</th>
-            <th className="px-4 py-3 text-left font-semibold">PRO</th>
-            <th className="px-4 py-3 text-left font-semibold">Payment</th>
-            <th className="px-4 py-3 text-left font-semibold">Financial</th>
-            <th className="px-4 py-3 text-left font-semibold">Service Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {filtered.map((o: any, idx: number) => (
-            <tr key={o.ServiceOrderId} className="border-t border-slate-50 hover:bg-teal-50/20">
-              <td className="px-4 py-3 text-slate-400">{idx + 1}</td>
-              <td className="px-4 py-3 font-medium text-slate-700">{o.PatientName ?? '—'}</td>
-              <td className="px-4 py-3"><StatusBadge status={o.PROStatus} /></td>
-              <td className="px-4 py-3"><StatusBadge status={o.PaymentStatus} /></td>
-              <td className="px-4 py-3"><StatusBadge status={o.FinancialStatus} /></td>
-              <td className="px-4 py-3">
-                <StatusBadge status={o.Items?.[0]?.ServiceStatus ?? 'PENDING'} />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
+
 
   return (
     <div className="space-y-5">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Approvals & Release</h1>
-          <p className="text-slate-500 text-sm mt-1">Review pending services, track approvals, rejections, and release monitor</p>
         </div>
         <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-sm shrink-0">
           <span className="text-slate-500 text-sm font-medium">From :</span>
@@ -297,8 +264,7 @@ export const ApprovalsRelease = () => {
           </div>
         ) : activeTab === 'pending' ? renderPendingTab()
           : activeTab === 'approved' ? renderApprovedTab()
-            : activeTab === 'rejected' ? renderRejectedTab()
-              : renderReleaseMonitor()
+            : renderRejectedTab()
         }
       </div>
     </div>

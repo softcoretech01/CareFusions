@@ -288,7 +288,6 @@ export const NewAppointment = () => {
   const bookedSlots = formData.doctor && formData.date
     ? getBookedSlots(formData.doctor, formData.date, appointments)
     : new Set<string>();
-  }
 
   return (
     <div className="max-w-3xl mx-auto py-5">

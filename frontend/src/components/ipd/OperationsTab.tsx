@@ -130,7 +130,6 @@ export const OperationsTab = ({ patientId }: OperationsTabProps) => {
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Operation Summary</label>
                   <textarea
                     rows={4}
-                    className="w-full text-sm border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all resize-none shadow-sm"
                     value={op.summary || ''}
                     onChange={(e) => {
                       if (!isOT) return;
@@ -147,7 +146,6 @@ export const OperationsTab = ({ patientId }: OperationsTabProps) => {
                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Operation Result</label>
                   <textarea
                     rows={4}
-                    className="w-full text-sm border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all resize-none shadow-sm"
                     value={op.result || ''}
                     onChange={(e) => {
                       if (!isOT) return;

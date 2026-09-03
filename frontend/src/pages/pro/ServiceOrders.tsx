@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
@@ -57,6 +58,7 @@ const InfoRow = ({ label, value }: { label: string; value: any }) => (
 const ReviewModal = ({
   row, onClose, onRefresh,
 }: { row: any; onClose: () => void; onRefresh: () => void }) => {
+  const navigate = useNavigate();
   const orders: any[] = useMemo(() => row.orders ?? [], [row]);
   const multi = orders.length > 1;
 
@@ -83,7 +85,6 @@ const ReviewModal = ({
   const total = useMemo(() => {
     return Object.values(editedPrices).reduce((sum, val) => sum + val, 0);
   }, [editedPrices]);
-  const originalTotal = useMemo(() => orderTotals.reduce((a, b) => a + b, 0), [orderTotals]);
 
   // Esc closes the reject prompt first, then the review; page scroll stays locked behind it.
   useEffect(() => {
@@ -101,21 +102,13 @@ const ReviewModal = ({
     };
   }, [onClose, showRejectModal]);
 
-  // No advance splitting needed since PROPrice is set directly per item
-  const splitAdvance = useCallback(() => {
-    return orders.map(o => {
-      return (o.Items ?? []).reduce((sum: number, it: any) => sum + (editedPrices[it.ServiceOrderItemId] ?? 0), 0);
-    });
-  }, [orders, editedPrices]);
-
   const handleApprove = async () => {
     if (itemCount === 0) { toast.error('There are no service items to approve.'); return; }
     setSaving(true);
-    const parts = splitAdvance();
     const failed: string[] = [];
     try {
-      for (let i = 0; i < orders.length; i++) {
-        const order = orders[i];
+      for (const order of orders) {
+        const orderAdvance = (order.Items ?? []).reduce((sum: number, it: any) => sum + (editedPrices[it.ServiceOrderItemId] ?? 0), 0);
         try {
           const res = await fetch(`${API}/orders/${order.ServiceOrderId}/approve`, {
             method: 'POST',
@@ -131,7 +124,7 @@ const ReviewModal = ({
                   PatientResponsibility: amount,
                 };
               }),
-              AdvanceAmount: parts[i],
+              AdvanceAmount: orderAdvance,
             }),
           });
           if (!res.ok) {
@@ -146,7 +139,6 @@ const ReviewModal = ({
       if (failed.length === 0) {
         toast.success(multi ? `${orders.length} orders approved` : `Order ${orders[0].OrderNo} approved`);
         onClose();
-        navigate('/billing/advance-payments');
       } else if (failed.length === orders.length) {
         toast.error(failed[0]);
       } else {
@@ -465,8 +457,12 @@ const ServiceOrdersPage = ({ module }: { module: 'OPD' | 'IPD' | 'EMERGENCY' }) 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const now = new Date();
+  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+  const currentDate = now.toISOString().split('T')[0];
+
+  const [dateFrom, setDateFrom] = useState(currentMonthStart);
+  const [dateTo, setDateTo] = useState(currentDate);
   const [selectedRow, setSelectedRow] = useState<any>(null);
 
   const load = useCallback(async () => {
@@ -573,7 +569,6 @@ const ServiceOrdersPage = ({ module }: { module: 'OPD' | 'IPD' | 'EMERGENCY' }) 
           </div>
           <div>
             <h1 className="text-2xl font-bold text-slate-800">{config.label}</h1>
-            <p className="text-slate-500 text-sm">{config.description}</p>
           </div>
         </div>
 

@@ -1,9 +1,6 @@
 import { Stethoscope } from 'lucide-react';
 
 export const OPDTopBar = () => {
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-  const name = 'Dr. Michael Chen';
 
   return (
     <header className="h-20 bg-white border-b border-slate-100 flex items-center justify-between px-8 sticky top-0 z-10 shadow-sm">

@@ -91,7 +91,6 @@ export const PRODashboard = () => {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-slate-800">PRO Dashboard</h1>
-        <p className="text-slate-500 text-sm mt-1">Patient Relations Officer — Financial Review & Approval Control</p>
       </div>
 
       {/* KPI Cards — Row 1: Pending */}
