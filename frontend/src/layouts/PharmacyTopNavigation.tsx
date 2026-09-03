@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { LiveClock } from '../components/ui/LiveClock';
 import { useAppDispatch } from '../hooks/redux';
 import { logout } from '../redux/slices/authSlice';
+import { NotificationBell } from '../components/ui/NotificationBell';
 
 export const PharmacyTopNavigation = () => {
   const dispatch = useAppDispatch();
@@ -44,8 +45,7 @@ export const PharmacyTopNavigation = () => {
       </div>
 
       <div className="flex items-center gap-4">
-
-        
+        <NotificationBell />
         <div className="h-8 w-[1px] bg-border mx-2"></div>
 
         <div 

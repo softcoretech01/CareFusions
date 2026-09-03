@@ -182,6 +182,109 @@ def _req_sp(db, opt, **kw):
 # ── Row mappers ──────────────────────────────────────────────
 import json
 from sqlalchemy import text
+from app.routers._service_clearance import admission_has_cleared_operation
+
+
+def sync_operation_service_order(db: Session, admission_id: int):
+    """Mirror an admission's operations into a PRO service order.
+
+    Operations are captured as a JSON blob on IPD_Admission, which is invisible to
+    the PRO desk — it reads hospital.Service_Order. Lab and Radiology already write
+    one when their orders are placed; operations never did, so the PRO "Operations
+    Orders" screen was always empty no matter how many operations were recorded.
+
+    One OPERATION order per admission, kept in step with the blob:
+      * operations not yet on the order are added as PENDING items;
+      * items whose operation was removed are soft-deleted, but only while still
+        PENDING — once PRO has priced or approved one, it stays.
+    Existing items are never rewritten, so a PRO-adjusted price survives an edit
+    to the admission. Caller commits.
+    """
+    adm = db.execute(text("""
+        SELECT AdmissionId, AdmissionNumber, Uhid, OperationsData
+        FROM hospital.IPD_Admission WHERE AdmissionId = :id
+    """), {"id": admission_id}).fetchone()
+    if not adm or not adm.Uhid:
+        return
+
+    raw = adm.OperationsData
+    operations = (json.loads(raw) if isinstance(raw, str) else raw) or []
+    if not isinstance(operations, list):
+        return
+
+    # Name is the identity here: the blob's "id" is a master id that Minor and
+    # Major operations number separately, so it is not unique on its own.
+    wanted = {}
+    for op in operations:
+        name = (op or {}).get("name")
+        if name:
+            wanted[name] = op
+
+    order = db.execute(text("""
+        SELECT ServiceOrderId FROM hospital.Service_Order
+        WHERE AdmissionId = :id AND OrderType = 'OPERATION' AND IsDeleted = 0
+        LIMIT 1
+    """), {"id": admission_id}).fetchone()
+
+    if not order:
+        if not wanted:
+            return  # nothing to bill, so no empty order
+        db.execute(text("""
+            INSERT INTO hospital.Service_Order (
+                OrderNo, UHID, AdmissionId, OrderType, SourceModule,
+                OrderStatus, PROStatus, PaymentStatus, FinancialStatus,
+                ServiceStatus, AuthorizationStatus
+            ) VALUES (
+                :order_no, :uhid, :admission_id, 'OPERATION', 'IPD',
+                'ACTIVE', 'PENDING', 'UNPAID', 'NOT_CLEARED',
+                'NOT_RELEASED', 'NOT_REQUIRED'
+            )
+        """), {
+            "order_no": f"OPR-{adm.AdmissionNumber or admission_id}",
+            "uhid": adm.Uhid,
+            "admission_id": admission_id,
+        })
+        order_id = db.execute(text("SELECT LAST_INSERT_ID()")).scalar()
+    else:
+        order_id = order.ServiceOrderId
+
+    existing = db.execute(text("""
+        SELECT ServiceOrderItemId, ItemName, PROStatus FROM hospital.Service_OrderItem
+        WHERE ServiceOrderId = :oid AND IsDeleted = 0
+    """), {"oid": order_id}).fetchall()
+    existing_names = {r.ItemName for r in existing}
+
+    for name, op in wanted.items():
+        if name in existing_names:
+            continue
+        try:
+            charge = float(op.get("charge") or 0)
+        except (TypeError, ValueError):
+            charge = 0.0
+        db.execute(text("""
+            INSERT INTO hospital.Service_OrderItem (
+                ServiceOrderId, ItemType, ItemId, ItemName, Quantity,
+                MasterPrice, OriginalPrice, GrossAmount, NetAmount, PatientResponsibility,
+                PROStatus, PaymentStatus, FinancialStatus, ServiceStatus, AuthorizationStatus
+            ) VALUES (
+                :oid, 'OPERATION', :item_id, :name, 1,
+                :charge, :charge, :charge, :charge, :charge,
+                'PENDING', 'UNPAID', 'NOT_CLEARED', 'NOT_RELEASED', 'NOT_REQUIRED'
+            )
+        """), {
+            "oid": order_id,
+            "item_id": str(op.get("id") or ""),
+            "name": name,
+            "charge": charge,
+        })
+
+    for r in existing:
+        if r.ItemName not in wanted and r.PROStatus == 'PENDING':
+            db.execute(text("""
+                UPDATE hospital.Service_OrderItem SET IsDeleted = 1
+                WHERE ServiceOrderItemId = :iid
+            """), {"iid": r.ServiceOrderItemId})
+
 
 def _map_admission(r) -> dict:
     discharge_date    = getattr(r, "DischargeDate", None)
@@ -380,19 +483,7 @@ def list_admissions(db: Session = Depends(get_db)):
             if adm["dischargeInfo"] is not None:
                 adm["dischargeInfo"]["medicines"] = m_by_adm.get(r.AdmissionId, [])
                 
-            has_ot = False
-            try:
-                ot_query_broad = text("""
-                    SELECT 1 FROM hospital.Service_Order so
-                    JOIN hospital.Service_OrderItem soi ON so.ServiceOrderId = soi.ServiceOrderId
-                    WHERE so.AdmissionId = :adm_id AND soi.ServiceStatus IN ('RELEASED', 'COMPLETED') 
-                      AND (so.OrderType LIKE '%OT%' OR so.OrderType = 'SURGERY' OR soi.ItemType LIKE '%OT%')
-                    LIMIT 1
-                """)
-                has_ot = db.execute(ot_query_broad, {"adm_id": r.AdmissionId}).scalar() is not None
-            except Exception:
-                pass
-            adm["hasReleasedOT"] = has_ot
+            adm["hasReleasedOT"] = admission_has_cleared_operation(db, r.AdmissionId)
             
             out.append(adm)
         return out
@@ -430,28 +521,15 @@ def admit_patient(payload: AdmissionCreate, db: Session = Depends(get_db)):
             try:
                 ops_json = json.dumps(payload.operations)
                 db.execute(text("UPDATE hospital.IPD_Admission SET OperationsData = :ops WHERE AdmissionId = :id"), {"ops": ops_json, "id": row.AdmissionId})
+                sync_operation_service_order(db, row.AdmissionId)
                 db.commit()
             except Exception as e:
                 db.rollback()
                 logger.error(f"Failed to update OperationsData on admit: {e}")
         created = _adm_sp(db, "GETBYID", admission_id=row.AdmissionId).fetchone()
         
-        # Check for released OT
-        has_ot = False
-        try:
-            ot_query_broad = text("""
-                SELECT 1 FROM hospital.Service_Order so
-                JOIN hospital.Service_OrderItem soi ON so.ServiceOrderId = soi.ServiceOrderId
-                WHERE so.AdmissionId = :adm_id AND soi.ServiceStatus IN ('RELEASED', 'COMPLETED') 
-                  AND (so.OrderType LIKE '%OT%' OR so.OrderType = 'SURGERY' OR soi.ItemType LIKE '%OT%')
-                LIMIT 1
-            """)
-            has_ot = db.execute(ot_query_broad, {"adm_id": row.AdmissionId}).scalar() is not None
-        except Exception:
-            pass
-            
         r_dict = dict(created._mapping)
-        r_dict["HasReleasedOT"] = has_ot
+        r_dict["HasReleasedOT"] = admission_has_cleared_operation(db, row.AdmissionId)
         
         # Use a dummy object to pass dict items
         class DummyRow:
@@ -488,6 +566,7 @@ def allocate_bed(admission_id: int, payload: AllocateBed, db: Session = Depends(
             try:
                 ops_json = json.dumps(payload.operations)
                 db.execute(text("UPDATE hospital.IPD_Admission SET OperationsData = :ops WHERE AdmissionId = :id"), {"ops": ops_json, "id": admission_id})
+                sync_operation_service_order(db, admission_id)
                 db.commit()
             except Exception as e:
                 db.rollback()
@@ -502,6 +581,7 @@ def update_operations_emr(admission_id: int, payload: OperationsEMRUpdate, db: S
     try:
         ops_json = json.dumps(payload.operations)
         db.execute(text("UPDATE hospital.IPD_Admission SET OperationsData = :ops WHERE AdmissionId = :id"), {"ops": ops_json, "id": admission_id})
+        sync_operation_service_order(db, admission_id)
         db.commit()
         return {"message": "Operations updated"}
     except Exception as e:

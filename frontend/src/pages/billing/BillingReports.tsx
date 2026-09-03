@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Printer, Download, Eye, X, Shield, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { DateFilter } from '../../components/ui/DateFilter';
+import { DateFilter, monthStart, today } from '../../components/ui/DateFilter';
 import axios from 'axios';
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
@@ -10,8 +10,8 @@ export const BillingReports = () => {
   const navigate = useNavigate();
 
   const [bills, setBills] = useState<any[]>([]);
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
+  const [fromDate, setFromDate] = useState(monthStart);
+  const [toDate, setToDate] = useState(today);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedBill, setSelectedBill] = useState<any>(null);
 
@@ -115,9 +115,12 @@ export const BillingReports = () => {
         PatientId: a.UHID,
         PatientName: a.PatientName || a.UHID,
         Date: a.UpdatedAt || a.CreatedAt,
+        TotalAmount: Number(a.PaidAmount ?? a.TotalAmount ?? 0),
+        Discount: 0,
+        Tax: 0,
         NetAmount: Number(a.PaidAmount ?? 0),
         PaymentStatus: 'Paid',
-        Items: [],
+        Items: a.Items || [],
         isAdvance: true,
         ServiceOrderId: a.ServiceOrderId,
         PaymentMode: a.PaymentMode,
@@ -173,7 +176,7 @@ export const BillingReports = () => {
         bill.Type,
         bill.PatientName || 'Walk-in',
         new Date(bill.Date).toLocaleDateString(),
-        bill.NetAmount.toFixed(2),
+        Number(bill.NetAmount || 0).toFixed(2),
         bill.PaymentStatus
       ];
     });
@@ -208,10 +211,12 @@ export const BillingReports = () => {
                 dateTo={toDate}
                 onDateFromChange={setFromDate}
                 onDateToChange={setToDate}
+                defaultDateFrom={monthStart()}
+                defaultDateTo={today()}
                 searchQuery={searchQuery}
                 onSearchChange={setSearchQuery}
                 onSearch={() => {}}
-                onReset={() => { setFromDate(''); setToDate(''); setSearchQuery(''); }}
+                onReset={() => { setFromDate(monthStart()); setToDate(today()); setSearchQuery(''); }}
               />
             </div>
             <button 
@@ -267,7 +272,7 @@ export const BillingReports = () => {
                       <td className="px-6 py-4 text-slate-500 text-xs">
                         {new Date(bill.Date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                       </td>
-                      <td className="px-6 py-4 font-bold text-slate-800">₹{bill.NetAmount.toLocaleString()}</td>
+                      <td className="px-6 py-4 font-bold text-slate-800">₹{Number(bill.NetAmount ?? 0).toLocaleString()}</td>
                       <td className="px-6 py-4">
                         <span className={`px-2.5 py-1 text-xs font-bold rounded-md ${
                           isPaid ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
@@ -419,15 +424,15 @@ export const BillingReports = () => {
               <div className="border-t border-slate-100 pt-4 flex flex-col items-end gap-2 text-sm">
                 <div className="flex justify-between w-56 text-slate-600">
                   <span>Subtotal:</span>
-                  <span className="font-medium">₹{selectedBill.TotalAmount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                  <span className="font-medium">₹{Number(selectedBill.TotalAmount ?? selectedBill.NetAmount ?? 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                 </div>
                 <div className="flex justify-between w-56 text-slate-600">
                   <span>Discount:</span>
-                  <span className="font-medium text-emerald-600">-₹{selectedBill.Discount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                  <span className="font-medium text-emerald-600">-₹{Number(selectedBill.Discount ?? 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                 </div>
                 <div className="flex justify-between w-56 text-slate-600">
                   <span>Tax:</span>
-                  <span className="font-medium text-slate-800">₹{selectedBill.Tax.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                  <span className="font-medium text-slate-800">₹{Number(selectedBill.Tax ?? 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                 </div>
                 
                 {(() => {
@@ -440,7 +445,7 @@ export const BillingReports = () => {
                     <>
                       <div className={`flex justify-between w-56 text-lg font-bold pt-2 mt-2 border-t border-slate-100 ${hasInsurance ? 'text-slate-800' : 'text-primary'}`}>
                         <span>Total Bill:</span>
-                        <span>₹{selectedBill.NetAmount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                        <span>₹{Number(selectedBill.NetAmount ?? selectedBill.TotalAmount ?? 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                       </div>
 
                       {hasInsurance && (

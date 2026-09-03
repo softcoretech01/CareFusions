@@ -8,6 +8,8 @@ interface InvestigationsTabProps {
   admissionId: number;
   patientName: string;
   uhid: string;
+  doctorName?: string;
+  department?: string;
 }
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
@@ -18,7 +20,13 @@ interface RadiologyServiceOption {
   status: string;
 }
 
-export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({ admissionId, patientName, uhid }) => {
+export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({ 
+  admissionId, 
+  patientName, 
+  uhid, 
+  doctorName, 
+  department 
+}) => {
   // Orders + lab catalogue come from the shared Investigation context — the
   // SAME source the Lab and Radiology menus read from, so an order placed here
   // shows up there too.
@@ -99,6 +107,7 @@ export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({ admissionI
 
     setPlacing(true);
     const now = new Date().toISOString();
+    const orderingDoctor = (doctorName && doctorName.trim()) || 'Doctor';
     try {
       if (labTests.length > 0) {
         addOrder({
@@ -107,7 +116,7 @@ export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({ admissionI
           category: 'Lab',
           patientId: uhid,
           patientName,
-          orderedBy: 'Doctor',
+          orderedBy: orderingDoctor,
           orderedAt: now,
           tests: labTests.map((t, i) => ({
             id: `T-${Date.now()}-L${i}`,
@@ -127,7 +136,7 @@ export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({ admissionI
           category: 'Radiology',
           patientId: uhid,
           patientName,
-          orderedBy: 'Doctor',
+          orderedBy: orderingDoctor,
           orderedAt: now,
           tests: scanTests.map((t, i) => ({ id: `T-${Date.now()}-R${i}`, name: t.name, bodyPart: t.bodyPart, status: 'Pending' })),
           status: 'Pending',

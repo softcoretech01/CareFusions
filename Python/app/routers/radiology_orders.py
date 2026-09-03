@@ -6,6 +6,7 @@ from app.database import get_db
 from app.schemas.radiology import RadiologyOrderResponse, RadiologyTestUpdate, RadiologyOrderCreate
 import uuid
 from app.routers.services import create_service_order_internal
+from app.routers._service_clearance import blocked_order_numbers
 from app.schemas.services import ServiceOrderCreate, ServiceOrderItemCreate, OrderTypeEnum, SourceModuleEnum
 
 router = APIRouter(
@@ -113,6 +114,16 @@ def get_radiology_orders(db: Session = Depends(get_db)):
                     "acknowledged_by": _col(row, "AcknowledgedBy")
                 })
         
+        # Hold back scans the PRO desk has not cleared. Completed work is exempt —
+        # a finished scan and its report belong on the worklist whatever the
+        # billing state, and pulling them would lose results.
+        blocked = blocked_order_numbers(db, "RADIOLOGY")
+        if blocked:
+            return [
+                o for o in orders_dict.values()
+                if o["order_number"] not in blocked or str(o.get("status") or "").lower() == "completed"
+            ]
+
         return list(orders_dict.values())
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -122,6 +133,15 @@ def create_radiology_order(order_data: RadiologyOrderCreate, db: Session = Depen
     try:
         order_number = f"RAD-{str(uuid.uuid4())[:8].upper()}"
         
+        ordered_by = order_data.ordered_by
+        if (not ordered_by or ordered_by.strip() in ("Doctor", "doctor")) and order_data.uhid:
+            adm_doc = db.execute(
+                text("SELECT AdmittingDoctor FROM hospital.IPD_Admission WHERE Uhid = :uhid AND Status = 'Admitted' AND IsDeleted = 0 ORDER BY AdmissionId DESC LIMIT 1"),
+                {"uhid": order_data.uhid}
+            ).scalar()
+            if adm_doc and adm_doc.strip():
+                ordered_by = adm_doc.strip()
+
         query = text("""
             INSERT INTO hospital.Rad_Order (OrderNumber, Category, VisitType, Uhid, PatientName, OrderedBy, CreatedBy)
             VALUES (:order_number, :category, :visit_type, :uhid, :patient_name, :ordered_by, 'Admin')
@@ -133,7 +153,7 @@ def create_radiology_order(order_data: RadiologyOrderCreate, db: Session = Depen
             "visit_type": order_data.visit_type,
             "uhid": order_data.uhid,
             "patient_name": order_data.patient_name,
-            "ordered_by": order_data.ordered_by
+            "ordered_by": ordered_by
         })
         
         order_id = db.execute(text("SELECT LAST_INSERT_ID()")).scalar()

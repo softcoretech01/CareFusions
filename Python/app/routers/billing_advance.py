@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 from ..database import get_db
 from ..schemas import billing_advance as schemas
+from .pro import release_order_items
 import datetime
 
 router = APIRouter(
@@ -137,13 +138,11 @@ def pay_advance_bill(advance_id: int, payload: schemas.AdvancePaymentRequest, db
             WHERE ServiceOrderId = :ServiceOrderId
         """), {"ServiceOrderId": service_order_id})
         
-        # Phase 8: Insert hospital.Service_Release for all items in this order
-        db.execute(text("""
-            INSERT INTO hospital.Service_Release (ServiceOrderItemId, ReleaseDate, ReleasedBy, ReleaseStatus, ReleaseReason)
-            SELECT ServiceOrderItemId, NOW(), 'SYSTEM_BILLING_CLEARED', 'ACTIVE', 'Advance Bill Paid'
-            FROM hospital.Service_OrderItem
-            WHERE ServiceOrderId = :ServiceOrderId AND IsDeleted = 0
-        """), {"ServiceOrderId": service_order_id})
+        # Phase 8: release every item on the order. Guarded, because Service_Release
+        # permits one ACTIVE row per item: an order already released by another path
+        # (PRO auto-release, or a re-submitted payment) otherwise failed here with a
+        # raw "Duplicate entry ... for key 'ux_service_release_active'" 500.
+        release_order_items(db, service_order_id, 'SYSTEM_BILLING_CLEARED', 'Advance Bill Paid')
         
         db.commit()
         

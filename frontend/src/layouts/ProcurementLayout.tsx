@@ -1,6 +1,7 @@
 import { ProcurementSidebar } from './ProcurementSidebar';
 import { ProcurementProvider } from '../contexts/ProcurementContext';
 import { useAuthRedirect, ModuleOutlet } from '../components/auth/ModuleGuard';
+import { NotificationBell } from '../components/ui/NotificationBell';
 
 export const ProcurementLayout = () => {
   const authRedirect = useAuthRedirect();
@@ -20,13 +21,16 @@ export const ProcurementLayout = () => {
 
 
 
-          <div className="flex items-center gap-3">
-            <div className="text-right hidden sm:block">
-              <p className="text-sm font-bold text-slate-700">Procurement Manager</p>
-              <p className="text-xs font-medium text-slate-500">Admin</p>
-            </div>
-            <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-lg shadow-sm">
-              P
+          <div className="flex items-center gap-4">
+            <NotificationBell />
+            <div className="flex items-center gap-3">
+              <div className="text-right hidden sm:block">
+                <p className="text-sm font-bold text-slate-700">Procurement Manager</p>
+                <p className="text-xs font-medium text-slate-500">Admin</p>
+              </div>
+              <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-lg shadow-sm">
+                P
+              </div>
             </div>
           </div>
         </header>

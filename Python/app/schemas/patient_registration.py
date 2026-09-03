@@ -40,10 +40,6 @@ class PatientTypeEnum(str, Enum):
     ip = "IP"
     emergency = "Emergency"
 
-class StatusEnum(str, Enum):
-    active = "Active"
-    inactive = "Inactive"
-
 # --- Pydantic Models ---
 
 class PatientRegistrationBase(BaseModel):
@@ -104,10 +100,14 @@ class PatientRegistrationBase(BaseModel):
     EmailConsent: bool = False
     WhatsappConsent: bool = False
     
-    Status: StatusEnum = StatusEnum.active
     Remarks: Optional[str] = Field(None, max_length=250)
     IsQuickRegistration: bool = False
     RegistrationMode: int = 0
+    # How the patient reached us: "In-Person" or "Phone". RegistrationMode is the
+    # UI's numeric form of the same thing, but it has no column and no SP
+    # parameter, so it was silently dropped on save. This is the value that
+    # actually persists (SpPatientRegistration already takes p_RegistrationSource).
+    RegistrationSource: Optional[str] = Field(None, max_length=50)
 
 class PatientRegistrationCreate(PatientRegistrationBase):
     Uhid: Optional[str] = None
@@ -130,5 +130,4 @@ class OptionsResponse(BaseModel):
     EmergencyRelationship: List[str]
     YesNo: List[str]
     PatientType: List[str]
-    Status: List[str]
     BloodGroups: List[str]

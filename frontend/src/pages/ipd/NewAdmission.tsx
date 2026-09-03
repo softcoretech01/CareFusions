@@ -6,6 +6,7 @@ import { useDoctorSchedules } from '../../contexts/DoctorScheduleContext';
 import type { GlobalPatientRecord } from '../../contexts/PatientContext';
 import { UserPlus, Save, ArrowLeft, CheckCircle2, Bed, Stethoscope, BedDouble, Search, X, Syringe } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { fetchPatientCover } from '../../utils/patientInsurance';
 
 const API_BASE = import.meta.env.VITE_API_URL as string || 'http://localhost:8000/api/v1';
 
@@ -159,6 +160,46 @@ export const NewAdmission = () => {
       bloodGroup: (patient.bloodGroup as string) || prev.bloodGroup,
     }));
   }, [state, registeredPatients]);
+
+  // The policy the patient already holds, looked up by UHID. Admission does not
+  // ask for insurance details any more -- whatever is on file is what applies --
+  // so fetch it and show it read-only the moment Insurance is chosen.
+  const [policy, setPolicy] = useState<any | null>(null);
+  const [policyLoading, setPolicyLoading] = useState(false);
+
+  useEffect(() => {
+    const uhid = form.uhid.trim();
+    if (form.coverageType !== 'Insurance' || !uhid) {
+      setPolicy(null);
+      setPolicyLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setPolicyLoading(true);
+    (async () => {
+      const found = await fetchPatientCover(uhid);
+      if (!cancelled) {
+        setPolicy(found);
+        setPolicyLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [form.uhid, form.coverageType]);
+
+  // Carry the found policy into the fields the admission record still submits.
+  // They have no inputs any more, so this is the only way an insurance-covered
+  // admission is saved with the cover it is actually relying on.
+  useEffect(() => {
+    setForm(prev => ({
+      ...prev,
+      insuranceCompany: policy?.insurerName || '',
+      tpa: policy?.tpaName || '',
+      policyNumber: policy?.policyNumber || '',
+      policyEndDate: policy?.validUntil ? String(policy.validUntil).slice(0, 10) : '',
+      coPay: policy?.copayPercentage != null ? String(policy.copayPercentage) : '',
+      deductible: policy?.deductible != null ? String(policy.deductible) : '',
+    }));
+  }, [policy]);
 
   const roomsInWard = useMemo(() => {
     if (!form.wardId) return [];
@@ -462,65 +503,72 @@ export const NewAdmission = () => {
                 <option value="Insurance">Insurance</option>
               </select>
             </div>
-            {form.coverageType === 'Insurance' && (
-              <>
-                <div>
-                  <label className={labelCls}>Insurance Status</label>
-                  <select value={form.insuranceStatus} onChange={e => setForm({ ...form, insuranceStatus: e.target.value })} className={fieldCls()}>
-                    <option value="NOT_APPLICABLE">Not Applicable</option>
-                    <option value="PENDING">Pending Approval</option>
-                    <option value="APPROVED">Approved</option>
-                    <option value="REJECTED">Rejected</option>
-                  </select>
-                </div>
-                <div>
-                  <label className={labelCls}>Insurance Company</label>
-                  <input type="text" value={form.insuranceCompany} onChange={e => setForm({ ...form, insuranceCompany: e.target.value })} className={fieldCls()} placeholder="Company Name" />
-                </div>
-                <div>
-                  <label className={labelCls}>TPA</label>
-                  <input type="text" value={form.tpa} onChange={e => setForm({ ...form, tpa: e.target.value })} className={fieldCls()} placeholder="TPA" />
-                </div>
-                <div>
-                  <label className={labelCls}>Policy Number</label>
-                  <input type="text" value={form.policyNumber} onChange={e => setForm({ ...form, policyNumber: e.target.value })} className={fieldCls()} placeholder="Policy Number" />
-                </div>
-                <div>
-                  <label className={labelCls}>Member ID</label>
-                  <input type="text" value={form.memberId} onChange={e => setForm({ ...form, memberId: e.target.value })} className={fieldCls()} placeholder="Member ID" />
-                </div>
-                <div>
-                  <label className={labelCls}>Auth Number</label>
-                  <input type="text" value={form.preAuthNumber} onChange={e => setForm({ ...form, preAuthNumber: e.target.value })} className={fieldCls()} placeholder="Pre-Auth Number" />
-                </div>
-                <div>
-                  <label className={labelCls}>Auth Status</label>
-                  <select value={form.authStatus} onChange={e => setForm({ ...form, authStatus: e.target.value })} className={fieldCls()}>
-                    <option value="">Select Status</option>
-                    <option value="Pending">Pending</option>
-                    <option value="Approved">Approved</option>
-                    <option value="Denied">Denied</option>
-                  </select>
-                </div>
-                <div>
-                  <label className={labelCls}>Approved Amount</label>
-                  <input type="number" value={form.approvedAmount} onChange={e => setForm({ ...form, approvedAmount: e.target.value })} className={fieldCls()} placeholder="Amount" />
-                </div>
-                <div>
-                  <label className={labelCls}>Coverage %</label>
-                  <input type="number" value={form.coveragePercentage} onChange={e => setForm({ ...form, coveragePercentage: e.target.value })} className={fieldCls()} placeholder="%" />
-                </div>
-                <div>
-                  <label className={labelCls}>Deductible</label>
-                  <input type="number" value={form.deductible} onChange={e => setForm({ ...form, deductible: e.target.value })} className={fieldCls()} placeholder="Deductible" />
-                </div>
-                <div>
-                  <label className={labelCls}>Co-Pay</label>
-                  <input type="number" value={form.coPay} onChange={e => setForm({ ...form, coPay: e.target.value })} className={fieldCls()} placeholder="Co-Pay Amount" />
-                </div>
-              </>
-            )}
           </div>
+
+          {/* Cover already on file for this patient — read-only; admission does not edit it. */}
+          {form.coverageType === 'Insurance' && (
+            <div className="mt-4 border border-slate-100 bg-slate-50/50 rounded-2xl p-4">
+              <h3 className="text-sm font-bold text-slate-700 mb-3">Insurance on File</h3>
+
+              {!form.uhid.trim() ? (
+                <p className="text-sm text-slate-400 italic">Select a patient to see their cover.</p>
+              ) : policyLoading ? (
+                <p className="text-sm text-slate-400 italic">Checking for a policy…</p>
+              ) : !policy ? (
+                <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
+                  No insurance on file for {form.uhid} — nothing recorded at registration and no
+                  policy under Insurance &gt; Policies. Admit as Self Pay, or add the cover first.
+                </p>
+              ) : (
+                <>
+                  <div className="flex flex-wrap items-center gap-2 mb-3">
+                    <span className="text-sm font-bold text-slate-800">{policy.insurerName || '—'}</span>
+                    {policy.planName && (
+                      <span className="text-xs text-slate-500">· {policy.planName}</span>
+                    )}
+                    <span className={`text-xs px-2 py-1 rounded-full border font-semibold ${
+                      policy.status === 'Active'
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : 'bg-red-50 text-red-700 border-red-200'
+                    }`}>
+                      {policy.status || 'Unknown'}
+                    </span>
+                    {policy.networkHospital && (
+                      <span className="text-xs px-2 py-1 rounded-full border font-semibold bg-primary/10 text-primary border-primary/20">
+                        Network Hospital
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-3">
+                    {([
+                      ['Policy Number', policy.policyNumber],
+                      ['TPA', policy.tpaName],
+                      ['Valid Until', policy.validUntil ? String(policy.validUntil).slice(0, 10) : null],
+                      ['Sum Insured', policy.sumInsured != null ? `₹${Number(policy.sumInsured).toLocaleString('en-IN')}` : null],
+                      ['Balance', policy.balanceAmount != null ? `₹${Number(policy.balanceAmount).toLocaleString('en-IN')}` : null],
+                      ['Co-Pay', policy.copayPercentage != null ? `${policy.copayPercentage}%` : null],
+                      ['Deductible', policy.deductible != null ? `₹${Number(policy.deductible).toLocaleString('en-IN')}` : null],
+                      // Registration-sourced cover has no sum insured or balance, so
+                      // those rows are dropped rather than shown as empty dashes.
+                    ] as [string, string | null][]).filter(([, v]) => v).map(([label, value]) => (
+                      <div key={label}>
+                        <p className="text-[11px] uppercase tracking-wide text-slate-400 font-semibold">{label}</p>
+                        <p className="text-sm font-semibold text-slate-700 break-words">{value}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {policy.source === 'registration' && (
+                    <p className="text-xs text-slate-500 mt-3">
+                      From the patient's registration record. No formal policy exists under
+                      Insurance &gt; Policies, so there is no sum insured or balance to check against.
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+          )}
 
           {/* Visual Bed Selection */}
           {form.roomNumber && (

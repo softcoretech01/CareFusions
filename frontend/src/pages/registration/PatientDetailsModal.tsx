@@ -1,4 +1,4 @@
-import { X, User, Phone, MapPin, FileText, Heart, Activity, Shield } from 'lucide-react';
+import { X, User, Phone, MapPin, FileText, Heart, Shield } from 'lucide-react';
 
 interface PatientDetailsModalProps {
   patient: any;
@@ -48,10 +48,6 @@ export const PatientDetailsModal = ({ patient, onClose }: PatientDetailsModalPro
                   <span className="flex items-center gap-1.5 bg-slate-100 px-2.5 py-1 rounded-md">
                     <Phone className="w-3.5 h-3.5" />
                     {patient.mobileNumber || 'N/A'}
-                  </span>
-                  <span className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-md border border-emerald-100">
-                    <Activity className="w-3.5 h-3.5" />
-                    {patient.status}
                   </span>
                 </div>
               </div>
