@@ -6,7 +6,7 @@ from app.database import get_db
 from app.schemas.radiology import RadiologyOrderResponse, RadiologyTestUpdate, RadiologyOrderCreate
 import uuid
 from app.routers.services import create_service_order_internal
-from app.core import workflow_gate as gate
+from app.routers._service_clearance import blocked_order_numbers
 from app.schemas.services import ServiceOrderCreate, ServiceOrderItemCreate, OrderTypeEnum, SourceModuleEnum
 
 router = APIRouter(
@@ -75,23 +75,9 @@ def get_radiology_orders(db: Session = Depends(get_db)):
             pass
         summary_map = {r.OrderTestId: getattr(r, 'ResultSummary', None) for r in summary_rows}
 
-        # Ensure OP orders are financially released before showing them to execution departments.
-        released_orders = db.execute(text("""
-            SELECT DISTINCT so.OrderNo 
-            FROM hospital.Service_Order so
-            JOIN hospital.Service_OrderItem soi ON so.ServiceOrderId = soi.ServiceOrderId
-            WHERE soi.ServiceStatus = 'RELEASED'
-        """)).scalars().all()
-        released_set = set(released_orders)
-
         orders_dict = {}
         for row in result:
             order_id = row.OrderId
-            
-            # Filter OP orders that are not released
-            if row.VisitType == 'OP' and row.OrderNumber not in released_set:
-                continue
-                
             if order_id not in orders_dict:
                 orders_dict[order_id] = {
                     "order_id": order_id,
@@ -128,6 +114,16 @@ def get_radiology_orders(db: Session = Depends(get_db)):
                     "acknowledged_by": _col(row, "AcknowledgedBy")
                 })
         
+        # Hold back scans the PRO desk has not cleared. Completed work is exempt —
+        # a finished scan and its report belong on the worklist whatever the
+        # billing state, and pulling them would lose results.
+        blocked = blocked_order_numbers(db, "RADIOLOGY")
+        if blocked:
+            return [
+                o for o in orders_dict.values()
+                if o["order_number"] not in blocked or str(o.get("status") or "").lower() == "completed"
+            ]
+
         return list(orders_dict.values())
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -137,6 +133,15 @@ def create_radiology_order(order_data: RadiologyOrderCreate, db: Session = Depen
     try:
         order_number = f"RAD-{str(uuid.uuid4())[:8].upper()}"
         
+        ordered_by = order_data.ordered_by
+        if (not ordered_by or ordered_by.strip() in ("Doctor", "doctor")) and order_data.uhid:
+            adm_doc = db.execute(
+                text("SELECT AdmittingDoctor FROM hospital.IPD_Admission WHERE Uhid = :uhid AND Status = 'Admitted' AND IsDeleted = 0 ORDER BY AdmissionId DESC LIMIT 1"),
+                {"uhid": order_data.uhid}
+            ).scalar()
+            if adm_doc and adm_doc.strip():
+                ordered_by = adm_doc.strip()
+
         query = text("""
             INSERT INTO hospital.Rad_Order (OrderNumber, Category, VisitType, Uhid, PatientName, OrderedBy, CreatedBy)
             VALUES (:order_number, :category, :visit_type, :uhid, :patient_name, :ordered_by, 'Admin')
@@ -148,7 +153,7 @@ def create_radiology_order(order_data: RadiologyOrderCreate, db: Session = Depen
             "visit_type": order_data.visit_type,
             "uhid": order_data.uhid,
             "patient_name": order_data.patient_name,
-            "ordered_by": order_data.ordered_by
+            "ordered_by": ordered_by
         })
         
         order_id = db.execute(text("SELECT LAST_INSERT_ID()")).scalar()
@@ -227,10 +232,20 @@ def update_radiology_test(order_id: int, test_id: str, test_data: RadiologyTestU
         # We will assume test_id passed here is order_test_id.
         order_test_id_int = int(test_id.replace("TEST-", "")) if isinstance(test_id, str) and test_id.startswith("TEST-") else int(test_id)
         
-        # Service-release gate, FAIL-CLOSED -- see the note in lab.py. An order
-        # the gate cannot resolve is refused rather than waved through.
-        gate.assert_rad_test_executable(db, order_test_id_int,
-                                        action="record this radiology result")
+        # Phase 8: Enforce Service Release
+        release_query = text("""
+            SELECT soi.ServiceStatus
+            FROM hospital.Rad_Order h
+            JOIN hospital.Service_Order so ON so.OrderNo = h.OrderNumber
+            JOIN hospital.Rad_OrderTest t ON t.OrderId = h.OrderId
+            JOIN hospital.Service_OrderItem soi ON soi.ServiceOrderId = so.ServiceOrderId 
+                AND (soi.ItemName = t.TestName OR soi.ItemId = t.TestId)
+            WHERE t.OrderTestId = :test_id
+            LIMIT 1
+        """)
+        svc_status = db.execute(release_query, {"test_id": order_test_id_int}).scalar()
+        if svc_status and svc_status != 'RELEASED':
+            raise HTTPException(status_code=400, detail="This test cannot be executed because it has not passed financial clearance and Service Release.")
         
         result = _call_sp(
             db, "UPDATE_RESULT",

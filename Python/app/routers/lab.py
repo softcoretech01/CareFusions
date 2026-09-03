@@ -18,7 +18,7 @@ from app.schemas.lab import (
     OrderCreate, TestStatusUpdate, TestResultUpdate, VerifyIn, AckIn, QcCreate,
 )
 from app.routers.services import create_service_order_internal
-from app.core import workflow_gate as gate
+from app.routers._service_clearance import blocked_order_numbers
 from app.schemas.services import ServiceOrderCreate, ServiceOrderItemCreate, OrderTypeEnum, SourceModuleEnum
 
 logger = logging.getLogger(__name__)
@@ -184,27 +184,22 @@ def list_orders(category: Optional[str] = None,
     try:
         flt = {"Category": category, "Uhid": uhid, "FromDate": from_date, "ToDate": to_date}
         headers = _order_sp(db, "LIST", **flt).fetchall()
-        
-        # Ensure OP orders are financially released before showing them to execution departments.
-        released_orders = db.execute(text("""
-            SELECT DISTINCT so.OrderNo 
-            FROM hospital.Service_Order so
-            JOIN hospital.Service_OrderItem soi ON so.ServiceOrderId = soi.ServiceOrderId
-            WHERE soi.ServiceStatus = 'RELEASED'
-        """)).scalars().all()
-        released_set = set(released_orders)
-        
-        valid_headers = []
-        for h in headers:
-            if h.VisitType == 'OP' and h.OrderNumber not in released_set:
-                continue
-            valid_headers.append(h)
-            
         lines = _order_sp(db, "LISTTESTS", **flt).fetchall()
         by_order: dict = {}
         for t in lines:
             by_order.setdefault(t.OrderId, []).append(_map_test(t))
-        return [_map_order(h, by_order.get(h.OrderId, [])) for h in valid_headers]
+        orders = [_map_order(h, by_order.get(h.OrderId, [])) for h in headers]
+
+        # Hold back tests the PRO desk has not cleared. Completed work is exempt —
+        # a finished test and its result belong on the worklist whatever the
+        # billing state, and pulling them would lose results.
+        blocked = blocked_order_numbers(db, "LAB")
+        if blocked:
+            orders = [
+                o for o in orders
+                if o["id"] not in blocked or str(o.get("status") or "").lower() == "completed"
+            ]
+        return orders
     except Exception as e:
         logger.error(f"[GET /lab/orders] {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch orders")
@@ -242,11 +237,20 @@ def create_order(payload: OrderCreate, db: Session = Depends(get_db)):
         "testId": t.testId, "testCode": t.testCode, "testName": t.testName,
         "bodyPart": t.bodyPart, "normalRange": t.normalRange, "unit": t.unit,
     } for t in payload.tests])
+    ordered_by = payload.orderedBy
+    if (not ordered_by or ordered_by.strip() in ("Doctor", "doctor")) and payload.uhid:
+        adm_doc = db.execute(
+            text("SELECT AdmittingDoctor FROM hospital.IPD_Admission WHERE Uhid = :uhid AND Status = 'Admitted' AND IsDeleted = 0 ORDER BY AdmissionId DESC LIMIT 1"),
+            {"uhid": payload.uhid}
+        ).scalar()
+        if adm_doc and adm_doc.strip():
+            ordered_by = adm_doc.strip()
+
     try:
         row = _order_sp(db, "CREATE",
                         Category=payload.category.value, VisitType=payload.visitType.value,
                         Uhid=payload.uhid, PatientName=payload.patientName,
-                        OrderedBy=payload.orderedBy, Priority=payload.priority.value,
+                        OrderedBy=ordered_by, Priority=payload.priority.value,
                         ClinicalNotes=payload.clinicalNotes, Tests=tests_json,
                         User=payload.user or "Admin").fetchone()
         
@@ -312,15 +316,10 @@ def create_order(payload: OrderCreate, db: Session = Depends(get_db)):
 @router.patch("/orders/tests/{order_test_id}/status")
 def set_test_status(order_test_id: int, payload: TestStatusUpdate, db: Session = Depends(get_db)):
     try:
-        gate.assert_lab_test_executable(db, order_test_id,
-                                        action="change this lab test's status")
         _order_sp(db, "SETSTATUS", OrderTestId=order_test_id,
                   Status=payload.status.value, User=payload.user or "Admin")
         db.commit()
         return {"orderTestId": order_test_id, "status": payload.status.value}
-    except HTTPException:
-        db.rollback()
-        raise
     except Exception as e:
         db.rollback()
         logger.error(f"[PATCH /lab/orders/tests/{order_test_id}/status] {e}")
@@ -354,13 +353,20 @@ def set_test_result(order_test_id: int, payload: TestResultUpdate, db: Session =
             payload.resultValue, row.NormalRange, bool(row.CriticalValueAlert)
         )
         
-        # Service-release gate, FAIL-CLOSED. The previous version read
-        # "if svc_status and svc_status != 'RELEASED'", so a join that matched
-        # nothing left svc_status as None and the result was saved anyway --
-        # which is how lab orders with no service order behind them (18 of the
-        # 20 on this database) were executable with no PRO approval and no
-        # payment at all. An order the gate cannot resolve is now refused.
-        gate.assert_lab_test_executable(db, order_test_id, action="record this lab result")
+        # Phase 8: Enforce Service Release
+        release_query = text("""
+            SELECT soi.ServiceStatus
+            FROM hospital.Lab_Order h
+            JOIN hospital.Service_Order so ON so.OrderNo = h.OrderNumber
+            JOIN hospital.Lab_OrderTest t ON t.OrderId = h.OrderId
+            JOIN hospital.Service_OrderItem soi ON soi.ServiceOrderId = so.ServiceOrderId 
+                AND (soi.ItemName = t.TestName OR soi.ItemId = t.TestId)
+            WHERE t.OrderTestId = :test_id
+            LIMIT 1
+        """)
+        svc_status = db.execute(release_query, {"test_id": order_test_id}).scalar()
+        if svc_status and svc_status != 'RELEASED':
+            raise HTTPException(status_code=400, detail="This test cannot be executed because it has not passed financial clearance and Service Release.")
         
         _order_sp(db, "SETRESULT", OrderTestId=order_test_id,
                   ResultValue=payload.resultValue, ResultFile=payload.resultFile,
@@ -418,13 +424,9 @@ def set_test_result(order_test_id: int, payload: TestResultUpdate, db: Session =
 @router.post("/orders/tests/{order_test_id}/verify")
 def verify_test(order_test_id: int, payload: VerifyIn, db: Session = Depends(get_db)):
     try:
-        gate.assert_lab_test_executable(db, order_test_id, action="verify this lab test")
         _order_sp(db, "VERIFY", OrderTestId=order_test_id, User=payload.verifiedBy)
         db.commit()
         return {"orderTestId": order_test_id, "status": "Verified"}
-    except HTTPException:
-        db.rollback()
-        raise
     except Exception as e:
         db.rollback()
         logger.error(f"[POST /lab/orders/tests/{order_test_id}/verify] {e}")

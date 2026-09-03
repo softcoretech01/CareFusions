@@ -74,7 +74,6 @@ interface PatientRecord {
   emailConsent: boolean;
   whatsappConsent: boolean;
 
-  status: 'Active' | 'Inactive';
   remarks: string;
   isQuickRegistration: boolean;
   registrationMode: number;
@@ -113,7 +112,6 @@ const initialFormState: Omit<PatientRecord, 'id'> = {
   drivingLicense: '',
   nationalIdType: '',
   nationalIdNumber: '',
-  status: 'Active',
 
   emergencyContactName: '',
   emergencyRelationship: '',
@@ -141,7 +139,6 @@ const initialFormState: Omit<PatientRecord, 'id'> = {
   emailConsent: false,
   whatsappConsent: false,
 
-  status: 'Active',
   remarks: '',
   isQuickRegistration: false,
   registrationMode: 0
@@ -156,7 +153,7 @@ export const PatientRegistration = () => {
   const [options, setOptions] = useState<any>({
     Title: [], Gender: [], MaritalStatus: [], NationalIdType: [],
     EmergencyRelationship: [], YesNo: [], PatientType: [],
-    Status: [], BloodGroups: []
+    BloodGroups: []
   });
   
   const [insuranceProviders, setInsuranceProviders] = useState<any[]>([]);
@@ -245,7 +242,9 @@ export const PatientRegistration = () => {
           status: d.Status,
           remarks: d.Remarks,
           sourceType: 'Patient',
-          registrationMode: d.RegistrationMode ?? 0
+          // RegistrationSource is the persisted value; RegistrationMode never
+          // reaches the database, so it is only a fallback for older rows.
+          registrationMode: d.RegistrationSource === 'Phone' ? 1 : (d.RegistrationMode ?? 0)
         })));
       }
 
@@ -355,7 +354,6 @@ export const PatientRegistration = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [filterPatientType, setFilterPatientType] = useState('');
   const [filterGender, setFilterGender] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
   const today = new Date().toISOString().split('T')[0];
   const firstDay = `${today.split('-')[0]}-${today.split('-')[1]}-01`;
   const [dateFrom, setDateFrom] = useState('');
@@ -376,7 +374,6 @@ export const PatientRegistration = () => {
     setAppliedDateTo('');
     setFilterPatientType('');
     setFilterGender('');
-    setFilterStatus('');
   };
 
   const calculateAge = (dob: string) => {
@@ -500,13 +497,45 @@ export const PatientRegistration = () => {
   const confirmDelete = handleConfirmDeactivate;
 
 
-  const handleSave = async (e: React.FormEvent, isSaveAndNew: boolean = false) => {
-    e.preventDefault();
+  // Fields the patient record cannot exist without. Validated here (rather than
+  // letting the API reject the payload) so the user is told which field is
+  // missing and taken straight to it -- the form scrolls, so a required field
+  // is usually far below the Save button.
+  const requiredFields: { key: string; id: string; label: string }[] = [
+    { key: 'title', id: 'pr-title', label: 'Title' },
+    { key: 'patientName', id: 'pr-patientName', label: 'Patient Name' },
+    { key: 'gender', id: 'pr-gender', label: 'Gender' },
+    { key: 'dateOfBirth', id: 'pr-dateOfBirth', label: 'Date of Birth' },
+    { key: 'mobileNumber', id: 'pr-mobileNumber', label: 'Mobile Number' },
+  ];
 
-    if (!selectedRecord && !formData.remarks?.trim()) {
-      toast.error('Purpose of Visit is mandatory');
-      return;
+  const validateForm = (): boolean => {
+    const missing = requiredFields.find(f => !String(formData[f.key] ?? '').trim());
+    const firstMissing = missing
+      ? missing
+      : (!selectedRecord && !formData.remarks?.trim()
+          ? { id: 'pr-remarks', label: 'Purpose of Visit' }
+          : null);
+
+    if (!firstMissing) return true;
+
+    toast.error(`${firstMissing.label} is mandatory`);
+    const el = document.getElementById(firstMissing.id) as HTMLElement | null;
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.focus({ preventScroll: true });
     }
+    return false;
+  };
+
+  /**
+   * Persists the form and returns the saved record (mapped to the shape the
+   * rest of this page uses), or null when validation or the request failed.
+   * Kept separate from handleSave so "Book Appt" can save first and then hand
+   * the appointment flow a patient that actually exists in the database.
+   */
+  const savePatient = async (): Promise<any | null> => {
+    if (!validateForm()) return null;
 
     // Map frontend camelCase back to backend PascalCase
     const payload = {
@@ -558,10 +587,13 @@ export const PatientRegistration = () => {
       SmsConsent: formData.smsConsent ?? false,
       EmailConsent: formData.emailConsent ?? false,
       WhatsappConsent: formData.whatsappConsent ?? false,
-      Status: formData.status || 'Active',
       Remarks: formData.remarks || null,
       IsQuickRegistration: formData.isQuickRegistration ?? false,
-      RegistrationMode: formData.registrationMode ?? 0
+      RegistrationMode: formData.registrationMode ?? 0,
+      // RegistrationMode has no column; RegistrationSource is what the procedure
+      // stores, and it's what decides whether a booking joins today's waiting
+      // list (walk-in) or is only Scheduled (phone).
+      RegistrationSource: (formData.registrationMode ?? 0) === 1 ? 'Phone' : 'In-Person'
     };
 
     try {
@@ -589,33 +621,75 @@ export const PatientRegistration = () => {
       }
 
       if (res.ok) {
+        const saved = await res.json();
         toast.success(selectedRecord ? 'Patient updated successfully' : 'Patient registered successfully');
         await fetchPatients();
 
-        if (isSaveAndNew) {
-          setFormData({ ...initialFormState, uhid: '' });
-          setSelectedRecord(null);
-          // Fetch next UHID again for the new record
-          const nextRes = await fetch(`${API_BASE}/patients/next-uhid`);
-          if (nextRes.ok) {
-            const nextData = await nextRes.json();
-            setFormData(prev => ({ ...prev, uhid: nextData.uhid }));
-          }
-        } else {
-          setIsFormOpen(false);
-          setSelectedRecord(null);
-        }
-      } else {
-        const err = await res.json();
-        const errorMessage = Array.isArray(err.detail)
-          ? err.detail.map((e: any) => `${e.loc.join('.')}: ${e.msg}`).join(', ')
-          : (err.detail || 'Failed to save patient');
-        toast.error(errorMessage);
+        return {
+          ...formData,
+          id: saved.PatientId ?? saved.PatientRegistrationId,
+          uhid: saved.Uhid,
+          patientName: saved.PatientName,
+          gender: saved.Gender,
+          age: saved.Age,
+          mobileNumber: saved.MobileNumber,
+          email: saved.Email,
+          sourceType: 'Patient',
+        };
       }
+
+      const err = await res.json();
+      const errorMessage = Array.isArray(err.detail)
+        ? err.detail.map((e: any) => `${e.loc.join('.')}: ${e.msg}`).join(', ')
+        : (err.detail || 'Failed to save patient');
+      toast.error(errorMessage);
+      return null;
     } catch (error) {
       console.error(error);
       toast.error('Network error');
+      return null;
     }
+  };
+
+  const handleSave = async (e: React.FormEvent, isSaveAndNew: boolean = false) => {
+    e.preventDefault();
+
+    const saved = await savePatient();
+    if (!saved) return;
+
+    if (isSaveAndNew) {
+      setFormData({ ...initialFormState, uhid: '' });
+      setSelectedRecord(null);
+      // Fetch next UHID again for the new record
+      const nextRes = await fetch(`${API_BASE}/patients/next-uhid`);
+      if (nextRes.ok) {
+        const nextData = await nextRes.json();
+        setFormData(prev => ({ ...prev, uhid: nextData.uhid }));
+      }
+    } else {
+      setIsFormOpen(false);
+      setSelectedRecord(null);
+    }
+  };
+
+  /**
+   * "Book Appt" from inside the registration form. The form's UHID is only a
+   * preview of the number the backend will hand out next -- booking against it
+   * without saving produced an appointment whose UHID matched no patient. So
+   * register the patient first and book against the record we get back.
+   */
+  const handleBookAppointmentFromForm = async () => {
+    if (selectedRecord && selectedRecord.sourceType === 'Patient') {
+      setBookAppointmentPatient({ ...selectedRecord, ...formData, id: selectedRecord.id, sourceType: 'Patient' });
+      return;
+    }
+
+    const saved = await savePatient();
+    if (!saved) return;
+
+    setSelectedRecord(saved);
+    setFormData(prev => ({ ...prev, uhid: saved.uhid }));
+    setBookAppointmentPatient(saved);
   };
 
 
@@ -639,12 +713,11 @@ export const PatientRegistration = () => {
 
     const matchesPatientType = !filterPatientType || record.patientType === filterPatientType;
     const matchesGender = !filterGender || record.gender === filterGender;
-    const matchesStatus = !filterStatus || record.status === filterStatus;
 
     const recordDate = record.registrationDate ? record.registrationDate.substring(0, 10) : '';
     const matchesDate = (!appliedDateFrom || recordDate >= appliedDateFrom) && (!appliedDateTo || recordDate <= appliedDateTo);
 
-    return matchesSearch && matchesPatientType && matchesGender && matchesStatus && matchesDate;
+    return matchesSearch && matchesPatientType && matchesGender && matchesDate;
   });
 
   return (
@@ -852,7 +925,7 @@ export const PatientRegistration = () => {
                 variant="outline"
                 color="primary"
                 icon={CalendarPlus}
-                onClick={() => setBookAppointmentPatient(formData)}
+                onClick={handleBookAppointmentFromForm}
                 className="whitespace-nowrap bg-emerald-50 hover:bg-emerald-100"
               >
                 Book Appt
@@ -877,6 +950,7 @@ export const PatientRegistration = () => {
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Title <span className="text-red-500">*</span></label>
                   <select
+                    id="pr-title"
                     value={formData.title}
                     onChange={(e) => handleInputChange('title', e.target.value)}
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
@@ -887,6 +961,7 @@ export const PatientRegistration = () => {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Patient Name <span className="text-red-500">*</span></label>
                   <input
                     type="text"
+                    id="pr-patientName"
                     value={formData.patientName}
                     onChange={(e) => handleInputChange('patientName', e.target.value)}
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
@@ -897,6 +972,7 @@ export const PatientRegistration = () => {
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Gender <span className="text-red-500">*</span></label>
                   <select
+                    id="pr-gender"
                     value={formData.gender}
                     onChange={(e) => handleInputChange('gender', e.target.value)}
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
@@ -907,6 +983,7 @@ export const PatientRegistration = () => {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Date of Birth <span className="text-red-500">*</span></label>
                   <input
                     type="date"
+                    id="pr-dateOfBirth"
                     value={formData.dateOfBirth}
                     max={new Date().toISOString().split('T')[0]}
                     onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
@@ -973,6 +1050,7 @@ export const PatientRegistration = () => {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Mobile Number <span className="text-red-500">*</span></label>
                   <input
                     type="text"
+                    id="pr-mobileNumber"
                     value={formData.mobileNumber}
                     onChange={(e) => { const val = e.target.value; if (/^\d{0,10}$/.test(val)) handleInputChange('mobileNumber', val); }}
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary" placeholder="10-digit mobile number" maxLength={10} />
@@ -1346,22 +1424,12 @@ export const PatientRegistration = () => {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Purpose of Visit {!selectedRecord && <span className="text-red-500">*</span>}</label>
                   <input
                     type="text"
+                    id="pr-remarks"
                     value={formData.remarks}
                     onChange={(e) => handleInputChange('remarks', e.target.value)}
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
                     placeholder="e.g. General Checkup, Fever..."
                   />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Status <span className="text-red-500">*</span></label>
-                  <select
-                    value={formData.status}
-                    onChange={(e) => handleInputChange('status', e.target.value as 'Active' | 'Inactive')}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  >
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                  </select>
                 </div>
               </div>
             </div>

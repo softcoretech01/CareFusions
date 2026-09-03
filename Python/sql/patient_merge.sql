@@ -160,8 +160,7 @@ BEGIN
 
     -- ── Retire the duplicate, keeping a trail back to the survivor ───────────
     UPDATE registration.PatientRegistration
-    SET IsDeleted = 1, MergedIntoUhid = p_PrimaryUhid, MergedDate = NOW(), MergedBy = p_User,
-        Status = 'Merged'
+    SET IsDeleted = 1, MergedIntoUhid = p_PrimaryUhid, MergedDate = NOW(), MergedBy = p_User
     WHERE Uhid = p_SecondaryUhid COLLATE utf8mb4_general_ci;
 
     UPDATE registration.QuickRegistration

@@ -1,4 +1,5 @@
 import { Stethoscope } from 'lucide-react';
+import { NotificationBell } from '../components/ui/NotificationBell';
 
 export const OPDTopBar = () => {
 
@@ -7,7 +8,7 @@ export const OPDTopBar = () => {
       <div className="hidden md:block shrink-0"></div>
 
       <div className="flex items-center gap-4">
-
+        <NotificationBell />
         <div className="flex items-center gap-3">
           <div className="text-right">
             <p className="text-sm font-bold text-slate-800">Dr. Michael Chen</p>

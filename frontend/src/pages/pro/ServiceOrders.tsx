@@ -1,13 +1,14 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
 import {
   Search, X, CheckCircle, XCircle, Loader, Calendar,
   AlertCircle, ChevronRight, FileText, User, Pencil, Layers,
-  Stethoscope, BedDouble, Activity,
+  Stethoscope, BedDouble, Activity, ShieldCheck,
 } from 'lucide-react';
+import { fetchPatientCover } from '../../utils/patientInsurance';
+import { monthStart, today } from '../../components/ui/DateFilter';
 
 const API = (import.meta.env.VITE_API_URL as string || 'http://localhost:8000/api/v1') + '/pro';
 
@@ -58,7 +59,6 @@ const InfoRow = ({ label, value }: { label: string; value: any }) => (
 const ReviewModal = ({
   row, onClose, onRefresh,
 }: { row: any; onClose: () => void; onRefresh: () => void }) => {
-  const navigate = useNavigate();
   const orders: any[] = useMemo(() => row.orders ?? [], [row]);
   const multi = orders.length > 1;
 
@@ -66,6 +66,27 @@ const ReviewModal = ({
   const itemCount = useMemo(() => orders.reduce((n, o) => n + (o.Items?.length ?? 0), 0), [orders]);
 
   const [editedPrices, setEditedPrices] = useState<Record<number, number>>({});
+
+  // Whatever cover the patient holds, looked up by UHID. Shown read-only so the
+  // officer approving these prices can see who is actually paying — this screen
+  // does not edit the policy.
+  const [policy, setPolicy] = useState<any | null>(null);
+  const [policyLoading, setPolicyLoading] = useState(false);
+
+  useEffect(() => {
+    const uhid = (row.UHID || '').trim();
+    if (!uhid) { setPolicy(null); return; }
+    let cancelled = false;
+    setPolicyLoading(true);
+    (async () => {
+      const found = await fetchPatientCover(uhid);
+      if (!cancelled) {
+        setPolicy(found);
+        setPolicyLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [row.UHID]);
 
   useEffect(() => {
     const initial: Record<number, number> = {};
@@ -82,9 +103,16 @@ const ReviewModal = ({
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
 
+  // Approving an order that is already approved re-runs the auto-release and used to
+  // fail on the one-active-release-per-item constraint. The backend now tolerates it,
+  // but there is nothing to gain from sending it, so the button goes dead once every
+  // order in view has been reviewed.
+  const nothingToApprove = orders.length > 0 && !orders.some(isPendingOrder);
+
   const total = useMemo(() => {
     return Object.values(editedPrices).reduce((sum, val) => sum + val, 0);
   }, [editedPrices]);
+  const originalTotal = useMemo(() => orderTotals.reduce((a, b) => a + b, 0), [orderTotals]);
 
   // Esc closes the reject prompt first, then the review; page scroll stays locked behind it.
   useEffect(() => {
@@ -102,13 +130,21 @@ const ReviewModal = ({
     };
   }, [onClose, showRejectModal]);
 
+  // No advance splitting needed since PROPrice is set directly per item
+  const splitAdvance = useCallback(() => {
+    return orders.map(o => {
+      return (o.Items ?? []).reduce((sum: number, it: any) => sum + (editedPrices[it.ServiceOrderItemId] ?? 0), 0);
+    });
+  }, [orders, editedPrices]);
+
   const handleApprove = async () => {
     if (itemCount === 0) { toast.error('There are no service items to approve.'); return; }
     setSaving(true);
+    const parts = splitAdvance();
     const failed: string[] = [];
     try {
-      for (const order of orders) {
-        const orderAdvance = (order.Items ?? []).reduce((sum: number, it: any) => sum + (editedPrices[it.ServiceOrderItemId] ?? 0), 0);
+      for (let i = 0; i < orders.length; i++) {
+        const order = orders[i];
         try {
           const res = await fetch(`${API}/orders/${order.ServiceOrderId}/approve`, {
             method: 'POST',
@@ -124,7 +160,7 @@ const ReviewModal = ({
                   PatientResponsibility: amount,
                 };
               }),
-              AdvanceAmount: orderAdvance,
+              AdvanceAmount: parts[i],
             }),
           });
           if (!res.ok) {
@@ -139,6 +175,7 @@ const ReviewModal = ({
       if (failed.length === 0) {
         toast.success(multi ? `${orders.length} orders approved` : `Order ${orders[0].OrderNo} approved`);
         onClose();
+        navigate('/billing/advance-payments');
       } else if (failed.length === orders.length) {
         toast.error(failed[0]);
       } else {
@@ -250,6 +287,57 @@ const ReviewModal = ({
               </div>
             </section>
 
+            {/* Insurance on file — read-only; this screen approves prices, not cover. */}
+            <section>
+              <div className="flex items-center gap-2 mb-3">
+                <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400">Insurance</h3>
+              </div>
+
+              {policyLoading ? (
+                <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm text-slate-400 italic">
+                  Checking for a policy…
+                </div>
+              ) : !policy ? (
+                <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm text-slate-500">
+                  No insurance policy on file — this is a <span className="font-semibold text-slate-700">self-pay</span> patient.
+                </div>
+              ) : (
+                <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4">
+                  <div className="flex flex-wrap items-center gap-2 mb-4">
+                    <span className="text-sm font-bold text-slate-800">{policy.insurerName || '—'}</span>
+                    {policy.planName && <span className="text-xs text-slate-500">· {policy.planName}</span>}
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                      policy.status === 'Active'
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : 'bg-red-100 text-red-700'
+                    }`}>
+                      {policy.status || 'Unknown'}
+                    </span>
+                    {policy.networkHospital && (
+                      <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-emerald-50 text-emerald-600 border border-emerald-200">
+                        Network Hospital
+                      </span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                    <InfoRow label="Policy Number" value={policy.policyNumber} />
+                    <InfoRow label="TPA" value={policy.tpaName} />
+                    <InfoRow label="Valid Until" value={policy.validUntil ? String(policy.validUntil).slice(0, 10) : null} />
+                    {policy.sumInsured != null && <InfoRow label="Sum Insured" value={inr(policy.sumInsured)} />}
+                    {policy.balanceAmount != null && <InfoRow label="Balance" value={inr(policy.balanceAmount)} />}
+                    {policy.copayPercentage != null && <InfoRow label="Co-Pay" value={`${policy.copayPercentage}%`} />}
+                  </div>
+                  {policy.source === 'registration' && (
+                    <p className="text-xs text-slate-500 mt-3">
+                      From the patient's registration record — no formal policy exists under
+                      Insurance &gt; Policies, so there is no sum insured or balance to bill against.
+                    </p>
+                  )}
+                </div>
+              )}
+            </section>
+
             {/* Service Items */}
             <section>
               <div className="flex items-center justify-between gap-3 mb-3">
@@ -289,6 +377,18 @@ const ReviewModal = ({
                               <p className="text-xs text-slate-400 mt-0.5">{dash(item.ItemType)} · Qty: {item.Quantity ?? 1}</p>
                             </div>
                             <div className="flex items-center gap-3 shrink-0">
+                              {/* Who settles this line, alongside how far the review has got.
+                                  Held back while the cover lookup is still running so the row
+                                  does not flash SELF-PAY at an insured patient. */}
+                              {!policyLoading && (
+                                <span className={`text-[11px] px-2 py-1 rounded-full font-bold tracking-wide ${
+                                  policy
+                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                    : 'bg-slate-100 text-slate-500 border border-slate-200'
+                                }`}>
+                                  {policy ? 'INSURANCE' : 'SELF-PAY'}
+                                </span>
+                              )}
                               <StatusBadge status={item.PROStatus} />
                               <div className="relative w-28">
                                 <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-500 pointer-events-none">₹</span>
@@ -328,6 +428,14 @@ const ReviewModal = ({
               <span className="font-bold text-slate-700">{inr(total)}</span>
             </div>
 
+            {nothingToApprove && (
+              <p className="px-6 pt-3 text-xs text-slate-500">
+                {multi
+                  ? 'Every order here has already been reviewed — nothing left to approve.'
+                  : 'This order has already been reviewed.'}
+              </p>
+            )}
+
             <div className="px-6 py-4 flex gap-3">
               <button
                 onClick={() => setShowRejectModal(true)}
@@ -338,11 +446,12 @@ const ReviewModal = ({
               </button>
               <button
                 onClick={handleApprove}
-                disabled={saving || rejecting || itemCount === 0}
+                disabled={saving || rejecting || itemCount === 0 || nothingToApprove}
+                title={nothingToApprove ? 'Already reviewed — there is nothing left to approve' : undefined}
                 className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 text-white rounded-xl px-4 py-2.5 font-semibold hover:bg-emerald-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {saving ? <Loader className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
-                {saving ? 'Approving...' : multi ? 'Approve all' : 'Approve'}
+                {saving ? 'Approving...' : nothingToApprove ? 'Approved' : multi ? 'Approve all' : 'Approve'}
               </button>
             </div>
           </div>
@@ -421,6 +530,11 @@ const ReviewModal = ({
 };
 
 // ─── Module Config ────────────────────────────────────────────────────────────
+// Each screen owns a disjoint slice of the orders, so nothing shows up twice:
+// OPD and IPD are keyed by the module that raised the order but exclude
+// operations, and the Operations screen takes every OPERATION order regardless of
+// which module it came from — an operation on an IPD admission is still an
+// operation, and that is the desk that prices it.
 const MODULE_CONFIG = {
   OPD: {
     label: 'OPD Orders',
@@ -428,7 +542,7 @@ const MODULE_CONFIG = {
     icon: Stethoscope,
     color: 'text-blue-600',
     bg: 'bg-blue-50',
-    sourceModule: 'OPD',
+    query: 'source_module=OPD&exclude_order_type=OPERATION',
   },
   IPD: {
     label: 'IPD Orders',
@@ -436,15 +550,15 @@ const MODULE_CONFIG = {
     icon: BedDouble,
     color: 'text-indigo-600',
     bg: 'bg-indigo-50',
-    sourceModule: 'IPD',
+    query: 'source_module=IPD&exclude_order_type=OPERATION',
   },
   EMERGENCY: {
     label: 'Operations Orders',
-    description: 'Emergency & operation theatre service orders awaiting PRO review',
+    description: 'Operation theatre service orders awaiting PRO review',
     icon: Activity,
     color: 'text-purple-600',
     bg: 'bg-purple-50',
-    sourceModule: 'EMERGENCY',
+    query: 'order_type=OPERATION',
   },
 };
 
@@ -457,19 +571,15 @@ const ServiceOrdersPage = ({ module }: { module: 'OPD' | 'IPD' | 'EMERGENCY' }) 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const now = new Date();
-  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-  const currentDate = now.toISOString().split('T')[0];
-
-  const [dateFrom, setDateFrom] = useState(currentMonthStart);
-  const [dateTo, setDateTo] = useState(currentDate);
+  const [dateFrom, setDateFrom] = useState(monthStart);
+  const [dateTo, setDateTo] = useState(today);
   const [selectedRow, setSelectedRow] = useState<any>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API}/orders?source_module=${config.sourceModule}`);
+      const res = await fetch(`${API}/orders?${config.query}`);
       if (!res.ok) throw new Error(`Server error ${res.status}`);
       setOrders(await res.json());
     } catch (e: any) {
@@ -477,7 +587,7 @@ const ServiceOrdersPage = ({ module }: { module: 'OPD' | 'IPD' | 'EMERGENCY' }) 
     } finally {
       setLoading(false);
     }
-  }, [config.sourceModule]);
+  }, [config.query]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -569,6 +679,7 @@ const ServiceOrdersPage = ({ module }: { module: 'OPD' | 'IPD' | 'EMERGENCY' }) 
           </div>
           <div>
             <h1 className="text-2xl font-bold text-slate-800">{config.label}</h1>
+            <p className="text-slate-500 text-sm">{config.description}</p>
           </div>
         </div>
 
@@ -599,7 +710,7 @@ const ServiceOrdersPage = ({ module }: { module: 'OPD' | 'IPD' | 'EMERGENCY' }) 
             Search
           </button>
           <button
-            onClick={() => { setDateFrom(''); setDateTo(''); }}
+            onClick={() => { setDateFrom(monthStart()); setDateTo(today()); }}
             className="bg-slate-100 text-slate-700 px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-slate-200 transition-colors"
           >
             Cancel

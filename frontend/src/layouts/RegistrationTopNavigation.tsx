@@ -1,3 +1,5 @@
+import { NotificationBell } from '../components/ui/NotificationBell';
+
 export const RegistrationTopNavigation = () => {
   const name = 'Sarah Jenkins';
 
@@ -8,6 +10,7 @@ export const RegistrationTopNavigation = () => {
       </div>
 
       <div className="flex items-center gap-4">
+        <NotificationBell />
         <div className="flex items-center gap-3 cursor-pointer p-1.5 rounded-xl hover:bg-hover transition-colors">
           <div className="text-right hidden md:block mr-2">
             <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-0.5">Registration Desk</p>

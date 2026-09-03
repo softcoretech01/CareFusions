@@ -54,7 +54,6 @@ CREATE TABLE IF NOT EXISTS PatientRegistration (
     SmsConsent BOOLEAN,
     EmailConsent BOOLEAN,
     WhatsappConsent BOOLEAN,
-    Status VARCHAR(20),
     Remarks VARCHAR(250),
     CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UpdatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -120,7 +119,6 @@ CREATE PROCEDURE SpPatientRegistration(
     IN p_SmsConsent BOOLEAN,
     IN p_EmailConsent BOOLEAN,
     IN p_WhatsappConsent BOOLEAN,
-    IN p_Status VARCHAR(20),
     IN p_Remarks VARCHAR(250)
 )
 BEGIN
@@ -166,7 +164,7 @@ BEGIN
             Allergies, ChronicDiseases, CurrentMedication, OrganDonor, Disability,
             InsuranceRequired, InsuranceProvider, Tpa, PolicyNumber, ValidTill,
             PatientType, ReferredBy, PrimaryDoctor, Department, RegistrationSource,
-            PrivacyConsent, SmsConsent, EmailConsent, WhatsappConsent, Status, Remarks
+            PrivacyConsent, SmsConsent, EmailConsent, WhatsappConsent, Remarks
         ) VALUES (
             @new_uhid, p_RegistrationDate, p_Title, p_PatientName, p_Gender, p_DateOfBirth, p_Age,
             p_MaritalStatus, p_BloodGroup, p_Nationality, p_Religion, p_Occupation,
@@ -177,7 +175,7 @@ BEGIN
             p_Allergies, p_ChronicDiseases, p_CurrentMedication, p_OrganDonor, p_Disability,
             p_InsuranceRequired, p_InsuranceProvider, p_Tpa, p_PolicyNumber, p_ValidTill,
             p_PatientType, p_ReferredBy, p_PrimaryDoctor, p_Department, p_RegistrationSource,
-            p_PrivacyConsent, p_SmsConsent, p_EmailConsent, p_WhatsappConsent, p_Status, p_Remarks
+            p_PrivacyConsent, p_SmsConsent, p_EmailConsent, p_WhatsappConsent, p_Remarks
         );
         
         SET @new_id = LAST_INSERT_ID();
@@ -240,7 +238,6 @@ BEGIN
             SmsConsent = p_SmsConsent,
             EmailConsent = p_EmailConsent,
             WhatsappConsent = p_WhatsappConsent,
-            Status = p_Status,
             Remarks = p_Remarks
         WHERE PatientId = p_PatientId;
         

@@ -1,4 +1,5 @@
 import { useAppSelector } from '../hooks/redux';
+import { NotificationBell } from '../components/ui/NotificationBell';
 
 export const TopNavigation = () => {
   const user = useAppSelector((s) => s.auth.user);
@@ -13,6 +14,7 @@ export const TopNavigation = () => {
       <div className="hidden md:block shrink-0"></div>
 
       <div className="flex items-center gap-4 ml-8">
+        <NotificationBell />
         <div className="flex items-center gap-3 cursor-pointer p-1.5 rounded-xl hover:bg-hover transition-colors">
           <div className="text-right hidden md:block mr-2">
             <p className="text-xs font-bold text-primary uppercase tracking-wider mb-0.5">{role}</p>

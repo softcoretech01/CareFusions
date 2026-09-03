@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Printer, Download, Eye, X, Shield, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { DateFilter } from '../../components/ui/DateFilter';
+import { DateFilter, monthStart, today } from '../../components/ui/DateFilter';
 import axios from 'axios';
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
@@ -10,8 +10,8 @@ export const BillingReports = () => {
   const navigate = useNavigate();
 
   const [bills, setBills] = useState<any[]>([]);
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
+  const [fromDate, setFromDate] = useState(monthStart);
+  const [toDate, setToDate] = useState(today);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedBill, setSelectedBill] = useState<any>(null);
 
@@ -19,9 +19,11 @@ export const BillingReports = () => {
   const [, setPrescriptions] = useState<any[]>([]);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [ipBills, setIpBills] = useState<any[]>([]);
+  const [advances, setAdvances] = useState<any[]>([]);
 
   useEffect(() => {
     fetchBills();
+    fetchPaidAdvances();
     axios.get(`${API_BASE}/ip-billing/`).then(res => setIpBills(res.data)).catch(console.error);
   }, []);
 
@@ -101,7 +103,39 @@ export const BillingReports = () => {
     }
   };
 
-  const filteredBills = bills.filter(bill => {
+  // A collected advance disappears from the Advance Payments queue once it is paid, so surface it
+  // here as its own row type. It comes from Billing_Advance rather than Op/IpBill, which is all
+  // the billing-reports stored procedure knows about.
+  const fetchPaidAdvances = async () => {
+    try {
+      const { data } = await axios.get(`${API_BASE}/billing/advance/`, { params: { status: 'PAID' } });
+      setAdvances(data.map((a: any) => ({
+        BillNumber: a.AdvanceNo,
+        Type: 'ADV',
+        PatientId: a.UHID,
+        PatientName: a.PatientName || a.UHID,
+        Date: a.UpdatedAt || a.CreatedAt,
+        TotalAmount: Number(a.PaidAmount ?? a.TotalAmount ?? 0),
+        Discount: 0,
+        Tax: 0,
+        NetAmount: Number(a.PaidAmount ?? 0),
+        PaymentStatus: 'Paid',
+        Items: a.Items || [],
+        isAdvance: true,
+        ServiceOrderId: a.ServiceOrderId,
+        PaymentMode: a.PaymentMode,
+        PaymentReference: a.PaymentReference,
+      })));
+    } catch (error) {
+      console.error('Failed to fetch paid advances', error);
+    }
+  };
+
+  const allBills = [...bills, ...advances].sort(
+    (a, b) => new Date(b.Date).getTime() - new Date(a.Date).getTime()
+  );
+
+  const filteredBills = allBills.filter(bill => {
     const billDate = new Date(bill.Date);
     const startDate = fromDate ? new Date(fromDate) : null;
     const endDate = toDate ? new Date(toDate) : null;
@@ -110,9 +144,10 @@ export const BillingReports = () => {
     
     const matchesFrom = !startDate || billDate >= startDate;
     const matchesTo = !endDate || billDate <= endDate;
-    const matchesSearch = 
-      bill.BillNumber.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      bill.PatientName.toLowerCase().includes(searchQuery.toLowerCase());
+    const q = searchQuery.toLowerCase();
+    const matchesSearch =
+      (bill.BillNumber || '').toLowerCase().includes(q) ||
+      (bill.PatientName || '').toLowerCase().includes(q);
 
     return matchesFrom && matchesTo && matchesSearch;
   });
@@ -141,7 +176,7 @@ export const BillingReports = () => {
         bill.Type,
         bill.PatientName || 'Walk-in',
         new Date(bill.Date).toLocaleDateString(),
-        bill.NetAmount.toFixed(2),
+        Number(bill.NetAmount || 0).toFixed(2),
         bill.PaymentStatus
       ];
     });
@@ -176,10 +211,12 @@ export const BillingReports = () => {
                 dateTo={toDate}
                 onDateFromChange={setFromDate}
                 onDateToChange={setToDate}
+                defaultDateFrom={monthStart()}
+                defaultDateTo={today()}
                 searchQuery={searchQuery}
                 onSearchChange={setSearchQuery}
                 onSearch={() => {}}
-                onReset={() => { setFromDate(''); setToDate(''); setSearchQuery(''); }}
+                onReset={() => { setFromDate(monthStart()); setToDate(today()); setSearchQuery(''); }}
               />
             </div>
             <button 
@@ -217,11 +254,16 @@ export const BillingReports = () => {
                 ) : filteredBills.map(bill => {
                   const isPaid = bill.PaymentStatus === 'Paid';
                   const isIP = bill.Type === 'IP';
+                  const isAdvance = !!bill.isAdvance;
                   return (
                     <tr key={bill.BillNumber} className="hover:bg-slate-50/60 transition-colors">
                       <td className="px-6 py-4 font-mono font-semibold text-slate-900">{bill.BillNumber}</td>
                       <td className="px-6 py-4">
-                        <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${isIP ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                        <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${
+                          isAdvance ? 'bg-amber-100 text-amber-700'
+                            : isIP ? 'bg-purple-100 text-purple-700'
+                            : 'bg-blue-100 text-blue-700'
+                        }`}>
                           {bill.Type}
                         </span>
                       </td>
@@ -230,7 +272,7 @@ export const BillingReports = () => {
                       <td className="px-6 py-4 text-slate-500 text-xs">
                         {new Date(bill.Date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                       </td>
-                      <td className="px-6 py-4 font-bold text-slate-800">₹{bill.NetAmount.toLocaleString()}</td>
+                      <td className="px-6 py-4 font-bold text-slate-800">₹{Number(bill.NetAmount ?? 0).toLocaleString()}</td>
                       <td className="px-6 py-4">
                         <span className={`px-2.5 py-1 text-xs font-bold rounded-md ${
                           isPaid ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
@@ -260,15 +302,21 @@ export const BillingReports = () => {
                           >
                             <Eye className="w-5 h-5" />
                           </button>
+                          {/* The print route resolves an Op/Ip bill number; an advance has no
+                              such bill behind it, so printing stays off for those rows. */}
                           <button
-                            onClick={() => isPaid && handlePrint(bill.BillNumber)}
-                            disabled={!isPaid}
+                            onClick={() => isPaid && !isAdvance && handlePrint(bill.BillNumber)}
+                            disabled={!isPaid || isAdvance}
                             className={`p-2 rounded-lg transition-all ${
-                              isPaid
+                              isPaid && !isAdvance
                                 ? 'text-primary hover:bg-primary/10 hover:shadow-sm cursor-pointer'
                                 : 'text-slate-300 cursor-not-allowed'
                             }`}
-                            title={isPaid ? 'Print Bill' : 'Mark as Paid to enable printing'}
+                            title={
+                              isAdvance ? 'Advance receipts are not printable from here'
+                                : isPaid ? 'Print Bill'
+                                : 'Mark as Paid to enable printing'
+                            }
                           >
                             <Printer className="w-5 h-5" />
                           </button>
@@ -376,15 +424,15 @@ export const BillingReports = () => {
               <div className="border-t border-slate-100 pt-4 flex flex-col items-end gap-2 text-sm">
                 <div className="flex justify-between w-56 text-slate-600">
                   <span>Subtotal:</span>
-                  <span className="font-medium">₹{selectedBill.TotalAmount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                  <span className="font-medium">₹{Number(selectedBill.TotalAmount ?? selectedBill.NetAmount ?? 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                 </div>
                 <div className="flex justify-between w-56 text-slate-600">
                   <span>Discount:</span>
-                  <span className="font-medium text-emerald-600">-₹{selectedBill.Discount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                  <span className="font-medium text-emerald-600">-₹{Number(selectedBill.Discount ?? 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                 </div>
                 <div className="flex justify-between w-56 text-slate-600">
                   <span>Tax:</span>
-                  <span className="font-medium text-slate-800">₹{selectedBill.Tax.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                  <span className="font-medium text-slate-800">₹{Number(selectedBill.Tax ?? 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                 </div>
                 
                 {(() => {
@@ -397,7 +445,7 @@ export const BillingReports = () => {
                     <>
                       <div className={`flex justify-between w-56 text-lg font-bold pt-2 mt-2 border-t border-slate-100 ${hasInsurance ? 'text-slate-800' : 'text-primary'}`}>
                         <span>Total Bill:</span>
-                        <span>₹{selectedBill.NetAmount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                        <span>₹{Number(selectedBill.NetAmount ?? selectedBill.TotalAmount ?? 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                       </div>
 
                       {hasInsurance && (

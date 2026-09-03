@@ -1,123 +1,45 @@
-"""PRO portal: review, price, approve or reject doctor-raised service orders.
-
-The PRO desk is the gate between a doctor ordering a service and the hospital
-performing it. Approving raises the advance bill; nothing downstream may run
-until that bill is paid and the item is released.
-
-Two rules shape this module:
-
-* The backend owns every number. Prices, discounts, insurance cover and patient
-  responsibility are recomputed here from the stored order and the service
-  master. A client may propose, never decide -- previously a posted
-  ``InsuranceCoveredAmount`` was stored verbatim, so any caller could drive
-  patient responsibility to zero and have the service auto-released.
-* Approval and advance-bill creation are ONE transaction. There is no state in
-  which an order is APPROVED with no advance bill behind it.
-"""
-from datetime import datetime
-from decimal import Decimal
+from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List, Optional
-
-from fastapi import APIRouter, Body, Depends, HTTPException, Query
-from sqlalchemy import text
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-
-from ..core.rbac import Actor, get_actor, require_roles
-from ..core import workflow_gate as gate
+from sqlalchemy import text
 from ..database import get_db
 from ..schemas import pro as pro_schema
+from datetime import datetime, date
 
 router = APIRouter(
     prefix="/pro",
     tags=["PRO Portal"]
 )
 
-
-def log_pro_audit(db: Session, order_id: int, item_id, uhid: str, action: str,
-                  prev: str, new_val: str, reason: str,
-                  actor: Optional[Actor] = None):
-    """Write one PRO audit row.
-
-    The actor used to be the hardcoded string 'PRO_USER', which made the audit
-    trail unable to answer the only question it exists for: who did this.
-    """
-    db.execute(text("""
-        INSERT INTO hospital.PRO_AuditLog
-            (ServiceOrderId, ServiceOrderItemId, UHID, Action, PreviousValue,
-             NewValue, Reason, ChangedBy, ChangedByRole)
-        VALUES (:order_id, :item_id, :uhid, :action, :prev, :new_val, :reason,
-                :changed_by, :changed_role)
-    """), {
-        "order_id": order_id, "item_id": item_id, "uhid": uhid,
-        "action": action, "prev": prev, "new_val": new_val, "reason": reason,
-        "changed_by": actor.username if actor else "UNATTRIBUTED",
-        "changed_role": actor.role if actor else None,
-    })
-
-
-# ══════════════════════════════════════════════════════════════════════════
-# Dashboard
-# ══════════════════════════════════════════════════════════════════════════
-
 @router.get("/dashboard/kpis", response_model=pro_schema.PRODashboardKPIs)
 def get_dashboard_kpis(db: Session = Depends(get_db)):
     try:
-        # Each metric is its own scalar subquery so one missing table zeroes
-        # that metric instead of failing the whole dashboard.
         query = text("""
-            SELECT
-                (SELECT COUNT(*) FROM hospital.Service_OrderItem
-                  WHERE PROStatus IN ('PENDING','UNDER_REVIEW') AND IsDeleted=0) AS pending_reviews,
-                (SELECT COUNT(*) FROM hospital.Service_Order
-                  WHERE SourceModule='OPD' AND PROStatus IN ('PENDING','UNDER_REVIEW') AND IsDeleted=0) AS opd_pending,
-                (SELECT COUNT(*) FROM hospital.Service_Order
-                  WHERE SourceModule='IPD' AND PROStatus IN ('PENDING','UNDER_REVIEW') AND IsDeleted=0) AS ipd_pending,
-                -- Operations are an ORDER TYPE. This counted SourceModule='EMERGENCY'
-                -- before, so the "Operations pending" tile showed emergency
-                -- registrations and never showed a single operation.
-                (SELECT COUNT(*) FROM hospital.Service_Order
-                  WHERE OrderType='OPERATION' AND PROStatus IN ('PENDING','UNDER_REVIEW') AND IsDeleted=0) AS operations_pending,
-                (SELECT COUNT(*) FROM hospital.Service_OrderItem
-                  WHERE PaymentStatus IN ('UNPAID','PARTIALLY_PAID') AND PROStatus='APPROVED' AND IsDeleted=0) AS payment_pending,
-                (SELECT COUNT(*) FROM hospital.Service_OrderItem
-                  WHERE PROStatus='APPROVED' AND DATE(ReviewedAt)=CURDATE() AND IsDeleted=0) AS approved_today,
-                (SELECT COUNT(*) FROM hospital.Service_OrderItem
-                  WHERE PROStatus='REJECTED' AND DATE(ReviewedAt)=CURDATE() AND IsDeleted=0) AS rejected_today,
-                (SELECT COUNT(*) FROM hospital.Service_OrderItem
-                  WHERE ServiceStatus='RELEASED' AND IsDeleted=0) AS services_released,
-                (SELECT COUNT(*) FROM hospital.Service_OrderItem
-                  WHERE ServiceStatus='NOT_RELEASED' AND PROStatus='APPROVED'
-                    AND PaymentStatus IN ('UNPAID','PARTIALLY_PAID') AND IsDeleted=0) AS services_awaiting_clearance
+            SELECT 
+                (SELECT COUNT(*) FROM hospital.Service_OrderItem WHERE PROStatus IN ('PENDING', 'UNDER_REVIEW') AND IsDeleted=0) as pending_reviews,
+                (SELECT COUNT(*) FROM hospital.Service_Order WHERE SourceModule='OPD' AND PROStatus IN ('PENDING', 'UNDER_REVIEW') AND IsDeleted=0) as opd_pending,
+                (SELECT COUNT(*) FROM hospital.Service_Order WHERE SourceModule='IPD' AND PROStatus IN ('PENDING', 'UNDER_REVIEW') AND IsDeleted=0) as ipd_pending,
+                (SELECT COUNT(*) FROM hospital.Service_Order WHERE SourceModule='EMERGENCY' AND PROStatus IN ('PENDING', 'UNDER_REVIEW') AND IsDeleted=0) as operations_pending,
+                (SELECT COUNT(*) FROM hospital.Service_OrderItem WHERE PaymentStatus='UNPAID' AND IsDeleted=0) as payment_pending,
+                (SELECT COUNT(*) FROM hospital.Billing_InsuranceClaim WHERE Status='PENDING_CLAIM') as insurance_pending,
+                (SELECT COUNT(*) FROM hospital.Service_OrderItem WHERE PROStatus='APPROVED' AND DATE(UpdatedAt) = CURDATE() AND IsDeleted=0) as approved_today,
+                (SELECT COUNT(*) FROM hospital.Service_OrderItem WHERE PROStatus='REJECTED' AND DATE(UpdatedAt) = CURDATE() AND IsDeleted=0) as rejected_today,
+                (SELECT COUNT(*) FROM hospital.Service_OrderItem WHERE ServiceStatus='RELEASED' AND IsDeleted=0) as services_released,
+                (SELECT COUNT(*) FROM hospital.Service_OrderItem WHERE ServiceStatus='NOT_RELEASED' AND PROStatus='APPROVED' AND PaymentStatus='UNPAID' AND IsDeleted=0) as services_awaiting_clearance
         """)
+        
         result = db.execute(query).fetchone()
-
-        try:
-            ins_count = db.execute(text("""
-                SELECT COUNT(*) FROM hospital.Ins_PreAuth
-                WHERE UPPER(Status) IN ('PENDING','SUBMITTED')
-            """)).scalar() or 0
-        except Exception:
-            ins_count = 0
-
+        
         if not result:
             return pro_schema.PRODashboardKPIs(
                 pending_reviews=0, opd_pending=0, ipd_pending=0, operations_pending=0,
-                payment_pending=0, insurance_pending=0, approved_today=0,
-                rejected_today=0, services_released=0, services_awaiting_clearance=0)
-
-        data = dict(result._mapping)
-        data['insurance_pending'] = ins_count
-        return pro_schema.PRODashboardKPIs(**data)
-    except HTTPException:
-        raise
+                payment_pending=0, insurance_pending=0, approved_today=0, rejected_today=0,
+                services_released=0, services_awaiting_clearance=0
+            )
+            
+        return pro_schema.PRODashboardKPIs(**result._mapping)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-
-# ══════════════════════════════════════════════════════════════════════════
-# Queue
-# ══════════════════════════════════════════════════════════════════════════
 
 @router.get("/orders", response_model=List[pro_schema.PROOrderResponse])
 def get_pro_orders(
@@ -125,33 +47,39 @@ def get_pro_orders(
     status: Optional[str] = None,
     payment_status: Optional[str] = None,
     order_type: Optional[str] = None,
-    limit: int = Query(200, ge=1, le=1000),
-    db: Session = Depends(get_db),
+    exclude_order_type: Optional[str] = None,
+    db: Session = Depends(get_db)
 ):
     try:
         where_clauses = ["so.IsDeleted = 0"]
-        params: dict = {"limit": limit}
+        params = {}
 
         if source_module:
             where_clauses.append("so.SourceModule = :source_module")
             params['source_module'] = source_module
-        if status:
-            # PENDING must also surface orders a reviewer opened and left, or
-            # they vanish from the queue with no way back.
-            if status.upper() == "PENDING":
-                where_clauses.append("so.PROStatus IN ('PENDING','UNDER_REVIEW')")
-            else:
-                where_clauses.append("so.PROStatus = :status")
-                params['status'] = status
-        if payment_status:
-            where_clauses.append("so.PaymentStatus = :payment_status")
-            params['payment_status'] = payment_status
+
+        # The Operations screen is defined by what was ordered, not by which module
+        # raised it -- an operation on an IPD admission is still an operation. So it
+        # filters on order_type, and the OPD/IPD screens exclude that type, keeping
+        # every order on exactly one screen.
         if order_type:
             where_clauses.append("so.OrderType = :order_type")
             params['order_type'] = order_type
 
-        where_sql = " AND ".join(where_clauses)
+        if exclude_order_type:
+            where_clauses.append("so.OrderType <> :exclude_order_type")
+            params['exclude_order_type'] = exclude_order_type
 
+        if status:
+            where_clauses.append("so.PROStatus = :status")
+            params['status'] = status
+            
+        if payment_status:
+            where_clauses.append("so.PaymentStatus = :payment_status")
+            params['payment_status'] = payment_status
+            
+        where_sql = " AND ".join(where_clauses)
+        
         # Lab/Radiology create their Service_Order without DoctorId/DepartmentId, and the patient
         # master does not always hold the UHID, so fall back to the originating order row
         # (Lab_Order / Rad_Order) and resolve its ordering doctor through to a department.
@@ -160,12 +88,10 @@ def get_pro_orders(
         orders_query = text(f"""
             SELECT so.*,
                    COALESCE(
-                       p.PatientName,
-                       src.PatientName,
-                       -- Orders raised straight through the PRO/OPD endpoints have no Lab_Order or
-                       -- Rad_Order row to borrow from, but the UHID identifies the patient, so take
-                       -- the name off their most recent order. Doctor and department get no such
-                       -- fallback: those vary per order and must not be inherited from another one.
+                       NULLIF(TRIM(p.PatientName), ''),
+                       NULLIF(TRIM(src.PatientName), ''),
+                       NULLIF(TRIM(adm.PatientName), ''),
+                       NULLIF(TRIM(pr.PatientName), ''),
                        (SELECT x.PatientName
                           FROM (
                               SELECT Uhid, PatientName, OrderedAt FROM hospital.Lab_Order
@@ -178,19 +104,35 @@ def get_pro_orders(
                    ) as PatientName,
                    COALESCE(
                        (SELECT d.DoctorName FROM admin.Master_Doctor_Header d WHERE d.DoctorId = so.DoctorId LIMIT 1),
+                       CASE WHEN NULLIF(TRIM(src.OrderedBy), '') NOT IN ('Doctor', 'doctor', 'Dr', 'Dr.') 
+                            THEN NULLIF(TRIM(src.OrderedBy), '') END,
+                       NULLIF(TRIM(adm.AdmittingDoctor), ''),
+                       (SELECT app.Doctor FROM admin.Trn_Appointment app WHERE app.Uhid = so.UHID AND app.IsDeleted = 0 ORDER BY app.AppointmentId DESC LIMIT 1),
+                       NULLIF(TRIM(pr.PrimaryDoctor), ''),
                        NULLIF(TRIM(src.OrderedBy), '')
                    ) as DoctorName,
                    COALESCE(
                        (SELECT dept.DepartmentName FROM admin.Master_Department dept WHERE dept.DepartmentId = so.DepartmentId LIMIT 1),
+                       NULLIF(TRIM(adm.Specialty), ''),
+                       (SELECT app.Department FROM admin.Trn_Appointment app WHERE app.Uhid = so.UHID AND app.IsDeleted = 0 ORDER BY app.AppointmentId DESC LIMIT 1),
                        (SELECT prof.DepartmentName
                           FROM admin.Master_DoctorProfessional_Detail prof
                           JOIN admin.Master_Doctor_Header dh ON dh.DoctorId = prof.DoctorId
                          WHERE dh.IsDeleted = 0
-                           AND TRIM(dh.DoctorName) = TRIM(REPLACE(REPLACE(COALESCE(src.OrderedBy, ''), 'Dr.', ''), 'Dr ', ''))
-                         LIMIT 1)
+                           AND (
+                               TRIM(dh.DoctorName) = TRIM(REPLACE(REPLACE(COALESCE(src.OrderedBy, ''), 'Dr.', ''), 'Dr ', ''))
+                               OR TRIM(dh.DoctorName) = TRIM(REPLACE(REPLACE(COALESCE(adm.AdmittingDoctor, ''), 'Dr.', ''), 'Dr ', ''))
+                           )
+                         LIMIT 1),
+                       NULLIF(TRIM(pr.Department), '')
                    ) as DepartmentName
             FROM hospital.Service_Order so
             LEFT JOIN registration.Patient p ON so.UHID = p.Uhid
+            LEFT JOIN registration.PatientRegistration pr ON so.UHID = pr.Uhid
+            LEFT JOIN hospital.IPD_Admission adm ON (
+                (so.AdmissionId IS NOT NULL AND adm.AdmissionId = so.AdmissionId)
+                OR (so.AdmissionId IS NULL AND so.SourceModule = 'IPD' AND adm.Uhid = so.UHID AND adm.IsDeleted = 0)
+            )
             LEFT JOIN (
                 SELECT OrderNumber, PatientName, OrderedBy FROM hospital.Lab_Order
                 UNION ALL
@@ -198,485 +140,230 @@ def get_pro_orders(
             ) src ON src.OrderNumber = so.OrderNo
             WHERE {where_sql}
             ORDER BY so.CreatedAt DESC
-            LIMIT :limit
         """)
-
+        
         orders_rows = db.execute(orders_query, params).fetchall()
-        if not orders_rows:
-            return []
-
-        order_ids = [row._mapping["ServiceOrderId"] for row in orders_rows]
-
-        # One query for all items rather than one per order.
-        items_rows = db.execute(text("""
-            SELECT * FROM hospital.Service_OrderItem
-            WHERE ServiceOrderId IN :ids AND IsDeleted = 0
-            ORDER BY ServiceOrderItemId
-        """), {"ids": tuple(order_ids)}).fetchall()
-
-        items_by_order: dict = {}
-        for item in items_rows:
-            d = dict(item._mapping)
-            items_by_order.setdefault(d["ServiceOrderId"], []).append(d)
-
+        
         result_list = []
         for order_row in orders_rows:
             order_dict = dict(order_row._mapping)
-            oid = order_dict["ServiceOrderId"]
-            order_dict["Items"] = items_by_order.get(oid, [])
-            # Tell the screen how much insurance is actually authorised, so the
-            # reviewer sees the real ceiling instead of a free-text field.
-            order_dict["AuthorizedInsuranceCap"] = float(
-                gate.approved_insurance_cover(db, oid))
+            
+            items_query = text("""
+                SELECT * FROM hospital.Service_OrderItem 
+                WHERE ServiceOrderId = :order_id AND IsDeleted = 0 
+            """)
+            items_rows = db.execute(items_query, {"order_id": order_dict["ServiceOrderId"]}).fetchall()
+            
+            order_dict["Items"] = [dict(item._mapping) for item in items_rows]
             result_list.append(order_dict)
-
+            
         return result_list
-    except HTTPException:
-        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.get("/orders/pending", response_model=List[pro_schema.PROOrderResponse])
-def get_pending_pro_orders(
-    limit: int = Query(200, ge=1, le=1000),
-    db: Session = Depends(get_db)
-):
-    return get_pro_orders(status="PENDING", limit=limit, db=db)
+def get_pending_pro_orders(db: Session = Depends(get_db)):
+    # Legacy endpoint mapping to new filter
+    return get_pro_orders(status="PENDING", db=db)
 
+def log_pro_audit(db: Session, order_id: int, item_id: int, uhid: str, action: str, prev: str, new_val: str, reason: str, changed_by: str = 'PRO_USER'):
+    db.execute(text("""
+        INSERT INTO hospital.PRO_AuditLog (ServiceOrderId, ServiceOrderItemId, UHID, Action, PreviousValue, NewValue, Reason, ChangedBy)
+        VALUES (:order_id, :item_id, :uhid, :action, :prev, :new_val, :reason, :changed_by)
+    """), {
+        "order_id": order_id, "item_id": item_id, "uhid": uhid, 
+        "action": action, "prev": prev, "new_val": new_val, 
+        "reason": reason, "changed_by": changed_by
+    })
 
-@router.get("/orders/{order_id}/release-status")
-def get_release_status(order_id: int, db: Session = Depends(get_db)):
-    """Why each item on this order can or cannot be released, item by item.
+def release_order_items(db: Session, order_id: int, released_by: str, reason: str):
+    """Give every item on the order an ACTIVE release row, skipping any that has one.
 
-    This is ``can_release_service`` exposed read-only, so the Service Release
-    Monitor shows the actual blocking reasons rather than guessing from status
-    columns.
+    Service_Release carries a unique index (ux_service_release_active) permitting a
+    single ACTIVE row per item. Both release paths used to INSERT ... SELECT over the
+    order's items with no guard, so releasing an order whose items were already
+    released — approving an order a second time, or a double-clicked Approve — blew
+    up with a raw "Duplicate entry ... for key 'ux_service_release_active'" 500 even
+    though the first approval had fully succeeded.
+
+    The existing-release check is a separate query rather than a NOT EXISTS inside the
+    INSERT because MySQL refuses to select from the table being inserted into.
     """
     items = db.execute(text("""
-        SELECT ServiceOrderItemId, ItemName, ServiceStatus
-        FROM hospital.Service_OrderItem
-        WHERE ServiceOrderId = :oid AND IsDeleted = 0
-        ORDER BY ServiceOrderItemId
-    """), {"oid": order_id}).fetchall()
-
+        SELECT ServiceOrderItemId FROM hospital.Service_OrderItem
+        WHERE ServiceOrderId = :order_id AND IsDeleted = 0
+    """), {"order_id": order_id}).fetchall()
     if not items:
-        raise HTTPException(status_code=404, detail="Service order not found")
+        return
 
-    out = []
+    released = db.execute(text("""
+        SELECT sr.ServiceOrderItemId
+        FROM hospital.Service_Release sr
+        JOIN hospital.Service_OrderItem soi ON soi.ServiceOrderItemId = sr.ServiceOrderItemId
+        WHERE soi.ServiceOrderId = :order_id AND sr.ReleaseStatus = 'ACTIVE'
+    """), {"order_id": order_id}).fetchall()
+    already = {r.ServiceOrderItemId for r in released}
+
     for row in items:
-        decision = gate.evaluate_release(db, row.ServiceOrderItemId)
-        out.append({
-            "ServiceOrderItemId": row.ServiceOrderItemId,
-            "ItemName": row.ItemName,
-            "ServiceStatus": row.ServiceStatus,
-            "canRelease": decision.allowed,
-            "blockers": decision.blockers,
-            "patientResponsibility": float(decision.patient_responsibility),
-            "paid": float(decision.paid),
-        })
-    return {"ServiceOrderId": order_id, "items": out}
+        if row.ServiceOrderItemId in already:
+            continue
+        db.execute(text("""
+            INSERT INTO hospital.Service_Release
+                (ServiceOrderItemId, ReleaseDate, ReleasedBy, ReleaseStatus, ReleaseReason)
+            VALUES (:item_id, NOW(), :released_by, 'ACTIVE', :reason)
+        """), {"item_id": row.ServiceOrderItemId, "released_by": released_by, "reason": reason})
 
-
-# ══════════════════════════════════════════════════════════════════════════
-# Approve
-# ══════════════════════════════════════════════════════════════════════════
 
 @router.post("/orders/{order_id}/approve")
-def approve_pro_order(
-    order_id: int,
-    payload: pro_schema.PROOrderApproveRequest,
-    db: Session = Depends(get_db),
-    actor: Actor = Depends(require_roles("PRO")),
-):
-    """Approve (and/or reject) the items on an order and raise the advance bill.
-
-    One transaction: item decisions, order status, advance bill and -- when the
-    patient owes nothing -- the financial clearance and service release all
-    commit together or not at all.
-    """
+def approve_pro_order(order_id: int, payload: pro_schema.PROOrderApproveRequest, db: Session = Depends(get_db)):
     try:
-        # Lock the order first. Two reviewers hitting Approve at the same moment
-        # used to both read PROStatus='PENDING' and both raise an advance bill;
-        # now the second waits here and then fails the already-approved check.
-        order_info = db.execute(text("""
-            SELECT ServiceOrderId, UHID, PROStatus, OrderStatus, IsDeleted
-            FROM hospital.Service_Order
-            WHERE ServiceOrderId = :order_id
-            FOR UPDATE
-        """), {"order_id": order_id}).fetchone()
+        # Get order details
+        order_info = db.execute(text("SELECT UHID FROM hospital.Service_Order WHERE ServiceOrderId = :order_id"), {"order_id": order_id}).fetchone()
+        uhid = order_info.UHID if order_info else None
+        
+        for item in payload.Items:
+            # 1. Validation Engine
+            gross_amount = item.PROPrice
+            net_amount = gross_amount - item.AuthorizedDiscount
+            
+            if abs(net_amount - (item.InsuranceCoveredAmount + item.PatientResponsibility)) > 0.01:
+                db.rollback()
+                raise HTTPException(status_code=400, detail=f"Financial mismatch for item {item.ServiceOrderItemId}")
+            
+            # Fetch previous values for audit
+            prev_item = db.execute(text("SELECT PROPrice, AuthorizedDiscount FROM hospital.Service_OrderItem WHERE ServiceOrderItemId = :id"), {"id": item.ServiceOrderItemId}).fetchone()
+            
+            # Audit price/discount change
+            if prev_item:
+                if prev_item.PROPrice != item.PROPrice:
+                    log_pro_audit(db, order_id, item.ServiceOrderItemId, uhid, 'PRICE_UPDATED', str(prev_item.PROPrice), str(item.PROPrice), "PRO Adjusted")
+                if prev_item.AuthorizedDiscount != item.AuthorizedDiscount:
+                    log_pro_audit(db, order_id, item.ServiceOrderItemId, uhid, 'DISCOUNT_UPDATED', str(prev_item.AuthorizedDiscount), str(item.AuthorizedDiscount), "PRO Discount")
 
-        if not order_info or order_info.IsDeleted:
-            raise HTTPException(status_code=404, detail="Service Order not found")
-        if order_info.OrderStatus == 'CANCELLED':
-            raise HTTPException(status_code=409, detail="A cancelled order cannot be approved.")
-        if order_info.PROStatus == 'APPROVED':
-            raise HTTPException(status_code=409, detail="This order has already been approved. Duplicate approval is not permitted.")
-        if order_info.PROStatus == 'REJECTED':
-            raise HTTPException(status_code=409, detail="A rejected order cannot be approved. Please create a new order.")
-
-        uhid = order_info.UHID
-        if not payload.Items:
-            raise HTTPException(status_code=400, detail="At least one item decision is required.")
-
-        insurance_cap_remaining = gate.approved_insurance_cover(db, order_id)
-        auth_status = gate.authorization_status_for(db, order_id)
-
-        approved_any = False
-
-        for decision_in in payload.Items:
-            db_item = db.execute(text("""
-                SELECT ServiceOrderItemId, ItemName, Quantity, MasterPrice, PROPrice,
-                       AuthorizedDiscount, PROStatus, IsDeleted
-                FROM hospital.Service_OrderItem
-                WHERE ServiceOrderItemId = :id AND ServiceOrderId = :oid
-                FOR UPDATE
-            """), {"id": decision_in.ServiceOrderItemId, "oid": order_id}).fetchone()
-
-            if not db_item or db_item.IsDeleted:
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"Service order item {decision_in.ServiceOrderItemId} is not part of this order.")
-            if db_item.PROStatus in ('APPROVED', 'REJECTED'):
-                raise HTTPException(
-                    status_code=409,
-                    detail=f"Item '{db_item.ItemName}' has already been {db_item.PROStatus.lower()}.")
-
-            # ── Rejected item: record the reason, bill nothing ──────────────
-            if decision_in.Decision == "REJECTED":
-                reason = (decision_in.RejectionReason or "").strip()
-                if not reason:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"A rejection reason is required for '{db_item.ItemName}'.")
-                db.execute(text("""
-                    UPDATE hospital.Service_OrderItem
-                    SET PROStatus = 'REJECTED', RejectionReason = :reason,
-                        ReviewedBy = :by, ReviewedAt = NOW(),
-                        GrossAmount = 0, NetAmount = 0,
-                        InsuranceCoveredAmount = 0, PatientResponsibility = 0,
-                        PaymentStatus = 'NOT_REQUIRED', FinancialStatus = 'NOT_CLEARED',
-                        ServiceStatus = 'CANCELLED', UpdatedAt = NOW()
-                    WHERE ServiceOrderItemId = :id
-                """), {"reason": reason, "by": actor.username,
-                       "id": decision_in.ServiceOrderItemId})
-                log_pro_audit(db, order_id, decision_in.ServiceOrderItemId, uhid,
-                              'ITEM_REJECTED', db_item.PROStatus, 'REJECTED', reason, actor)
-                continue
-
-            # ── Approved item: the backend does the arithmetic ──────────────
-            problem = gate.validate_pricing(
-                item_name=db_item.ItemName,
-                master_price=db_item.MasterPrice,
-                quantity=db_item.Quantity,
-                pro_price=decision_in.PROPrice,
-                discount=decision_in.AuthorizedDiscount,
-            )
-            if problem:
-                raise HTTPException(status_code=400, detail=problem)
-
-            amounts = gate.compute_item_amounts(
-                quantity=db_item.Quantity,
-                pro_price=decision_in.PROPrice,
-                discount=decision_in.AuthorizedDiscount,
-                insurance_cover=decision_in.InsuranceCoveredAmount,
-                insurance_cap=insurance_cap_remaining,
-            )
-            # Each item consumes part of the order's authorised cover.
-            insurance_cap_remaining -= amounts.insurance
-
-            if amounts.insurance > 0 and auth_status not in gate.AUTH_PAYS:
-                raise HTTPException(
-                    status_code=400,
-                    detail=(f"Insurance cover cannot be applied to '{db_item.ItemName}': "
-                            f"the pre-authorization for this order is {auth_status}."))
-
-            if gate.money(db_item.PROPrice) != amounts.pro_price:
-                log_pro_audit(db, order_id, decision_in.ServiceOrderItemId, uhid,
-                              'PRICE_UPDATED', str(db_item.PROPrice),
-                              str(amounts.pro_price), "PRO adjusted the price", actor)
-            if gate.money(db_item.AuthorizedDiscount) != amounts.discount:
-                log_pro_audit(db, order_id, decision_in.ServiceOrderItemId, uhid,
-                              'DISCOUNT_UPDATED', str(db_item.AuthorizedDiscount),
-                              str(amounts.discount), "PRO authorised a discount", actor)
-
-            params = amounts.as_params()
-            params.update({
-                "ServiceOrderItemId": decision_in.ServiceOrderItemId,
-                "AuthorizationStatus": auth_status,
-                "by": actor.username,
-            })
+            # 2. Update the Item
             db.execute(text("""
                 UPDATE hospital.Service_OrderItem
                 SET PROPrice = :PROPrice, AuthorizedDiscount = :AuthorizedDiscount,
                     GrossAmount = :GrossAmount, NetAmount = :NetAmount,
-                    InsuranceCoveredAmount = :InsuranceCoveredAmount,
-                    PatientResponsibility = :PatientResponsibility,
-                    AuthorizationStatus = :AuthorizationStatus,
-                    PROStatus = 'APPROVED', RejectionReason = NULL,
-                    ReviewedBy = :by, ReviewedAt = NOW(), UpdatedAt = NOW()
+                    InsuranceCoveredAmount = :InsuranceCoveredAmount, PatientResponsibility = :PatientResponsibility,
+                    PROStatus = 'APPROVED', UpdatedAt = NOW()
                 WHERE ServiceOrderItemId = :ServiceOrderItemId
-            """), params)
+            """), {
+                "PROPrice": item.PROPrice, "AuthorizedDiscount": item.AuthorizedDiscount,
+                "GrossAmount": gross_amount, "NetAmount": net_amount,
+                "InsuranceCoveredAmount": item.InsuranceCoveredAmount, "PatientResponsibility": item.PatientResponsibility,
+                "ServiceOrderItemId": item.ServiceOrderItemId
+            })
+            
+            log_pro_audit(db, order_id, item.ServiceOrderItemId, uhid, 'SERVICE_APPROVED', 'PENDING', 'APPROVED', "Approved by PRO")
+            
+        # 3. Update the Parent Order Status
+        pending_result = db.execute(text("SELECT COUNT(*) as pending_count FROM hospital.Service_OrderItem WHERE ServiceOrderId = :order_id AND PROStatus != 'APPROVED' AND IsDeleted = 0"), {"order_id": order_id}).fetchone()
+        
+        if pending_result.pending_count == 0:
+            sum_result = db.execute(text("SELECT SUM(PatientResponsibility) as total_patient_resp FROM hospital.Service_OrderItem soi WHERE soi.ServiceOrderId = :order_id AND soi.IsDeleted = 0"), {"order_id": order_id}).fetchone()
+            total_patient_resp = sum_result.total_patient_resp or 0
 
-            approved_any = True
-            log_pro_audit(db, order_id, decision_in.ServiceOrderItemId, uhid,
-                          'SERVICE_APPROVED', 'PENDING', 'APPROVED',
-                          f"Approved at {amounts.patient} patient responsibility", actor)
+            # Only an order the patient owes nothing on releases on approval. IPD used
+            # to release too, on continuous billing settled at discharge, which meant an
+            # approved IPD order never raised an advance and so never reached the
+            # advance-billing screen. Now every order carrying a patient balance raises
+            # one and stays NOT_RELEASED (its default) until that advance is paid.
+            if total_patient_resp == 0:
+                db.execute(text("UPDATE hospital.Service_Order SET PROStatus = 'APPROVED', FinancialStatus = 'CLEARED', ServiceStatus = 'RELEASED', PaymentStatus = 'NOT_REQUIRED', UpdatedAt = NOW() WHERE ServiceOrderId = :order_id"), {"order_id": order_id})
+                db.execute(text("UPDATE hospital.Service_OrderItem SET FinancialStatus = 'CLEARED', ServiceStatus = 'RELEASED', PaymentStatus = 'NOT_REQUIRED', UpdatedAt = NOW() WHERE ServiceOrderId = :order_id"), {"order_id": order_id})
 
-        # ── Every item must be decided before the order moves on ────────────
-        undecided = db.execute(text("""
-            SELECT COUNT(*) FROM hospital.Service_OrderItem
-            WHERE ServiceOrderId = :oid AND IsDeleted = 0
-              AND PROStatus NOT IN ('APPROVED','REJECTED')
-        """), {"oid": order_id}).scalar()
+                release_order_items(db, order_id, 'SYSTEM_PRO_AUTO_RELEASE', 'Zero patient responsibility')
 
-        if undecided:
-            raise HTTPException(
-                status_code=400,
-                detail=(f"{undecided} item(s) on this order have no decision. Approve or "
-                        f"reject every item in one review."))
+                for item in payload.Items:
+                    log_pro_audit(db, order_id, item.ServiceOrderItemId, uhid, 'SERVICE_RELEASED', 'PENDING', 'RELEASED', "Auto Release (Zero Responsibility)")
+            else:
+                db.execute(text("UPDATE hospital.Service_Order SET PROStatus = 'APPROVED', FinancialStatus = 'NOT_CLEARED', PaymentStatus = 'UNPAID', UpdatedAt = NOW() WHERE ServiceOrderId = :order_id"), {"order_id": order_id})
+                db.execute(text("UPDATE hospital.Service_OrderItem SET FinancialStatus = 'NOT_CLEARED', PaymentStatus = 'UNPAID', UpdatedAt = NOW() WHERE ServiceOrderId = :order_id"), {"order_id": order_id})
+                
+                # The PRO decides how much is collected up front. Billing_Advance.TotalAmount is
+                # the gate amount that has to be paid before the services release, so the advance
+                # goes there and the rest stays as the order balance. No advance given (or <= 0)
+                # keeps the old behaviour of demanding the whole patient responsibility.
+                advance_amount = total_patient_resp
+                if payload.AdvanceAmount is not None and payload.AdvanceAmount > 0:
+                    advance_amount = min(float(payload.AdvanceAmount), float(total_patient_resp))
 
-        db.execute(text("""
-            UPDATE hospital.Service_Order
-            SET ReviewedBy = :by, ReviewedAt = NOW(), UpdatedAt = NOW()
-            WHERE ServiceOrderId = :oid
-        """), {"by": actor.username, "oid": order_id})
+                # Re-approving an order used to raise a second advance bill, so one order could
+                # end up with several rows and appear to owe a multiple of its real amount. An
+                # order gets one outstanding advance: re-approval re-prices the existing row.
+                existing = db.execute(text("""
+                    SELECT AdvanceId FROM hospital.Billing_Advance
+                    WHERE ServiceOrderId = :order_id AND IsDeleted = 0 AND Status <> 'PAID'
+                    ORDER BY AdvanceId DESC LIMIT 1
+                """), {"order_id": order_id}).fetchone()
 
-        if not approved_any:
-            # Everything was rejected: no bill, no release.
-            gate.sync_order_from_items(db, order_id)
-            log_pro_audit(db, order_id, None, uhid, 'SERVICE_REJECTED', 'PENDING',
-                          'REJECTED', "All items rejected during review", actor)
-            db.commit()
-            return {"message": "All items rejected. No advance bill was raised.",
-                    "ServiceOrderId": order_id, "AdvanceRaised": False}
-
-        responsibility, _ = gate.order_financials(db, order_id)
-
-        if responsibility <= 0:
-            # Nothing to collect. That is still a financial decision, so it is
-            # recorded as a clearance and the release goes through the same gate
-            # every other release does -- which is what makes it impossible to
-            # release an item whose insurance authorization is still pending.
-            db.execute(text("""
-                UPDATE hospital.Service_OrderItem
-                SET PaymentStatus = 'NOT_REQUIRED', UpdatedAt = NOW()
-                WHERE ServiceOrderId = :oid AND IsDeleted = 0 AND PROStatus = 'APPROVED'
-            """), {"oid": order_id})
-
-            released, blocked = [], []
-            item_ids = [r[0] for r in db.execute(text("""
-                SELECT ServiceOrderItemId FROM hospital.Service_OrderItem
-                WHERE ServiceOrderId = :oid AND IsDeleted = 0 AND PROStatus = 'APPROVED'
-            """), {"oid": order_id})]
-
-            for item_id in item_ids:
-                decision = gate.release_item(
-                    db, item_id=item_id, released_by=actor.username, role=actor.role,
-                    reason="Zero patient responsibility",
-                    clearance_type="ZERO_RESPONSIBILITY")
-                if decision.allowed:
-                    released.append(item_id)
-                    log_pro_audit(db, order_id, item_id, uhid, 'SERVICE_RELEASED',
-                                  'NOT_RELEASED', 'RELEASED',
-                                  "Auto-released: nothing payable", actor)
+                if existing:
+                    db.execute(text("""
+                        UPDATE hospital.Billing_Advance
+                        SET TotalAmount = :TotalAmount, UpdatedAt = NOW()
+                        WHERE AdvanceId = :AdvanceId
+                    """), {"TotalAmount": advance_amount, "AdvanceId": existing.AdvanceId})
                 else:
-                    blocked.append({"ServiceOrderItemId": item_id,
-                                    "blockers": decision.blockers})
+                    advance_no = f"ADV-{order_id}-{int(datetime.now().timestamp())}"
+                    db.execute(text("INSERT INTO hospital.Billing_Advance (AdvanceNo, ServiceOrderId, UHID, TotalAmount, Status) VALUES (:AdvanceNo, :ServiceOrderId, :UHID, :TotalAmount, 'PENDING')"), {"AdvanceNo": advance_no, "ServiceOrderId": order_id, "UHID": uhid, "TotalAmount": advance_amount})
 
-            gate.sync_order_from_items(db, order_id)
-            db.commit()
-            return {
-                "message": ("Approved. Nothing is payable, so the services were released."
-                            if not blocked else
-                            "Approved. Nothing is payable, but some items could not be released."),
-                "ServiceOrderId": order_id,
-                "AdvanceRaised": False,
-                "PatientResponsibility": 0.0,
-                "Released": released,
-                "Blocked": blocked,
-            }
-
-        # ── Money is owed: raise exactly one advance bill ────────────────────
-        advance_no = f"ADV-{order_id}-{int(datetime.now().timestamp())}"
-        try:
-            db.execute(text("""
-                INSERT INTO hospital.Billing_Advance
-                    (AdvanceNo, ServiceOrderId, UHID, TotalAmount, PaidAmount, Status, CreatedBy)
-                VALUES (:AdvanceNo, :ServiceOrderId, :UHID, :TotalAmount, 0, 'PENDING', :CreatedBy)
-            """), {"AdvanceNo": advance_no, "ServiceOrderId": order_id, "UHID": uhid,
-                   "TotalAmount": responsibility, "CreatedBy": actor.username})
-        except IntegrityError:
-            # ux_billing_advance_live_order: a live advance bill already exists
-            # for this order. The order cannot be approved twice, so this means
-            # a concurrent request won -- report the conflict rather than
-            # silently continuing with someone else's bill.
-            db.rollback()
-            raise HTTPException(
-                status_code=409,
-                detail="An advance bill already exists for this order. It may have been approved concurrently.")
-
-        db.execute(text("""
-            UPDATE hospital.Service_OrderItem
-            SET PaymentStatus = CASE WHEN PatientResponsibility > 0 THEN 'UNPAID' ELSE 'NOT_REQUIRED' END,
-                FinancialStatus = 'NOT_CLEARED', ServiceStatus = 'NOT_RELEASED', UpdatedAt = NOW()
-            WHERE ServiceOrderId = :oid AND IsDeleted = 0 AND PROStatus = 'APPROVED'
-        """), {"oid": order_id})
-
-        gate.sync_order_from_items(db, order_id)
-
-        log_pro_audit(db, order_id, None, uhid, 'ADVANCE_BILL_CREATED', '0',
-                      str(responsibility),
-                      f"Advance bill {advance_no} raised for {responsibility}", actor)
-
+                log_pro_audit(
+                    db, order_id, None, uhid, 'ADVANCE_SET',
+                    str(total_patient_resp), str(advance_amount),
+                    f"Advance to collect up front; balance {float(total_patient_resp) - float(advance_amount):.2f}"
+                )
+            
+            total_insurance = db.execute(text("SELECT SUM(InsuranceCoveredAmount) as total_insurance FROM hospital.Service_OrderItem WHERE ServiceOrderId = :order_id AND IsDeleted = 0"), {"order_id": order_id}).scalar() or 0
+            
+            if total_insurance > 0:
+                claim_no = f"CLM-{order_id}-{int(datetime.now().timestamp())}"
+                db.execute(text("INSERT INTO hospital.Billing_InsuranceClaim (ClaimNo, ServiceOrderId, UHID, ClaimAmount, Status) VALUES (:ClaimNo, :ServiceOrderId, :UHID, :ClaimAmount, 'PENDING_CLAIM')"), {"ClaimNo": claim_no, "ServiceOrderId": order_id, "UHID": uhid, "ClaimAmount": total_insurance})
+            
         db.commit()
-        return {
-            "message": "PRO approval successful. Advance bill raised; collect payment in Billing.",
-            "ServiceOrderId": order_id,
-            "AdvanceRaised": True,
-            "AdvanceNo": advance_no,
-            "PatientResponsibility": float(responsibility),
-        }
-
+        return {"message": "PRO approval successful", "ServiceOrderId": order_id}
+        
     except HTTPException:
-        db.rollback()
         raise
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
-
-
-# ══════════════════════════════════════════════════════════════════════════
-# Reject
-# ══════════════════════════════════════════════════════════════════════════
 
 @router.post("/orders/{order_id}/reject")
-def reject_pro_order(
-    order_id: int,
-    reason: Optional[str] = Query(None, description="Deprecated: send the reason in the body instead"),
-    payload: Optional[pro_schema.PROOrderRejectRequest] = Body(None),
-    db: Session = Depends(get_db),
-    actor: Actor = Depends(require_roles("PRO")),
-):
-    """Reject a whole order. The reason is mandatory and is stored on the order.
-
-    It used to live only in PRO_AuditLog, so no screen could tell a doctor why
-    their order was refused.
-    """
+def reject_pro_order(order_id: int, reason: str = Query(...), db: Session = Depends(get_db)):
     try:
-        final_reason = ((payload.Reason if payload else None) or reason or "").strip()
-        if not final_reason:
+        order_info = db.execute(text("SELECT UHID FROM hospital.Service_Order WHERE ServiceOrderId = :order_id"), {"order_id": order_id}).fetchone()
+        uhid = order_info.UHID if order_info else None
+        
+        if not reason or len(reason.strip()) == 0:
             raise HTTPException(status_code=400, detail="Rejection reason is mandatory")
-
-        order_info = db.execute(text("""
-            SELECT UHID, PROStatus, IsDeleted FROM hospital.Service_Order
-            WHERE ServiceOrderId = :order_id
-            FOR UPDATE
-        """), {"order_id": order_id}).fetchone()
-
-        if not order_info or order_info.IsDeleted:
-            raise HTTPException(status_code=404, detail="Service Order not found")
-        if order_info.PROStatus == 'REJECTED':
-            raise HTTPException(status_code=409, detail="Order is already rejected")
-        if order_info.PROStatus == 'APPROVED':
-            raise HTTPException(
-                status_code=409,
-                detail="An approved order cannot be rejected. Cancel the advance bill in Billing first.")
-
-        uhid = order_info.UHID
-        db.execute(text("""
-            UPDATE hospital.Service_Order
-            SET PROStatus = 'REJECTED', RejectionReason = :reason,
-                ReviewedBy = :by, ReviewedAt = NOW(),
-                PaymentStatus = 'NOT_REQUIRED', FinancialStatus = 'NOT_CLEARED',
-                ServiceStatus = 'NOT_RELEASED', UpdatedAt = NOW()
-            WHERE ServiceOrderId = :order_id
-        """), {"order_id": order_id, "reason": final_reason, "by": actor.username})
-
-        # CANCELLED, not merely un-released: a rejected service must never
-        # appear in a Lab, Radiology or OT work queue.
-        db.execute(text("""
-            UPDATE hospital.Service_OrderItem
-            SET PROStatus = 'REJECTED', RejectionReason = :reason,
-                ReviewedBy = :by, ReviewedAt = NOW(),
-                PaymentStatus = 'NOT_REQUIRED', FinancialStatus = 'NOT_CLEARED',
-                ServiceStatus = 'CANCELLED',
-                GrossAmount = 0, NetAmount = 0, InsuranceCoveredAmount = 0,
-                PatientResponsibility = 0, UpdatedAt = NOW()
-            WHERE ServiceOrderId = :order_id AND IsDeleted = 0
-        """), {"order_id": order_id, "reason": final_reason, "by": actor.username})
-
-        log_pro_audit(db, order_id, None, uhid, 'SERVICE_REJECTED', 'PENDING',
-                      'REJECTED', final_reason, actor)
-
+            
+        db.execute(text("UPDATE hospital.Service_Order SET PROStatus = 'REJECTED', UpdatedAt = NOW() WHERE ServiceOrderId = :order_id"), {"order_id": order_id})
+        db.execute(text("UPDATE hospital.Service_OrderItem SET PROStatus = 'REJECTED', UpdatedAt = NOW() WHERE ServiceOrderId = :order_id"), {"order_id": order_id})
+        
+        log_pro_audit(db, order_id, None, uhid, 'SERVICE_REJECTED', 'PENDING', 'REJECTED', reason)
+        
         db.commit()
-        return {"message": "Order rejected successfully", "Reason": final_reason}
-    except HTTPException:
-        db.rollback()
-        raise
+        return {"message": "Order rejected successfully"}
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
-
-# ══════════════════════════════════════════════════════════════════════════
-# Order creation from OPD/IPD screens
-# ══════════════════════════════════════════════════════════════════════════
-
-_MASTER_PRICE_SQL = {
-    "LAB": "SELECT TestPrice AS Price FROM admin.Master_LabTest "
-           "WHERE (TestId = :item_id OR TestName = :item_name) AND IsDeleted = 0 LIMIT 1",
-    "RADIOLOGY": "SELECT ServicePrice AS Price FROM admin.Master_RadiologyService "
-                 "WHERE (RadiologyServiceId = :item_id OR ServiceName = :item_name) AND IsDeleted = 0 LIMIT 1",
-    # Operations live in two masters (major and minor) with lowercase column
-    # names and a `status` flag instead of IsDeleted.
-    "OPERATION": "SELECT defaultCharge AS Price FROM ("
-                 "  SELECT id, operationName, defaultCharge, status FROM admin.Mst_MajorOperation"
-                 "  UNION ALL"
-                 "  SELECT id, operationName, defaultCharge, status FROM admin.Mst_MinorOperation"
-                 ") ops WHERE (ops.id = :item_id OR ops.operationName = :item_name) "
-                 "AND COALESCE(ops.status,'Active') <> 'Inactive' LIMIT 1",
-}
-
-
-def _master_price(db: Session, item_type: str, item_id, item_name: str) -> Decimal:
-    """Look the price up in the service master.
-
-    A price posted by the client is a suggestion; the master is the record. This
-    is what makes "the master price is read-only to the PRO" true rather than a
-    UI convention.
-    """
-    sql = _MASTER_PRICE_SQL.get(item_type)
-    if not sql:
-        return gate.ZERO
-    try:
-        numeric_id = int(item_id)
-    except (TypeError, ValueError):
-        numeric_id = -1
-    try:
-        row = db.execute(text(sql), {"item_id": numeric_id, "item_name": item_name}).fetchone()
-    except Exception:
-        return gate.ZERO
-    return gate.money(row.Price) if row and row.Price is not None else gate.ZERO
-
-
 @router.post("/orders/create")
-def create_service_order_from_modal(
-    payload: pro_schema.CreateServiceOrderRequest,
-    db: Session = Depends(get_db),
-    actor: Actor = Depends(require_roles("PRO", "DOCTOR", "NURSE", "RECEPTION", "IPD")),
-):
-    """Create a Service Order from an OPD/IPD screen. It starts life PENDING."""
+def create_service_order_from_modal(payload: pro_schema.CreateServiceOrderRequest, db: Session = Depends(get_db)):
+    """Creates a Service Order from OPD/IPD screens directly with PRO review."""
     try:
-        src_mod = payload.SourceModule if payload.SourceModule in ('OPD', 'IPD', 'EMERGENCY') else 'OPD'
-        order_type = payload.OrderType if payload.OrderType in ('LAB', 'RADIOLOGY', 'OPERATION', 'OTHER') else 'OTHER'
-
-        if not payload.Items:
-            raise HTTPException(status_code=400, detail="A service order needs at least one item.")
-
-        order_no = f"SO-{src_mod[:2]}-{int(datetime.now().timestamp())}"
-
-        # Every workflow status is fixed here, not taken from the caller.
+        order_no = f"SO-{payload.SourceModule[:2]}-{int(datetime.now().timestamp())}"
+        
+        # Determine source module enum
+        src_mod = payload.SourceModule
+        if src_mod not in ['OPD', 'IPD', 'EMERGENCY']:
+            src_mod = 'OPD'
+            
+        order_type = payload.OrderType
+        if order_type not in ['LAB', 'RADIOLOGY', 'OPERATION', 'OTHER']:
+            order_type = 'OTHER'
+            
         db.execute(text("""
             INSERT INTO hospital.Service_Order (
                 OrderNo, UHID, EncounterId, AdmissionId, DoctorId, DepartmentId,
@@ -686,150 +373,224 @@ def create_service_order_from_modal(
             ) VALUES (
                 :OrderNo, :UHID, :EncounterId, :AdmissionId, :DoctorId, :DepartmentId,
                 :OrderType, :SourceModule, NOW(), 'ACTIVE', 'PENDING',
-                'UNPAID', 'NOT_CLEARED', 'NOT_RELEASED', 'NOT_REQUIRED',
-                :CreatedBy, NOW()
+                'UNPAID', 'NOT_CLEARED', 'NOT_RELEASED', 'PENDING',
+                'PRO_USER', NOW()
             )
         """), {
-            "OrderNo": order_no, "UHID": payload.UHID,
-            "EncounterId": payload.EncounterId, "AdmissionId": payload.AdmissionId,
-            "DoctorId": payload.DoctorId, "DepartmentId": payload.DepartmentId,
-            "OrderType": order_type, "SourceModule": src_mod,
-            "CreatedBy": actor.username,
+            "OrderNo": order_no,
+            "UHID": payload.UHID,
+            "EncounterId": payload.EncounterId,
+            "AdmissionId": payload.AdmissionId,
+            "DoctorId": payload.DoctorId,
+            "DepartmentId": payload.DepartmentId,
+            "OrderType": order_type,
+            "SourceModule": src_mod,
         })
         order_id = db.execute(text("SELECT LAST_INSERT_ID()")).scalar()
-
+        
         for item in payload.Items:
-            item_type = item.ItemType if item.ItemType in ('LAB', 'RADIOLOGY', 'OPERATION', 'MEDICINE', 'OTHER') else 'OTHER'
-            price = _master_price(db, item_type, item.ItemId, item.ItemName)
-            qty = max(1, int(item.Quantity or 1))
-
+            price = float(item.MasterPrice or 0.0)
+            qty = int(item.Quantity or 1)
+            gross = price * qty
+            
             db.execute(text("""
                 INSERT INTO hospital.Service_OrderItem (
                     ServiceOrderId, ItemType, ItemId, ItemName, Quantity, UOM,
                     MasterPrice, OriginalPrice, PROPrice, AuthorizedDiscount,
                     GrossAmount, NetAmount, InsuranceCoveredAmount, PatientResponsibility,
-                    PROStatus, PaymentStatus, FinancialStatus, ServiceStatus,
-                    AuthorizationStatus, CreatedAt
+                    PROStatus, PaymentStatus, FinancialStatus, ServiceStatus, AuthorizationStatus,
+                    CreatedAt
                 ) VALUES (
                     :ServiceOrderId, :ItemType, :ItemId, :ItemName, :Quantity, :UOM,
-                    :MasterPrice, :MasterPrice, 0.00, 0.00,
-                    0.00, 0.00, 0.00, 0.00,
-                    'PENDING', 'UNPAID', 'NOT_CLEARED', 'NOT_RELEASED',
-                    'NOT_REQUIRED', NOW()
+                    :MasterPrice, :OriginalPrice, :PROPrice, 0.00,
+                    :GrossAmount, :NetAmount, 0.00, :PatientResponsibility,
+                    'PENDING', 'UNPAID', 'NOT_CLEARED', 'NOT_RELEASED', 'PENDING',
+                    NOW()
                 )
             """), {
-                "ServiceOrderId": order_id, "ItemType": item_type,
-                "ItemId": str(item.ItemId), "ItemName": item.ItemName,
-                "Quantity": qty, "UOM": item.UOM or "Unit", "MasterPrice": price,
+                "ServiceOrderId": order_id,
+                "ItemType": item.ItemType if item.ItemType in ['LAB', 'RADIOLOGY', 'OPERATION', 'MEDICINE', 'OTHER'] else 'OTHER',
+                "ItemId": str(item.ItemId),
+                "ItemName": item.ItemName,
+                "Quantity": qty,
+                "UOM": item.UOM or "Unit",
+                "MasterPrice": price,
+                "OriginalPrice": price,
+                "PROPrice": price,
+                "GrossAmount": gross,
+                "NetAmount": gross,
+                "PatientResponsibility": gross
             })
-
-        log_pro_audit(db, order_id, None, payload.UHID, 'ORDER_CREATED', 'NONE',
-                      'PENDING', f"Created from {src_mod}", actor)
+            
+        log_pro_audit(db, order_id, None, payload.UHID, 'ORDER_CREATED', 'NONE', 'PENDING', f"Created from {payload.SourceModule}")
         db.commit()
-        return {"message": "Service order created successfully",
-                "ServiceOrderId": order_id, "OrderNo": order_no}
-    except HTTPException:
-        db.rollback()
-        raise
+        return {"message": "Service order created successfully", "ServiceOrderId": order_id, "OrderNo": order_no}
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.get("/orders/by-uhid/{uhid}")
 def get_orders_by_uhid(uhid: str, db: Session = Depends(get_db)):
-    """Every service order for a patient, with what has actually been collected."""
+    """Fetch all service orders and items for a patient UHID."""
     try:
         orders_rows = db.execute(text("""
             SELECT so.*, p.PatientName,
-                   (SELECT d.DoctorName FROM admin.Master_Doctor_Header d
-                     WHERE d.DoctorId = so.DoctorId LIMIT 1) as DoctorName
+                   (SELECT d.DoctorName FROM admin.Master_Doctor_Header d WHERE d.DoctorId = so.DoctorId LIMIT 1) as DoctorName
             FROM hospital.Service_Order so
             LEFT JOIN registration.Patient p ON so.UHID = p.Uhid
             WHERE so.UHID = :uhid AND so.IsDeleted = 0
             ORDER BY so.CreatedAt DESC
         """), {"uhid": uhid}).fetchall()
-
+        
         result_list = []
         for order_row in orders_rows:
             order_dict = dict(order_row._mapping)
-            oid = order_dict["ServiceOrderId"]
             items_rows = db.execute(text("""
-                SELECT * FROM hospital.Service_OrderItem
-                WHERE ServiceOrderId = :order_id AND IsDeleted = 0
-            """), {"order_id": oid}).fetchall()
+                SELECT * FROM hospital.Service_OrderItem 
+                WHERE ServiceOrderId = :order_id AND IsDeleted = 0 
+            """), {"order_id": order_dict["ServiceOrderId"]}).fetchall()
             order_dict["Items"] = [dict(item._mapping) for item in items_rows]
-
-            responsibility, paid = gate.order_financials(db, oid)
-            order_dict["PatientResponsibility"] = float(responsibility)
-            order_dict["PaidAdvance"] = float(paid)
-            order_dict["Outstanding"] = float(max(gate.ZERO, responsibility - paid))
+            
+            # Get total advance paid
+            adv = db.execute(text("""
+                SELECT COALESCE(SUM(PaidAmount), 0) FROM hospital.Billing_Advance 
+                WHERE ServiceOrderId = :order_id AND Status = 'PAID'
+            """), {"order_id": order_dict["ServiceOrderId"]}).scalar() or 0.0
+            order_dict["PaidAdvance"] = float(adv)
+            
             result_list.append(order_dict)
-
+            
         return result_list
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/orders/{order_id}/payment")
+def record_advance_payment(order_id: int, payload: pro_schema.AdvancePaymentRequest, db: Session = Depends(get_db)):
+    """Records a manual advance payment linked to the Service Order."""
+    try:
+        order = db.execute(text("SELECT UHID, PROStatus FROM hospital.Service_Order WHERE ServiceOrderId = :id"), {"id": order_id}).fetchone()
+        if not order:
+            raise HTTPException(status_code=404, detail="Service Order not found")
+            
+        uhid = order.UHID
+        
+        # Settle the advance the approval already raised rather than inserting a second row.
+        # This comment always said "check existing advance or create new" but never checked, so
+        # every manual payment left a duplicate REC- row alongside the original ADV- one and the
+        # order looked like it had collected twice.
+        existing = db.execute(text("""
+            SELECT AdvanceId, AdvanceNo FROM hospital.Billing_Advance
+            WHERE ServiceOrderId = :order_id AND IsDeleted = 0 AND Status <> 'PAID'
+            ORDER BY AdvanceId DESC LIMIT 1
+        """), {"order_id": order_id}).fetchone()
 
-# PRO never collects payment. Collection lives in the Billing portal at
-# POST /billing/advance/{advance_id}/pay, which is role-gated to Billing.
+        pay_is_full = float(payload.PaidAmount) >= float(payload.TotalAmount)
+
+        if existing:
+            advance_no = existing.AdvanceNo
+            db.execute(text("""
+                UPDATE hospital.Billing_Advance
+                SET TotalAmount = :TotalAmount, PaidAmount = :PaidAmount,
+                    PaymentMode = :PaymentMode, PaymentReference = :PaymentReference,
+                    Status = :Status, UpdatedAt = NOW()
+                WHERE AdvanceId = :AdvanceId
+            """), {
+                "TotalAmount": payload.TotalAmount,
+                "PaidAmount": payload.PaidAmount,
+                "PaymentMode": payload.PaymentMode,
+                "PaymentReference": payload.PaymentReference or "",
+                "Status": 'PAID' if pay_is_full else 'PARTIALLY_PAID',
+                "AdvanceId": existing.AdvanceId,
+            })
+        else:
+            advance_no = f"REC-{order_id}-{int(datetime.now().timestamp())}"
+            db.execute(text("""
+                INSERT INTO hospital.Billing_Advance (
+                    AdvanceNo, ServiceOrderId, UHID, TotalAmount, PaidAmount, PaymentMode, PaymentReference, Status, CreatedAt
+                ) VALUES (
+                    :AdvanceNo, :ServiceOrderId, :UHID, :TotalAmount, :PaidAmount, :PaymentMode, :PaymentReference, :Status, NOW()
+                )
+            """), {
+                "AdvanceNo": advance_no,
+                "ServiceOrderId": order_id,
+                "UHID": uhid,
+                "TotalAmount": payload.TotalAmount,
+                "PaidAmount": payload.PaidAmount,
+                "PaymentMode": payload.PaymentMode,
+                "PaymentReference": payload.PaymentReference or "",
+                "Status": 'PAID' if pay_is_full else 'PARTIALLY_PAID',
+            })
+
+        # If paid in full or partial, update payment status
+        is_full = pay_is_full
+        pay_status = 'PAID' if is_full else 'PARTIALLY_PAID'
+        fin_status = 'CLEARED' if is_full else 'PARTIALLY_CLEARED'
+        
+        db.execute(text("""
+            UPDATE hospital.Service_Order
+            SET PaymentStatus = :pay_status, FinancialStatus = :fin_status,
+                ServiceStatus = CASE WHEN :is_full = 1 THEN 'RELEASED' ELSE ServiceStatus END,
+                UpdatedAt = NOW()
+            WHERE ServiceOrderId = :order_id
+        """), {"pay_status": pay_status, "fin_status": fin_status, "is_full": 1 if is_full else 0, "order_id": order_id})
+        
+        db.execute(text("""
+            UPDATE hospital.Service_OrderItem
+            SET PaymentStatus = :pay_status, FinancialStatus = :fin_status,
+                ServiceStatus = CASE WHEN :is_full = 1 THEN 'RELEASED' ELSE ServiceStatus END,
+                UpdatedAt = NOW()
+            WHERE ServiceOrderId = :order_id
+        """), {"pay_status": pay_status, "fin_status": fin_status, "is_full": 1 if is_full else 0, "order_id": order_id})
+        
+        if is_full:
+            release_order_items(
+                db, order_id, 'PAYMENT_CLEARANCE_SYSTEM', 'Full Advance Payment Received',
+            )
+            
+        log_pro_audit(db, order_id, None, uhid, 'PAYMENT_RECORDED', 'UNPAID', pay_status, f"Paid ₹{payload.PaidAmount} via {payload.PaymentMode}")
+        db.commit()
+        return {"message": "Payment recorded successfully", "AdvanceNo": advance_no}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/audit", response_model=List[pro_schema.PROAuditLogResponse])
-def get_audit_logs(limit: int = Query(500, ge=1, le=2000), db: Session = Depends(get_db)):
+def get_audit_logs(db: Session = Depends(get_db)):
     try:
-        rows = db.execute(text("""
+        logs_query = text("""
             SELECT al.*, p.PatientName
             FROM hospital.PRO_AuditLog al
             LEFT JOIN registration.Patient p ON al.UHID = p.Uhid
             ORDER BY al.CreatedAt DESC
-            LIMIT :limit
-        """), {"limit": limit}).fetchall()
+            LIMIT 500
+        """)
+        rows = db.execute(logs_query).fetchall()
         return [dict(row._mapping) for row in rows]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @router.get("/insurance")
-def get_insurance_authorizations(db: Session = Depends(get_db)):
-    """Pre-authorizations, which are what gate a service.
-
-    This used to list Billing_InsuranceClaim rows. A claim is raised after the
-    service to recover money; it says nothing about whether the service was
-    authorised beforehand, so showing claims on an authorization screen invited
-    exactly the confusion the workflow forbids.
-    """
+def get_insurance_claims(db: Session = Depends(get_db)):
     try:
         rows = db.execute(text("""
-            SELECT pa.*, so.OrderNo, so.SourceModule, so.OrderType
-            FROM hospital.Ins_PreAuth pa
-            LEFT JOIN hospital.Service_Order so ON so.ServiceOrderId = pa.ServiceOrderId
-            ORDER BY pa.PreAuthId DESC
-            LIMIT 200
+            SELECT * FROM hospital.Billing_InsuranceClaim
+            ORDER BY ClaimId DESC LIMIT 200
         """)).fetchall()
         return [dict(row._mapping) for row in rows]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/payments/pending")
 def get_pending_payments(db: Session = Depends(get_db)):
-    """Read-only view of advance bills awaiting collection.
-
-    PRO monitors; Billing collects.
-    """
     try:
         rows = db.execute(text("""
-            SELECT ba.*, p.PatientName,
-                   (ba.TotalAmount - ba.PaidAmount + ba.RefundedAmount) AS Outstanding,
-                   (SELECT GROUP_CONCAT(soi.ItemName SEPARATOR ', ')
-                      FROM hospital.Service_OrderItem soi
-                     WHERE soi.ServiceOrderId = ba.ServiceOrderId AND soi.IsDeleted = 0
-                    ) as ServiceSummary
-            FROM hospital.Billing_Advance ba
-            LEFT JOIN registration.Patient p ON ba.UHID = p.Uhid
-            WHERE ba.Status IN ('PENDING','PARTIALLY_PAID') AND ba.IsDeleted = 0
-            ORDER BY ba.AdvanceId DESC LIMIT 200
+            SELECT * FROM hospital.Billing_Advance
+            WHERE Status = 'PENDING'
+            ORDER BY AdvanceId DESC LIMIT 200
         """)).fetchall()
         return [dict(row._mapping) for row in rows]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+

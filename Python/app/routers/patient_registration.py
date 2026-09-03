@@ -12,8 +12,7 @@ from app.schemas.patient_registration import (
     PatientRegistrationResponse,
     OptionsResponse,
     TitleEnum, GenderEnum, MaritalStatusEnum,
-    EmergencyRelationshipEnum, YesNoEnum, PatientTypeEnum,
-    StatusEnum
+    EmergencyRelationshipEnum, YesNoEnum, PatientTypeEnum
 )
 
 logger = logging.getLogger(__name__)
@@ -78,7 +77,6 @@ def _call_sp(db: Session, opt: str, **kwargs) -> Any:
         "p_SmsConsent": kwargs.get("SmsConsent", None),
         "p_EmailConsent": kwargs.get("EmailConsent", None),
         "p_WhatsappConsent": kwargs.get("WhatsappConsent", None),
-        "p_Status": kwargs.get("Status", None),
         "p_Remarks": kwargs.get("Remarks", None),
         "p_CreatedBy": kwargs.get("CreatedBy", "admin"),
         "p_ModifiedBy": kwargs.get("ModifiedBy", "admin")
@@ -97,7 +95,7 @@ def _call_sp(db: Session, opt: str, **kwargs) -> Any:
             :p_CurrentMedication, :p_OrganDonor, :p_Disability, :p_InsuranceRequired, 
             :p_InsuranceProvider, :p_Tpa, :p_PolicyNumber, :p_ValidTill, :p_PatientType, 
             :p_ReferredBy, :p_PrimaryDoctor, :p_Department, :p_RegistrationSource,
-            :p_PrivacyConsent, :p_SmsConsent, :p_EmailConsent, :p_WhatsappConsent, :p_Status, :p_Remarks, 
+            :p_PrivacyConsent, :p_SmsConsent, :p_EmailConsent, :p_WhatsappConsent, :p_Remarks, 
             :p_CreatedBy, :p_ModifiedBy
         )
     """)
@@ -132,7 +130,6 @@ def get_options(db: Session = Depends(get_db)):
             "EmergencyRelationship": [e.value for e in EmergencyRelationshipEnum],
             "YesNo": [e.value for e in YesNoEnum],
             "PatientType": [e.value for e in PatientTypeEnum],
-            "Status": [e.value for e in StatusEnum],
             "BloodGroups": blood_groups
         }
         return options
@@ -184,7 +181,20 @@ def get_registration_reports(start_date: str = None, end_date: str = None, db: S
             })
             
         cursor.close()
-        
+
+        # Counted here rather than inside SpGetRegistrationReports so the stored procedure stays
+        # untouched. Same date window as the other KPIs. Every sale counts, refunds included: the
+        # card reports how many bills were raised, not how much money stuck.
+        pharmacy_sql = "SELECT COUNT(*) FROM hospital.Pharmacy_Sale WHERE 1 = 1"
+        pharmacy_params = {}
+        if start_date:
+            pharmacy_sql += " AND DATE(SaleDate) >= :start_date"
+            pharmacy_params["start_date"] = start_date
+        if end_date:
+            pharmacy_sql += " AND DATE(SaleDate) <= :end_date"
+            pharmacy_params["end_date"] = end_date
+        kpis["pharmacyBills"] = db.execute(text(pharmacy_sql), pharmacy_params).scalar() or 0
+
         return {
             "kpis": kpis,
             "demographics": demographics,

@@ -1,5 +1,6 @@
 import { RadiologySidebar } from './RadiologySidebar';
 import { useAuthRedirect, ModuleOutlet } from '../components/auth/ModuleGuard';
+import { NotificationBell } from '../components/ui/NotificationBell';
 
 export const RadiologyLayout = () => {
   const authRedirect = useAuthRedirect();
@@ -15,13 +16,16 @@ export const RadiologyLayout = () => {
 
 
 
-          <div className="flex items-center gap-3">
-            <div className="text-right hidden sm:block">
-              <p className="text-sm font-bold text-slate-700">Radiologist</p>
-              <p className="text-xs font-medium text-slate-500">Radiology (RIS)</p>
-            </div>
-            <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold">
-              RD
+          <div className="flex items-center gap-4">
+            <NotificationBell />
+            <div className="flex items-center gap-3">
+              <div className="text-right hidden sm:block">
+                <p className="text-sm font-bold text-slate-700">Radiologist</p>
+                <p className="text-xs font-medium text-slate-500">Radiology (RIS)</p>
+              </div>
+              <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold">
+                RD
+              </div>
             </div>
           </div>
         </header>

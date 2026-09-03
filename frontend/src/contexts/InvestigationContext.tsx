@@ -84,7 +84,7 @@ interface InvestigationContextType {
   refresh: () => Promise<void>;
   /** Resolves true when the order reached the backend, false when it did not. */
   addOrder: (order: InvestigationOrder) => Promise<boolean>;
-  updateTestResult: (orderId: string, testId: string, resultValue?: string, resultFile?: string, isCritical?: boolean) => void;
+  updateTestResult: (orderId: string, testId: string, resultValue?: string, resultFile?: string, isCritical?: boolean, resultSummary?: string) => void;
   updateTestStatus: (orderId: string, testId: string, status: InvestigationTest['status']) => void;
   verifyTest: (orderId: string, testId: string, verifiedBy: string) => void;
   acknowledgeAlert: (testId: string, acknowledgedBy?: string) => void;
