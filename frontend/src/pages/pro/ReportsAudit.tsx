@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Loader, FileText, History, Search, RefreshCw, AlertCircle, Calendar, X } from 'lucide-react';
 
+import { monthStart, today } from '../../components/ui/DateFilter';
+
 const API = (import.meta.env.VITE_API_URL as string || 'http://localhost:8000/api/v1') + '/pro';
-
-
 
 const ActionBadge = ({ action }: { action?: string }) => {
   const map: Record<string, string> = {
@@ -30,12 +30,9 @@ export const ReportsAudit = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const now = new Date();
-  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-  const currentDate = now.toISOString().split('T')[0];
 
-  const [dateFrom, setDateFrom] = useState(currentMonthStart);
-  const [dateTo, setDateTo] = useState(currentDate);
+  const [dateFrom, setDateFrom] = useState(monthStart());
+  const [dateTo, setDateTo] = useState(today());
 
   const loadReports = async () => {
     setReportsLoading(true);
@@ -184,7 +181,9 @@ export const ReportsAudit = () => {
                           <td className="px-4 py-3 text-slate-400">{idx + 1}</td>
                           <td className="px-4 py-3 font-medium text-slate-700">{o.PatientName || '—'}</td>
                           <td className="px-4 py-3 font-mono text-slate-600">{o.UHID}</td>
-                          <td className="px-4 py-3 text-slate-600">{o.DoctorName || '—'}</td>
+                          <td className="px-4 py-3 text-slate-600">
+                            {o.DoctorName ? o.DoctorName.replace(/\b\w/g, (c: string) => c.toUpperCase()) : '—'}
+                          </td>
                           <td className="px-4 py-3 text-slate-600">{o.DepartmentName || '—'}</td>
                           <td className="px-4 py-3"><span className="bg-slate-100 text-slate-600 text-xs px-2 py-0.5 rounded-full">{o.SourceModule}</span></td>
                           <td className="px-4 py-3 text-slate-500">{new Date(o.OrderDate).toLocaleDateString()}</td>
@@ -312,7 +311,9 @@ export const ReportsAudit = () => {
                 </div>
                 <div>
                   <p className="text-xs text-slate-500 font-medium">Doctor</p>
-                  <p className="text-sm font-semibold text-slate-800">{viewOrder.DoctorName || '—'}</p>
+                  <p className="text-sm font-semibold text-slate-800">
+                    {viewOrder.DoctorName ? viewOrder.DoctorName.replace(/\b\w/g, (c: string) => c.toUpperCase()) : '—'}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-slate-500 font-medium">Department</p>
@@ -334,7 +335,7 @@ export const ReportsAudit = () => {
                     const qty = it.Quantity ?? 1;
                     return (
                       <tr key={it.ServiceOrderItemId} className="border hover:bg-slate-50/50">
-                        <td className="px-4 py-2 border font-medium text-slate-700">{it.ItemDescription}</td>
+                        <td className="px-4 py-2 border font-medium text-slate-700">{it.ItemName}</td>
                         <td className="px-4 py-2 border text-right text-slate-600">{price.toFixed(2)}</td>
                         <td className="px-4 py-2 border text-right text-slate-600">{qty}</td>
                         <td className="px-4 py-2 border text-right font-semibold text-slate-700">{(price * qty).toFixed(2)}</td>

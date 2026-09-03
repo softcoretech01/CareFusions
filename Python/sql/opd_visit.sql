@@ -87,6 +87,7 @@ CREATE TABLE IF NOT EXISTS Trn_OpdVisitLabOrder (
 CREATE TABLE IF NOT EXISTS Trn_OpdVisitRadiologyOrder (
     RadiologyOrderId INT AUTO_INCREMENT PRIMARY KEY,
     VisitId INT NOT NULL,
+    ServiceName VARCHAR(200) NULL,
     Modality VARCHAR(100) NULL,
     BodyPart VARCHAR(100) NULL,
     Indication TEXT NULL,
@@ -185,6 +186,7 @@ BEGIN
                 SELECT JSON_ARRAYAGG(
                     JSON_OBJECT(
                         'id', R.RadiologyOrderId,
+                        'serviceName', R.ServiceName,
                         'modality', R.Modality,
                         'bodyPart', R.BodyPart,
                         'indication', R.Indication,
@@ -374,8 +376,9 @@ BEGIN
         -- Process Radiology Orders
         IF p_RadiologyOrdersJson IS NOT NULL THEN
             DELETE FROM hospital.Trn_OpdVisitRadiologyOrder WHERE VisitId = v_VisitId;
-            INSERT INTO hospital.Trn_OpdVisitRadiologyOrder (VisitId, Modality, BodyPart, Indication, Priority, ContrastRequired, SpecialInstructions, Status)
+            INSERT INTO hospital.Trn_OpdVisitRadiologyOrder (VisitId, ServiceName, Modality, BodyPart, Indication, Priority, ContrastRequired, SpecialInstructions, Status)
             SELECT v_VisitId, 
+                   JSON_UNQUOTE(JSON_EXTRACT(value, '$.serviceName')),
                    JSON_UNQUOTE(JSON_EXTRACT(value, '$.modality')),
                    JSON_UNQUOTE(JSON_EXTRACT(value, '$.bodyPart')),
                    JSON_UNQUOTE(JSON_EXTRACT(value, '$.indication')),

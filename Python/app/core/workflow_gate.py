@@ -108,6 +108,57 @@ def compute_item_amounts(*, quantity, pro_price, discount, insurance_cover,
     )
 
 
+# ── Master price ───────────────────────────────────────────────────────────
+# Where each kind of service keeps its catalogue price. The master price is the
+# ceiling the PRO may discount from, so it has to come from the catalogue: when
+# the client supplies it (which ``POST /pro/orders/create`` used to allow) the
+# read-only rule is worth nothing, because the caller simply declares a master
+# price high enough for whatever it wants to charge.
+_MASTER_PRICE_SOURCES = {
+    "LAB": [
+        ("admin.Master_LabTest", "TestPrice", "TestId", "TestName"),
+        ("admin.Master_Service", "StandardPrice", "ServiceId", "ServiceName"),
+    ],
+    "RADIOLOGY": [
+        ("admin.Master_RadiologyService", "ServicePrice", "RadiologyServiceId", "ServiceName"),
+        ("admin.Master_Service", "StandardPrice", "ServiceId", "ServiceName"),
+    ],
+    "OPERATION": [
+        ("admin.Mst_MajorOperation", "defaultCharge", "id", "operationName"),
+        ("admin.Mst_MinorOperation", "defaultCharge", "id", "operationName"),
+        ("admin.Master_Service", "StandardPrice", "ServiceId", "ServiceName"),
+    ],
+    "OTHER": [
+        ("admin.Master_Service", "StandardPrice", "ServiceId", "ServiceName"),
+        ("admin.Master_Procedure", "ProcedurePrice", "ProcedureId", "ProcedureName"),
+    ],
+}
+
+
+def lookup_master_price(db: Session, *, item_type: str, item_id=None,
+                        item_name: Optional[str] = None) -> Optional[Decimal]:
+    """The catalogue price for a service, or None if it is not in any catalogue.
+
+    Matched by id first, then by name, across the catalogues that can hold that
+    item type. Returns None rather than zero when nothing matches, so the caller
+    can tell "this service is free" apart from "this service is unknown".
+    """
+    for table, price_col, id_col, name_col in _MASTER_PRICE_SOURCES.get(
+            (item_type or "OTHER").upper(), _MASTER_PRICE_SOURCES["OTHER"]):
+        for column, value in ((id_col, item_id), (name_col, item_name)):
+            if value in (None, "", "None"):
+                continue
+            try:
+                row = db.execute(text(
+                    f"SELECT {price_col} AS p FROM {table} WHERE {column} = :v LIMIT 1"
+                ), {"v": value}).fetchone()
+            except Exception:
+                break  # table or column absent in this deployment; try the next source
+            if row is not None and row.p is not None:
+                return money(row.p)
+    return None
+
+
 def validate_pricing(*, item_name: str, master_price, quantity, pro_price,
                      discount) -> Optional[str]:
     """Return a human-readable rejection reason, or None if the pricing is legal.

@@ -63,6 +63,9 @@ class PROOrderItemResponse(BaseModel):
 class PROOrderResponse(BaseModel):
     ServiceOrderId: int
     OrderNo: str
+    # Orders sharing this number came from one clinical ordering event and are
+    # reviewed together as a single row.
+    OrderGroupNo: Optional[str] = None
     OrderType: str
     SourceModule: str
     UHID: str
@@ -131,7 +134,16 @@ class CreateServiceOrderRequest(BaseModel):
     Items: List[CreateServiceOrderItem]
 
 class AdvancePaymentRequest(BaseModel):
-    PaidAmount: float
-    TotalAmount: float
+    # The amount of cash actually being taken. Must be > 0 and is checked
+    # against the outstanding balance the SERVER computes.
+    PaidAmount: float = Field(gt=0)
+    # Ignored. Kept so existing clients still validate: the amount owed is the
+    # advance bill's TotalAmount, which the PRO approval set from the priced
+    # items. Reading it from the request is what let {"TotalAmount": 1,
+    # "PaidAmount": 1} mark a Rs.310,000 order fully paid.
+    TotalAmount: Optional[float] = None
     PaymentMode: str = "Cash"
     PaymentReference: Optional[str] = None
+    # Optional caller-supplied key. A retried POST carrying the same key returns
+    # the original receipt instead of taking the money a second time.
+    IdempotencyKey: Optional[str] = Field(default=None, max_length=120)

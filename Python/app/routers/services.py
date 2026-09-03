@@ -34,12 +34,21 @@ router = APIRouter(
 # Creation
 # ══════════════════════════════════════════════════════════════════════════
 
-def create_service_order_internal(db: Session, order: service_schema.ServiceOrderCreate) -> int:
+def create_service_order_internal(db: Session, order: service_schema.ServiceOrderCreate,
+                                  order_group_no: Optional[str] = None) -> int:
     """Create a Service Order and its items without committing.
 
     Called by the Lab and Radiology order endpoints inside their own
     transaction, so a lab order and its service order are created together or
     not at all.
+
+    ``order_group_no`` ties the orders raised by ONE clinical ordering event
+    together. A doctor who ticks two lab tests and a scan and presses "Update
+    EMR" once has made one decision, but it arrives here as two calls -- one
+    Lab_Order, one Rad_Order -- and so becomes two service orders. Giving both
+    the same group number lets the PRO desk review them as the single order they
+    are, instead of three rows appearing for one click. It defaults to the
+    order's own number, which makes an ungrouped order a group of one.
 
     Any workflow status on the passed-in object is ignored. A new order is
     always PENDING / UNPAID / NOT_CLEARED / NOT_RELEASED, and every amount
@@ -48,16 +57,17 @@ def create_service_order_internal(db: Session, order: service_schema.ServiceOrde
     """
     db.execute(text("""
         INSERT INTO hospital.Service_Order (
-            OrderNo, UHID, EncounterId, AdmissionId, DoctorId, DepartmentId,
+            OrderNo, OrderGroupNo, UHID, EncounterId, AdmissionId, DoctorId, DepartmentId,
             OrderType, SourceModule, OrderStatus, PROStatus, PaymentStatus,
             FinancialStatus, ServiceStatus, AuthorizationStatus
         ) VALUES (
-            :OrderNo, :UHID, :EncounterId, :AdmissionId, :DoctorId, :DepartmentId,
+            :OrderNo, :OrderGroupNo, :UHID, :EncounterId, :AdmissionId, :DoctorId, :DepartmentId,
             :OrderType, :SourceModule, 'ACTIVE', 'PENDING', 'UNPAID',
             'NOT_CLEARED', 'NOT_RELEASED', 'NOT_REQUIRED'
         )
     """), {
         "OrderNo": order.OrderNo,
+        "OrderGroupNo": (order_group_no or order.OrderNo)[:60],
         "UHID": order.UHID,
         "EncounterId": order.EncounterId,
         "AdmissionId": order.AdmissionId,

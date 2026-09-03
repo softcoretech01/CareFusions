@@ -5,8 +5,11 @@ from typing import List, Dict, Any
 from app.database import get_db
 from app.schemas.radiology import RadiologyOrderResponse, RadiologyTestUpdate, RadiologyOrderCreate
 import uuid
+from app.core import workflow_gate as gate
+from app.core.rbac import Actor, require_roles
 from app.routers.services import create_service_order_internal
 from app.routers._service_clearance import blocked_order_numbers
+from app.routers import _order_dedupe as dedupe
 from app.schemas.services import ServiceOrderCreate, ServiceOrderItemCreate, OrderTypeEnum, SourceModuleEnum
 
 router = APIRouter(
@@ -131,6 +134,28 @@ def get_radiology_orders(db: Session = Depends(get_db)):
 @router.post("", response_model=Dict[str, Any])
 def create_radiology_order(order_data: RadiologyOrderCreate, db: Session = Depends(get_db)):
     try:
+        # Same rule as the lab: a scan already on today's order for this patient
+        # is not raised again. Re-submitting the visit's list (which is what a
+        # second "Update EMR" click does) had been creating a duplicate scan,
+        # a duplicate service order and a duplicate PRO review row every time.
+        fresh, repeats = dedupe.split_new_tests(
+            db, order_table="Rad_Order", test_table="Rad_OrderTest",
+            uhid=order_data.uhid, tests=order_data.tests,
+            name_of=lambda t: t.testName)
+
+        if not fresh:
+            existing = dedupe.existing_order_for(
+                db, order_table="Rad_Order", test_table="Rad_OrderTest",
+                uhid=order_data.uhid,
+                test_names=[t.testName for t in order_data.tests])
+            return {
+                "order_id": existing.OrderId if existing else None,
+                "order_number": existing.OrderNumber if existing else None,
+                "duplicate": True,
+                "skipped_tests": [t.testName for t in repeats],
+                "message": "These scans are already on today's order for this patient.",
+            }
+
         order_number = f"RAD-{str(uuid.uuid4())[:8].upper()}"
         
         ordered_by = order_data.ordered_by
@@ -159,7 +184,7 @@ def create_radiology_order(order_data: RadiologyOrderCreate, db: Session = Depen
         order_id = db.execute(text("SELECT LAST_INSERT_ID()")).scalar()
         
         service_items = []
-        for test in order_data.tests:
+        for test in fresh:
             t_id = test.testId if test.testId is not None else test.test_id
             t_code = test.testCode or test.test_code or test.testName
             b_part = test.body_part or test.bodyPart or ""
@@ -216,37 +241,48 @@ def create_radiology_order(order_data: RadiologyOrderCreate, db: Session = Depen
             SourceModule=source_mod,
             Items=service_items
         )
-        create_service_order_internal(db, svc_order)
+        create_service_order_internal(db, svc_order, order_data.order_group_no)
             
         db.commit()
-        return {"order_id": order_id, "order_number": order_number, "message": "Order created successfully"}
+        return {"order_id": order_id, "order_number": order_number,
+                "duplicate": False,
+                "skipped_tests": [t.testName for t in repeats],
+                "message": "Order created successfully"}
+    except HTTPException:
+        db.rollback()
+        raise
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/{order_id}/tests/{test_id}")
-def update_radiology_test(order_id: int, test_id: str, test_data: RadiologyTestUpdate, db: Session = Depends(get_db)):
+def update_radiology_test(
+    order_id: int,
+    test_id: str,
+    test_data: RadiologyTestUpdate,
+    db: Session = Depends(get_db),
+    actor: Actor = Depends(require_roles("RADIOLOGY")),
+):
+    """Record a radiology result. Refused unless the study has been released.
+
+    The gate here used to be an inline query checked as
+    ``if svc_status and svc_status != 'RELEASED'``. When the join matched
+    nothing -- which is the case for 15 of the 16 radiology orders in this
+    database, because they have no Service_Order behind them at all -- the
+    result was None, the condition was false, and the scan was reported with no
+    PRO approval, no advance bill and no payment.
+
+    ``gate.assert_rad_test_executable`` is fail-closed: an order it cannot
+    resolve to a service order is refused, and a status column saying RELEASED
+    is not enough on its own -- there has to be a live Service_Release row, so a
+    release revoked when a payment was reversed actually stops the work.
+    """
     try:
-        # Note: the test_id from frontend is mapped to order_test_id in the DB.
-        # But wait, frontend test.id is usually a string like "TEST-001" or the order_test_id.
-        # We will assume test_id passed here is order_test_id.
         order_test_id_int = int(test_id.replace("TEST-", "")) if isinstance(test_id, str) and test_id.startswith("TEST-") else int(test_id)
-        
-        # Phase 8: Enforce Service Release
-        release_query = text("""
-            SELECT soi.ServiceStatus
-            FROM hospital.Rad_Order h
-            JOIN hospital.Service_Order so ON so.OrderNo = h.OrderNumber
-            JOIN hospital.Rad_OrderTest t ON t.OrderId = h.OrderId
-            JOIN hospital.Service_OrderItem soi ON soi.ServiceOrderId = so.ServiceOrderId 
-                AND (soi.ItemName = t.TestName OR soi.ItemId = t.TestId)
-            WHERE t.OrderTestId = :test_id
-            LIMIT 1
-        """)
-        svc_status = db.execute(release_query, {"test_id": order_test_id_int}).scalar()
-        if svc_status and svc_status != 'RELEASED':
-            raise HTTPException(status_code=400, detail="This test cannot be executed because it has not passed financial clearance and Service Release.")
-        
+
+        gate.assert_rad_test_executable(
+            db, order_test_id_int, action="record this radiology result")
+
         result = _call_sp(
             db, "UPDATE_RESULT",
             order_id=order_id,
@@ -297,6 +333,13 @@ def update_radiology_test(order_id: int, test_id: str, test_data: RadiologyTestU
         db.commit()
         
         return {"message": "Test updated successfully"}
+    except HTTPException:
+        # gate.ServiceNotReleased subclasses HTTPException. Without this branch
+        # the blanket handler below turned a 403 "not released" refusal into an
+        # opaque 500, so the technician was told the server had broken rather
+        # than that the study was not cleared.
+        db.rollback()
+        raise
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))

@@ -43,11 +43,19 @@ export const DateFilter = ({
   defaultDateTo,
   label = 'From :',
 }: DateFilterProps) => {
-  // ?? not || so a caller can pass '' to mean "open unfiltered". Screens that
-  // list stock on hand have nothing to gain from a date range they did not ask
-  // for, and a range they did not notice silently hides most of their rows.
-  const defaultFrom = defaultDateFrom ?? toInputDate(new Date());
-  const defaultTo = defaultDateTo ?? toInputDate(new Date());
+  // The house default is "this month so far": from the 1st, to today.
+  //
+  // It used to be today -> today, so every screen that did not name its own
+  // default opened showing a single day. On a reporting screen that reads as
+  // "there is no data" when there is a month of it, and it made the same filter
+  // behave differently from screen to screen depending on whether whoever wrote
+  // it happened to pass a default.
+  //
+  // ?? not || so a caller can still pass '' to mean "open unfiltered". Screens
+  // that list stock on hand have nothing to gain from a date range they did not
+  // ask for, and a range they did not notice silently hides most of their rows.
+  const defaultFrom = defaultDateFrom ?? monthStart();
+  const defaultTo = defaultDateTo ?? today();
 
   // Seed a default range (this month → today) ONLY if the parent hasn't set
   // one. This is a controlled component: the inputs reflect the parent's

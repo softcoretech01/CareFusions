@@ -575,8 +575,13 @@ def get_audit_logs(db: Session = Depends(get_db)):
 def get_insurance_claims(db: Session = Depends(get_db)):
     try:
         rows = db.execute(text("""
-            SELECT * FROM hospital.Billing_InsuranceClaim
-            ORDER BY ClaimId DESC LIMIT 200
+            SELECT pa.*, 
+                   CASE 
+                     WHEN (SELECT COUNT(*) FROM hospital.Billing_InsuranceClaim WHERE PreAuthId = pa.PreAuthId) > 0 THEN 'CLAIMED' 
+                     ELSE UPPER(pa.Status) 
+                   END AS Status 
+            FROM hospital.Billing_PreAuth pa
+            ORDER BY pa.PreAuthId DESC LIMIT 200
         """)).fetchall()
         return [dict(row._mapping) for row in rows]
     except Exception as e:

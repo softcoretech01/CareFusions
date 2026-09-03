@@ -1,15 +1,19 @@
 import { useState, useEffect } from 'react';
 import { IndianRupee, TrendingUp, FileText, CreditCard, CheckCircle, Clock, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import Chart from 'react-apexcharts';
-import { DateFilter } from '../../components/ui/DateFilter';
+import { DateFilter, monthStart, today as todayInput } from '../../components/ui/DateFilter';
 import axios from 'axios';
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
 
 export const BillingDashboard = () => {
   const [bills, setBills] = useState<any[]>([]);
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
+  // Open on "this month so far", like the other billing screens. DateFilter
+  // seeds today->today when the caller supplies no default, so this dashboard
+  // opened showing a single day and reported the month's takings as whatever
+  // happened to be billed since midnight.
+  const [fromDate, setFromDate] = useState(monthStart());
+  const [toDate, setToDate] = useState(todayInput());
   const [activeView, setActiveView] = useState<'NONE' | 'TOTAL' | 'OP' | 'IP' | 'PAID' | 'PENDING'>('NONE');
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -195,7 +199,9 @@ export const BillingDashboard = () => {
             onDateFromChange={setFromDate}
             onDateToChange={setToDate}
             onSearch={() => {}}
-            onReset={() => { setFromDate(''); setToDate(''); }}
+            defaultDateFrom={monthStart()}
+            defaultDateTo={todayInput()}
+            onReset={() => { setFromDate(monthStart()); setToDate(todayInput()); }}
           />
         </div>
       </div>

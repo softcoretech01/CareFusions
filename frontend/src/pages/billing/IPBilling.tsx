@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Search, Plus, Bed, CheckCircle, Printer, FileText, Shield } from 'lucide-react';
-import { DateFilter } from '../../components/ui/DateFilter';
+import { DateFilter, monthStart, today } from '../../components/ui/DateFilter';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 const API_BASE = import.meta.env.VITE_API_URL as string;
@@ -150,13 +150,8 @@ export const IPBilling = () => {
   const [selectedPatientId, setSelectedPatientId] = useState('');
   const [mobileNumber, setMobileNumber] = useState('');
 
-  const todayStr = (() => {
-    const today = new Date();
-    return today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
-  })();
-
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [dateFrom, setDateFrom] = useState(monthStart());
+  const [dateTo, setDateTo] = useState(today());
 
   const [successMsg, setSuccessMsg] = useState('');
 
@@ -865,8 +860,8 @@ export const IPBilling = () => {
                 dateTo={dateTo}
                 onDateFromChange={setDateFrom}
                 onDateToChange={setDateTo}
-                defaultDateFrom={todayStr}
-                defaultDateTo={todayStr}
+                defaultDateFrom={monthStart()}
+                defaultDateTo={today()}
               />
             </div>
           </div>

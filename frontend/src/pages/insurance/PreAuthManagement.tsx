@@ -440,28 +440,7 @@ export const PreAuthManagement = () => {
                         className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors">
                         <FileText className="w-4 h-4" />
                       </button>
-                      {req.status === 'Pending' && (
-                        <>
-                          <button
-                            onClick={() => {
-                              updatePreAuthStatus(req.id, 'Approved', req.amount);
-                              toast.success('Pre-authorisation approved');
-                            }}
-                            title="Approve"
-                            className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded transition-colors">
-                            <CheckCircle className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              updatePreAuthStatus(req.id, 'Rejected');
-                              toast.success('Pre-authorisation rejected');
-                            }}
-                            title="Reject"
-                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors">
-                            <Ban className="w-4 h-4" />
-                          </button>
-                        </>
-                      )}
+                      {/* Approval is now handled by the PRO Portal */}
                       <button onClick={() => setEditing({ ...req })} title="Edit"
                         className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded transition-colors">
                         <Edit className="w-4 h-4" />
@@ -667,49 +646,7 @@ export const PreAuthManagement = () => {
         </div>
       )}
 
-      {/* ── Approve / Reject ── */}
-      {deciding && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-5 space-y-3">
-            <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-              {deciding.action === 'Approved'
-                ? <><CheckCircle className="w-5 h-5 text-emerald-600" /> Approve {deciding.req.id}</>
-                : <><Ban className="w-5 h-5 text-rose-600" /> Reject {deciding.req.id}</>}
-            </h2>
-            <p className="text-xs text-slate-500">
-              {deciding.req.patient} · Requested {inr(deciding.req.amount)}
-            </p>
-            {deciding.action === 'Approved' && (
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Sanctioned Amount (₹)</label>
-                <input type="text" inputMode="numeric" value={decisionAmount}
-                  onChange={e => setDecisionAmount(e.target.value.replace(/\D/g, ''))}
-                  className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary" />
-                <p className="text-[11px] text-slate-500 mt-1">
-                  Claims raised for this patient will pick this up as the pre-authorised amount.
-                </p>
-              </div>
-            )}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                {deciding.action === 'Approved' ? 'Remarks (optional)' : 'Rejection Reason'}
-              </label>
-              <textarea value={decisionReason} onChange={e => setDecisionReason(e.target.value)} rows={2}
-                className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary" />
-            </div>
-            <div className="flex gap-3 pt-1">
-              <button onClick={() => setDeciding(null)}
-                className="flex-1 px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 text-sm">Cancel</button>
-              <button onClick={confirmDecision}
-                className={`flex-1 px-4 py-2 text-white font-bold rounded-xl text-sm ${
-                  deciding.action === 'Approved' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'
-                }`}>
-                {deciding.action === 'Approved' ? 'Approve' : 'Reject'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Decision modal removed. Approvals are now done by PRO. */}
 
       {/* ── Edit ── */}
       {editing && (
@@ -763,8 +700,7 @@ export const PreAuthManagement = () => {
                   className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm" />
               </div>
               <p className="text-[11px] text-slate-500">
-                Use the Approve or Reject actions to decide this request — they record the sanctioned
-                amount and the decision reason.
+                Note: Approving or rejecting this pre-auth is handled by the PRO department.
               </p>
               <div className="pt-2 flex gap-3">
                 <button type="button" onClick={() => setEditing(null)}

@@ -10,6 +10,7 @@ import logging
 import re
 from typing import Optional, Tuple
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
@@ -17,8 +18,11 @@ from app.database import get_db
 from app.schemas.lab import (
     OrderCreate, TestStatusUpdate, TestResultUpdate, VerifyIn, AckIn, QcCreate,
 )
+from app.core import workflow_gate as gate
+from app.core.rbac import Actor, require_roles
 from app.routers.services import create_service_order_internal
 from app.routers._service_clearance import blocked_order_numbers
+from app.routers import _order_dedupe as dedupe
 from app.schemas.services import ServiceOrderCreate, ServiceOrderItemCreate, OrderTypeEnum, SourceModuleEnum
 
 logger = logging.getLogger(__name__)
@@ -233,10 +237,34 @@ def get_order(order_id: int, db: Session = Depends(get_db)):
 
 @router.post("/orders", status_code=201)
 def create_order(payload: OrderCreate, db: Session = Depends(get_db)):
+    # Drop tests this patient already has on a live order today. Re-submitting a
+    # visit's order list (which is what pressing "Update EMR" a second time does)
+    # must not raise the same test again -- that produced five "Urine Routine"
+    # orders, five service orders and five PRO review rows from one entry.
+    # A genuine repeat on a LATER day is unaffected.
+    fresh, repeats = dedupe.split_new_tests(
+        db, order_table="Lab_Order", test_table="Lab_OrderTest",
+        uhid=payload.uhid, tests=payload.tests, name_of=lambda t: t.testName)
+
+    if not fresh:
+        # Nothing new: answer with the order that already exists rather than
+        # creating another one or failing. The caller gets a 200 and can treat
+        # it as success, because clinically it is -- the tests are on order.
+        existing = dedupe.existing_order_for(
+            db, order_table="Lab_Order", test_table="Lab_OrderTest",
+            uhid=payload.uhid, test_names=[t.testName for t in payload.tests])
+        return JSONResponse(status_code=200, content={
+            "orderId": existing.OrderId if existing else None,
+            "id": existing.OrderNumber if existing else None,
+            "duplicate": True,
+            "skippedTests": [t.testName for t in repeats],
+            "message": "These tests are already on today's order for this patient.",
+        })
+
     tests_json = json.dumps([{
         "testId": t.testId, "testCode": t.testCode, "testName": t.testName,
         "bodyPart": t.bodyPart, "normalRange": t.normalRange, "unit": t.unit,
-    } for t in payload.tests])
+    } for t in fresh])
     ordered_by = payload.orderedBy
     if (not ordered_by or ordered_by.strip() in ("Doctor", "doctor")) and payload.uhid:
         adm_doc = db.execute(
@@ -257,7 +285,7 @@ def create_order(payload: OrderCreate, db: Session = Depends(get_db)):
         # Phase 3: Doctor Order Integration
         # Create corresponding Central Service Order
         service_items = []
-        for t in payload.tests:
+        for t in fresh:
             # Fetch master price if available
             master_price = 0.0
             if t.testId or t.testName:
@@ -303,10 +331,15 @@ def create_order(payload: OrderCreate, db: Session = Depends(get_db)):
             SourceModule=source_mod,
             Items=service_items
         )
-        create_service_order_internal(db, svc_order)
+        create_service_order_internal(db, svc_order, payload.orderGroupNo)
         
         db.commit()
-        return {"orderId": row.OrderId, "id": row.OrderNumber}
+        return {"orderId": row.OrderId, "id": row.OrderNumber,
+                "duplicate": False,
+                "skippedTests": [t.testName for t in repeats]}
+    except HTTPException:
+        db.rollback()
+        raise
     except Exception as e:
         db.rollback()
         logger.error(f"[POST /lab/orders] {e}")
@@ -314,12 +347,31 @@ def create_order(payload: OrderCreate, db: Session = Depends(get_db)):
 
 
 @router.patch("/orders/tests/{order_test_id}/status")
-def set_test_status(order_test_id: int, payload: TestStatusUpdate, db: Session = Depends(get_db)):
+def set_test_status(
+    order_test_id: int,
+    payload: TestStatusUpdate,
+    db: Session = Depends(get_db),
+    actor: Actor = Depends(require_roles("LAB", "DOCTOR", "NURSE")),
+):
+    """Move a lab test through its workflow. Gated: only a released test may move.
+
+    Starting a test is executing it. This endpoint had no gate at all, so a test
+    that had not been through PRO review or paid for could be walked all the way
+    to Completed -- the release check on the result endpoint was the only one,
+    and it failed open.
+    """
     try:
+        gate.assert_lab_test_executable(
+            db, order_test_id, action="change this lab test's status")
         _order_sp(db, "SETSTATUS", OrderTestId=order_test_id,
-                  Status=payload.status.value, User=payload.user or "Admin")
+                  Status=payload.status.value, User=actor.username)
         db.commit()
         return {"orderTestId": order_test_id, "status": payload.status.value}
+    except HTTPException:
+        # gate.ServiceNotReleased subclasses HTTPException; without this the
+        # blanket handler below flattened a 403 refusal into an opaque 500.
+        db.rollback()
+        raise
     except Exception as e:
         db.rollback()
         logger.error(f"[PATCH /lab/orders/tests/{order_test_id}/status] {e}")
@@ -327,7 +379,12 @@ def set_test_status(order_test_id: int, payload: TestStatusUpdate, db: Session =
 
 
 @router.put("/orders/tests/{order_test_id}/result")
-def set_test_result(order_test_id: int, payload: TestResultUpdate, db: Session = Depends(get_db)):
+def set_test_result(
+    order_test_id: int,
+    payload: TestResultUpdate,
+    db: Session = Depends(get_db),
+    actor: Actor = Depends(require_roles("LAB")),
+):
     """Save a result. Abnormal/critical flags are derived from the test's own
     reference range and the master's critical-value flag."""
     try:
@@ -353,21 +410,16 @@ def set_test_result(order_test_id: int, payload: TestResultUpdate, db: Session =
             payload.resultValue, row.NormalRange, bool(row.CriticalValueAlert)
         )
         
-        # Phase 8: Enforce Service Release
-        release_query = text("""
-            SELECT soi.ServiceStatus
-            FROM hospital.Lab_Order h
-            JOIN hospital.Service_Order so ON so.OrderNo = h.OrderNumber
-            JOIN hospital.Lab_OrderTest t ON t.OrderId = h.OrderId
-            JOIN hospital.Service_OrderItem soi ON soi.ServiceOrderId = so.ServiceOrderId 
-                AND (soi.ItemName = t.TestName OR soi.ItemId = t.TestId)
-            WHERE t.OrderTestId = :test_id
-            LIMIT 1
-        """)
-        svc_status = db.execute(release_query, {"test_id": order_test_id}).scalar()
-        if svc_status and svc_status != 'RELEASED':
-            raise HTTPException(status_code=400, detail="This test cannot be executed because it has not passed financial clearance and Service Release.")
-        
+        # The service-release gate. This used to be an inline query whose result
+        # was checked as `if svc_status and svc_status != 'RELEASED'`, so a join
+        # that matched nothing returned None and the test proceeded -- and 14 of
+        # the 14 lab orders in this database have no Service_Order behind them,
+        # which made every one of them executable with no PRO approval and no
+        # payment. gate.assert_lab_test_executable is FAIL-CLOSED: an order it
+        # cannot resolve is refused, and it also verifies there is a live
+        # Service_Release rather than trusting the status column.
+        gate.assert_lab_test_executable(db, order_test_id, action="record this lab result")
+
         _order_sp(db, "SETRESULT", OrderTestId=order_test_id,
                   ResultValue=payload.resultValue, ResultFile=payload.resultFile,
                   IsAbnormal=is_abnormal, IsCritical=is_critical,
@@ -422,11 +474,22 @@ def set_test_result(order_test_id: int, payload: TestResultUpdate, db: Session =
 
 
 @router.post("/orders/tests/{order_test_id}/verify")
-def verify_test(order_test_id: int, payload: VerifyIn, db: Session = Depends(get_db)):
+def verify_test(
+    order_test_id: int,
+    payload: VerifyIn,
+    db: Session = Depends(get_db),
+    actor: Actor = Depends(require_roles("LAB")),
+):
+    """Authorise a result for release to the clinician. Lab role only, and gated."""
     try:
-        _order_sp(db, "VERIFY", OrderTestId=order_test_id, User=payload.verifiedBy)
+        gate.assert_lab_test_executable(db, order_test_id, action="verify this lab test")
+        _order_sp(db, "VERIFY", OrderTestId=order_test_id,
+                  User=payload.verifiedBy or actor.username)
         db.commit()
         return {"orderTestId": order_test_id, "status": "Verified"}
+    except HTTPException:
+        db.rollback()
+        raise
     except Exception as e:
         db.rollback()
         logger.error(f"[POST /lab/orders/tests/{order_test_id}/verify] {e}")

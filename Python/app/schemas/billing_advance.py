@@ -11,6 +11,10 @@ class AdvanceBillResponse(BaseModel):
     PatientName: Optional[str] = None
     ServiceSummary: Optional[str] = None
     SourceModule: Optional[str] = None
+    # OP / IP / EMG — the grid's Type column.
+    VisitType: Optional[str] = None
+    DepartmentName: Optional[str] = None
+    DoctorName: Optional[str] = None
     OrderNo: Optional[str] = None
     OrderType: Optional[str] = None
     PROStatus: Optional[str] = None
