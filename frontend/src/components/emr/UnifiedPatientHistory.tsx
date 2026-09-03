@@ -3,7 +3,7 @@ import { useOPDVisits } from '../../contexts/OPDVisitContext';
 import { useIPD } from '../../contexts/IPDContext';
 import { useInvestigations } from '../../contexts/InvestigationContext';
 
-export const UnifiedPatientHistory = ({ patientUhid }: { patientUhid: string }) => {
+export const UnifiedPatientHistory = ({ patientUhid, excludeVisitId }: { patientUhid: string, excludeVisitId?: number }) => {
   const { visits } = useOPDVisits();
   const { patients: ipdAdmissions } = useIPD();
   const { orders: globalOrders } = useInvestigations();
@@ -11,7 +11,7 @@ export const UnifiedPatientHistory = ({ patientUhid }: { patientUhid: string }) 
   if (!patientUhid) return null;
 
   const pastOPDVisits = visits
-    .filter(v => v.uhid === patientUhid && v.status === 'Completed')
+    .filter(v => v.uhid === patientUhid && v.status === 'Completed' && v.id !== excludeVisitId)
     .map(v => ({
       id: v.id,
       type: 'OPD' as const,

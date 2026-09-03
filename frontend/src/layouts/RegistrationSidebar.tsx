@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, UserPlus, Zap, CalendarDays, CopyX, Merge, FolderOpen, History, ChevronRight, ChevronDown, Activity, LogOut, ListOrdered, CalendarClock } from 'lucide-react';
+import { LayoutDashboard, UserPlus, CalendarDays, CopyX, Merge, FolderOpen, History, ChevronRight, ChevronDown, Activity, LogOut, ListOrdered, CalendarClock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppDispatch } from '../hooks/redux';
 import { logout } from '../redux/slices/authSlice';

@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, ShieldCheck, ClipboardCheck, FileText, Gavel, Banknote } from 'lucide-react';
+import { LayoutDashboard, ShieldCheck, ClipboardCheck, FileText } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAppDispatch } from '../hooks/redux';
 import { logout } from '../redux/slices/authSlice';

@@ -272,10 +272,10 @@ export const OPBilling = () => {
         const price = lookup(testPrices, lab.testName) ?? DEFAULT_LAB_FEE;
         newItems.push({
           id: `LAB-${idx}`,
-          description: lab.testName || 'General Lab',
+          description: (lab.testName || 'General Lab') + ' (Paid in Advance)',
           price,
           qty: 1,
-          total: price
+          total: 0
         });
       });
     }
@@ -288,13 +288,14 @@ export const OPBilling = () => {
         const fullName = (rad.bodyPart && name.toLowerCase() !== rad.bodyPart.toLowerCase()) ? `${name} for ${rad.bodyPart}` : name;
         newItems.push({
           id: `RAD-${idx}`,
-          description: fullName,
+          description: fullName + ' (Paid in Advance)',
           price,
           qty: 1,
-          total: price
+          total: 0
         });
       });
     }
+
 
     if (visit.prescriptions && visit.prescriptions.length > 0) {
       visit.prescriptions.forEach((pres, idx) => {

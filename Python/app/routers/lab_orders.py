@@ -4,6 +4,7 @@ from sqlalchemy import text
 from typing import List, Dict, Any
 import json
 from app.database import get_db
+from app.core import workflow_gate as gate
 from app.schemas.lab import (
     LabOrderResponse, 
     LabOrderCreate, 
@@ -148,6 +149,7 @@ def create_lab_order(order_data: LabOrderCreate, db: Session = Depends(get_db)):
 def update_lab_test_result(test_id: str, test_data: LabTestUpdateResult, db: Session = Depends(get_db)):
     try:
         order_test_id_int = int(test_id.replace("TEST-", "")) if isinstance(test_id, str) and test_id.startswith("TEST-") else int(test_id)
+        gate.assert_lab_test_executable(db, order_test_id_int, action="record this lab result")
         
         query = text("""
             CALL hospital.SpLabOrder(
@@ -182,6 +184,7 @@ def update_lab_test_result(test_id: str, test_data: LabTestUpdateResult, db: Ses
 def update_lab_test_status(test_id: str, test_data: LabTestUpdateStatus, db: Session = Depends(get_db)):
     try:
         order_test_id_int = int(test_id.replace("TEST-", "")) if isinstance(test_id, str) and test_id.startswith("TEST-") else int(test_id)
+        gate.assert_lab_test_executable(db, order_test_id_int, action="change this lab test's status")
         
         query = text("""
             CALL hospital.SpLabOrder(
@@ -210,6 +213,7 @@ def update_lab_test_status(test_id: str, test_data: LabTestUpdateStatus, db: Ses
 def verify_lab_test(test_id: str, db: Session = Depends(get_db)):
     try:
         order_test_id_int = int(test_id.replace("TEST-", "")) if isinstance(test_id, str) and test_id.startswith("TEST-") else int(test_id)
+        gate.assert_lab_test_executable(db, order_test_id_int, action="verify this lab test")
         
         query = text("""
             CALL hospital.SpLabOrder(

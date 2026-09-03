@@ -3,19 +3,7 @@ import { Loader, FileText, History, Search, RefreshCw, AlertCircle, Calendar, X 
 
 const API = (import.meta.env.VITE_API_URL as string || 'http://localhost:8000/api/v1') + '/pro';
 
-const REPORT_TYPES = [
-  'Daily PRO Approval Report',
-  'OPD Service Report',
-  'IPD Service Report',
-  'Operations Report',
-  'Rejected Service Report',
-  'Insurance Authorization Report',
-  'Patient Responsibility Report',
-  'Payment Pending Report',
-  'Service Release Report',
-  'PRO Discount Report',
-  'Price Modification Report',
-];
+
 
 const ActionBadge = ({ action }: { action?: string }) => {
   const map: Record<string, string> = {
@@ -36,12 +24,30 @@ const ActionBadge = ({ action }: { action?: string }) => {
 export const ReportsAudit = () => {
   const [activeTab, setActiveTab] = useState<'reports' | 'audit'>('reports');
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [approvedOrders, setApprovedOrders] = useState<any[]>([]);
+  const [reportsLoading, setReportsLoading] = useState(false);
+  const [viewOrder, setViewOrder] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [selectedReport, setSelectedReport] = useState(REPORT_TYPES[0]);
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const now = new Date();
+  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+  const currentDate = now.toISOString().split('T')[0];
+
+  const [dateFrom, setDateFrom] = useState(currentMonthStart);
+  const [dateTo, setDateTo] = useState(currentDate);
+
+  const loadReports = async () => {
+    setReportsLoading(true);
+    try {
+      const res = await fetch(`${API}/orders?status=APPROVED`);
+      if (res.ok) setApprovedOrders(await res.json());
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setReportsLoading(false);
+    }
+  };
 
   const loadAudit = async () => {
     setLoading(true);
@@ -59,7 +65,14 @@ export const ReportsAudit = () => {
 
   useEffect(() => {
     if (activeTab === 'audit') loadAudit();
+    else if (activeTab === 'reports') loadReports();
   }, [activeTab]);
+
+  const filteredOrders = approvedOrders.filter(o => {
+    if (dateFrom && o.OrderDate < dateFrom) return false;
+    if (dateTo && o.OrderDate > dateTo + 'T23:59:59') return false;
+    return true;
+  });
 
   const filteredLogs = auditLogs.filter(log => {
     if (dateFrom && log.CreatedAt < dateFrom) return false;
@@ -79,7 +92,6 @@ export const ReportsAudit = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Reports & Audit</h1>
-          <p className="text-slate-500 text-sm mt-1">Generate PRO reports and track all audit events</p>
         </div>
         <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-sm shrink-0">
           <span className="text-slate-500 text-sm font-medium">From :</span>
@@ -136,72 +148,62 @@ export const ReportsAudit = () => {
         {/* Reports Tab */}
         {activeTab === 'reports' && (
           <div className="p-6 space-y-6">
-            {/* Filters */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 mb-1.5">Report Type</label>
-                <select
-                  value={selectedReport}
-                  onChange={e => setSelectedReport(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                >
-                  {REPORT_TYPES.map(r => <option key={r} value={r}>{r}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 mb-1.5">Date From</label>
-                <input
-                  type="date"
-                  value={dateFrom}
-                  onChange={e => setDateFrom(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 mb-1.5">Date To</label>
-                <input
-                  type="date"
-                  value={dateTo}
-                  onChange={e => setDateTo(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                />
-              </div>
-              <div className="flex items-end gap-2">
-                <button className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 text-white rounded-xl px-4 py-2 text-sm font-semibold hover:bg-emerald-700 transition-colors">
-                  <Search className="w-4 h-4" /> Search
-                </button>
-                <button
-                  onClick={() => { setDateFrom(''); setDateTo(''); }}
-                  className="w-10 h-10 border border-slate-200 rounded-xl flex items-center justify-center text-slate-500 hover:bg-slate-50 transition-colors"
-                >
-                  <RefreshCw className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
 
-            {/* Report List */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {REPORT_TYPES.map(report => (
-                <button
-                  key={report}
-                  onClick={() => setSelectedReport(report)}
-                  className={`text-left p-4 rounded-xl border transition-all ${selectedReport === report ? 'border-emerald-300 bg-emerald-50 shadow-sm' : 'border-slate-200 hover:border-emerald-200 hover:bg-emerald-50/30'}`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${selectedReport === report ? 'bg-emerald-200' : 'bg-slate-100'}`}>
-                      <FileText className={`w-4 h-4 ${selectedReport === report ? 'text-emerald-700' : 'text-slate-500'}`} />
-                    </div>
-                    <span className={`text-sm font-medium ${selectedReport === report ? 'text-emerald-700' : 'text-slate-600'}`}>{report}</span>
-                  </div>
-                </button>
-              ))}
-            </div>
-
-            <div className="bg-slate-50 rounded-xl p-6 text-center text-slate-400">
-              <FileText className="w-10 h-10 mx-auto mb-2 text-slate-300" />
-              <p className="font-medium">Select a report and apply filters to view data</p>
-              <p className="text-sm">Report generation coming with Phase 2 backend.</p>
-            </div>
+            {reportsLoading ? (
+              <div className="flex items-center justify-center py-16">
+                <Loader className="w-6 h-6 animate-spin text-emerald-500" />
+                <span className="ml-3 text-slate-400 text-sm">Loading reports...</span>
+              </div>
+            ) : filteredOrders.length === 0 ? (
+              <div className="text-center py-16 text-slate-400">
+                <FileText className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+                <p className="font-medium">No approved services found</p>
+                <p className="text-sm">Try adjusting your filters.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto border border-slate-100 rounded-xl">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
+                      <th className="px-4 py-3 text-left font-semibold">S.No</th>
+                      <th className="px-4 py-3 text-left font-semibold">Patient</th>
+                      <th className="px-4 py-3 text-left font-semibold">UHID</th>
+                      <th className="px-4 py-3 text-left font-semibold">Doctor</th>
+                      <th className="px-4 py-3 text-left font-semibold">Department</th>
+                      <th className="px-4 py-3 text-left font-semibold">Type</th>
+                      <th className="px-4 py-3 text-left font-semibold">Order Date</th>
+                      <th className="px-4 py-3 text-right font-semibold">Amount (₹)</th>
+                      <th className="px-4 py-3 text-center font-semibold">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredOrders.map((o: any, idx: number) => {
+                      const amount = (o.Items || []).reduce((sum: number, it: any) => sum + (parseFloat(it.PROPrice ?? it.MasterPrice ?? 0) * (it.Quantity ?? 1)), 0);
+                      return (
+                        <tr key={o.ServiceOrderId} className="border-t border-slate-50 hover:bg-slate-50/50">
+                          <td className="px-4 py-3 text-slate-400">{idx + 1}</td>
+                          <td className="px-4 py-3 font-medium text-slate-700">{o.PatientName || '—'}</td>
+                          <td className="px-4 py-3 font-mono text-slate-600">{o.UHID}</td>
+                          <td className="px-4 py-3 text-slate-600">{o.DoctorName || '—'}</td>
+                          <td className="px-4 py-3 text-slate-600">{o.DepartmentName || '—'}</td>
+                          <td className="px-4 py-3"><span className="bg-slate-100 text-slate-600 text-xs px-2 py-0.5 rounded-full">{o.SourceModule}</span></td>
+                          <td className="px-4 py-3 text-slate-500">{new Date(o.OrderDate).toLocaleDateString()}</td>
+                          <td className="px-4 py-3 text-right font-semibold text-slate-700">{amount.toFixed(2)}</td>
+                          <td className="px-4 py-3 text-center">
+                            <button
+                              onClick={() => setViewOrder(o)}
+                              className="text-emerald-600 hover:text-emerald-700 text-xs font-semibold px-3 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 transition-colors"
+                            >
+                              View Tests
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 
@@ -288,6 +290,63 @@ export const ReportsAudit = () => {
           </div>
         )}
       </div>
+
+      {viewOrder && (
+        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl w-full max-w-3xl overflow-hidden shadow-xl">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+              <h2 className="text-lg font-bold text-slate-800">Test Details</h2>
+              <button onClick={() => setViewOrder(null)} className="text-slate-400 hover:text-slate-600 p-1 rounded hover:bg-slate-200">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 max-h-[70vh] overflow-y-auto">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div>
+                  <p className="text-xs text-slate-500 font-medium">Patient</p>
+                  <p className="text-sm font-semibold text-slate-800">{viewOrder.PatientName || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 font-medium">UHID</p>
+                  <p className="text-sm font-semibold text-slate-800">{viewOrder.UHID}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 font-medium">Doctor</p>
+                  <p className="text-sm font-semibold text-slate-800">{viewOrder.DoctorName || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 font-medium">Department</p>
+                  <p className="text-sm font-semibold text-slate-800">{viewOrder.DepartmentName || '—'}</p>
+                </div>
+              </div>
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
+                    <th className="px-4 py-2 border text-left font-semibold">Test Name</th>
+                    <th className="px-4 py-2 border text-right font-semibold">Price (₹)</th>
+                    <th className="px-4 py-2 border text-right font-semibold">Qty</th>
+                    <th className="px-4 py-2 border text-right font-semibold">Total (₹)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(viewOrder.Items || []).map((it: any) => {
+                    const price = parseFloat(it.PROPrice ?? it.MasterPrice ?? 0);
+                    const qty = it.Quantity ?? 1;
+                    return (
+                      <tr key={it.ServiceOrderItemId} className="border hover:bg-slate-50/50">
+                        <td className="px-4 py-2 border font-medium text-slate-700">{it.ItemDescription}</td>
+                        <td className="px-4 py-2 border text-right text-slate-600">{price.toFixed(2)}</td>
+                        <td className="px-4 py-2 border text-right text-slate-600">{qty}</td>
+                        <td className="px-4 py-2 border text-right font-semibold text-slate-700">{(price * qty).toFixed(2)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -212,8 +212,16 @@ export const OPDVisitProvider = ({ children }: { children: ReactNode }) => {
           allergies: [],
           diagnoses: d.diagnoses || [],
           prescriptions: d.prescriptions || [],
-          labOrders: d.labOrders || [],
-          radiologyOrders: d.radiologyOrders || [],
+          labOrders: (d.labOrders || []).map((l: any) => ({
+            ...l,
+            id: l.id || (l.LabOrderId ? String(l.LabOrderId) : crypto.randomUUID()),
+          })),
+          radiologyOrders: (d.radiologyOrders || []).map((r: any) => ({
+            ...r,
+            // Ensure every radiology order has a stable `id` that removeRadiologyOrder can match.
+            // Backend rows come as { RadiologyOrderId, BodyPart, ... } with no `id` field.
+            id: r.id || (r.RadiologyOrderId ? String(r.RadiologyOrderId) : crypto.randomUUID()),
+          })),
           procedures: [],
         }));
         setVisits(mapped);
@@ -344,14 +352,31 @@ export const OPDVisitProvider = ({ children }: { children: ReactNode }) => {
   const addLabOrder = (visitId: number, order: LabOrder) =>
     applyUpdateAndSync(visitId, v => ({ ...v, labOrders: [...v.labOrders, order] }));
 
-  const removeLabOrder = (visitId: number, orderId: string) =>
-    applyUpdateAndSync(visitId, v => ({ ...v, labOrders: v.labOrders.filter(l => l.id !== orderId) }));
+  const removeLabOrder = useCallback((visitId: number, orderId: string) => {
+    if (!orderId) return;
+    applyUpdateAndSync(visitId, v => ({
+      ...v,
+      labOrders: v.labOrders.filter(l => {
+        const lid = l.id || (l as any).LabOrderId?.toString();
+        return lid !== orderId;
+      }),
+    }));
+  }, []);
 
   const addRadiologyOrder = (visitId: number, order: RadiologyOrder) =>
     applyUpdateAndSync(visitId, v => ({ ...v, radiologyOrders: [...v.radiologyOrders, order] }));
 
   const removeRadiologyOrder = useCallback((visitId: number, orderId: string) => {
-    applyUpdateAndSync(visitId, v => ({ ...v, radiologyOrders: v.radiologyOrders.filter(r => r.id !== orderId) }));
+    // Guard: if orderId is falsy, do nothing — never wipe the whole list.
+    if (!orderId) return;
+    applyUpdateAndSync(visitId, v => ({
+      ...v,
+      radiologyOrders: v.radiologyOrders.filter(r => {
+        // Match on `id` (frontend UUID) or `RadiologyOrderId` (backend integer as string).
+        const rid = r.id || (r as any).RadiologyOrderId?.toString();
+        return rid !== orderId;
+      }),
+    }));
   }, []);
 
   const addProcedure = (visitId: number, procedure: Procedure) =>

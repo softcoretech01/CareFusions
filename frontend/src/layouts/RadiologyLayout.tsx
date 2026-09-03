@@ -4,9 +4,6 @@ import { NotificationBell } from '../components/ui/NotificationBell';
 
 export const RadiologyLayout = () => {
   const authRedirect = useAuthRedirect();
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-  const name = 'Radiologist';
 
   if (authRedirect) return authRedirect;
 

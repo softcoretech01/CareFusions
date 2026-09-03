@@ -78,6 +78,10 @@ export interface IPDPatient {
   currentWardName: string;
   currentBedId: number | null;
   admissionReason: string;
+  provisionalDiagnosis?: string;
+  // Set by GET /ipd/admissions: true only when an OT service order item has
+  // cleared PRO approval, payment and Service Release. Gates the Operations tab.
+  hasReleasedOT?: boolean;
   coverageType: 'Self Pay' | 'Insurance';
   insuranceStatus: 'NOT_APPLICABLE' | 'PENDING' | 'APPROVED' | 'REJECTED';
   financialStatus: 'PENDING' | 'ADVANCE_PENDING' | 'PARTIALLY_PAID' | 'READY_FOR_DISCHARGE' | 'FULLY_PAID' | 'REFUND_PENDING' | 'CLEARED';
@@ -149,7 +153,7 @@ export const IPDProvider = ({ children }: { children: ReactNode }) => {
   const [apiError, setApiError] = useState<string | null>(null);
   const [, setIsLoading] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
-  const [ipdWardMap, setIpdWardMap] = useState<Record<number, number>>({});
+  const [ipdWardMap] = useState<Record<number, number>>({});
 
   const clearError = useCallback(() => setApiError(null), []);
 

@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
-  ClipboardList,
   ShieldCheck,
   CheckSquare,
   FileText,
@@ -30,13 +29,13 @@ interface NavItem {
 }
 
 const navigation: NavItem[] = [
-  { name: 'Dashboard', to: '/pro', icon: LayoutDashboard },
-  { name: 'OPD Services',        to: '/pro/service-orders/opd', icon: Stethoscope },
-  { name: 'IPD Services',        to: '/pro/service-orders/ipd', icon: BedDouble },
-  { name: 'Operations Services', to: '/pro/service-orders/operations', icon: Activity },
-  { name: 'Insurance & Payments', to: '/pro/insurance-payments', icon: ShieldCheck     },
-  { name: 'Approvals & Release',  to: '/pro/approvals',          icon: CheckSquare     },
-  { name: 'Reports & Audit',      to: '/pro/reports',            icon: FileText        },
+  { name: 'Dashboard',              to: '/pro',                     icon: LayoutDashboard },
+  { name: 'OPD Services',           to: '/pro/service-orders/opd',  icon: Stethoscope     },
+  { name: 'IPD Services',           to: '/pro/service-orders/ipd',  icon: BedDouble       },
+  { name: 'Operations Services',    to: '/pro/service-orders/operations', icon: Activity  },
+  { name: 'Insurance & Payments',   to: '/pro/insurance-payments',  icon: ShieldCheck     },
+  { name: 'Approvals & Release',    to: '/pro/approvals',           icon: CheckSquare     },
+  { name: 'Reports & Audit',        to: '/pro/reports',             icon: FileText        },
 ];
 
 export const PROSidebar = () => {

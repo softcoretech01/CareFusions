@@ -1,4 +1,3 @@
-import { useAppSelector } from '../hooks/redux';
 import { PROSidebar } from '../components/pro/PROSidebar';
 import { useAuthRedirect, ModuleOutlet } from '../components/auth/ModuleGuard';
 import { motion } from 'framer-motion';

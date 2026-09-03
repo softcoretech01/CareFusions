@@ -5,9 +5,6 @@ import { NotificationBell } from '../components/ui/NotificationBell';
 
 export const ProcurementLayout = () => {
   const authRedirect = useAuthRedirect();
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-  const name = 'Procurement Manager';
 
   if (authRedirect) return authRedirect;
 

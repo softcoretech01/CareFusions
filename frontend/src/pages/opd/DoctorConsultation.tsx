@@ -325,7 +325,7 @@ export const DoctorConsultation = () => {
     if (!svc) return;
 
     const order: RadiologyOrder = {
-      id: Date.now().toString(),
+      id: crypto.randomUUID(),
       serviceName: svc.name,
       modality: svc.modality as RadiologyOrder['modality'],
       bodyPart: radForm.bodyPart || svc.name,
@@ -520,12 +520,16 @@ export const DoctorConsultation = () => {
 
   const getLabOrderId = (l: any, i: number) => {
     const go = globalOrders.find(o => o.category === 'Lab' && o.patientId === visit.uhid && o.orderedAt?.slice(0, 10) === visit.date?.slice(0, 10) && o.tests.some(t => t.name === l.testName));
-    return go ? go.id : (l.id || `TMP-${i}`);
+    if (go) return go.id;
+    if (l.LabOrderId) return String(l.LabOrderId);
+    return `TMP-${i}`;
   };
 
   const getRadOrderId = (r: any, i: number) => {
     const go = globalOrders.find(o => o.category === 'Radiology' && o.patientId === visit.uhid && o.orderedAt?.slice(0, 10) === visit.date?.slice(0, 10) && o.tests.some(t => t.name === (r.serviceName || r.bodyPart)));
-    return go ? go.id : (r.id || `TMP-${i}`);
+    if (go) return go.id;
+    if (r.RadiologyOrderId) return String(r.RadiologyOrderId);
+    return `TMP-${i}`;
   };
 
   return (
@@ -660,7 +664,7 @@ export const DoctorConsultation = () => {
 
           {/* ── HISTORY TAB ── */}
           {activeTab === 'history' && (
-            <UnifiedPatientHistory patientUhid={visit.uhid} />
+            <UnifiedPatientHistory patientUhid={visit.uhid} excludeVisitId={visit.id} />
           )}
 
           {/* ── PRESCRIPTION TAB (Simplified) ── */}
@@ -898,7 +902,7 @@ export const DoctorConsultation = () => {
                             ) : (
                               <span className="text-slate-400 text-xs">{l.status === 'Pending' ? 'Ordered' : (l.status || 'Ordered')}</span>
                             )}
-                            <button onClick={() => removeLabOrder(visit.id, l.id)} className="p-1.5 hover:bg-red-50 rounded-lg transition-colors">
+                            <button onClick={() => removeLabOrder(visit.id, l.id || String((l as any).LabOrderId ?? ''))} className="p-1.5 hover:bg-red-50 rounded-lg transition-colors">
                               <Trash2 className="w-4 h-4 text-red-400" />
                             </button>
                           </div>
@@ -1011,7 +1015,7 @@ export const DoctorConsultation = () => {
                             ) : (
                               <span className="text-slate-400 text-xs">{r.status === 'Pending' ? 'Ordered' : (r.status || 'Ordered')}</span>
                             )}
-                            <button onClick={() => removeRadiologyOrder(visit.id, r.id)} className="p-1.5 hover:bg-red-50 rounded-lg transition-colors">
+                            <button onClick={() => removeRadiologyOrder(visit.id, r.id || String((r as any).RadiologyOrderId ?? ''))} className="p-1.5 hover:bg-red-50 rounded-lg transition-colors">
                               <Trash2 className="w-4 h-4 text-red-400" />
                             </button>
                           </div>
