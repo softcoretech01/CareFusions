@@ -1,9 +1,10 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import React, { useState, useEffect } from 'react';
 import { Loader, AlertCircle, ShieldCheck, DollarSign, Search, Calendar, X, CheckCircle, Ban } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-const API = (import.meta.env.VITE_API_URL as string || 'http://localhost:8000/api/v1') + '/pro';
-const API_BASE = import.meta.env.VITE_API_URL as string || 'http://localhost:8000/api/v1';
+const API = API_BASE_URL + '/pro';
+const API_BASE = API_BASE_URL;
 
 const StatusBadge = ({ status }: { status?: string }) => {
   if (!status) return null;

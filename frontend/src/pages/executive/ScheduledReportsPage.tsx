@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useCallback, useEffect, useState, useMemo } from 'react';
 import { Pagination } from '@/components/ui/Pagination';
 import { usePagination } from '@/hooks/usePagination';
@@ -6,7 +7,7 @@ import { Calendar, Clock, Plus, Check, FileText, Filter, Search, MoreVertical, S
 
 type ViewState = 'dashboard' | 'create' | 'history';
 
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 
 interface Schedule {
   id: string; scheduleId: number; name: string; description: string;

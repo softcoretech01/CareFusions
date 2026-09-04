@@ -1,10 +1,11 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState } from 'react';
 import { Search, Edit2, Activity, User, Phone, ShieldAlert } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { toast } from 'react-hot-toast';
 import { useEffect } from 'react';
 import { DateFilter } from '../../components/ui/DateFilter';
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 type GlobalPatientRecord = any;
 
 

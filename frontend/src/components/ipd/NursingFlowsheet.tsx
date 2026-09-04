@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useEffect } from 'react';
 import { Activity, Plus, Trash2, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -17,7 +18,7 @@ interface NursingFlowsheetProps {
   patientId: number; // This is the AdmissionId
 }
 
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 
 export const NursingFlowsheet: React.FC<NursingFlowsheetProps> = ({ patientId }) => {
   const [entries, setEntries] = useState<VitalsEntry[]>([]);

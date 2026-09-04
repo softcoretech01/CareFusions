@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useEffect } from 'react';
 import { Syringe, Save, AlertTriangle, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -34,7 +35,7 @@ export const OperationsTab = ({ patientId }: OperationsTabProps) => {
     }
   }, [patient?.operations]);
 
-  const API_BASE = import.meta.env.VITE_API_URL as string || 'http://localhost:8000/api/v1';
+  const API_BASE = API_BASE_URL;
 
   useEffect(() => {
     if (!picking || minorOps.length || majorOps.length) return;

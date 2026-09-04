@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useMemo, useEffect, type KeyboardEvent } from 'react';
 import {
   Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle,
@@ -8,7 +9,7 @@ import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
 import { exportToExcel } from '../../../utils/exportToExcel';
 
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 
 export interface VendorRecord {
   id: number; vendorCode: string; vendorName: string; contactPerson: string; mobileNumber: string; email: string; gstNumber: string; panNumber: string; drugLicenseNumber: string; address: string; city: string; state: string; country: string; pinCode: string; paymentTerms: string; creditDays: number; status: string; createdBy?: string; createdDate?: string; updatedBy?: string; updatedDate?: string;

@@ -1,7 +1,8 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode, useRef } from 'react';
 import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 const LAB = `${API_BASE}/lab`;
 
 export interface InvestigationTest {

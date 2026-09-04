@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useInvestigations, type InvestigationOrder } from '../../contexts/InvestigationContext';
@@ -5,7 +6,7 @@ import { Upload, FileText, CheckCircle, X, Search, MapPin, RefreshCw, Eye } from
 import toast from 'react-hot-toast';
 import { DateFilter, monthStart, today } from '../../components/ui/DateFilter';
 
-const API_BASE = import.meta.env.VITE_API_URL as string || 'http://localhost:8000/api/v1';
+const API_BASE = API_BASE_URL;
 
 export const RadiologyOrderList = () => {
   const { orders, updateTestResult, fetchRadiologyOrders } = useInvestigations();

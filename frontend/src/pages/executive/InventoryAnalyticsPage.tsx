@@ -1,10 +1,11 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useEffect, useMemo } from 'react';
 import { Package, IndianRupee, PackageX, CalendarClock, TrendingDown } from 'lucide-react';
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
 import { Pagination } from '../../components/ui/Pagination';
 
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 const inr = (n: number) => `₹${(n ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
 
 const KPI = ({ title, value, sub, icon: Icon, cls }: any) => (

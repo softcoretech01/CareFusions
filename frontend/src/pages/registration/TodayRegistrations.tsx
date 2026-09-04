@@ -1,10 +1,11 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Users, CalendarDays, Activity, Zap, Eye, Edit2, X, User } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { useNavigate } from 'react-router-dom';
 
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 
 export const TodayRegistrations = () => {
   const navigate = useNavigate();

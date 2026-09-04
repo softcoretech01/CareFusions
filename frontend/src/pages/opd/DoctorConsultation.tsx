@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useEffect, useRef } from 'react';
 import { uid } from '../../utils/uid';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -7,7 +8,7 @@ import { useIPD } from '../../contexts/IPDContext';
 import { useInvestigations } from '../../contexts/InvestigationContext';
 import type { Diagnosis, PrescriptionItem, LabOrder, RadiologyOrder } from '../../contexts/OPDVisitContext';
 import { MedicineSearch, loadMedicines, medicineLabel } from '../../components/ui/MedicineSearch';
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 
 // Types for live master data
 interface ApiLabTest {

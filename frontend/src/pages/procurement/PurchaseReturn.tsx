@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useMemo, useEffect } from 'react';
 import { Plus, Search, Filter, Edit2, Eye, RotateCcw, Trash2, RefreshCw, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -7,7 +8,7 @@ import { DateFilter } from '../../components/ui/DateFilter';
 
 import type { GRNRecord } from './GoodsReceipt';
 
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 
 interface ReturnItem {
   id: string;

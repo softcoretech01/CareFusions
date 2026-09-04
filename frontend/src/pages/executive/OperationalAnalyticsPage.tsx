@@ -1,9 +1,10 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useEffect } from 'react';
 import { CalendarCheck, Clock, FlaskConical, Pill, XCircle, Hourglass } from 'lucide-react';
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
 
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 
 interface Operational {
   appointmentsToday: number; cancelledToday: number; waitingToday: number;

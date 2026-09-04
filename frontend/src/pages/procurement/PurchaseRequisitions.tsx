@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useMemo, useEffect , useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { INVENTORY_TYPES, typeLabel } from '../../utils/inventoryTypes';
@@ -8,7 +9,7 @@ import { Modal } from '../../components/ui/Modal';
 import { DateFilter } from '../../components/ui/DateFilter';
 import { exportToExcel } from '../../utils/exportToExcel';
 
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 
 /** Row keys for unsaved grid lines. Presentational only - never persisted. */
 let lineKeySeq = 0;

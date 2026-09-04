@@ -1,8 +1,9 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState } from 'react';
 import { Search, BellRing, AlertTriangle, ShieldAlert, HeartPulse } from 'lucide-react';
 import { useEffect } from 'react';
 
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 
 export const PatientAlerts = () => {
 

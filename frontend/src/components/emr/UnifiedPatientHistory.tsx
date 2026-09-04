@@ -1,3 +1,4 @@
+import { API_ROOT_URL } from '@/utils/apiBase';
 import { Calendar, Stethoscope, FlaskConical, ScanLine, Pill, FileText, User, CheckCircle } from 'lucide-react';
 import { useOPDVisits } from '../../contexts/OPDVisitContext';
 import { useIPD } from '../../contexts/IPDContext';
@@ -103,7 +104,7 @@ export const UnifiedPatientHistory = ({ patientUhid, excludeVisitId }: { patient
                                       {l.resultFile && (
                                         <a href="#" onClick={(e) => {
                                             e.preventDefault();
-                                            const baseUrl = (import.meta.env.VITE_API_URL as string || 'http://localhost:8000').replace('/api/v1', '');
+                                            const baseUrl = API_ROOT_URL;
                                             const rf = l.resultFile ?? '';
                                             const filename = rf.startsWith(patientUhid) ? rf : `${patientUhid}_${rf}`;
                                             window.open(`${baseUrl}/uploads/${encodeURIComponent(filename)}`, '_blank');
@@ -139,7 +140,7 @@ export const UnifiedPatientHistory = ({ patientUhid, excludeVisitId }: { patient
                                       {r.resultFile && (
                                         <a href="#" onClick={(e) => {
                                             e.preventDefault();
-                                            const baseUrl = (import.meta.env.VITE_API_URL as string || 'http://localhost:8000').replace('/api/v1', '');
+                                            const baseUrl = API_ROOT_URL;
                                             const rf = r.resultFile ?? '';
                                             const filename = rf.startsWith(patientUhid) ? rf : `${patientUhid}_${rf}`;
                                             window.open(`${baseUrl}/uploads/${encodeURIComponent(filename)}`, '_blank');
@@ -244,7 +245,7 @@ export const UnifiedPatientHistory = ({ patientUhid, excludeVisitId }: { patient
                                     {st.resultFile && (
                                       <a href="#" onClick={(e) => {
                                           e.preventDefault();
-                                          const baseUrl = (import.meta.env.VITE_API_URL as string || 'http://localhost:8000').replace('/api/v1', '');
+                                          const baseUrl = API_ROOT_URL;
                                           const rf = st.resultFile ?? '';
                                           const filename = rf.startsWith(past.uhid) ? rf : `${past.uhid}_${rf}`;
                                           window.open(`${baseUrl}/uploads/${encodeURIComponent(filename)}`, '_blank');
@@ -290,7 +291,7 @@ export const UnifiedPatientHistory = ({ patientUhid, excludeVisitId }: { patient
                                     {st.resultFile && (
                                       <a href="#" onClick={(e) => {
                                           e.preventDefault();
-                                          const baseUrl = (import.meta.env.VITE_API_URL as string || 'http://localhost:8000').replace('/api/v1', '');
+                                          const baseUrl = API_ROOT_URL;
                                           const rf = st.resultFile ?? '';
                                           const filename = rf.startsWith(past.uhid) ? rf : `${past.uhid}_${rf}`;
                                           window.open(`${baseUrl}/uploads/${encodeURIComponent(filename)}`, '_blank');

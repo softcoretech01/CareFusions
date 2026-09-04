@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useMemo, useEffect } from 'react';
 import { Search, CheckCircle, FileText, ArrowLeft, GitCompare, Award, RefreshCw, AlertTriangle } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -7,7 +8,7 @@ import { DateFilter } from '../../components/ui/DateFilter';
 import type { RFQRecord } from './RequestForQuotation';
 import type { QuotationRecord } from './VendorQuotation';
 
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 
 export const QuotationComparison = () => {
   const [rfqs, setRfqs] = useState<RFQRecord[]>([]);

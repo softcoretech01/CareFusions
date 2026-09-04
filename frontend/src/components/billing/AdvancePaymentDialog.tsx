@@ -16,6 +16,7 @@
  * The amount owed and the resulting statuses come from the server; this screen
  * only says how much cash is being taken and by what method.
  */
+import { API_BASE_URL } from '@/utils/apiBase';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   X, Loader2, IndianRupee, CheckCircle2, AlertTriangle, ShieldCheck, Wallet,
@@ -23,7 +24,7 @@ import {
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+const API_URL = API_BASE_URL;
 
 const inr = (v: any) =>
   `₹${(parseFloat(v ?? 0) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;

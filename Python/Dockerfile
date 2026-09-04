@@ -30,12 +30,12 @@ USER carefusion
 
 EXPOSE 8000
 
-# `/` is the only health endpoint that exists today, and it returns a static
-# string without touching the database — it reports healthy while MySQL is
-# unreachable. Repoint this at /api/v1/health once Phase 3 lands; a check that
-# cannot fail is not a health check, and the Jenkins deploy gate depends on it.
+# /api/v1/health runs SELECT 1 and answers 503 when the database is
+# unreachable, so an unhealthy container actually reports unhealthy.
+# `GET /` returns a static string and can never fail, which is why it is
+# not used here.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD curl -fsS http://localhost:8000/ > /dev/null || exit 1
+  CMD curl -fsS http://localhost:8000/api/v1/health > /dev/null || exit 1
 
 # uvicorn is invoked directly rather than via `python main.py`, because that
 # entrypoint sets reload=True unconditionally — a development-only setting.

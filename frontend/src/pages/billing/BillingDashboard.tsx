@@ -1,10 +1,11 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useEffect } from 'react';
 import { IndianRupee, TrendingUp, FileText, CreditCard, CheckCircle, Clock, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import Chart from 'react-apexcharts';
 import { DateFilter, monthStart, today as todayInput } from '../../components/ui/DateFilter';
 import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 
 export const BillingDashboard = () => {
   const [bills, setBills] = useState<any[]>([]);

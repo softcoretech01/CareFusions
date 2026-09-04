@@ -1,9 +1,10 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState } from 'react';
 import { Search, Upload, FileText, Trash2, Eye, FolderOpen, AlertTriangle } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { useEffect } from 'react';
 
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 interface DocumentRecord {
   id: number;
   uhid: string;

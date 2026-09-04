@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useIPD } from '../../contexts/IPDContext';
@@ -13,7 +14,7 @@ import { PatientHistoryTab } from '../../components/ipd/PatientHistoryTab';
 import { fetchPatientCover } from '../../utils/patientInsurance';
 import toast from 'react-hot-toast';
 
-const API_BASE = import.meta.env.VITE_API_URL as string || 'http://localhost:8000/api/v1';
+const API_BASE = API_BASE_URL;
 
 
 export const PatientIPDProfile = () => {

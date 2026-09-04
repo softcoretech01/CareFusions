@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -10,7 +11,7 @@ import {
 import { fetchPatientCover } from '../../utils/patientInsurance';
 import { monthStart, today } from '../../components/ui/DateFilter';
 
-const API = (import.meta.env.VITE_API_URL as string || 'http://localhost:8000/api/v1') + '/pro';
+const API = API_BASE_URL + '/pro';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const num = (v: any) => parseFloat(v ?? 0) || 0;

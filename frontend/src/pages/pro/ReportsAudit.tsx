@@ -1,9 +1,10 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import React, { useState, useEffect } from 'react';
 import { Loader, FileText, History, Search, RefreshCw, AlertCircle, Calendar, X } from 'lucide-react';
 
 import { monthStart, today } from '../../components/ui/DateFilter';
 
-const API = (import.meta.env.VITE_API_URL as string || 'http://localhost:8000/api/v1') + '/pro';
+const API = API_BASE_URL + '/pro';
 
 const ActionBadge = ({ action }: { action?: string }) => {
   const map: Record<string, string> = {

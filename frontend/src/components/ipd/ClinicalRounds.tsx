@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useEffect } from 'react';
 import { Stethoscope, Plus, Trash2, User, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -15,7 +16,7 @@ interface ClinicalRoundsProps {
   patientId: number; // AdmissionId
 }
 
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 
 export const ClinicalRounds: React.FC<ClinicalRoundsProps> = ({ patientId }) => {
   const { doctorSchedules } = useDoctorSchedules();

@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useEffect, useMemo } from 'react';
 import { DateFilter } from '@/components/ui/DateFilter';
 import { Pagination } from '@/components/ui/Pagination';
@@ -20,7 +21,7 @@ export const PreAuthManagement = () => {
           providers, policies, refresh, loading } = useInsurance();
   const { patients } = usePatients();
   const { patients: ipdAdmissions } = useIPD();
-  const API_BASE = import.meta.env.VITE_API_URL as string;
+  const API_BASE = API_BASE_URL;
   const [ipBills, setIpBills] = useState<any[]>([]);
   const [patientLabOrders, setPatientLabOrders] = useState<any[]>([]);
   const [patientRadOrders, setPatientRadOrders] = useState<any[]>([]);

@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useRef, useEffect } from 'react';
 import { Search, Building2, Stethoscope, CheckCircle, UserCheck, UserPlus, Clock, AlertCircle, Calendar as CalendarIcon } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
@@ -132,7 +133,7 @@ export const BookAppointment = ({ passedPatientProps, onClose }: BookAppointment
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/quick-registrations/next-uhid`);
+        const res = await fetch(`${API_BASE_URL}/quick-registrations/next-uhid`);
         if (!res.ok) return;
         const data = await res.json();
         if (!cancelled && data?.nextUhid) setNextUhid(data.nextUhid);
@@ -253,7 +254,7 @@ export const BookAppointment = ({ passedPatientProps, onClose }: BookAppointment
       try {
         const now = new Date();
         const pad = (n: number) => String(n).padStart(2, '0');
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/quick-registrations/`, {
+        const res = await fetch(`${API_BASE_URL}/quick-registrations/`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

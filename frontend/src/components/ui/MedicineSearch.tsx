@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Search, X, AlertTriangle } from 'lucide-react';
 
@@ -21,7 +22,7 @@ export interface MasterMedicine {
   status?: string;
 }
 
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 
 /**
  * The catalog is shared by three screens that can be open in one session, so

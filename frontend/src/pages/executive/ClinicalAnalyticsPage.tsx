@@ -1,10 +1,11 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useEffect } from 'react';
 import { Users, BedDouble, Activity, CalendarCheck, LogOut, Clock } from 'lucide-react';
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
 import { Pagination } from '../../components/ui/Pagination';
 
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 
 interface Clinical {
   admissionsToday: number;

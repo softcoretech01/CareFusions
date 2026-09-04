@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Users, Pill, Microscope, ShieldCheck, FileText, Search, X, Building2, ActivitySquare, Stethoscope, Scissors, Landmark } from 'lucide-react';
@@ -5,7 +6,7 @@ import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
 import { Pagination } from '../components/ui/Pagination';
 
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 
 type Row = Record<string, unknown>;
 

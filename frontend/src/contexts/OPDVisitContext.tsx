@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
 import { uid } from '../utils/uid';
 
@@ -189,7 +190,7 @@ interface OPDVisitContextType {
 
 const OPDVisitContext = createContext<OPDVisitContextType | undefined>(undefined);
 
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 
 let visitCounter = 0;
 

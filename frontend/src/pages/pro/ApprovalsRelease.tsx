@@ -1,9 +1,10 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import React, { useState, useEffect } from 'react';
 import { Loader, CheckCircle, XCircle, Clock, ChevronRight, Eye, Search, Calendar, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { OrderDetailDrawer } from '../../components/pro/OrderDetailDrawer';
 
-const API = (import.meta.env.VITE_API_URL as string || 'http://localhost:8000/api/v1') + '/pro';
+const API = API_BASE_URL + '/pro';
 
 const StatusBadge = ({ status }: { status?: string }) => {
   if (!status) return null;

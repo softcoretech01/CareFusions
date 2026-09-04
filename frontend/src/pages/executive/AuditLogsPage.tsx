@@ -1,9 +1,10 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useEffect, useMemo } from 'react';
 import { Search, Shield, Activity, AlertTriangle, CheckCircle, X, Download } from 'lucide-react';
 import { Pagination } from '../../components/ui/Pagination';
 import { exportToExcel } from '../../utils/exportToExcel';
 
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 
 interface AuditLog {
   id: number;

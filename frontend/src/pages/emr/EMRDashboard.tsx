@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useEffect } from 'react';
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
@@ -6,7 +7,7 @@ import { DateFilter } from '../../components/ui/DateFilter';
 import { WeeklyEMRTrendCard } from '../../components/emr/WeeklyEMRTrendCard';
 import type { EMRRecord } from '../../components/emr/EMRPrintTemplate';
 
-const API_BASE = 'http://127.0.0.1:8000/api/v1';
+const API_BASE = API_BASE_URL;
 
 export const EMRDashboard = () => {
   const [searchText, setSearchText] = useState('');

@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useRef, useEffect } from 'react';
 import { Search, Plus, User, CheckCircle } from 'lucide-react';
 
@@ -5,7 +6,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import { DateFilter, monthStart, today } from '../../components/ui/DateFilter';
 
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 
 // Used only when the master has no price for that doctor, test or scan. They
 // are still editable on the bill, so a missing master is visible but not

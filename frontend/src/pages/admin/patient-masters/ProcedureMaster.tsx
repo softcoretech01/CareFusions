@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useEffect } from 'react';
 import { 
   Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle, 
@@ -41,7 +42,7 @@ const emptyData: Omit<ProcedureRecord, 'id'> = {
   remarks: ''
 };
 
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 
 const mapApiToRecord = (item: any): ProcedureRecord => ({
   id:                item.id,

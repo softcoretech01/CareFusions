@@ -1,4 +1,5 @@
 
+import { API_ROOT_URL } from '@/utils/apiBase';
 import { useInvestigations } from '../../contexts/InvestigationContext';
 import { X, Printer, FlaskConical, ScanLine, FileText, CheckCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -135,7 +136,7 @@ export const ResultViewer: React.FC<ResultViewerProps> = ({ patientId, category,
                                 {test.resultFile ? (
                                   <a href="#" onClick={(e) => { 
                                     e.preventDefault(); 
-                                    const baseUrl = (import.meta.env.VITE_API_URL as string || 'http://localhost:8000').replace('/api/v1', '');
+                                    const baseUrl = API_ROOT_URL;
                                     const rf = test.resultFile ?? '';
                                     const filename = rf.startsWith(patientId) ? rf : `${patientId}_${rf}`;
                                     window.open(`${baseUrl}/uploads/${filename}`, '_blank'); 
@@ -181,7 +182,7 @@ export const ResultViewer: React.FC<ResultViewerProps> = ({ patientId, category,
                               <p className="text-xs font-bold text-slate-400 uppercase mb-1">Attached Scan / Report</p>
                               <a href="#" onClick={(e) => { 
                                 e.preventDefault(); 
-                                const baseUrl = (import.meta.env.VITE_API_URL as string || 'http://localhost:8000').replace('/api/v1', '');
+                                const baseUrl = API_ROOT_URL;
                                 const rf = test.resultFile ?? '';
                                 const filename = rf.startsWith(patientId) ? rf : `${patientId}_${rf}`;
                                 window.open(`${baseUrl}/uploads/${filename}`, '_blank'); 

@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 // Absolute URL for a file served by the API's /uploads mount.
 //
 // Document previews used to hardcode `http://localhost:8000`, so every uploaded
@@ -5,7 +6,7 @@
 // host. The origin is derived from VITE_API_URL instead, which means pointing
 // the app at a different server is a one-line .env change.
 
-const API_URL = (import.meta.env.VITE_API_URL as string) || 'http://localhost:8000/api/v1';
+const API_URL = API_BASE_URL;
 
 /** The API origin, without the /api/v1 suffix. */
 export const FILE_BASE = API_URL.replace(/\/api\/v1\/?$/, '');

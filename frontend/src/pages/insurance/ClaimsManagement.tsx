@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { DateFilter } from '@/components/ui/DateFilter';
@@ -8,7 +9,7 @@ import toast from 'react-hot-toast';
 import { useInsurance } from '../../contexts/InsuranceContext';
 import { useIPD } from '../../contexts/IPDContext';
 
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 const inr = (n: number) => `₹${(n ?? 0).toLocaleString('en-IN')}`;
 const TABS = ['All', 'Submitted', 'In Process', 'Settled', 'Denied'] as const;
 

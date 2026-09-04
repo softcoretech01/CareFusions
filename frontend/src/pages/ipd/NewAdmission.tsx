@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useIPD } from '../../contexts/IPDContext';
@@ -8,7 +9,7 @@ import { UserPlus, Save, ArrowLeft, CheckCircle2, Bed, Stethoscope, BedDouble, S
 import toast from 'react-hot-toast';
 import { fetchPatientCover } from '../../utils/patientInsurance';
 
-const API_BASE = import.meta.env.VITE_API_URL as string || 'http://localhost:8000/api/v1';
+const API_BASE = API_BASE_URL;
 
 // Union of what OPD's "Recommend Admission" can send and what this form has always offered.
 const ADMISSION_TYPES = ['General', 'Day Care', 'Surgical', 'ICU', 'Maternity'];

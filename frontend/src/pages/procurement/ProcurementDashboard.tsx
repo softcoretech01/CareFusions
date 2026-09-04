@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useEffect } from 'react';
 import { BarChart2, PieChart, TrendingUp, Activity, ShoppingCart, FileText, Package, X } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -5,7 +6,7 @@ import { DateFilter } from '../../components/ui/DateFilter';
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
 
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 
 export const ProcurementDashboard = () => {
   const [fromDate, setFromDate] = useState('');

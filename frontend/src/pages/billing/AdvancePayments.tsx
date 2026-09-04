@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useEffect } from 'react';
 import { Loader2, CheckCircle, IndianRupee, Eye, Printer } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -9,7 +10,7 @@ import { fetchPatientCover, type PatientCover } from '../../utils/patientInsuran
 import { OrderDetailDrawer } from '../../components/pro/OrderDetailDrawer';
 import { AdvancePaymentDialog } from '../../components/billing/AdvancePaymentDialog';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+const API_URL = API_BASE_URL;
 
 interface AdvanceBill {
   AdvanceId: number;

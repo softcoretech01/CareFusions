@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useMemo, useEffect } from 'react';
 import { typeLabel } from '../../utils/inventoryTypes';
 import { Search, Filter, Plus, Edit2, Eye, PackageCheck, Trash2, Download, RefreshCw, AlertTriangle, CheckCircle } from 'lucide-react';
@@ -9,7 +10,7 @@ import { DateFilter } from '../../components/ui/DateFilter';
 import type { PORecord } from './PurchaseOrders';
 import { exportToExcel } from '../../utils/exportToExcel';
 
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 
 interface GRNItem {
   id: string;

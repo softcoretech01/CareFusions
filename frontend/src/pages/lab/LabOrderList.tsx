@@ -18,6 +18,7 @@
  *    things depending on where it appeared. The bench has one question: is the
  *    result in? So there are two states, Pending and Completed.
  */
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useEffect } from 'react';
 import { useInvestigations, type InvestigationOrder } from '../../contexts/InvestigationContext';
 import { Upload, FileText, X, AlertTriangle, Search, Eye, CheckCircle } from 'lucide-react';
@@ -27,7 +28,7 @@ import { Pagination } from '../../components/ui/Pagination';
 import { usePagination } from '../../hooks/usePagination';
 import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_URL as string || 'http://localhost:8000/api/v1';
+const API_BASE = API_BASE_URL;
 
 /** Laboratory shows two states, not five.
  *

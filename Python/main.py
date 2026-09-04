@@ -6,7 +6,10 @@ import os
 
 from app.core.audit_middleware import AuditLogMiddleware
 from app.core.auth_dep import require_auth
-from app.config import AUTH_SECRET_IS_EPHEMERAL, REQUIRE_AUTH
+from app.config import (
+    ALLOWED_ORIGINS, APP_COMMIT, APP_ENV, APP_VERSION,
+    AUTH_SECRET_IS_EPHEMERAL, REQUIRE_AUTH,
+)
 
 from app.routers import (
     hospital, branch, department, radiology_service, equipment, service, tax,
@@ -25,7 +28,7 @@ from app.routers import (
     vendor_catalog, approval, procurement_dashboard,
     doctor_specialization, housekeeping, ipd_clinical, pharmacy, insurance, inventory, executive,
     scheduled_reports, minor_operation, major_operation, ward_charge, services, pro,
-    billing_advance, insurance_claims
+    billing_advance, insurance_claims, health
 )
 
 
@@ -37,6 +40,16 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Make the security posture visible at boot rather than a surprise in production.
+logger.info(
+    f"CareFusions API {APP_VERSION} (commit {APP_COMMIT}) starting in {APP_ENV}"
+)
+
+if ALLOWED_ORIGINS == ["*"]:
+    logger.warning(
+        "ALLOWED_ORIGINS is unset, so CORS accepts every origin. Set it to "
+        "this environment's UI origin (e.g. http://100.86.181.18:5176)."
+    )
+
 if not REQUIRE_AUTH:
     logger.warning(
         "REQUIRE_AUTH is off — every API endpoint is public. "
@@ -53,7 +66,9 @@ elif AUTH_SECRET_IS_EPHEMERAL:
 app = FastAPI(
     title="CareFusions HMS API",
     description="Hospital Management System — Python FastAPI Backend",
-    version="1.0.0",
+    # Injected at deploy time; see app/config.py. Was hardcoded "1.0.0",
+    # which never changed and so told you nothing about what was running.
+    version=APP_VERSION,
     # Global auth gate. It is a no-op while REQUIRE_AUTH is false, so this is
     # safe to leave wired up; see app/config.py for the switch and the reason it
     # ships off. Without it, every endpoint in the system is public.
@@ -61,9 +76,12 @@ app = FastAPI(
 )
 
 # ── CORS ────────────────────────────────────────────────
+# Deployed environments serve the API same-origin through the frontend's nginx
+# proxy, so this list is defence in depth. It stays "*" only when
+# ALLOWED_ORIGINS is unset, and the boot log says so.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -80,6 +98,8 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 # ── Routers ───────────────────────────────────────────────────
+# Health and version first: the deploy gate depends on these.
+app.include_router(health.router,      prefix="/api/v1")
 app.include_router(hospital.router,    prefix="/api/v1")
 app.include_router(branch.router,      prefix="/api/v1")
 app.include_router(department.router,  prefix="/api/v1")

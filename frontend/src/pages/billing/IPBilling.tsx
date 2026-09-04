@@ -1,10 +1,11 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useRef, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Search, Plus, Bed, CheckCircle, Printer, FileText, Shield } from 'lucide-react';
 import { DateFilter, monthStart, today } from '../../components/ui/DateFilter';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 
 interface BillItem {
   id: string;

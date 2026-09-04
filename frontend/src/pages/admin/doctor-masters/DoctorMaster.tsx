@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useEffect } from 'react';
 import { Pagination } from '@/components/ui/Pagination';
 import { usePagination } from '@/hooks/usePagination';
@@ -142,7 +143,7 @@ const emptyDoctorData: Omit<DoctorRecord, 'id'> = {
   modifiedDate: ''
 };
 
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 
 const mapApiToRecord = (item: Record<string, any>): DoctorRecord => ({
   id: item.id as number,

@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useMemo, useEffect } from 'react';
 import { typeLabel } from '../../utils/inventoryTypes';
 import { Plus, Search, Filter, Edit2, Eye, Printer, CheckCircle, ShoppingBag, Trash2, Download, RefreshCw, AlertTriangle } from 'lucide-react';
@@ -11,7 +12,7 @@ import type { PRRecord } from './PurchaseRequisitions';
 import type { RFQRecord } from './RequestForQuotation';
 import { exportToExcel } from '../../utils/exportToExcel';
 
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 
 interface POItem {
   id: string;

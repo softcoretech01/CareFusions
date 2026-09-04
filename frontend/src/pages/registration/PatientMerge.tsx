@@ -1,10 +1,11 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState } from 'react';
 import { Search, Merge, ArrowRight, ShieldAlert, CheckCircle2 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import toast from 'react-hot-toast';
 import { useEffect } from 'react';
 
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 import type { GlobalPatientRecord } from '../../contexts/PatientContext';
 
 export const PatientMerge = () => {

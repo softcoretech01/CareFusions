@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState } from 'react';
 import { LineChart, PieChart, Users, Activity, Heart, Shield, Pill, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useEffect } from 'react';
@@ -24,7 +25,7 @@ export const RegistrationReports = () => {
     setCurrentPage(1);
   }, [activeView, appliedDateFrom, appliedDateTo]);
 
-  const API_BASE = import.meta.env.VITE_API_URL as string;
+  const API_BASE = API_BASE_URL;
 
   useEffect(() => {
     const fetchReports = async () => {

@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useEffect } from 'react';
 import { Pagination } from '@/components/ui/Pagination';
 import { usePagination } from '@/hooks/usePagination';
@@ -8,7 +9,7 @@ import type { ApexOptions } from 'apexcharts';
 import toast from 'react-hot-toast';
 import { DateFilter, monthStart, today } from '../../components/ui/DateFilter';
 
-const API_BASE = import.meta.env.VITE_API_URL as string || 'http://localhost:8000/api/v1';
+const API_BASE = API_BASE_URL;
 
 /** Sort a master list by the given label field so the dropdowns read alphabetically. */
 const byName = (field: string) => (a: any, b: any) =>

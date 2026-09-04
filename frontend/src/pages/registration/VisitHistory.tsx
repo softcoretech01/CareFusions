@@ -1,9 +1,10 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState } from 'react';
 import { Search, History, Calendar, User, Activity, Clock, FileText } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { useEffect } from 'react';
 
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 import { exportToExcel } from '../../utils/exportToExcel';
 
 interface VisitRecord {

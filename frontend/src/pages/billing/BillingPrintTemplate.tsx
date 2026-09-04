@@ -1,10 +1,11 @@
 
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { Printer, ArrowLeft, Stethoscope } from 'lucide-react';
 import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 
 export const BillingPrintTemplate = () => {
   const { id } = useParams<{ id: string }>();

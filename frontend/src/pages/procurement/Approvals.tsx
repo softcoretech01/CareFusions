@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useMemo, useEffect } from 'react';
 import { INVENTORY_TYPES, typeLabel } from '../../utils/inventoryTypes';
 import { Search, CheckCircle, XCircle, Eye, AlertCircle, FileText, ShoppingCart, RotateCcw } from 'lucide-react';
@@ -5,7 +6,7 @@ import { motion } from 'framer-motion';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';
 
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 
 interface ApprovalRecord {
   id: string; // Composite ID

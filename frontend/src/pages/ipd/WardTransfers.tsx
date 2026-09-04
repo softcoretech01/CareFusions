@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useMemo, useEffect } from 'react';
 import { Pagination } from '@/components/ui/Pagination';
 import { usePagination } from '@/hooks/usePagination';
@@ -8,7 +9,7 @@ import { DateFilter } from '../../components/ui/DateFilter';
 import { IpdErrorBanner } from './IpdErrorBanner';
 import toast from 'react-hot-toast';
 
-const API_BASE = import.meta.env.VITE_API_URL as string || 'http://localhost:8000/api/v1';
+const API_BASE = API_BASE_URL;
 
 interface TransferWithPatient {
   id: string;

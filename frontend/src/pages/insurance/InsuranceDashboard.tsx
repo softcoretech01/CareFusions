@@ -1,10 +1,11 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { ClipboardCheck, Ban, Clock, CheckCircle, IndianRupee, TrendingUp, X, Search } from 'lucide-react';
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
 
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 
 interface DashboardData {
   pendingPreAuths: number;

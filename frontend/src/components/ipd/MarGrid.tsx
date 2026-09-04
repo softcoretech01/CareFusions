@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useEffect } from 'react';
 import { Pill, Plus, Check, Loader2, Trash2, Printer } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -18,7 +19,7 @@ interface MarGridProps {
   patientId: number; // AdmissionId
 }
 
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 
 export const MarGrid: React.FC<MarGridProps> = ({ patientId }) => {
   const [medications, setMedications] = useState<MarMedication[]>([]);

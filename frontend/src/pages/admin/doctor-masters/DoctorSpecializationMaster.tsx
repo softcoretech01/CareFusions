@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useEffect, useCallback } from 'react';
 import { Plus, Search, Download, Edit2, Trash2, AlertTriangle, X, Save } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -29,7 +30,7 @@ const emptyData: Omit<DoctorSpecializationRecord, 'id'> = {
   status: 'Active',
 };
 
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 
 const mapApiToRecord = (item: any): DoctorSpecializationRecord => ({
   id:                 item.id,

@@ -1,6 +1,7 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode, useRef } from 'react';
 
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 
 // ID namespaces so the three separate auto-increment sequences
 // (New / Quick / Emergency each start at 1) never collide once merged.

@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
@@ -23,7 +24,7 @@ export const Discharges = () => {
   // once per visit; the context holds an in-flight ref that prevents overlap.
   useEffect(() => { 
     refreshAll?.(); 
-    axios.get(`${import.meta.env.VITE_API_URL}/ip-billing/`).then(res => setBills(res.data)).catch(console.error);
+    axios.get(`${API_BASE_URL}/ip-billing/`).then(res => setBills(res.data)).catch(console.error);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const getBillingStatus = (uhid: string): 'Pending' | 'Cleared' | 'Partial' => {
@@ -65,7 +66,7 @@ export const Discharges = () => {
         try {
           const admissionId = selectedPatient.id;
           const uhid = selectedPatient.uhid;
-          const API = import.meta.env.VITE_API_URL;
+          const API = API_BASE_URL;
 
           const [vitals, rounds, meds, labReq, radReq] = await Promise.allSettled([
             axios.get(`${API}/ipd/admissions/${admissionId}/vitals`),

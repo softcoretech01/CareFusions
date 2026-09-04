@@ -1,6 +1,7 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
 
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 const IPD = `${API_BASE}/ipd`;
 
 export type BedStatus = 'Available' | 'Reserved' | 'Occupied' | 'Cleaning' | 'Maintenance';

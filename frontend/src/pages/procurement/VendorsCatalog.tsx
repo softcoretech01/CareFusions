@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useMemo, useEffect } from 'react';
 import { INVENTORY_TYPES } from '../../utils/inventoryTypes';
 import { 
@@ -5,7 +6,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 
 export const VendorsCatalog = () => {
   const [catalogs, setCatalogs] = useState<any[]>([]);

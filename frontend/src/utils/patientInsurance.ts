@@ -1,4 +1,5 @@
-const API_ROOT = (import.meta.env.VITE_API_URL as string) || 'http://localhost:8000/api/v1';
+import { API_BASE_URL } from '@/utils/apiBase';
+const API_ROOT = API_BASE_URL;
 
 /**
  * A patient's insurance can live in three places:

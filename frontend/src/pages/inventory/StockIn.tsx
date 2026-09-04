@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useEffect, useMemo } from 'react';
 import { DateFilter, monthStart, today } from '@/components/ui/DateFilter';
 import { Pagination } from '../../components/ui/Pagination';
@@ -14,7 +15,7 @@ import { AutoStatusBadge, StatusBadge } from '../../components/inventory/StatusB
 // Procurement → Goods Receipt (GRN); this screen lists those GRNs, and
 // "Accept" posts an accepted GRN into inventory stock (a RECEIPT document),
 // which is what makes it show up across Current Stock / Ledger / etc.
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 
 interface GRNItem {
   id?: string;

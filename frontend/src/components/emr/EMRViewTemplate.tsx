@@ -1,10 +1,11 @@
 
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState } from 'react';
 import type { EMRRecord } from './EMRPrintTemplate';
 import { Stethoscope, Activity, Pill, Beaker, Clock, CheckCircle2, Syringe, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-const API_BASE = import.meta.env.VITE_API_URL as string || 'http://localhost:8000/api/v1';
+const API_BASE = API_BASE_URL;
 
 interface EMRViewTemplateProps {
   record: EMRRecord;

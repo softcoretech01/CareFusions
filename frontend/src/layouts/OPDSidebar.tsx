@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useEffect, useMemo } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Stethoscope, FlaskConical, ScanLine, BarChart3, ChevronDown, LogOut } from 'lucide-react';
@@ -5,7 +6,7 @@ import { motion } from 'framer-motion';
 import { useAppDispatch } from '../hooks/redux';
 import { logout } from '../redux/slices/authSlice';
 
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 
 export const OPDSidebar = () => {
   const dispatch = useAppDispatch();

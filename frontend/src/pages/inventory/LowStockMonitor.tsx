@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useMemo, useEffect } from 'react';
 import { INVENTORY_TYPES, typeLabel } from '../../utils/inventoryTypes';
 import { Pagination } from '../../components/ui/Pagination';
@@ -8,7 +9,7 @@ import toast from 'react-hot-toast';
 import { useInventory, type LowStockRow } from '../../contexts/InventoryContext';
 import { exportToExcel } from '../../utils/exportToExcel';
 
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 const today = () => new Date().toISOString().split('T')[0];
 const plusDays = (n: number) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().split('T')[0]; };
 

@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -7,7 +8,7 @@ import {
 } from 'lucide-react';
 import { monthStart, today } from '../../components/ui/DateFilter';
 
-const API = (import.meta.env.VITE_API_URL as string || 'http://localhost:8000/api/v1') + '/pro';
+const API = API_BASE_URL + '/pro';
 
 const StatCard = ({
   title, value, icon: Icon, color, onClick

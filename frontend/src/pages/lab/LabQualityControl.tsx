@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useEffect } from 'react';
 import { useInvestigations, type QCLog } from '../../contexts/InvestigationContext';
 import { Plus, Check, Beaker, FileSpreadsheet, X } from 'lucide-react';
@@ -6,7 +7,7 @@ import type { ApexOptions } from 'apexcharts';
 import toast from 'react-hot-toast';
 import { DateFilter, monthStart, today } from '../../components/ui/DateFilter';
 
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 
 export const LabQualityControl = () => {
   const { qcLogs, addQCLog, refresh } = useInvestigations();

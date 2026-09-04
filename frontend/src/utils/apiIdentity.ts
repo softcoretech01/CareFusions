@@ -17,10 +17,11 @@
  * sending it now means enabling auth server-side does not need another frontend
  * sweep.
  */
+import { API_BASE_URL } from '@/utils/apiBase';
 import axios from 'axios';
 import { store } from '../redux/store';
 
-const API_BASE = (import.meta.env.VITE_API_URL as string) || '';
+const API_BASE = API_BASE_URL;
 
 const identityHeaders = (): Record<string, string> => {
   const { user, token } = store.getState().auth;

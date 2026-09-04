@@ -11,13 +11,14 @@
  * the per-item release decision, so this panel shows the same verdict the
  * backend would enforce rather than inferring one from status columns.
  */
+import { API_BASE_URL } from '@/utils/apiBase';
 import React, { useEffect, useState } from 'react';
 import {
   X, Loader, User, FileText, IndianRupee, ShieldCheck, History,
   AlertTriangle, CheckCircle2, Stethoscope, BedDouble,
 } from 'lucide-react';
 
-const API = (import.meta.env.VITE_API_URL as string || 'http://localhost:8000/api/v1') + '/pro';
+const API = API_BASE_URL + '/pro';
 
 const money = (v: any) =>
   v === null || v === undefined || v === ''

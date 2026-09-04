@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useEffect } from 'react';
 import { useOPDVisits } from '../../contexts/OPDVisitContext';
 import { useIPD } from '../../contexts/IPDContext';
@@ -7,7 +8,7 @@ import { exportToExcel } from '../../utils/exportToExcel';
 import { DateFilter } from '../../components/ui/DateFilter';
 import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 
 export const OPDReports = () => {
   const { visits } = useOPDVisits();

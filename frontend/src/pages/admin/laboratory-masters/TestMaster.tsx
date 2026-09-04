@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useEffect } from 'react';
 import { 
   Plus, Search, Filter, Download, Edit2, Trash2, AlertTriangle, 
@@ -53,7 +54,7 @@ const sampleTypesMock: string[] = [];
 const testCategoriesMock: string[] = [];
 const departmentsMock: string[] = [];
 
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 
 const mapApiToRecord = (item: any): TestRecord => ({
   id:                 item.id,

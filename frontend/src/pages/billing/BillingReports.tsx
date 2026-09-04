@@ -1,10 +1,11 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useEffect } from 'react';
 import { Printer, Download, Eye, X, Shield, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { DateFilter, monthStart, today } from '../../components/ui/DateFilter';
 import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 
 export const BillingReports = () => {
   const navigate = useNavigate();

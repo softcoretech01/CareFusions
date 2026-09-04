@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '@/utils/apiBase';
 import { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, DollarSign, Stethoscope, Settings, ShoppingCart, Package, Users, TrendingUp, Calendar, FileText, Building2, User, Menu } from 'lucide-react';
@@ -6,7 +7,7 @@ import { useAppDispatch } from '../hooks/redux';
 import { logout } from '../redux/slices/authSlice';
 import { useAuthRedirect, ModuleOutlet } from '../components/auth/ModuleGuard';
 
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = API_BASE_URL;
 
 interface BranchOption { id: number; code: string; name: string; }
 
