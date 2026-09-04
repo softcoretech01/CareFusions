@@ -1,0 +1,24 @@
+# Docker does NOT honour .gitignore. Without this file the build context
+# includes host-built node_modules (wrong platform, and node_modules is a
+# junction in git worktrees), the previous dist/, and the local .env.
+#
+# Patterns use filepath.Match semantics: `*` does not cross `/`, so anything
+# that can appear at any depth needs the `**/` prefix.
+
+# ── Secrets ──
+.env
+.env.*
+!.env.example
+
+# ── Dependencies: installed inside the image, never copied in ──
+node_modules
+
+# ── Previous builds ──
+dist
+dist-ssr
+.vite
+
+# ── Local noise ──
+**/*.local
+**/*.log
+tsc-check.txt

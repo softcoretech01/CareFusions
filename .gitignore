@@ -33,3 +33,8 @@ Thumbs.db
 # ── Runtime uploaded files ──
 Python/uploads/
 Python/app/uploads/
+
+# ── Database dumps ──
+# Never commit these: patient_data_backup.sql was a 450 KB dump of live patient
+# records. Backups belong on the server, not in the repository.
+Python/backups/

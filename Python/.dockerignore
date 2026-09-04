@@ -1,0 +1,31 @@
+# Docker does NOT honour .gitignore, so everything excluded from the image has
+# to be listed here. Without this file `COPY . .` ships the database
+# credentials, the patient backup dump and every uploaded patient document
+# inside the image.
+#
+# Patterns use filepath.Match semantics: `*` does not cross `/`, so anything
+# that can appear at any depth needs the `**/` prefix.
+
+# ── Secrets ──
+.env
+.env.*
+!.env.example
+
+# ── Patient data — belongs in a volume and a backup system, not an image ──
+uploads/
+backups/
+
+# ── Python build artefacts ──
+**/__pycache__/
+**/*.py[cod]
+**/*.egg-info/
+venv/
+.venv/
+env/
+
+# ── One-off scripts, never part of the runtime ──
+scratch/
+
+# ── Local noise ──
+**/*.log
+**/.pytest_cache/
