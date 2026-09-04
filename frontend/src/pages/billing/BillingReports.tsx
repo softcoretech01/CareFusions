@@ -302,20 +302,17 @@ export const BillingReports = () => {
                           >
                             <Eye className="w-5 h-5" />
                           </button>
-                          {/* The print route resolves an Op/Ip bill number; an advance has no
-                              such bill behind it, so printing stays off for those rows. */}
+                          {/* The print route routes ADV- to a different template. */}
                           <button
-                            onClick={() => isPaid && !isAdvance && handlePrint(bill.BillNumber)}
-                            disabled={!isPaid || isAdvance}
+                            onClick={() => isPaid && (isAdvance ? navigate(`/billing/print-advance/${bill.BillNumber}`) : handlePrint(bill.BillNumber))}
+                            disabled={!isPaid}
                             className={`p-2 rounded-lg transition-all ${
-                              isPaid && !isAdvance
+                              isPaid
                                 ? 'text-primary hover:bg-primary/10 hover:shadow-sm cursor-pointer'
                                 : 'text-slate-300 cursor-not-allowed'
                             }`}
                             title={
-                              isAdvance ? 'Advance receipts are not printable from here'
-                                : isPaid ? 'Print Bill'
-                                : 'Mark as Paid to enable printing'
+                              isPaid ? 'Print Receipt' : 'Mark as Paid to enable printing'
                             }
                           >
                             <Printer className="w-5 h-5" />
@@ -476,12 +473,16 @@ export const BillingReports = () => {
               {selectedBill.PaymentStatus === 'Paid' && (
                 <button
                   onClick={() => {
-                    handlePrint(selectedBill.BillNumber);
+                    if (selectedBill.isAdvance) {
+                      navigate(`/billing/print-advance/${selectedBill.BillNumber}`);
+                    } else {
+                      handlePrint(selectedBill.BillNumber);
+                    }
                     setSelectedBill(null);
                   }}
                   className="px-6 py-2 bg-primary text-white font-bold rounded-xl hover:bg-primary/90 transition-colors flex items-center gap-2"
                 >
-                  <Printer className="w-4 h-4" /> Print Bill
+                  <Printer className="w-4 h-4" /> {selectedBill.isAdvance ? 'Print Receipt' : 'Print Bill'}
                 </button>
               )}
             </div>

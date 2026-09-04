@@ -143,6 +143,7 @@ export const IPPatients = () => {
           investigations: invs.map((i: any) => ({ 
             test: i.TestName, 
             result: i.Result || i.Status || 'Ordered', 
+            summary: i.ResultSummary || '',
             normalRange: i.NormalRange || '' 
           })),
           prescriptions: meds.map((m: any) => ({

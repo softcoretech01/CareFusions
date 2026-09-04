@@ -50,6 +50,8 @@ export interface InvestigationOrder {
   // desk reviews one ordering event as one row instead of one row per source
   // table. Optional: an order without it is a group of one.
   orderGroupNo?: string;
+  // Indicates if the order is blocked (not cleared by PRO desk/payment)
+  isBlocked?: boolean;
 }
 
 export interface QCLog {
@@ -130,6 +132,7 @@ export const InvestigationProvider = ({ children }: { children: ReactNode }) => 
     if (o.status === 'fulfilled' && Array.isArray(o.value)) {
       const labOrders = o.value.map((order: any) => ({
         id: order.order_number || order.id,
+        orderId: order.orderId || order.order_id,
         type: order.visit_type || order.type,
         category: order.category,
         patientId: order.uhid || order.patientId,
@@ -137,6 +140,7 @@ export const InvestigationProvider = ({ children }: { children: ReactNode }) => 
         orderedBy: order.ordered_by || order.orderedBy || 'Unknown',
         orderedAt: order.ordered_at || order.orderedAt,
         status: order.status,
+        isBlocked: order.is_blocked || order.isBlocked || false,
         age: order.age,
         gender: order.gender,
         mobileNumber: order.mobile_number || order.mobileNumber,
@@ -202,6 +206,7 @@ export const InvestigationProvider = ({ children }: { children: ReactNode }) => 
         orderedBy: order.ordered_by || 'Unknown',
         orderedAt: order.ordered_at,
         status: order.status,
+        isBlocked: order.is_blocked || false,
         age: order.age,
         gender: order.gender,
         mobileNumber: order.mobile_number,

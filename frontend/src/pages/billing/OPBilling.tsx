@@ -58,6 +58,7 @@ interface BillResponse {
 export const OPBilling = () => {
 
   const [bills, setBills] = useState<BillResponse[]>([]);
+  const [advances, setAdvances] = useState<any[]>([]);
 
   // Price books. Consultation, lab and radiology charges used to be the
   // literals 500 / 250 / 1500, so every bill ignored the masters: a 5,000
@@ -91,6 +92,7 @@ export const OPBilling = () => {
 
   useEffect(() => {
     fetchBills();
+    fetchAdvances();
     fetchVisits();
     fetchAdmissions();
     fetchPriceBooks();
@@ -110,6 +112,15 @@ export const OPBilling = () => {
       setBills(response.data);
     } catch (error) {
       console.error("Failed to fetch bills", error);
+    }
+  };
+
+  const fetchAdvances = async () => {
+    try {
+      const response = await axios.get(`${API_BASE}/billing/advance/`);
+      setAdvances(response.data);
+    } catch (error) {
+      console.error("Failed to fetch advances", error);
     }
   };
 
@@ -363,8 +374,24 @@ export const OPBilling = () => {
     }));
   };
 
-  const totalAmount = items.reduce((sum, item) => sum + item.total, 0);
+  const patientAdvances = advances.filter(a => a.UHID === selectedPatientId && a.Status === 'PAID');
+  const totalAdvancePaid = patientAdvances.reduce((sum, a) => sum + (parseFloat(a.PaidAmount ?? a.TotalAmount) || 0), 0);
+  const patientBills = bills.filter(b => b.Uhid === selectedPatientId);
+  const totalBilledSoFar = patientBills.reduce((sum, b) => sum + b.TotalAmount, 0);
+  const availableAdvance = Math.max(0, totalAdvancePaid - totalBilledSoFar);
 
+  let remainingAdvance = availableAdvance;
+  const itemsWithAdvance = items.map(item => {
+    let advanceApplied = 0;
+    if ((item.id.startsWith('LAB-') || item.id.startsWith('RAD-')) && remainingAdvance > 0) {
+      advanceApplied = Math.min(item.total, remainingAdvance);
+      remainingAdvance -= advanceApplied;
+    }
+    return { ...item, advanceApplied };
+  });
+
+  const totalAmount = itemsWithAdvance.reduce((sum, item) => sum + (item.total - item.advanceApplied), 0);
+  
   const handleGenerateBill = async () => {
     if (!patientName || items.length === 0) {
       toast.error('Please select a patient and add items first.');
@@ -392,8 +419,8 @@ export const OPBilling = () => {
       Discount: 0,
       Tax: 0,
       NetAmount: totalAmount,
-      PaymentMode: 'Cash',
-      PaymentStatus: 'Pending',
+      PaymentMode: totalAmount === 0 ? 'Advance' : 'Cash',
+      PaymentStatus: totalAmount === 0 ? 'Paid' : 'Pending',
       Items: items.map(i => ({
         ItemCode: i.id,
         ItemDescription: i.description,
@@ -417,6 +444,7 @@ export const OPBilling = () => {
       setItems([]);
 
       fetchBills(); // Refresh bills list
+      fetchAdvances(); // Refresh advances
       fetchVisits(); // Refresh visits to reflect updated billing status (if backend updates it)
 
       setTimeout(() => setSuccessMsg(''), 4000);
@@ -581,7 +609,7 @@ export const OPBilling = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {items.map(item => (
+                    {itemsWithAdvance.map(item => (
                       <tr key={item.id} className="hover:bg-slate-50/50">
                         <td className="px-5 py-3">
                           <input type="text" className="w-full bg-transparent border-0 p-1 focus:ring-1 focus:ring-primary/30 rounded text-sm" value={item.description} onChange={e => handleItemChange(item.id, 'description', e.target.value)} />
@@ -596,7 +624,18 @@ export const OPBilling = () => {
                             <input type="number" className="w-full text-center bg-transparent border-0 p-1 focus:ring-1 focus:ring-primary/30 rounded text-sm" value={item.qty} onChange={e => handleItemChange(item.id, 'qty', Number(e.target.value))} />
                           )}
                         </td>
-                        <td className="px-5 py-3 text-right font-semibold text-slate-800">₹{item.total.toFixed(2)}</td>
+                        <td className="px-5 py-3 text-right font-semibold text-slate-800">
+                          {item.advanceApplied === item.total && item.total > 0 ? (
+                            <span className="text-emerald-600 text-xs font-bold uppercase">Paid in advance</span>
+                          ) : item.advanceApplied > 0 ? (
+                            <div className="flex flex-col items-end leading-tight">
+                              <span>₹{(item.total - item.advanceApplied).toFixed(2)}</span>
+                              <span className="text-[10px] text-emerald-600 uppercase">Includes ₹{item.advanceApplied.toFixed(2)} Adv</span>
+                            </div>
+                          ) : (
+                            <span>₹{item.total.toFixed(2)}</span>
+                          )}
+                        </td>
                       </tr>
                     ))}
                     <tr className="bg-primary/5 border-t-2 border-primary/20 font-bold">

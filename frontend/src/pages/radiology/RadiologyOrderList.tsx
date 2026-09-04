@@ -9,7 +9,7 @@ const API_BASE = import.meta.env.VITE_API_URL as string || 'http://localhost:800
 
 export const RadiologyOrderList = () => {
   const { orders, updateTestResult, fetchRadiologyOrders } = useInvestigations();
-  const radOrders = orders.filter(o => o.category === 'Radiology');
+  const radOrders = orders.filter(o => o.category === 'Radiology' && !o.isBlocked);
 
   // The worklist opens on "this month so far". Leaving the range empty let
   // DateFilter seed it with today -> today, which hid every scan ordered

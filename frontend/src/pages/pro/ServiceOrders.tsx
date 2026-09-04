@@ -79,7 +79,9 @@ const ReviewModal = ({
     let cancelled = false;
     setPolicyLoading(true);
     (async () => {
-      const found = await fetchPatientCover(uhid);
+      // Pass the source module so IPD orders use the admission desk's CoverageType
+      // as the authoritative source of truth for financial coverage.
+      const found = await fetchPatientCover(uhid, row.SourceModule);
       if (!cancelled) {
         setPolicy(found);
         setPolicyLoading(false);
@@ -175,7 +177,6 @@ const ReviewModal = ({
       if (failed.length === 0) {
         toast.success(multi ? `${orders.length} orders approved` : `Order ${orders[0].OrderNo} approved`);
         onClose();
-        navigate('/billing/advance-payments');
       } else if (failed.length === orders.length) {
         toast.error(failed[0]);
       } else {
@@ -287,7 +288,8 @@ const ReviewModal = ({
               </div>
             </section>
 
-            {/* Insurance on file — read-only; this screen approves prices, not cover. */}
+            {/* Insurance — read-only; this screen approves prices, not cover.
+                For IPD the source of truth is the admission desk's CoverageType. */}
             {row.SourceModule !== 'OPD' && (
               <section>
                 <div className="flex items-center gap-2 mb-3">
@@ -301,12 +303,15 @@ const ReviewModal = ({
                   </div>
                 ) : !policy ? (
                   <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 text-sm text-slate-500">
-                    No insurance policy on file — this is a <span className="font-semibold text-slate-700">self-pay</span> patient.
+                    {row.SourceModule === 'IPD'
+                      ? <>Patient admitted as <span className="font-semibold text-slate-700">Self Pay</span> — the admission desk confirmed this patient is paying directly.</>
+                      : <>No insurance policy on file — this is a <span className="font-semibold text-slate-700">self-pay</span> patient.</>
+                    }
                   </div>
                 ) : (
                   <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4">
                     <div className="flex flex-wrap items-center gap-2 mb-4">
-                      <span className="text-sm font-bold text-slate-800">{policy.insurerName || '—'}</span>
+                      <span className="text-sm font-bold text-slate-800">{policy.insurerName || (policy.source === 'admission' ? 'Insurance Covered' : '—')}</span>
                       {policy.planName && <span className="text-xs text-slate-500">· {policy.planName}</span>}
                       <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
                         policy.status === 'Active'
@@ -315,6 +320,11 @@ const ReviewModal = ({
                       }`}>
                         {policy.status || 'Unknown'}
                       </span>
+                      {policy.source === 'admission' && (
+                        <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                          Captured at Admission
+                        </span>
+                      )}
                       {policy.networkHospital && (
                         <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-emerald-50 text-emerald-600 border border-emerald-200">
                           Network Hospital
@@ -333,6 +343,11 @@ const ReviewModal = ({
                       <p className="text-xs text-slate-500 mt-3">
                         From the patient's registration record — no formal policy exists under
                         Insurance &gt; Policies, so there is no sum insured or balance to bill against.
+                      </p>
+                    )}
+                    {policy.source === 'admission' && !policy.insurerName && (
+                      <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-3">
+                        Insurance confirmed at admission but details not yet captured — pending Eligibility Verification in the Insurance portal.
                       </p>
                     )}
                   </div>

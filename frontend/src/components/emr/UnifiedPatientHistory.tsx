@@ -175,11 +175,15 @@ export const UnifiedPatientHistory = ({ patientUhid, excludeVisitId }: { patient
                       <p className="font-bold text-slate-800 text-sm flex items-center gap-2">
                         <Calendar className="w-4 h-4 text-primary" /> {past.date}
                         <span className="ml-2 px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded text-[10px] uppercase font-bold tracking-wider">OPD Visit</span>
-                        {past.billingStatus === 'Completed' ? (
-                          <span className="ml-2 px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded text-[10px] uppercase font-bold tracking-wider">Bill Paid</span>
-                        ) : (
-                          <span className="ml-2 px-2 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px] uppercase font-bold tracking-wider">Billing Pending</span>
-                        )}
+                        {(() => {
+                          const wasAdmitted = ipdAdmissions.some(a => a.uhid === past.uhid && a.admissionDate?.slice(0, 10) === past.date?.slice(0, 10));
+                          if (wasAdmitted) return null;
+                          return ['Completed', 'Paid', 'Billed'].includes(past.billingStatus) ? (
+                            <span className="ml-2 px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded text-[10px] uppercase font-bold tracking-wider">Bill Paid</span>
+                          ) : (
+                            <span className="ml-2 px-2 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px] uppercase font-bold tracking-wider">Billing Pending</span>
+                          );
+                        })()}
                       </p>
                       <p className="text-xs text-slate-500 mt-1">Visit: {past.visitNumber} &middot; Dept: {past.department}</p>
                     </div>

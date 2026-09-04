@@ -50,6 +50,7 @@ class LabOrderSchema(BaseModel):
     resultSummary: Optional[str] = None
 
 class RadiologyOrderSchema(BaseModel):
+    serviceName: Optional[str] = None
     modality: Optional[str] = None
     bodyPart: Optional[str] = None
     indication: Optional[str] = None

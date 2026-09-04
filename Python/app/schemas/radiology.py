@@ -50,6 +50,7 @@ class RadiologyOrderBase(BaseModel):
     age: Optional[str] = None
     gender: Optional[str] = None
     mobile_number: Optional[str] = None
+    is_blocked: bool = False
 
 class RadiologyOrderCreate(BaseModel):
     category: str = "Radiology"

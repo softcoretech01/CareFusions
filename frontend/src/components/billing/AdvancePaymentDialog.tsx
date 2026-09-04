@@ -35,12 +35,6 @@ const PAYMENT_MODES = [
   { value: 'CASH', label: 'Cash' },
   { value: 'CARD', label: 'Card' },
   { value: 'UPI', label: 'UPI' },
-  { value: 'BANK_TRANSFER', label: 'Bank Transfer' },
-  { value: 'CHEQUE', label: 'Cheque' },
-  { value: 'NEFT', label: 'NEFT' },
-  { value: 'RTGS', label: 'RTGS' },
-  { value: 'WALLET', label: 'Wallet' },
-  { value: 'ONLINE', label: 'Online' },
 ];
 
 // Methods where a transaction/instrument reference is expected. Cash has none.
@@ -204,31 +198,9 @@ export const AdvancePaymentDialog: React.FC<Props> = ({ bill, cover, onClose, on
             </div>
           </div>
 
-          {/* ── The money ────────────────────────────────────────── */}
-          <div className="grid grid-cols-3 gap-3">
-            {[
-              ['Billed', bill.TotalAmount, 'text-slate-800'],
-              ['Already paid', bill.PaidAmount, 'text-emerald-700'],
-              ['Outstanding', outstanding, outstanding > 0 ? 'text-red-600' : 'text-emerald-700'],
-            ].map(([label, val, tone]: any) => (
-              <div key={label} className="bg-white border border-slate-200 rounded-xl px-4 py-3">
-                <p className="text-[11px] uppercase tracking-wide text-slate-400 font-semibold">{label}</p>
-                <p className={`text-lg font-bold mt-0.5 tabular-nums ${tone}`}>{inr(val)}</p>
-              </div>
-            ))}
-          </div>
 
-          {/* Insurance is context, never a payment method. */}
-          {cover && (
-            <div className="flex gap-2 text-xs text-sky-800 bg-sky-50 border border-sky-100 rounded-xl px-4 py-3">
-              <ShieldCheck className="w-4 h-4 mt-0.5 shrink-0" />
-              <span>
-                Patient holds cover with <strong>{cover.insurerName || 'an insurer'}</strong>
-                {cover.policyNumber ? ` (policy ${cover.policyNumber})` : ''}. Any approved cover is
-                already deducted above — the amount below is the patient's own share.
-              </span>
-            </div>
-          )}
+
+
 
           {/* ── Result, or the form ──────────────────────────────── */}
           {result ? (

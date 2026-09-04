@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useIPD } from '../../contexts/IPDContext';
-import { ArrowLeft, History, User, Activity, CheckCircle, Save, AlertTriangle, FileText, Pill, Stethoscope, FlaskConical, ScrollText, Syringe } from 'lucide-react';
+import { ArrowLeft, History, User, Activity, CheckCircle, Save, AlertTriangle, FileText, Pill, Stethoscope, FlaskConical, ScrollText, Syringe, ShieldCheck, Pencil, X } from 'lucide-react';
 import { DischargePrescription } from '../../components/discharge/DischargePrescription';
 import type { DischargeItem } from '../../components/discharge/DischargePrescription';
 import { NursingFlowsheet } from '../../components/ipd/NursingFlowsheet';
@@ -10,12 +10,16 @@ import { MarGrid } from '../../components/ipd/MarGrid';
 import { InvestigationsTab } from '../../components/ipd/InvestigationsTab';
 import { OperationsTab } from '../../components/ipd/OperationsTab';
 import { PatientHistoryTab } from '../../components/ipd/PatientHistoryTab';
+import { fetchPatientCover } from '../../utils/patientInsurance';
 import toast from 'react-hot-toast';
+
+const API_BASE = import.meta.env.VITE_API_URL as string || 'http://localhost:8000/api/v1';
+
 
 export const PatientIPDProfile = () => {
   const { patientId } = useParams<{ patientId: string }>();
   const navigate = useNavigate();
-  const { patients, beds, wards, requestDischarge } = useIPD();
+  const { patients, beds, wards, requestDischarge, refreshAll } = useIPD();
 
   const [activeTab, setActiveTab] = useState('history');
   const [dischargeMedicines, setDischargeMedicines] = useState<DischargeItem[]>([]);
@@ -23,6 +27,22 @@ export const PatientIPDProfile = () => {
   const [clinicalNotes, setClinicalNotes] = useState('');
   const [finalDiagnosis, setFinalDiagnosis] = useState('');
   const [dischargeDate, setDischargeDate] = useState(new Date().toISOString().split('T')[0]);
+
+  // Financial Coverage editor state
+  const [editingCoverage, setEditingCoverage] = useState(false);
+  const [coverageForm, setCoverageForm] = useState({
+    coverageType: 'Self Pay' as 'Self Pay' | 'Insurance',
+    insuranceCompany: '',
+    tpa: '',
+    policyNumber: '',
+    policyEndDate: '',
+    coPay: '',
+    deductible: '',
+  });
+  const [savingCoverage, setSavingCoverage] = useState(false);
+  // Live insurance-on-file lookup for the patient (to pre-fill the form)
+  const [policyOnFile, setPolicyOnFile] = useState<any | null>(null);
+
 
   const patient = patients.find(p => p.id === Number(patientId));
   const bed = beds.find(b => b.id === patient?.currentBedId);
@@ -42,6 +62,68 @@ export const PatientIPDProfile = () => {
       quantity: m.quantity, notes: m.notes,
     })));
   }, [patient?.id]);
+
+  // When editing coverage, pre-fill form from existing admission data.
+  // If the patient's admission has no insurer details yet, also check the
+  // insurance portal / registration record so the clerk doesn't have to retype.
+  useEffect(() => {
+    if (!editingCoverage || !patient) return;
+    // Seed from what the admission already holds
+    setCoverageForm({
+      coverageType: (patient.coverageType || 'Self Pay') as any,
+      insuranceCompany: patient.insuranceCompany || '',
+      tpa: patient.tpa || '',
+      policyNumber: patient.policyNumber || '',
+      policyEndDate: patient.policyEndDate ? String(patient.policyEndDate).slice(0, 10) : '',
+      coPay: patient.coPay != null ? String(patient.coPay) : '',
+      deductible: patient.deductible != null ? String(patient.deductible) : '',
+    });
+    // Also fetch the global policy/registration record so the clerk can see it
+    fetchPatientCover(patient.uhid).then(cover => setPolicyOnFile(cover));
+  }, [editingCoverage, patient?.id]);
+
+  const handleSaveCoverage = async () => {
+    if (!patient) return;
+    setSavingCoverage(true);
+    try {
+      const payload = {
+        ...patient,
+        coverageType: coverageForm.coverageType,
+        insuranceCompany: coverageForm.insuranceCompany || null,
+        tpa: coverageForm.tpa || null,
+        policyNumber: coverageForm.policyNumber || null,
+        policyEndDate: coverageForm.policyEndDate || null,
+        coPay: coverageForm.coPay ? Number(coverageForm.coPay) : null,
+        deductible: coverageForm.deductible ? Number(coverageForm.deductible) : null,
+        insuranceStatus: coverageForm.coverageType === 'Insurance' ? 'APPROVED' : 'NOT_APPLICABLE',
+        // Required fields that the PUT schema expects
+        wardId: patient.currentWardId,
+        bedId: patient.currentBedId,
+        bloodGroup: patient.bloodGroup,
+        expectedStayDays: patient.expectedStayDays,
+        admissionReason: patient.admissionReason,
+        financialStatus: patient.financialStatus,
+        operations: patient.operations || [],
+      };
+      const res = await fetch(`${API_BASE}/ipd/admissions/${patient.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || `Error ${res.status}`);
+      }
+      toast.success('Financial coverage updated successfully');
+      setEditingCoverage(false);
+      refreshAll?.();
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to update coverage');
+    } finally {
+      setSavingCoverage(false);
+    }
+  };
+
 
   if (!patient) return <div className="p-8 text-center text-slate-500">Patient not found</div>;
 
@@ -128,6 +210,151 @@ export const PatientIPDProfile = () => {
           <div className="pt-4 border-t border-slate-100">
             <p className="text-xs font-bold text-slate-400 uppercase mb-1">Admission Reason</p>
             <p className="font-medium text-slate-700 text-sm">{patient.admissionReason || 'Pending'}</p>
+          </div>
+
+          {/* ── Financial Coverage ── */}
+          <div className="pt-4 border-t border-slate-100">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
+                <p className="text-xs font-bold text-slate-400 uppercase">Financial Coverage</p>
+              </div>
+              {!editingCoverage && (
+                <button
+                  onClick={() => setEditingCoverage(true)}
+                  title="Edit financial coverage"
+                  className="p-1 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-colors"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {!editingCoverage ? (
+              <div>
+                <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-full ${
+                  patient.coverageType === 'Insurance'
+                    ? 'bg-indigo-100 text-indigo-700'
+                    : 'bg-slate-100 text-slate-600'
+                }`}>
+                  <ShieldCheck className="w-3 h-3" />
+                  {patient.coverageType || 'Self Pay'}
+                </span>
+                {patient.insuranceCompany && (
+                  <p className="text-xs text-slate-500 mt-1.5">{patient.insuranceCompany}</p>
+                )}
+                {patient.policyNumber && (
+                  <p className="text-xs text-slate-400 font-mono mt-0.5">#{patient.policyNumber}</p>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                {/* Coverage type toggle */}
+                <div className="flex rounded-xl border border-slate-200 overflow-hidden">
+                  {(['Self Pay', 'Insurance'] as const).map(type => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => setCoverageForm(p => ({ ...p, coverageType: type }))}
+                      className={`flex-1 py-1.5 text-xs font-bold transition-colors ${
+                        coverageForm.coverageType === type
+                          ? type === 'Insurance' ? 'bg-indigo-600 text-white' : 'bg-slate-600 text-white'
+                          : 'text-slate-500 hover:bg-slate-50'
+                      }`}
+                    >
+                      {type}
+                    </button>
+                  ))}
+                </div>
+
+                {coverageForm.coverageType === 'Insurance' && (
+                  <>
+                    {/* Show policy on file as hint */}
+                    {policyOnFile && (
+                      <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-2 text-xs">
+                        <p className="font-semibold text-indigo-700 mb-1">Policy on file ({policyOnFile.source}):</p>
+                        <p className="text-indigo-600">{policyOnFile.insurerName} · {policyOnFile.policyNumber}</p>
+                        <button
+                          type="button"
+                          onClick={() => setCoverageForm(p => ({
+                            ...p,
+                            insuranceCompany: policyOnFile.insurerName || '',
+                            tpa: policyOnFile.tpaName || '',
+                            policyNumber: policyOnFile.policyNumber || '',
+                            policyEndDate: policyOnFile.validUntil || '',
+                            coPay: policyOnFile.copayPercentage != null ? String(policyOnFile.copayPercentage) : '',
+                            deductible: policyOnFile.deductible != null ? String(policyOnFile.deductible) : '',
+                          }))}
+                          className="mt-1 text-indigo-700 font-semibold underline"
+                        >
+                          Use this policy
+                        </button>
+                      </div>
+                    )}
+                    <input
+                      placeholder="Insurer / Company"
+                      value={coverageForm.insuranceCompany}
+                      onChange={e => setCoverageForm(p => ({ ...p, insuranceCompany: e.target.value }))}
+                      className="w-full px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    />
+                    <input
+                      placeholder="TPA"
+                      value={coverageForm.tpa}
+                      onChange={e => setCoverageForm(p => ({ ...p, tpa: e.target.value }))}
+                      className="w-full px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    />
+                    <input
+                      placeholder="Policy Number"
+                      value={coverageForm.policyNumber}
+                      onChange={e => setCoverageForm(p => ({ ...p, policyNumber: e.target.value }))}
+                      className="w-full px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    />
+                    <input
+                      type="date"
+                      placeholder="Policy Expiry"
+                      value={coverageForm.policyEndDate}
+                      onChange={e => setCoverageForm(p => ({ ...p, policyEndDate: e.target.value }))}
+                      className="w-full px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    />
+                    <div className="flex gap-1.5">
+                      <input
+                        type="number"
+                        placeholder="Co-Pay %"
+                        value={coverageForm.coPay}
+                        onChange={e => setCoverageForm(p => ({ ...p, coPay: e.target.value }))}
+                        className="w-1/2 px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                      />
+                      <input
+                        type="number"
+                        placeholder="Deductible ₹"
+                        value={coverageForm.deductible}
+                        onChange={e => setCoverageForm(p => ({ ...p, deductible: e.target.value }))}
+                        className="w-1/2 px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                      />
+                    </div>
+                  </>
+                )}
+
+                <div className="flex gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setEditingCoverage(false)}
+                    disabled={savingCoverage}
+                    className="flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-semibold border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors"
+                  >
+                    <X className="w-3 h-3" /> Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveCoverage}
+                    disabled={savingCoverage}
+                    className="flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-bold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-60"
+                  >
+                    <Save className="w-3 h-3" /> {savingCoverage ? 'Saving…' : 'Save'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

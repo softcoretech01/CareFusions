@@ -982,7 +982,7 @@ export const DoctorConsultation = () => {
                   >
                     <option value="">Select Service...</option>
                     {apiRadiologyServices.map((svc, i) => (
-                      <option key={i} value={svc.name}>{svc.name} ({svc.modality})</option>
+                      <option key={i} value={svc.name}>{svc.name}</option>
                     ))}
                   </select>
                 </div>
