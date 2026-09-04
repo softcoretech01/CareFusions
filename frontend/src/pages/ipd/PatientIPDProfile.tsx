@@ -152,12 +152,14 @@ export const PatientIPDProfile = () => {
     requestDischarge(patient.id, dischargeInfo);
     toast.success('Discharge information saved. Patient moved to Discharge list.');
 
-    // IPDPatient records an `insuranceStatus` ('Self Pay' | 'Covered' |
-    // 'Pending Approval'), set on the admission form. The check used to read
-    // `insuranceRequired`, which does not exist on this type — so it was always
-    // undefined and no insured discharge ever reached the claims screen.
-    const isInsured = patient.insuranceStatus === 'Covered'
-      || patient.insuranceStatus === 'Pending Approval';
+    // IPDPatient.insuranceStatus is 'NOT_APPLICABLE' | 'PENDING' | 'APPROVED'
+    // | 'REJECTED' (see IPDContext). This check previously compared against
+    // 'Covered' / 'Pending Approval' — an older vocabulary that no longer
+    // exists on the type, so isInsured was ALWAYS false and no insured
+    // discharge ever reached the claims screen. REJECTED routes to the normal
+    // discharge list: there is no claim left to file.
+    const isInsured = patient.insuranceStatus === 'APPROVED'
+      || patient.insuranceStatus === 'PENDING';
 
     if (isInsured) {
       navigate('/insurance/claims', { state: { uhid: patient.uhid } });

@@ -2,11 +2,11 @@ import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Search, Plus, Filter, Edit2, Download, Printer, Eye,
+  Search, Plus, Filter, Edit2, Download, Eye,
   User, Phone, FileText, Heart, Shield, Activity, Calendar, FileDigit, AlertTriangle, CalendarPlus, X
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 
 const API_BASE = API_BASE_URL;
@@ -147,7 +147,6 @@ const initialFormState: Omit<PatientRecord, 'id'> = {
 
 export const PatientRegistration = () => {
   const location = useLocation();
-  const navigate = useNavigate();
 
   const [patients, setPatients] = useState<any[]>([]);
   const [bookAppointmentPatient, setBookAppointmentPatient] = useState<any | null>(null);
@@ -355,8 +354,6 @@ export const PatientRegistration = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [filterPatientType, setFilterPatientType] = useState('');
   const [filterGender, setFilterGender] = useState('');
-  const today = new Date().toISOString().split('T')[0];
-  const firstDay = `${today.split('-')[0]}-${today.split('-')[1]}-01`;
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [appliedDateFrom, setAppliedDateFrom] = useState('');
@@ -415,56 +412,6 @@ export const PatientRegistration = () => {
       return `${months} ${months === 1 ? 'Month' : 'Months'}`;
     } else {
       return `${days} ${days === 1 ? 'Day' : 'Days'}`;
-    }
-  };
-  // Restored and wired up: this was implemented but never called, while the
-  // "Print Slip" button below had no onClick at all — so the button did
-  // nothing and the registration card could not be printed.
-  const handlePrint = (record: any) => {
-    const printContent = `
-      <html>
-        <head>
-          <title>Patient Registration Card - ${record.uhid}</title>
-          <style>
-            body { font-family: system-ui, -apple-system, sans-serif; padding: 40px; color: #1e293b; }
-            .card { border: 2px solid #e2e8f0; padding: 30px; border-radius: 16px; max-width: 600px; margin: 0 auto; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
-            .header { text-align: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; margin-bottom: 20px; }
-            .header h2 { margin: 0; color: #0f172a; font-size: 24px; font-weight: 700; }
-            .header h3 { margin: 8px 0 0; color: #64748b; font-size: 16px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
-            .row { display: flex; margin-bottom: 16px; align-items: center; }
-            .label { font-weight: 600; width: 180px; color: #475569; font-size: 14px; }
-            .value { flex: 1; font-size: 16px; font-weight: 500; color: #0f172a; }
-            .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 20px; }
-          </style>
-        </head>
-        <body>
-          <div class="card">
-            <div class="header">
-              <h2>CareFusions Hospital</h2>
-              <h3>Patient Registration Card</h3>
-            </div>
-            <div class="row"><div class="label">UHID</div><div class="value">${record.uhid}</div></div>
-            <div class="row"><div class="label">Patient Name</div><div class="value">${record.title || ''} ${record.patientName || record.firstName || ''}</div></div>
-            <div class="row"><div class="label">Gender / Age</div><div class="value">${record.gender} / ${record.dateOfBirth ? formatAgeDisplay(record.dateOfBirth) : (record.age || record.approximateAge || 0) + ' Yrs'}</div></div>
-            <div class="row"><div class="label">Mobile Number</div><div class="value">${record.mobileNumber || 'N/A'}</div></div>
-            <div class="row"><div class="label">Registration Date</div><div class="value">${record.registrationDate}</div></div>
-            <div class="footer">
-              Printed on: ${new Date().toLocaleString()}
-            </div>
-          </div>
-        </body>
-      </html>
-    `;
-
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(printContent);
-      printWindow.document.close();
-      printWindow.focus();
-      setTimeout(() => {
-        printWindow.print();
-        printWindow.close();
-      }, 250);
     }
   };
 

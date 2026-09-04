@@ -7,8 +7,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
 import { Modal } from '../../../components/ui/Modal';
-import { MultiSelectField } from '../../../components/ui/MultiSelectField';
-import { FlagChip, ChipList } from '../../../components/ui/DetailChips';
+import { FlagChip } from '../../../components/ui/DetailChips';
 import { exportToExcel } from '../../../utils/exportToExcel';
 
 interface MinorOperationRecord {

@@ -1,7 +1,7 @@
 import { API_BASE_URL } from '@/utils/apiBase';
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Shield, Eye, EyeOff, Check, Stethoscope, Pill, Cloud, UserPlus, ShieldCheck, BarChart3, Heart, Plus, CalendarClock, BedDouble, ClipboardList, FlaskConical, ScanLine, ShoppingCart, Boxes, Sparkles, User, CheckCircle } from 'lucide-react';
+import { Shield, Eye, EyeOff, Check, Stethoscope, Pill, Cloud, UserPlus, ShieldCheck, BarChart3, Heart, Plus, BedDouble, ClipboardList, FlaskConical, ScanLine, ShoppingCart, Boxes, Sparkles, User, CheckCircle } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppDispatch } from '../hooks/redux';
 import { setCredentials } from '../redux/slices/authSlice';

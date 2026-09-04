@@ -17,7 +17,7 @@ const localDay = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 export const PreAuthManagement = () => {
-  const { preAuths, addPreAuth, updatePreAuth, updatePreAuthStatus, deletePreAuth,
+  const { preAuths, addPreAuth, updatePreAuth, deletePreAuth,
           providers, policies, refresh, loading } = useInsurance();
   const { patients } = usePatients();
   const { patients: ipdAdmissions } = useIPD();
@@ -36,9 +36,6 @@ export const PreAuthManagement = () => {
   const [showNewModal, setShowNewModal] = useState(false);
   const [viewRequest, setViewRequest] = useState<any>(null);
   const [editing, setEditing] = useState<any>(null);
-  const [deciding, setDeciding] = useState<{ req: any; action: 'Approved' | 'Rejected' } | null>(null);
-  const [decisionAmount, setDecisionAmount] = useState('');
-  const [decisionReason, setDecisionReason] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   // Supporting documents are captured client-side; there is no pre-auth document
   // endpoint yet, so they are listed for the user but not persisted on submit.
@@ -316,20 +313,6 @@ export const PreAuthManagement = () => {
     setEditing(null);
   };
 
-  const confirmDecision = () => {
-    if (!deciding) return;
-    if (deciding.action === 'Approved') {
-      const amt = Number(decisionAmount);
-      if (!amt || amt <= 0) { toast.error('Enter the sanctioned amount'); return; }
-      updatePreAuthStatus(deciding.req.id, 'Approved', amt, decisionReason.trim() || undefined);
-      toast.success('Pre-authorisation approved');
-    } else {
-      if (!decisionReason.trim()) { toast.error('Enter a rejection reason'); return; }
-      updatePreAuthStatus(deciding.req.id, 'Rejected', undefined, decisionReason.trim());
-      toast.success('Pre-authorisation rejected');
-    }
-    setDeciding(null); setDecisionAmount(''); setDecisionReason('');
-  };
 
   const statusBadge = (status: string) => {
     const map: Record<string, string> = {

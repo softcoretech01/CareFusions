@@ -24,13 +24,11 @@ COPY . .
 ARG VITE_API_URL=/api/v1
 ENV VITE_API_URL=$VITE_API_URL
 
-# NOTE: this is `vite build`, not `npm run build`.
-# `npm run build` is `tsc -b && vite build`, and `tsc -b` currently fails with
-# 82 pre-existing errors across 26 files on main (40 unused-symbol, 42
-# substantive). vite does not typecheck, so the bundle builds regardless.
-# Restore `npm run build` here as soon as the typecheck is green — the CI build
-# gate in the Jenkins pipeline is meaningless until it is.
-RUN npx vite build
+# `npm run build` is `tsc -b && vite build`, so the image build now typechecks
+# as well as bundles. It briefly ran `vite build` alone, because tsc failed with
+# 82 pre-existing errors; those are fixed, and running the full script here
+# keeps them from coming back — a type error now fails the image build.
+RUN npm run build
 
 # ── runtime ───────────────────────────────────────────────────
 FROM nginx:1.27-alpine AS runtime

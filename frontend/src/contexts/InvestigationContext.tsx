@@ -296,7 +296,6 @@ export const InvestigationProvider = ({ children }: { children: ReactNode }) => 
           tests: order.tests.map(t => ({
             testId: t.testId ?? null,
             testName: t.name,
-            testName: t.name, // send both just in case
             testCode: t.testCode ?? t.name,
             bodyPart: t.bodyPart || null,
             isCritical: t.isCritical ?? false,

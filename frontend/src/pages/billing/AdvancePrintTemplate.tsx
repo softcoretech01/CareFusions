@@ -61,7 +61,6 @@ export const AdvancePrintTemplate = () => {
     );
   }
 
-  const isAdvance = true;
   const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
 
   return (

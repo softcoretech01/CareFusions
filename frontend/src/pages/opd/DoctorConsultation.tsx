@@ -23,7 +23,7 @@ interface ApiRadiologyService {
   name: string;
   modality: string;
 }
-import { User, AlertTriangle, Hash, Activity, Pill, FlaskConical, ScanLine, CheckCircle, Plus, Trash2, Eye, BookOpen, ArrowLeft, RefreshCw, History, Calendar, Edit2, X, Printer, Search, Stethoscope, ChevronRight, Clock, FileText } from 'lucide-react';
+import { User, AlertTriangle, Hash, Activity, Pill, FlaskConical, ScanLine, CheckCircle, Plus, Trash2, Eye, BookOpen, ArrowLeft, RefreshCw, History, Calendar, Edit2, X, Printer, Clock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { UnifiedPatientHistory } from '../../components/emr/UnifiedPatientHistory';
 
@@ -60,7 +60,7 @@ export const DoctorConsultation = () => {
   const {
     getVisitById, addDiagnosis, removeDiagnosis,
     addPrescription, removePrescription, addLabOrder, removeLabOrder,
-    addRadiologyOrder, removeRadiologyOrder, finalizeVisit, updateVisit, updateVisitStatus, visits
+    addRadiologyOrder, removeRadiologyOrder, finalizeVisit, updateVisit, updateVisitStatus
   } = useOPDVisits();
 
   const { appointments, updateAppointmentStatus } = useAppointments();
@@ -105,7 +105,8 @@ export const DoctorConsultation = () => {
 
   // ── Lab Tests from Master API ──
   const [apiLabTests, setApiLabTests] = useState<ApiLabTest[]>([]);
-  const [labTestsLoading, setLabTestsLoading] = useState(true);
+  // Value is never read — only the setter.
+  const [, setLabTestsLoading] = useState(true);
 
   // ── Radiology Services from Master API ──
   const [apiRadiologyServices, setApiRadiologyServices] = useState<ApiRadiologyService[]>([]);
@@ -233,6 +234,7 @@ export const DoctorConsultation = () => {
 
 
   const handleAddDiagnosis = () => {
+    if (!visit) return;
     if (!diagnosisText.trim()) return;
     const diag: Diagnosis = {
       id: Date.now().toString(),
@@ -244,6 +246,7 @@ export const DoctorConsultation = () => {
   };
 
   const handleAddPrescription = () => {
+    if (!visit) return;
     if (!rxForm.medicineName) {
       toast.error('Select a medicine');
       return;
@@ -297,6 +300,7 @@ export const DoctorConsultation = () => {
 
 
   const handleAddLab = () => {
+    if (!visit) return;
     if (!labForm.testCode) {
       toast.error('Select a lab test');
       return;
@@ -324,6 +328,7 @@ export const DoctorConsultation = () => {
   };
 
   const handleAddRadiology = () => {
+    if (!visit) return;
     if (!radForm.serviceName) {
       toast.error('Select a radiology service');
       return;
@@ -367,6 +372,7 @@ export const DoctorConsultation = () => {
    * day still goes through.
    */
   const syncInvestigationOrders = async (): Promise<boolean> => {
+    if (!visit) return false;
     const sameVisitDay = (iso?: string) => !!iso && iso.slice(0, 10) === visit.date?.slice(0, 10);
     const norm = (n?: string) => (n ?? '').trim().toLowerCase();
 
@@ -925,14 +931,14 @@ export const DoctorConsultation = () => {
                               <div className="text-xs text-slate-500">Ordered on {visit.date}</div>
                             </div>
                           </div>
-                          <div className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 border ${l.status === 'Completed' || l.status === 'Verified' || l.status === 'Resulted'
+                          <div className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 border ${l.status === 'Resulted'
                               ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
                               : 'bg-amber-100 text-amber-700 border-amber-200'
                             }`}>
-                            {l.status === 'Completed' || l.status === 'Verified' || l.status === 'Resulted'
+                            {l.status === 'Resulted'
                               ? <CheckCircle className="w-3.5 h-3.5" />
                               : <Clock className="w-3.5 h-3.5" />}
-                            {l.status === 'Pending' ? 'Ordered' : (l.status === 'Verified' || l.status === 'Completed' || l.status === 'Resulted' ? 'Test Completed' : (l.status || 'Ordered'))}
+                            {l.status === 'Resulted' ? 'Test Completed' : (l.status || 'Ordered')}
                           </div>
                         </div>
 
@@ -941,12 +947,12 @@ export const DoctorConsultation = () => {
                             {l.testName} {l.clinicalNotes && <span className="text-slate-400 font-normal">({l.clinicalNotes})</span>}
                           </span>
                           <div className="flex items-center gap-4">
-                            {l.status === 'Completed' || l.status === 'Verified' || l.status === 'Resulted' ? (
+                            {l.status === 'Resulted' ? (
                               <span className="text-green-600 font-bold text-xs flex items-center gap-1">
                                 <CheckCircle className="w-3.5 h-3.5" /> {l.result ? `Result: ${l.result}` : 'Test Completed'}
                               </span>
                             ) : (
-                              <span className="text-slate-400 text-xs">{l.status === 'Pending' ? 'Ordered' : (l.status || 'Ordered')}</span>
+                              <span className="text-slate-400 text-xs">{l.status || 'Ordered'}</span>
                             )}
                             <button onClick={() => removeLabOrder(visit.id, l.id || String((l as any).LabOrderId ?? ''))} className="p-1.5 hover:bg-red-50 rounded-lg transition-colors">
                               <Trash2 className="w-4 h-4 text-red-400" />
@@ -1038,14 +1044,14 @@ export const DoctorConsultation = () => {
                               <div className="text-xs text-slate-500">Ordered on {visit.date}</div>
                             </div>
                           </div>
-                          <div className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 border ${r.status === 'Completed' || r.status === 'Verified' || r.status === 'Reported'
+                          <div className={`px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 border ${r.status === 'Completed' || r.status === 'Reported'
                               ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
                               : 'bg-amber-100 text-amber-700 border-amber-200'
                             }`}>
-                            {r.status === 'Completed' || r.status === 'Verified' || r.status === 'Reported'
+                            {r.status === 'Completed' || r.status === 'Reported'
                               ? <CheckCircle className="w-3.5 h-3.5" />
                               : <Clock className="w-3.5 h-3.5" />}
-                            {r.status === 'Pending' ? 'Ordered' : (r.status === 'Verified' || r.status === 'Completed' || r.status === 'Reported' ? 'Test Completed' : (r.status || 'Ordered'))}
+                            {r.status === 'Completed' || r.status === 'Reported' ? 'Test Completed' : (r.status || 'Ordered')}
                           </div>
                         </div>
 
@@ -1054,12 +1060,12 @@ export const DoctorConsultation = () => {
                             {r.bodyPart} {r.serviceName && <span className="text-slate-400 font-normal">({r.serviceName})</span>}
                           </span>
                           <div className="flex items-center gap-4">
-                            {r.status === 'Completed' || r.status === 'Verified' || r.status === 'Reported' ? (
+                            {r.status === 'Completed' || r.status === 'Reported' ? (
                               <span className="text-green-600 font-bold text-xs flex items-center gap-1">
                                 <CheckCircle className="w-3.5 h-3.5" /> {r.result ? `Result: ${r.result}` : 'Test Completed'}
                               </span>
                             ) : (
-                              <span className="text-slate-400 text-xs">{r.status === 'Pending' ? 'Ordered' : (r.status || 'Ordered')}</span>
+                              <span className="text-slate-400 text-xs">{r.status || 'Ordered'}</span>
                             )}
                             <button onClick={() => removeRadiologyOrder(visit.id, r.id || String((r as any).RadiologyOrderId ?? ''))} className="p-1.5 hover:bg-red-50 rounded-lg transition-colors">
                               <Trash2 className="w-4 h-4 text-red-400" />
@@ -1366,11 +1372,10 @@ export const DoctorConsultation = () => {
                     <div key={i} className="flex justify-between items-start p-3 border-b border-slate-100">
                       <div>
                         <p className="font-bold text-slate-800 text-lg">{p.medicineName}</p>
-                        <p className="text-sm text-slate-600 mt-1">{p.instructions || 'As prescribed'}</p>
+                        <p className="text-sm text-slate-600 mt-1">As prescribed</p>
                       </div>
                       <div className="text-right">
                         <p className="font-bold text-slate-700">Qty: {p.quantity} {UOM_MAP[p.type] || ''}</p>
-                        <p className="text-sm text-slate-500 mt-1">{p.duration || ''}</p>
                       </div>
                     </div>
                   ))}

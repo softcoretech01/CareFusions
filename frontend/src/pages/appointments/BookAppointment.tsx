@@ -1,6 +1,6 @@
 import { API_BASE_URL } from '@/utils/apiBase';
 import { useState, useRef, useEffect } from 'react';
-import { Search, Building2, Stethoscope, CheckCircle, UserCheck, UserPlus, Clock, AlertCircle, Calendar as CalendarIcon } from 'lucide-react';
+import { Building2, Stethoscope, CheckCircle, UserCheck, UserPlus, Clock, AlertCircle, Calendar as CalendarIcon } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { useAppointments } from '../../contexts/AppointmentContext';
 import type { AppointmentRecord } from '../../contexts/AppointmentContext';
@@ -67,12 +67,14 @@ export const BookAppointment = ({ passedPatientProps, onClose }: BookAppointment
   const { addAppointment, appointments, generateAppointmentNumber } = useAppointments();
   const { getDoctorsWithAvailability, doctorSchedules } = useDoctorSchedules();
   const { options: departmentList } = useDepartments();
-  const { patients, addPatient } = usePatients();
+  const { addPatient } = usePatients();
   const navigate = useNavigate();
 
   const [step, setStep] = useState(1);
-  const [patientSearch, setPatientSearch] = useState('');
-  const [showDropdown, setShowDropdown] = useState(false);
+  // Value is never read — only the setter (clearPatient resets it).
+  const [, setPatientSearch] = useState('');
+  // Value is never read — only the setter, from the click-outside handler.
+  const [, setShowDropdown] = useState(false);
   
   const location = useLocation();
   const passedPatient = passedPatientProps || location.state?.patient;
@@ -155,15 +157,6 @@ export const BookAppointment = ({ passedPatientProps, onClose }: BookAppointment
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Filter patients for search
-  const patientResults = patientSearch.length >= 2
-    ? patients.filter(p =>
-        p.patientName.toLowerCase().includes(patientSearch.toLowerCase()) ||
-        p.uhid.toLowerCase().includes(patientSearch.toLowerCase()) ||
-        p.mobileNumber.includes(patientSearch)
-      ).slice(0, 5)
-    : [];
-
   // Everything already booked for this patient, newest first. Shown on step 1 so
   // the desk can see the patient's history before adding another appointment --
   // which doctor they usually see, whether they no-showed, and (below) whether
@@ -203,20 +196,6 @@ export const BookAppointment = ({ passedPatientProps, onClose }: BookAppointment
     return Number.isNaN(parsed.getTime())
       ? d
       : parsed.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-  };
-
-  const selectExistingPatient = (patient: GlobalPatientRecord) => {
-    setSelectedPatient(patient);
-    setFormData(prev => ({
-      ...prev,
-      patientName: patient.patientName,
-      mobileNumber: patient.mobileNumber,
-      email: patient.email || '',
-      gender: patient.gender,
-      age: String(patient.age),
-    }));
-    setPatientSearch(`${patient.patientName} (${patient.uhid})`);
-    setShowDropdown(false);
   };
 
   const clearPatient = () => {

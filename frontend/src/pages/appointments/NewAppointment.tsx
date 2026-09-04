@@ -127,9 +127,9 @@ export const NewAppointment = () => {
   // Filter patients for search
   const patientResults = patientSearch.length >= 2
     ? patients.filter(p =>
-        p.patientName.toLowerCase().includes(patientSearch.toLowerCase()) ||
+        (p.patientName ?? '').toLowerCase().includes(patientSearch.toLowerCase()) ||
         p.uhid.toLowerCase().includes(patientSearch.toLowerCase()) ||
-        p.mobileNumber.includes(patientSearch)
+        (p.mobileNumber ?? '').includes(patientSearch)
       ).slice(0, 5)
     : [];
 
@@ -137,10 +137,11 @@ export const NewAppointment = () => {
     setSelectedPatient(patient);
     setFormData(prev => ({
       ...prev,
-      patientName: patient.patientName,
-      mobileNumber: patient.mobileNumber,
+      // GlobalPatientRecord leaves these optional; the form state does not.
+      patientName: patient.patientName ?? '',
+      mobileNumber: patient.mobileNumber ?? '',
       email: patient.email || '',
-      gender: patient.gender,
+      gender: patient.gender ?? 'Male',
       age: String(patient.age),
     }));
     setPatientSearch(`${patient.patientName} (${patient.uhid})`);

@@ -4,7 +4,7 @@ import { useOPDVisits } from '../../contexts/OPDVisitContext';
 import { useInvestigations } from '../../contexts/InvestigationContext';
 import { useIPD } from '../../contexts/IPDContext';
 import { ResultViewer } from '../../components/investigations/ResultViewer';
-import { Stethoscope, Clock, Hash, Activity, Edit2, FlaskConical, ScanLine } from 'lucide-react';
+import { Stethoscope, Clock, Hash, Edit2, FlaskConical, ScanLine } from 'lucide-react';
 import { DateFilter } from '../../components/ui/DateFilter';
 
 export const DepartmentConsultations = () => {
@@ -108,7 +108,6 @@ export const DepartmentConsultations = () => {
   };
 
   const pending = deptVisits.filter(v => ['Waiting', 'Checked-In', 'Nursing Assessment', 'Waiting for Doctor', 'Investigation Pending'].includes(v.status));
-  const consulting = deptVisits.filter(v => v.status === 'Consulting');
   const completed = deptVisits.filter(v => v.status === 'Completed');
 
 

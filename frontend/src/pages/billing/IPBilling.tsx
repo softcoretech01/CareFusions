@@ -158,7 +158,8 @@ export const IPBilling = () => {
 
   const [isInsurancePaid, setIsInsurancePaid] = useState(false);
   const [insuranceDetails, setInsuranceDetails] = useState<any>(null);
-  const [insurancePolicy, setInsurancePolicy] = useState<any>(null);
+  // Value is never read — only the setter.
+  const [, setInsurancePolicy] = useState<any>(null);
   const [activeClaim, setActiveClaim] = useState<any>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
 

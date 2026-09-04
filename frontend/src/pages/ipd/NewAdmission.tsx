@@ -288,6 +288,9 @@ export const NewAdmission = () => {
       expectedStayDays: form.expectedStayDays,
       status: 'Admitted',
       currentWardId: Number(form.wardId),
+      // IPDPatient requires the ward NAME as well as the id, and it was never
+      // sent — so every admission created a patient whose ward rendered blank.
+      currentWardName: wards.find(w => w.id === Number(form.wardId))?.name ?? '',
       currentBedId: Number(form.bedId),
       admissionReason: form.admissionReason,
       coverageType: form.coverageType as any,

@@ -200,7 +200,6 @@ const PrintableBill = lazy(() => import('../pages/pharmacy/PrintableBill').then(
 import { LabLayout } from '../layouts/LabLayout';
 const LabDashboard = lazy(() => import('../pages/lab/LabDashboard').then(m => ({ default: (m as any).LabDashboard ?? (m as any).default })));
 const LabOrderList = lazy(() => import('../pages/lab/LabOrderList').then(m => ({ default: (m as any).LabOrderList ?? (m as any).default })));
-const LabAlerts = lazy(() => import('../pages/lab/LabAlerts').then(m => ({ default: (m as any).LabAlerts ?? (m as any).default })));
 const LabQualityControl = lazy(() => import('../pages/lab/LabQualityControl').then(m => ({ default: (m as any).LabQualityControl ?? (m as any).default })));
 const LabMasters = lazy(() => import('../pages/lab/LabMasters').then(m => ({ default: (m as any).LabMasters ?? (m as any).default })));
 const LabReports = lazy(() => import('../pages/lab/LabReports').then(m => ({ default: (m as any).LabReports ?? (m as any).default })));
