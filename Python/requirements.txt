@@ -1,8 +1,14 @@
-fastapi
-uvicorn[standard]
-sqlalchemy
-pymysql
-python-dotenv
-pydantic[email]
-python-multipart
-watchfiles
+# Pinned to the versions the application has actually been running against.
+# Previously every line was unpinned, so two builds days apart resolved to
+# different FastAPI, SQLAlchemy and Pydantic versions — the environments could
+# not be proven identical.
+#
+# To update: change a pin deliberately, rebuild, and test. Do not unpin.
+fastapi==0.140.1
+uvicorn[standard]==0.51.0
+sqlalchemy==2.0.51
+pymysql==1.2.0
+python-dotenv==1.2.2
+pydantic[email]==2.13.4
+python-multipart==0.0.32
+watchfiles==1.1.0

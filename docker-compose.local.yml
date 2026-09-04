@@ -1,0 +1,52 @@
+# Local development only — a developer's own machine. Adds build contexts,
+# source bind mounts and hot reload on top of docker-compose.yml.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml \
+#     -p carefusion-local --env-file .env.dev up -d --build
+#
+# The three server environments (Developer, Tester, Production) never use this
+# file. They run built images from the registry, which is the only way the
+# artefact that was tested can be the artefact that is released.
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      # Stop at `deps`, not the nginx runtime: local work wants the Vite dev
+      # server and its HMR, not a static bundle that has to be rebuilt on every
+      # keystroke.
+      target: deps
+    # Port 80 inside the container so the ${UI_PORT}:80 mapping in the base
+    # file keeps working unchanged.
+    command: npm run dev -- --host --port 80
+    volumes:
+      - ./frontend:/app
+      # Anonymous volume keeps the image's node_modules from being shadowed by
+      # the host's — they are built for a different platform, and in a git
+      # worktree it is a junction rather than a real directory.
+      - /app/node_modules
+    environment:
+      # Same relative base the built image uses, so local behaviour matches the
+      # server lanes. Verified to override frontend/.env: Vite merges VITE_*
+      # from process.env after reading the .env files.
+      - VITE_API_URL=/api/v1
+      # The dev server has no nginx in front of it, so it proxies /api/v1
+      # itself (see vite.config.ts). `backend` is the compose service name.
+      - VITE_DEV_API_PROXY=http://backend:8000
+      # Bind-mounted filesystems do not deliver inotify events on Windows or
+      # macOS, so the watcher has to poll.
+      - CHOKIDAR_USEPOLLING=true
+    depends_on: !reset []
+
+  backend:
+    build:
+      context: ./Python
+    # Reload on save. The image deliberately does not do this — the production
+    # entrypoint must never run with --reload.
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./Python:/app
+    # The image runs as an unprivileged user, which cannot write to a
+    # bind-mounted host directory on Linux. Acceptable locally; never on a
+    # server lane.
+    user: root

@@ -1,0 +1,56 @@
+# The deployable definition. All three server environments run THIS file and
+# differ only by --env-file, so a Tester deploy exercises the exact same
+# configuration path as Production.
+#
+#   docker compose -p carefusion-dev  --env-file .env.dev  up -d
+#   docker compose -p carefusion-test --env-file .env.test up -d
+#   docker compose -p carefusion-prod --env-file .env.prod up -d
+#
+# Developer laptops add docker-compose.local.yml on top for hot reload; the
+# server lanes never use it.
+#
+# Two deliberate omissions from the previous file:
+#
+#   `version:` — obsolete in Compose v2, which warns about it.
+#
+#   `container_name:` — it was fixed at carefusions_frontend / _backend, so a
+#   second stack on the same host failed with a name conflict. That made three
+#   environments on one machine impossible. Compose derives names from the
+#   project name (-p) instead.
+
+services:
+  frontend:
+    image: ${REGISTRY:-localhost:5000}/carefusion-frontend:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    ports:
+      # 5180 Developer / 5181 Tester / 5176 Production — from the env file.
+      - "${UI_PORT}:80"
+    depends_on:
+      backend:
+        # nginx proxies to the backend, so starting before it is ready means
+        # 502s on the first requests after every deploy.
+        condition: service_healthy
+
+  backend:
+    image: ${REGISTRY:-localhost:5000}/carefusion-backend:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    ports:
+      # 8008 Developer / 8009 Tester / 8005 Production. Published for the
+      # Jenkins health gate, /docs and debugging only — browsers reach the API
+      # through the frontend's nginx proxy, same-origin.
+      - "${API_PORT}:8000"
+    env_file:
+      # Also passed as --env-file for interpolation above; listed here so the
+      # values actually reach the container.
+      - .env.${APP_ENV}
+    environment:
+      # Injected at deploy time, never baked into the image — that is what lets
+      # promotion re-tag a digest rather than rebuild.
+      - APP_VERSION=${APP_VERSION:-0.0.0-unversioned}
+    volumes:
+      # Patient documents survive container replacement. Previously they lived
+      # on the container filesystem and were lost on every restart.
+      - uploads:/app/uploads
+
+volumes:
+  uploads:
