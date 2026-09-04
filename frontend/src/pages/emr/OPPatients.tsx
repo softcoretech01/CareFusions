@@ -186,9 +186,9 @@ export const OPPatients = () => {
 
           investigations: [
 
-            ...(details.labOrders || []).map((l: any) => ({ test: l.TestName, result: l.Result || l.Status || 'Ordered', normalRange: '' })),
+            ...(details.labOrders || []).map((l: any) => ({ test: l.TestName, result: l.Result || l.Status || 'Ordered', summary: l.ResultSummary || '', normalRange: '' })),
 
-            ...(details.radiologyOrders || []).map((r: any) => ({ test: `${r.Modality} ${r.BodyPart || ''}`, result: r.Status || 'Ordered', normalRange: '' }))
+            ...(details.radiologyOrders || []).map((r: any) => ({ test: `${r.Modality} ${r.BodyPart || ''}`, result: r.Status || 'Ordered', summary: r.ResultSummary || '', normalRange: '' }))
 
           ],
 

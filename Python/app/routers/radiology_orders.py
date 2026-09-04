@@ -117,15 +117,15 @@ def get_radiology_orders(db: Session = Depends(get_db)):
                     "acknowledged_by": _col(row, "AcknowledgedBy")
                 })
         
-        # Hold back scans the PRO desk has not cleared. Completed work is exempt —
-        # a finished scan and its report belong on the worklist whatever the
-        # billing state, and pulling them would lose results.
+        # Mark scans the PRO desk has not cleared with is_blocked. Completed work is exempt —
+        # a finished scan and its report belong on the worklist whatever the billing state.
         blocked = blocked_order_numbers(db, "RADIOLOGY")
         if blocked:
-            return [
-                o for o in orders_dict.values()
-                if o["order_number"] not in blocked or str(o.get("status") or "").lower() == "completed"
-            ]
+            for o in orders_dict.values():
+                o["is_blocked"] = o["order_number"] in blocked and str(o.get("status") or "").lower() != "completed"
+        else:
+            for o in orders_dict.values():
+                o["is_blocked"] = False
 
         return list(orders_dict.values())
     except Exception as e:
@@ -138,10 +138,14 @@ def create_radiology_order(order_data: RadiologyOrderCreate, db: Session = Depen
         # is not raised again. Re-submitting the visit's list (which is what a
         # second "Update EMR" click does) had been creating a duplicate scan,
         # a duplicate service order and a duplicate PRO review row every time.
+        def get_display_name(t):
+            b_part = t.body_part or t.bodyPart or ""
+            return f"{t.testName} - {b_part}" if b_part and b_part.lower() not in t.testName.lower() else t.testName
+
         fresh, repeats = dedupe.split_new_tests(
             db, order_table="Rad_Order", test_table="Rad_OrderTest",
             uhid=order_data.uhid, tests=order_data.tests,
-            name_of=lambda t: t.testName)
+            name_of=get_display_name)
 
         if not fresh:
             existing = dedupe.existing_order_for(
@@ -152,7 +156,7 @@ def create_radiology_order(order_data: RadiologyOrderCreate, db: Session = Depen
                 "order_id": existing.OrderId if existing else None,
                 "order_number": existing.OrderNumber if existing else None,
                 "duplicate": True,
-                "skipped_tests": [t.testName for t in repeats],
+                "skipped_tests": [get_display_name(t) for t in repeats],
                 "message": "These scans are already on today's order for this patient.",
             }
 
@@ -188,6 +192,7 @@ def create_radiology_order(order_data: RadiologyOrderCreate, db: Session = Depen
             t_id = test.testId if test.testId is not None else test.test_id
             t_code = test.testCode or test.test_code or test.testName
             b_part = test.body_part or test.bodyPart or ""
+            display_name = get_display_name(test)
             
             test_query = text("""
                 INSERT INTO hospital.Rad_OrderTest (OrderId, TestCode, TestName, BodyPart, Status)
@@ -196,7 +201,7 @@ def create_radiology_order(order_data: RadiologyOrderCreate, db: Session = Depen
             db.execute(test_query, {
                 "order_id": order_id,
                 "test_code": t_code,
-                "test_name": test.testName,
+                "test_name": display_name,
                 "body_part": b_part
             })
             
@@ -214,7 +219,7 @@ def create_radiology_order(order_data: RadiologyOrderCreate, db: Session = Depen
                 ServiceOrderItemCreate(
                     ItemType="RADIOLOGY",
                     ItemId=str(t_id) if t_id is not None else test.testName,
-                    ItemName=test.testName,
+                    ItemName=display_name,
                     MasterPrice=master_price,
                     OriginalPrice=master_price, # Original defaults to master
                 )
@@ -246,7 +251,7 @@ def create_radiology_order(order_data: RadiologyOrderCreate, db: Session = Depen
         db.commit()
         return {"order_id": order_id, "order_number": order_number,
                 "duplicate": False,
-                "skipped_tests": [t.testName for t in repeats],
+                "skipped_tests": [get_display_name(t) for t in repeats],
                 "message": "Order created successfully"}
     except HTTPException:
         db.rollback()
@@ -305,14 +310,20 @@ def update_radiology_test(
         """), {"test_id": order_test_id_int})
         
         # Check if all items in the parent order are now completed
+        # Same shape as the lab query, and the same parent_id bug: MAX(...) under
+        # a WHERE that keeps only NOT-completed items returns NULL exactly when
+        # the last item completes, so the order was never marked COMPLETED.
         check_all_completed = text("""
-            SELECT COUNT(*) as pending_count, MAX(so.ServiceOrderId) as parent_id
-            FROM hospital.Service_OrderItem soi
-            JOIN hospital.Service_Order so ON soi.ServiceOrderId = so.ServiceOrderId
-            JOIN hospital.Rad_Order h ON so.OrderNo = h.OrderNumber
-            JOIN hospital.Rad_OrderTest t ON t.OrderId = h.OrderId
-            WHERE t.OrderTestId = :test_id
-            AND soi.ServiceStatus != 'COMPLETED' AND soi.IsDeleted = 0
+            SELECT so.ServiceOrderId AS parent_id,
+                   (SELECT COUNT(*) FROM hospital.Service_OrderItem x
+                     WHERE x.ServiceOrderId = so.ServiceOrderId
+                       AND x.IsDeleted = 0
+                       AND x.ServiceStatus <> 'COMPLETED') AS pending_count
+            FROM hospital.Rad_OrderTest t
+            JOIN hospital.Rad_Order h  ON h.OrderId = t.OrderId
+            JOIN hospital.Service_Order so ON so.OrderNo = h.OrderNumber
+            WHERE t.OrderTestId = :test_id AND so.IsDeleted = 0
+            LIMIT 1
         """)
         pending_res = db.execute(check_all_completed, {"test_id": order_test_id_int}).fetchone()
         

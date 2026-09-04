@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Loader2, CheckCircle, IndianRupee, Eye } from 'lucide-react';
+import { Loader2, CheckCircle, IndianRupee, Eye, Printer } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { Card } from '../../components/ui/Card';
@@ -48,6 +49,7 @@ const inr = (v: any) =>
   `₹${(parseFloat(v ?? 0) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const AdvancePayments = () => {
+  const navigate = useNavigate();
   const [bills, setBills] = useState<AdvanceBill[]>([]);
   const [loading, setLoading] = useState(true);
   const [fromDate, setFromDate] = useState(monthStart);
@@ -83,7 +85,14 @@ const AdvancePayments = () => {
     if (missing.length === 0) return;
     let cancelled = false;
     (async () => {
-      const found = await Promise.all(missing.map(u => fetchPatientCover(u)));
+      const found = await Promise.all(missing.map(u => {
+        // For inpatient bills, use the admission desk's CoverageType as the source
+        // of truth — the desk asks the patient directly and their answer overrides
+        // any global insurance record that might exist at registration.
+        const bill = bills.find(b => b.UHID === u);
+        const mod = bill?.VisitType === 'IP' ? 'IPD' : undefined;
+        return fetchPatientCover(u, mod);
+      }));
       if (cancelled) return;
       setCovers(prev => {
         const next = { ...prev };
@@ -233,6 +242,17 @@ const AdvancePayments = () => {
                         className="flex items-center justify-center border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-800 p-2 rounded-lg transition-colors shrink-0"
                       >
                         <Eye className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => navigate(`/billing/print-advance/${bill.AdvanceNo}`)}
+                        disabled={isPending(bill)}
+                        title={isPending(bill) ? 'Pay advance to print receipt' : 'Print Receipt'}
+                        aria-label="Print Receipt"
+                        className={`flex items-center justify-center border border-slate-200 p-2 rounded-lg transition-colors shrink-0 ${
+                          !isPending(bill) ? 'text-primary hover:bg-primary/10 hover:border-primary/20' : 'text-slate-300 cursor-not-allowed bg-slate-50/50'
+                        }`}
+                      >
+                        <Printer className="w-4 h-4" />
                       </button>
                       {(() => {
                         const cover = covers[bill.UHID];

@@ -170,14 +170,16 @@ export const EMRViewTemplate = ({ record }: EMRViewTemplateProps) => {
                     <tr>
                       <th className="px-5 py-3 font-semibold">Test</th>
                       <th className="px-5 py-3 font-semibold">Result</th>
+                      <th className="px-5 py-3 font-semibold">Summary</th>
                       <th className="px-5 py-3 font-semibold hidden md:table-cell">Range</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {record.investigations.map((inv, idx) => (
+                    {record.investigations.map((inv: any, idx: number) => (
                       <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-5 py-3 font-medium text-slate-700">{inv.test}</td>
                         <td className="px-5 py-3 font-bold text-slate-900">{inv.result}</td>
+                        <td className="px-5 py-3 text-slate-600">{inv.summary || '—'}</td>
                         <td className="px-5 py-3 text-slate-500 hidden md:table-cell">{inv.normalRange || '—'}</td>
                       </tr>
                     ))}

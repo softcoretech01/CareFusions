@@ -141,6 +141,13 @@ async function errMsg(res: Response): Promise<string> {
     const d = (await res.json())?.detail;
     if (Array.isArray(d)) return d[0]?.msg ?? 'Request failed';
     if (typeof d === 'string') return d;
+    // 409 discharge blockers: { message: string, blockers: string[] }
+    if (d && typeof d === 'object' && d.message) {
+      const list = Array.isArray(d.blockers) ? d.blockers : [];
+      return list.length > 0
+        ? `${d.message}\n• ${list.join('\n• ')}`
+        : d.message;
+    }
   } catch { /* not json */ }
   return `Request failed (${res.status})`;
 }
@@ -366,7 +373,14 @@ export const IPDProvider = ({ children }: { children: ReactNode }) => {
             medicines: dischargeInfo?.medicines ?? [],
           }),
         });
-        if (!res.ok) { setApiError(`Discharge failed: ${await errMsg(res)}`); return; }
+        if (!res.ok) {
+          // 409 means the backend listed specific discharge blockers.
+          // Show them as a descriptive error in the sidebar banner so the
+          // ward clerk knows exactly what to resolve before retrying.
+          const msg = await errMsg(res);
+          setApiError(`Cannot discharge: ${msg}`);
+          return;
+        }
         await refreshAll();
       } catch { setApiError('Discharge failed: server unreachable.'); }
     })();

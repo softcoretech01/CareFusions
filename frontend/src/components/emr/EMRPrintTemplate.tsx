@@ -51,7 +51,7 @@ export interface EMRRecord {
     weight?: string;
     height?: string;
   };
-  investigations?: Array<{ test: string; result: string; normalRange?: string }>;
+  investigations?: Array<{ test: string; result: string; normalRange?: string; summary?: string }>;
   prescriptions?: Array<{ medicine: string; dosage: string; frequency: string; duration: string; instructions?: string }>;
   followUpDate?: string;
   dischargeDate?: string;
@@ -272,6 +272,7 @@ export const EMRPrintTemplate = ({ record }: EMRPrintTemplateProps) => {
                   <tr className="bg-slate-100">
                     <th className="border border-slate-300 px-3 py-2 text-left font-bold text-slate-700">Test / Investigation</th>
                     <th className="border border-slate-300 px-3 py-2 text-left font-bold text-slate-700">Result</th>
+                    <th className="border border-slate-300 px-3 py-2 text-left font-bold text-slate-700">Summary</th>
                     <th className="border border-slate-300 px-3 py-2 text-left font-bold text-slate-700">Normal Range</th>
                   </tr>
                 </thead>
@@ -280,6 +281,7 @@ export const EMRPrintTemplate = ({ record }: EMRPrintTemplateProps) => {
                     <tr key={idx}>
                       <td className="border border-slate-300 px-3 py-1.5 font-medium">{inv.test}</td>
                       <td className="border border-slate-300 px-3 py-1.5 font-bold">{inv.result}</td>
+                      <td className="border border-slate-300 px-3 py-1.5 text-slate-600">{inv.summary || '—'}</td>
                       <td className="border border-slate-300 px-3 py-1.5 text-slate-600">{inv.normalRange || '—'}</td>
                     </tr>
                   ))}

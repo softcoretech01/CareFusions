@@ -189,20 +189,32 @@ def list_orders(category: Optional[str] = None,
         flt = {"Category": category, "Uhid": uhid, "FromDate": from_date, "ToDate": to_date}
         headers = _order_sp(db, "LIST", **flt).fetchall()
         lines = _order_sp(db, "LISTTESTS", **flt).fetchall()
+        
+        # Merge ResultSummary for all tests since SP might not return it
+        try:
+            summary_rows = db.execute(text("SELECT OrderTestId, ResultSummary FROM hospital.Lab_OrderTest")).fetchall()
+            summary_map = {str(r.OrderTestId): r.ResultSummary for r in summary_rows}
+        except Exception:
+            summary_map = {}
+
         by_order: dict = {}
         for t in lines:
-            by_order.setdefault(t.OrderId, []).append(_map_test(t))
+            mapped_t = _map_test(t)
+            if mapped_t["id"] in summary_map and summary_map[mapped_t["id"]]:
+                mapped_t["resultSummary"] = summary_map[mapped_t["id"]]
+            by_order.setdefault(t.OrderId, []).append(mapped_t)
+            
         orders = [_map_order(h, by_order.get(h.OrderId, [])) for h in headers]
 
-        # Hold back tests the PRO desk has not cleared. Completed work is exempt —
-        # a finished test and its result belong on the worklist whatever the
-        # billing state, and pulling them would lose results.
+        # Mark tests the PRO desk has not cleared. Completed work is exempt —
+        # a finished test and its result belong on the worklist whatever the billing state.
         blocked = blocked_order_numbers(db, "LAB")
         if blocked:
-            orders = [
-                o for o in orders
-                if o["id"] not in blocked or str(o.get("status") or "").lower() == "completed"
-            ]
+            for o in orders:
+                o["is_blocked"] = o["id"] in blocked and str(o.get("status") or "").lower() != "completed"
+        else:
+            for o in orders:
+                o["is_blocked"] = False
         return orders
     except Exception as e:
         logger.error(f"[GET /lab/orders] {e}")
@@ -215,17 +227,18 @@ def get_order(order_id: int, db: Session = Depends(get_db)):
         h = _order_sp(db, "GETBYID", OrderId=order_id).fetchone()
         if not h:
             raise HTTPException(status_code=404, detail="Order not found")
-        tests = [_map_test(t) for t in _order_sp(db, "TESTS", OrderId=order_id).fetchall()]
+        test_rows = db.execute(text("""
+            SELECT t.OrderTestId, t.TestId, t.TestName, t.BodyPart, t.Status,
+                   t.ResultValue, t.ResultFile, t.ResultSummary, t.IsAbnormal, t.IsCritical,
+                   t.CollectedAt, t.AcceptedAt, t.CompletedAt, t.VerifiedAt, t.VerifiedBy,
+                   t.AcknowledgedAt, t.AcknowledgedBy,
+                   m.TestCode, COALESCE(NULLIF(t.NormalRange, ''), m.NormalRange) AS NormalRange, m.Unit
+            FROM hospital.Lab_OrderTest t
+            LEFT JOIN admin.Master_LabTest m ON m.TestId = t.TestId OR m.TestName = t.TestName
+            WHERE t.OrderId = :oid
+        """), {"oid": order_id}).fetchall()
         
-        # Merge ResultSummary since SP might not return it
-        try:
-            summary_rows = db.execute(text("SELECT OrderTestId, ResultSummary FROM hospital.Lab_OrderTest WHERE OrderId = :oid"), {"oid": order_id}).fetchall()
-            summary_map = {str(r.OrderTestId): r.ResultSummary for r in summary_rows}
-            for t in tests:
-                if t["id"] in summary_map and summary_map[t["id"]]:
-                    t["resultSummary"] = summary_map[t["id"]]
-        except Exception:
-            pass
+        tests = [_map_test(t) for t in test_rows]
 
         return _map_order(h, tests)
     except HTTPException:
@@ -437,14 +450,32 @@ def set_test_result(
         """), {"test_id": order_test_id})
         
         # Check if all items in the parent order are now completed
+        # Two bugs lived in this query, and together they meant NO lab result was
+        # ever saved:
+        #
+        #  1. the first JOIN read `so.OrderNo` before `so` was introduced --
+        #     "Unknown column 'so.OrderNo' in 'ON'". That threw, the handler
+        #     rolled the transaction back, and the SETRESULT above it went with
+        #     it. The endpoint answered 500 every time, which is why tests sit at
+        #     Verified with a NULL ResultValue.
+        #  2. `MAX(so.ServiceOrderId)` was selected under a WHERE that keeps only
+        #     NOT-completed items, so on the run that completes the last item the
+        #     row count is zero and parent_id comes back NULL -- meaning the
+        #     "whole order is finished" branch below could never fire.
+        #
+        # The order is resolved first and the outstanding items counted as a
+        # subquery, so parent_id is always present.
         check_all_completed = text("""
-            SELECT COUNT(*) as pending_count, MAX(so.ServiceOrderId) as parent_id
-            FROM hospital.Service_OrderItem soi
-            JOIN hospital.Lab_Order h ON so.OrderNo = h.OrderNumber
+            SELECT so.ServiceOrderId AS parent_id,
+                   (SELECT COUNT(*) FROM hospital.Service_OrderItem x
+                     WHERE x.ServiceOrderId = so.ServiceOrderId
+                       AND x.IsDeleted = 0
+                       AND x.ServiceStatus <> 'COMPLETED') AS pending_count
+            FROM hospital.Lab_OrderTest t
+            JOIN hospital.Lab_Order h  ON h.OrderId = t.OrderId
             JOIN hospital.Service_Order so ON so.OrderNo = h.OrderNumber
-            JOIN hospital.Lab_OrderTest t ON t.OrderId = h.OrderId
-            WHERE t.OrderTestId = :test_id AND soi.ServiceOrderId = so.ServiceOrderId
-            AND soi.ServiceStatus != 'COMPLETED' AND soi.IsDeleted = 0
+            WHERE t.OrderTestId = :test_id AND so.IsDeleted = 0
+            LIMIT 1
         """)
         pending_res = db.execute(check_all_completed, {"test_id": order_test_id}).fetchone()
         

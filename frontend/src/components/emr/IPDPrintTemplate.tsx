@@ -218,6 +218,7 @@ export const IPDPrintTemplate = ({ hospital, record }: IPDPrintTemplateProps) =>
                   <tr className="bg-slate-100">
                     <th className="py-2 px-3 text-left font-semibold">Test</th>
                     <th className="py-2 px-3 text-left font-semibold">Result</th>
+                    <th className="py-2 px-3 text-left font-semibold">Summary</th>
                     <th className="py-2 px-3 text-left font-semibold">Normal</th>
                   </tr>
                 </thead>
@@ -226,6 +227,7 @@ export const IPDPrintTemplate = ({ hospital, record }: IPDPrintTemplateProps) =>
                     <tr key={index} className="border-t border-slate-200">
                       <td className="py-2 px-3">{item.test}</td>
                       <td className="py-2 px-3">{item.result}</td>
+                      <td className="py-2 px-3">{item.summary || '—'}</td>
                       <td className="py-2 px-3">{item.normalRange || '—'}</td>
                     </tr>
                   ))}

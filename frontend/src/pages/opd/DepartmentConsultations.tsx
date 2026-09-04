@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useOPDVisits } from '../../contexts/OPDVisitContext';
 import { useInvestigations } from '../../contexts/InvestigationContext';
+import { useIPD } from '../../contexts/IPDContext';
 import { ResultViewer } from '../../components/investigations/ResultViewer';
 import { Stethoscope, Clock, Hash, Activity, Edit2, FlaskConical, ScanLine } from 'lucide-react';
 import { DateFilter } from '../../components/ui/DateFilter';
@@ -10,6 +11,7 @@ export const DepartmentConsultations = () => {
   const { department } = useParams<{ department: string }>();
   const { visits } = useOPDVisits();
   const { orders: globalOrders } = useInvestigations();
+  const { patients: ipdAdmissions } = useIPD();
   const navigate = useNavigate();
 
   const todayDate = new Date(); const formatYYYYMMDD = (d: Date) => {
@@ -21,18 +23,17 @@ export const DepartmentConsultations = () => {
 
   const todayStr = formatYYYYMMDD(todayDate);
   
-  const firstDayOfMonth = (() => {
-    const yyyy = todayDate.getFullYear();
-    const mm = String(todayDate.getMonth() + 1).padStart(2, '0');
-    return `${yyyy}-${mm}-01`;
-  })();
-
-  const [dateFrom, setDateFrom] = useState(firstDayOfMonth);
+  // A consulting list is "who am I seeing today", not a month of history, so
+  // this screen opens on today at both ends. It is the deliberate exception to
+  // the app-wide month-start default in DateFilter: on a reporting screen a
+  // month is the useful window, on a clinic list it buries today's patients
+  // under every visit since the 1st.
+  const [dateFrom, setDateFrom] = useState(todayStr);
   const [dateTo, setDateTo] = useState(todayStr);
 
   const [viewerState, setViewerState] = useState<{ patientId: string; category: 'Lab' | 'Radiology'; visitDate?: string } | null>(null);
 
-  const [appliedDateFrom, setAppliedDateFrom] = useState(firstDayOfMonth);
+  const [appliedDateFrom, setAppliedDateFrom] = useState(todayStr);
   const [appliedDateTo, setAppliedDateTo] = useState(todayStr);
 
   // Convert the URL param back to the proper department name for filtering
@@ -100,9 +101,9 @@ export const DepartmentConsultations = () => {
   };
 
   const handleReset = () => {
-    setDateFrom(firstDayOfMonth);
+    setDateFrom(todayStr);
     setDateTo(todayStr);
-    setAppliedDateFrom(firstDayOfMonth);
+    setAppliedDateFrom(todayStr);
     setAppliedDateTo(todayStr);
   };
 
@@ -149,6 +150,8 @@ export const DepartmentConsultations = () => {
             onDateToChange={setDateTo}
             onSearch={handleSearch}
             onReset={handleReset}
+            defaultDateFrom={todayStr}
+            defaultDateTo={todayStr}
           />
         </div>
       </div>
@@ -197,13 +200,24 @@ export const DepartmentConsultations = () => {
                       <div className="text-xs text-slate-400">{visit.timeSlot}</div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${visit.status === 'Completed' ? 'bg-green-100 text-green-700' :
-                          visit.status === 'Consulting' ? 'bg-purple-100 text-purple-700' :
-                            visit.status === 'Waiting for Doctor' ? 'bg-blue-100 text-blue-700' :
-                              'bg-slate-100 text-slate-600'
-                        }`}>
-                        {visit.status}
-                      </span>
+                      <div className="flex flex-col gap-2 items-start">
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold w-max ${visit.status === 'Completed' ? 'bg-green-100 text-green-700' :
+                            visit.status === 'Consulting' ? 'bg-purple-100 text-purple-700' :
+                              visit.status === 'Waiting for Doctor' ? 'bg-blue-100 text-blue-700' :
+                                'bg-slate-100 text-slate-600'
+                          }`}>
+                          {visit.status}
+                        </span>
+                        {(() => {
+                          const wasAdmitted = ipdAdmissions?.some(a => a.uhid === visit.uhid && a.admissionDate?.slice(0, 10) === visit.date?.slice(0, 10));
+                          if (wasAdmitted) return null;
+                          return ['Completed', 'Paid', 'Billed'].includes(visit.billingStatus) ? (
+                            <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-700 rounded text-[10px] uppercase font-bold tracking-wider w-max">Bill Paid</span>
+                          ) : (
+                            <span className="px-2.5 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px] uppercase font-bold tracking-wider w-max">Billing Pending</span>
+                          );
+                        })()}
+                      </div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
