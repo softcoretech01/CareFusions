@@ -29,3 +29,7 @@ India_Company_Contacts_2000.xlsx
 Thumbs.db
 .idea/
 .vscode/
+
+# ── Runtime uploaded files ──
+Python/uploads/
+Python/app/uploads/
