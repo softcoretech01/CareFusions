@@ -330,7 +330,7 @@ export const DoctorMaster = () => {
     }
 
     if (!tabId || tabId === 'schedule') {
-      ['opDuration', 'availableDays', 'fromTime', 'toTime', 'slotDuration'].forEach(k => delete newErrors[k]);
+      ['opDuration', 'availableDays', 'fromTime', 'toTime', 'slotDuration', 'breakFrom', 'breakTo'].forEach(k => delete newErrors[k]);
       // The Consultation & Billing tab was removed, and OP duration was one of
       // its inputs. It falls back to DEFAULT_OP_DURATION on save, so requiring
       // it here would block every submit.
@@ -339,6 +339,15 @@ export const DoctorMaster = () => {
       if (!formData.toTime) { newErrors.toTime = 'To Time is required'; isValid = false; }
       if (formData.fromTime && formData.toTime && formData.fromTime >= formData.toTime) {
         newErrors.toTime = 'To Time must be after From Time'; isValid = false;
+      }
+      if (formData.breakFrom && formData.breakTo && formData.breakFrom >= formData.breakTo) {
+        newErrors.breakTo = 'Break To Time must be after Break From Time'; isValid = false;
+      }
+      if (formData.breakFrom && formData.fromTime && formData.breakFrom < formData.fromTime) {
+        newErrors.breakFrom = 'Break From Time must be at or after From Time'; isValid = false;
+      }
+      if (formData.breakTo && formData.toTime && formData.breakTo > formData.toTime) {
+        newErrors.breakTo = 'Break To Time must be at or before To Time'; isValid = false;
       }
       if (!formData.slotDuration) { newErrors.slotDuration = 'Slot Duration is required'; isValid = false; }
       if (formData.opDuration && formData.slotDuration && (Number(formData.opDuration) % Number(formData.slotDuration) !== 0)) {
@@ -995,6 +1004,7 @@ export const DoctorMaster = () => {
                       <input
                         type="time"
                         value={formData.fromTime}
+                        max={formData.toTime || undefined}
                         onChange={e => setFormData({ ...formData, fromTime: e.target.value })}
                         className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.fromTime ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
                           }`}
@@ -1008,6 +1018,7 @@ export const DoctorMaster = () => {
                       <input
                         type="time"
                         value={formData.toTime}
+                        min={formData.fromTime || undefined}
                         onChange={e => setFormData({ ...formData, toTime: e.target.value })}
                         className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.toTime ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
                           }`}
@@ -1019,18 +1030,26 @@ export const DoctorMaster = () => {
                       <input
                         type="time"
                         value={formData.breakFrom}
+                        min={formData.fromTime || undefined}
+                        max={formData.breakTo || formData.toTime || undefined}
                         onChange={e => setFormData({ ...formData, breakFrom: e.target.value })}
-                        className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.breakFrom ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
+                          }`}
                       />
+                      {errors.breakFrom && <p className="text-red-500 text-xs mt-1">{errors.breakFrom}</p>}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">Break To</label>
                       <input
                         type="time"
                         value={formData.breakTo}
+                        min={formData.breakFrom || formData.fromTime || undefined}
+                        max={formData.toTime || undefined}
                         onChange={e => setFormData({ ...formData, breakTo: e.target.value })}
-                        className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.breakTo ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'
+                          }`}
                       />
+                      {errors.breakTo && <p className="text-red-500 text-xs mt-1">{errors.breakTo}</p>}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">
