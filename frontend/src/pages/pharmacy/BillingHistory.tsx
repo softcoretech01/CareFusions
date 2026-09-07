@@ -1,9 +1,12 @@
+import { PatientQuickViewModal } from '../../components/shared/PatientQuickViewModal';
+import { usePatientQuickView } from '../../hooks/usePatientQuickView';
 import { useState } from 'react';
 import { BillHistory as BillHistoryComponent } from '../../components/billing/BillHistory';
 import { InvoicePreview } from '../../components/billing/InvoicePreview';
 
 export const BillingHistory = () => {
   const [previewBillId, setPreviewBillId] = useState<string | null>(null);
+  const { selectedUhid, openPatient, closePatient } = usePatientQuickView();
 
   return (
     <div className="h-full flex flex-col space-y-4">
@@ -13,7 +16,7 @@ export const BillingHistory = () => {
       </div>
 
       <div className="flex-1 overflow-hidden">
-        <BillHistoryComponent onViewInvoice={setPreviewBillId} />
+        <BillHistoryComponent onViewInvoice={setPreviewBillId} onPatientClick={openPatient} />
       </div>
 
       <InvoicePreview 
@@ -21,6 +24,7 @@ export const BillingHistory = () => {
         isOpen={!!previewBillId} 
         onClose={() => setPreviewBillId(null)} 
       />
+      <PatientQuickViewModal uhid={selectedUhid} onClose={closePatient} />
     </div>
   );
 };

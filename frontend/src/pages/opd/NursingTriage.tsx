@@ -1,3 +1,6 @@
+import { PatientNameLink } from '../../components/shared/PatientNameLink';
+import { PatientQuickViewModal } from '../../components/shared/PatientQuickViewModal';
+import { usePatientQuickView } from '../../hooks/usePatientQuickView';
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useOPDVisits } from '../../contexts/OPDVisitContext';
@@ -42,6 +45,7 @@ export const NursingTriage = () => {
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const { selectedUhid, openPatient, closePatient } = usePatientQuickView();
 
   if (!visit) {
     return (
@@ -125,7 +129,7 @@ export const NursingTriage = () => {
               <User className="w-7 h-7 text-primary" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-slate-800">{visit.patientName}</h2>
+              <h2 className="text-xl font-bold text-slate-800"><PatientNameLink name={visit.patientName || ""} uhid={visit.uhid || ""} onClick={openPatient} /></h2>
               <p className="text-sm text-slate-500">{visit.uhid} · {visit.age}y · {visit.gender}</p>
               {visit.allergies.length > 0 && (
                 <div className="flex items-center gap-1 mt-1">
@@ -347,6 +351,7 @@ export const NursingTriage = () => {
           <ArrowRight className="w-4 h-4" /> Save Triage &amp; Send to Doctor
         </button>
       </div>
+      <PatientQuickViewModal uhid={selectedUhid} onClose={closePatient} />
     </div>
   );
 };

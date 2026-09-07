@@ -1,3 +1,6 @@
+import { PatientNameLink } from '../../components/shared/PatientNameLink';
+import { PatientQuickViewModal } from '../../components/shared/PatientQuickViewModal';
+import { usePatientQuickView } from '../../hooks/usePatientQuickView';
 /**
  * Laboratory worklist and results entry.
  *
@@ -58,6 +61,7 @@ export const LabOrderList = () => {
   useEffect(() => { refresh(); }, [refresh]);
 
   const [activeOrder, setActiveOrder] = useState<InvestigationOrder | null>(null);
+  const { selectedUhid, openPatient, closePatient } = usePatientQuickView();
   const [tempResults, setTempResults] = useState<Record<string, Draft>>({});
   const [fromDate, setFromDate] = useState(monthStart());
   const [toDate, setToDate] = useState(today());
@@ -225,7 +229,7 @@ export const LabOrderList = () => {
                   </span>
                 </td>
                 <td className="px-4 py-3">
-                  <div className="text-slate-700 font-medium">{order.patientName}</div>
+                  <div className="text-slate-700 font-medium"><PatientNameLink name={order.patientName || ""} uhid={order.patientId || ""} onClick={openPatient} /></div>
                   <div className="text-xs text-slate-500">{order.patientId}</div>
                 </td>
                 <td className="px-4 py-3 text-slate-500 text-xs">{order.orderedBy}</td>
@@ -417,6 +421,7 @@ export const LabOrderList = () => {
           </div>
         </div>
       )}
+      <PatientQuickViewModal uhid={selectedUhid} onClose={closePatient} />
     </div>
   );
 };

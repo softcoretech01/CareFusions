@@ -35,6 +35,7 @@ from ..core.rbac import Actor, require_roles
 from ..core.workflow_gate import CENT, ZERO, money
 from ..schemas import pro as pro_schema
 from datetime import datetime, date
+from decimal import Decimal
 
 router = APIRouter(
     prefix="/pro",
@@ -385,6 +386,12 @@ def approve_pro_order(
 
             # ── Pricing, validated against the STORED master price ──────────
             quantity = int(row.get("Quantity") or 1)
+            
+            # If AssumeFullyInsured is true (e.g. IPD patient with active policy), treat as 100% insured
+            if getattr(payload, "AssumeFullyInsured", False):
+                cap_remaining = Decimal('Infinity')
+                line.InsuranceCoveredAmount = max(0, line.PROPrice * quantity - line.AuthorizedDiscount)
+
             problem = gate.validate_pricing(
                 item_name=name,
                 master_price=row.get("MasterPrice"),

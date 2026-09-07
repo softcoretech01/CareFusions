@@ -1,3 +1,6 @@
+import { PatientNameLink } from '../../components/shared/PatientNameLink';
+import { PatientQuickViewModal } from '../../components/shared/PatientQuickViewModal';
+import { usePatientQuickView } from '../../hooks/usePatientQuickView';
 import { useState, useEffect, useCallback } from 'react';
 import { useAppointments } from '../../contexts/AppointmentContext';
 import type { AppointmentRecord } from '../../contexts/AppointmentContext';
@@ -36,6 +39,7 @@ export const QueueManagement = () => {
   const { visits, addVisit, updateVisitStatus: updateOPDVisitStatus } = useOPDVisits();
   const { options: departmentOptions } = useDepartments();
   const [selectedDept, setSelectedDept] = useState(DEPT_ALL);
+  const { selectedUhid, openPatient, closePatient } = usePatientQuickView();
   const [confirmAction, setConfirmAction] = useState<{ id: number; action: string } | null>(null);
 
   const today = new Date().toISOString().split('T')[0];
@@ -184,7 +188,7 @@ export const QueueManagement = () => {
           <div className="flex items-start justify-between gap-2 mb-3">
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h4 className="font-bold text-slate-800 text-sm truncate">{item.patientName}</h4>
+                <h4 className="font-bold text-slate-800 text-sm truncate"><PatientNameLink name={item.patientName || ""} uhid={item.uhid || ""} onClick={openPatient} /></h4>
                 <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${pMeta.badge}`}>
                   {pMeta.label}
                 </span>
@@ -474,6 +478,7 @@ export const QueueManagement = () => {
         </Column>
 
       </div>
+      <PatientQuickViewModal uhid={selectedUhid} onClose={closePatient} />
     </div>
   );
 };
