@@ -11,21 +11,11 @@ CREATE TABLE IF NOT EXISTS Master_SampleType (
 INSERT IGNORE INTO Master_SampleType (SampleTypeName) VALUES
 ('Blood'), ('Urine'), ('Stool'), ('Saliva'), ('Sputum'), ('Tissue'), ('Swab');
 
--- 3. Master_Department Table (specifically for lab)
-CREATE TABLE IF NOT EXISTS Master_Department (
-    DepartmentId INT AUTO_INCREMENT PRIMARY KEY,
-    DepartmentName VARCHAR(100) NOT NULL UNIQUE
-);
-
-INSERT IGNORE INTO Master_Department (DepartmentName) VALUES
-('Pathology'), ('Microbiology'), ('Biochemistry');
-
 -- 4. Master_LabTest Table
 CREATE TABLE IF NOT EXISTS Master_LabTest (
     TestId INT AUTO_INCREMENT PRIMARY KEY,
     TestCode VARCHAR(50) NOT NULL UNIQUE,
     TestName VARCHAR(200) NOT NULL,
-    Department VARCHAR(100) NOT NULL,
     SampleType VARCHAR(100) NOT NULL,
     Description TEXT,
     NormalRange VARCHAR(100),
@@ -57,7 +47,6 @@ CREATE PROCEDURE SpMasterLabTest (
 
     IN p_TestCode           VARCHAR(50),
     IN p_TestName           VARCHAR(200),
-    IN p_Department         VARCHAR(100),
     IN p_SampleType         VARCHAR(100),
     IN p_Description        TEXT,
     IN p_NormalRange        VARCHAR(100),
@@ -80,7 +69,7 @@ CREATE PROCEDURE SpMasterLabTest (
 BEGIN
     IF p_Opt = 'GET' THEN
         SELECT 
-            TestId, TestCode, TestName, Department, SampleType,
+            TestId, TestCode, TestName, SampleType,
             Description, NormalRange, Unit, TestMethod, TurnaroundTime, TestPrice,
             Gst, ReportTemplate, RequiresApproval, CriticalValueAlert, Status, Remarks,
             CreatedBy, CreatedDate, ModifiedBy, ModifiedDate
@@ -90,7 +79,7 @@ BEGIN
 
     ELSEIF p_Opt = 'GETBYID' THEN
         SELECT 
-            TestId, TestCode, TestName, Department, SampleType,
+            TestId, TestCode, TestName, SampleType,
             Description, NormalRange, Unit, TestMethod, TurnaroundTime, TestPrice,
             Gst, ReportTemplate, RequiresApproval, CriticalValueAlert, Status, Remarks,
             CreatedBy, CreatedDate, ModifiedBy, ModifiedDate
@@ -99,7 +88,7 @@ BEGIN
 
     ELSEIF p_Opt = 'SEARCH' THEN
         SELECT 
-            TestId, TestCode, TestName, Department, SampleType,
+            TestId, TestCode, TestName, SampleType,
             Description, NormalRange, Unit, TestMethod, TurnaroundTime, TestPrice,
             Gst, ReportTemplate, RequiresApproval, CriticalValueAlert, Status, Remarks,
             CreatedBy, CreatedDate, ModifiedBy, ModifiedDate
@@ -108,18 +97,17 @@ BEGIN
           AND (
             TestCode LIKE CONCAT('%', p_Search, '%') OR
             TestName LIKE CONCAT('%', p_Search, '%') OR
-            Department LIKE CONCAT('%', p_Search, '%')
           )
         ORDER BY TestId DESC;
 
     ELSEIF p_Opt = 'INSERT' THEN
         INSERT INTO Master_LabTest (
-            TestCode, TestName, Department, SampleType,
+            TestCode, TestName, SampleType,
             Description, NormalRange, Unit, TestMethod, TurnaroundTime, TestPrice,
             Gst, ReportTemplate, RequiresApproval, CriticalValueAlert, Status, Remarks,
             CreatedBy, CreatedDate, IsDeleted
         ) VALUES (
-            p_TestCode, p_TestName, p_Department, p_SampleType,
+            p_TestCode, p_TestName, p_SampleType,
             p_Description, p_NormalRange, p_Unit, p_TestMethod, p_TurnaroundTime, p_TestPrice,
             p_Gst, p_ReportTemplate, p_RequiresApproval, p_CriticalValueAlert, p_Status, p_Remarks,
             p_CreatedBy, CURRENT_TIMESTAMP, 0
@@ -131,7 +119,6 @@ BEGIN
         UPDATE Master_LabTest SET
             TestCode = p_TestCode,
             TestName = p_TestName,
-            Department = p_Department,
             SampleType = p_SampleType,
             Description = p_Description,
             NormalRange = p_NormalRange,
