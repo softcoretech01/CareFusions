@@ -96,8 +96,6 @@ const mapApiToRecord = (item: Record<string, unknown>): ReminderRuleRecord => ({
 export const ReminderRuleMaster = () => {
   const [records, setRecords] = useState<ReminderRuleRecord[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -268,11 +266,7 @@ export const ReminderRuleMaster = () => {
 
   const uniqueModules = Array.from(new Set([...MODULES, ...records.map(r => r.module)].filter(Boolean)));
 
-  const _totalPages = Math.max(1, Math.ceil(filteredRecords.length / itemsPerPage));
-  const _page = Math.min(currentPage, _totalPages);
-  const pagedRecords = filteredRecords.slice((_page - 1) * itemsPerPage, _page * itemsPerPage);
-
-  const { page, setPage, pageSize, total, paged } = usePagination(MODULES);
+  const { page, setPage, pageSize, total, paged } = usePagination(filteredRecords);
 
   return (
     <motion.div
@@ -374,7 +368,7 @@ export const ReminderRuleMaster = () => {
                   {isLoading ? (
                     <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-500">Loading rules…</td></tr>
                   ) : filteredRecords.length > 0 ? (
-                    pagedRecords.map((record) => (
+                    paged.map((record) => (
                       <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-4 py-3 font-medium text-slate-800">{record.ruleCode}</td>
                         <td className="px-4 py-3 font-medium text-primary">{record.ruleName}</td>
@@ -419,27 +413,7 @@ export const ReminderRuleMaster = () => {
                 </tbody>
               </table>
             </div>
-        <Pagination page={page} pageSize={pageSize} totalItems={total} onPageChange={setPage} />
-            <div className="flex flex-wrap items-center justify-between gap-3 p-4 border-t border-slate-100 text-sm text-slate-500">
-              <div className="flex items-center gap-2">
-                <span>Show</span>
-                <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
-                  <option value={10}>10</option>
-                  <option value={25}>25</option>
-                  <option value={50}>50</option>
-                  <option value={100}>100</option>
-                </select>
-                <span>entries</span>
-                <span className="text-slate-400">· {filteredRecords.length} total</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <span>Page {_page} of {_totalPages}</span>
-                <div className="flex gap-1">
-                  <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={_page <= 1} className="px-3 py-1 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed">Prev</button>
-                  <button onClick={() => setCurrentPage(p => Math.min(_totalPages, p + 1))} disabled={_page >= _totalPages} className="px-3 py-1 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed">Next</button>
-                </div>
-              </div>
-            </div>
+            <Pagination page={page} pageSize={pageSize} totalItems={total} onPageChange={setPage} />
           </div>
         </>
       ) : (
@@ -472,7 +446,7 @@ export const ReminderRuleMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Module <span className="text-red-500">*</span></label>
                     <select value={formData.module} onChange={e => setFormData({...formData, module: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.module ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
                       <option value="">Select Module</option>
-                      {paged.map(m => <option key={m} value={m}>{m}</option>)}
+                      {MODULES.map(m => <option key={m} value={m}>{m}</option>)}
                     </select>
                     {errors.module && <p className="text-red-500 text-xs mt-1">{errors.module}</p>}
                   </div>

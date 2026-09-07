@@ -16,7 +16,6 @@ interface NurseRecord {
   gender: string;
   dob: string;
   qualification: string;
-  registrationNumber: string;
   department: string;
   designation: string;
   hospital: string;
@@ -47,7 +46,6 @@ const emptyData: Omit<NurseRecord, 'id'> = {
   gender: '',
   dob: '',
   qualification: '',
-  registrationNumber: '',
   department: '',
   designation: '',
   hospital: '',
@@ -81,7 +79,6 @@ const mapApiToRecord = (item: any): NurseRecord => ({
   gender: item.gender as string,
   dob: item.dob ? String(item.dob) : '',
   qualification: item.qualification as string,
-  registrationNumber: item.registrationNumber as string,
   department: item.department as string,
   designation: item.designation as string,
   hospital: item.hospital as string,
@@ -167,7 +164,6 @@ export const NurseMaster = () => {
     if (!formData.nurseId.trim()) newErrors.nurseId = 'Nurse ID is required';    if (!formData.name.trim()) newErrors.name = 'Name is required';
     if (!formData.gender) newErrors.gender = 'Gender is required';
     if (!formData.qualification.trim()) newErrors.qualification = 'Qualification is required';
-    if (!formData.registrationNumber.trim()) newErrors.registrationNumber = 'Registration Number is required';
     if (!formData.department) newErrors.department = 'Department is required';
     if (!formData.designation.trim()) newErrors.designation = 'Designation is required';
         if (!formData.mobile.trim()) newErrors.mobile = 'Mobile is required';
@@ -175,10 +171,6 @@ export const NurseMaster = () => {
     if (!formData.shift) newErrors.shift = 'Shift is required';
 
     // Uniqueness checks
-    if (records.some(r => r.registrationNumber === formData.registrationNumber && r.id !== selectedRecord?.id)) {
-      newErrors.registrationNumber = 'Registration Number must be unique';
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -223,7 +215,6 @@ export const NurseMaster = () => {
         gender: formData.gender || null,
         dob: formData.dob || null,
         qualification: formData.qualification,
-        registrationNumber: formData.registrationNumber,
         department: formData.department,
         designation: formData.designation,
         hospital: formData.hospital,
@@ -536,11 +527,6 @@ export const NurseMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Qualification <span className="text-red-500">*</span></label>
                     <input type="text" value={formData.qualification} onChange={e => setFormData({ ...formData, qualification: e.target.value })} placeholder="e.g., GNM, B.Sc Nursing" maxLength={50} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.qualification ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
                     {errors.qualification && <p className="text-red-500 text-xs mt-1">{errors.qualification}</p>}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Registration Number <span className="text-red-500">*</span></label>
-                    <input type="text" value={formData.registrationNumber} onChange={e => setFormData({ ...formData, registrationNumber: e.target.value })} maxLength={50} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.registrationNumber ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
-                    {errors.registrationNumber && <p className="text-red-500 text-xs mt-1">{errors.registrationNumber}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Department <span className="text-red-500">*</span></label>

@@ -10,7 +10,6 @@ CREATE TABLE IF NOT EXISTS Master_Nurse (
     Gender              VARCHAR(20),
     DateOfBirth         DATE,
     Qualification       VARCHAR(100),
-    RegistrationNumber  VARCHAR(100) NOT NULL,
     DepartmentName      VARCHAR(100),
     Designation         VARCHAR(100),
     HospitalName        VARCHAR(150),
@@ -61,7 +60,6 @@ CREATE PROCEDURE SpMasterNurse (
     IN p_Gender             VARCHAR(20),
     IN p_DateOfBirth        DATE,
     IN p_Qualification      VARCHAR(100),
-    IN p_RegistrationNumber VARCHAR(100),
     IN p_DepartmentName     VARCHAR(100),
     IN p_Designation        VARCHAR(100),
     IN p_HospitalName       VARCHAR(150),
@@ -103,7 +101,7 @@ BEGIN
     IF p_Opt = 'GET' THEN
         SELECT 
             NurseId, NurseCode, NurseName, Gender, DateOfBirth, Qualification,
-            RegistrationNumber, DepartmentName, Designation, HospitalName, BranchName,
+            DepartmentName, Designation, HospitalName, BranchName,
             Mobile, AlternateMobile, Email, Address, City, State, Country, PostalCode,
             JoiningDate, Shift, ReportingManager, EmploymentType, ExperienceYears,
             ProfilePhoto, NursingLicense, QualificationCertificate, IdProof,
@@ -118,7 +116,7 @@ BEGIN
     ELSEIF p_Opt = 'GETBYID' THEN
         SELECT 
             NurseId, NurseCode, NurseName, Gender, DateOfBirth, Qualification,
-            RegistrationNumber, DepartmentName, Designation, HospitalName, BranchName,
+            DepartmentName, Designation, HospitalName, BranchName,
             Mobile, AlternateMobile, Email, Address, City, State, Country, PostalCode,
             JoiningDate, Shift, ReportingManager, EmploymentType, ExperienceYears,
             ProfilePhoto, NursingLicense, QualificationCertificate, IdProof,
@@ -132,7 +130,7 @@ BEGIN
     ELSEIF p_Opt = 'SEARCH' THEN
         SELECT 
             NurseId, NurseCode, NurseName, Gender, DateOfBirth, Qualification,
-            RegistrationNumber, DepartmentName, Designation, HospitalName, BranchName,
+            DepartmentName, Designation, HospitalName, BranchName,
             Mobile, AlternateMobile, Email, Address, City, State, Country, PostalCode,
             JoiningDate, Shift, ReportingManager, EmploymentType, ExperienceYears,
             ProfilePhoto, NursingLicense, QualificationCertificate, IdProof,
@@ -159,14 +157,14 @@ BEGIN
 
         INSERT INTO Master_Nurse (
             NurseCode, NurseName, Gender, DateOfBirth, Qualification,
-            RegistrationNumber, DepartmentName, Designation, HospitalName, BranchName,
+            DepartmentName, Designation, HospitalName, BranchName,
             Mobile, AlternateMobile, Email, Address, City, State, Country, PostalCode,
             JoiningDate, Shift, ReportingManager, EmploymentType, ExperienceYears,
             ProfilePhoto, NursingLicense, QualificationCertificate, IdProof,
             Status, Remarks, CreatedDate, CreatedBy, IsDeleted
         ) VALUES (
             v_NurseCode, p_NurseName, p_Gender, p_DateOfBirth, p_Qualification,
-            p_RegistrationNumber, p_DepartmentName, p_Designation, p_HospitalName, p_BranchName,
+            p_DepartmentName, p_Designation, p_HospitalName, p_BranchName,
             p_Mobile, p_AlternateMobile, p_Email, p_Address, p_City, p_State, p_Country, p_PostalCode,
             p_JoiningDate, p_Shift, p_ReportingManager, p_EmploymentType, p_ExperienceYears,
             p_ProfilePhoto, p_NursingLicense, p_QualificationCertificate, p_IdProof,
@@ -186,7 +184,6 @@ BEGIN
             Gender             = p_Gender,
             DateOfBirth        = p_DateOfBirth,
             Qualification      = p_Qualification,
-            RegistrationNumber = p_RegistrationNumber,
             DepartmentName     = p_DepartmentName,
             Designation        = p_Designation,
             HospitalName       = p_HospitalName,

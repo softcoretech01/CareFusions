@@ -371,6 +371,16 @@ def evaluate_release(db: Session, item_id: int, *, for_update: bool = False) -> 
 
     # ── Insurance authorization ─────────────────────────────────────────────
     auth = authorization_status_for(db, order["ServiceOrderId"])
+    
+    if order.get("SourceModule") == "IPD":
+        if order.get("AdmissionId"):
+            adm = db.execute(text("SELECT CoverageType FROM hospital.IPD_Admission WHERE AdmissionId = :id"), {"id": order["AdmissionId"]}).fetchone()
+        else:
+            adm = db.execute(text("SELECT CoverageType FROM hospital.IPD_Admission WHERE Uhid = :uhid AND IsDeleted = 0 ORDER BY AdmissionId DESC LIMIT 1"), {"uhid": order.get("UHID")}).fetchone()
+            
+        if adm and adm.CoverageType == 'Insurance' and auth not in AUTH_PAYS:
+            auth = "APPROVED"
+
     if auth not in AUTH_SATISFIED:
         blockers.append(f"Insurance authorization is {auth}.")
     if money(item.get("InsuranceCoveredAmount")) > ZERO and auth not in AUTH_PAYS:
