@@ -12,7 +12,6 @@ interface TestRecord {
   id: number;
   testCode: string;
   testName: string;
-  department: string;
   sampleType: string;
   description: string;
   normalRange: string;
@@ -31,7 +30,6 @@ interface TestRecord {
 const emptyData: Omit<TestRecord, 'id'> = {
   testCode: '',
   testName: '',
-  department: '',
   sampleType: '',
   description: '',
   normalRange: '',
@@ -48,7 +46,6 @@ const emptyData: Omit<TestRecord, 'id'> = {
 };
 
 const sampleTypesMock: string[] = [];
-const departmentsMock: string[] = [];
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
 
@@ -56,7 +53,6 @@ const mapApiToRecord = (item: any): TestRecord => ({
   id:                 item.id,
   testCode:           item.testCode,
   testName:           item.testName,
-  department:         item.department,
   sampleType:         item.sampleType,
   description:        item.description || '',
   normalRange:        item.normalRange || '',
@@ -75,7 +71,6 @@ const mapApiToRecord = (item: any): TestRecord => ({
 export const TestMaster = () => {
   const [records, setRecords] = useState<TestRecord[]>([]);
   const [sampleTypes, setSampleTypes] = useState<string[]>(sampleTypesMock);
-  const [departments, setDepartments] = useState<string[]>(departmentsMock);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -83,7 +78,6 @@ export const TestMaster = () => {
   // Filter States
   const [showFilters, setShowFilters] = useState(false);
   const [filterSampleType, setFilterSampleType] = useState('');
-  const [filterDepartment, setFilterDepartment] = useState('');
 
   // Form States
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -101,10 +95,9 @@ export const TestMaster = () => {
   const fetchData = async () => {
     try {
       setIsLoading(true);
-      const [recRes, stRes, deptRes] = await Promise.all([
+      const [recRes, stRes] = await Promise.all([
         fetch(`${API_BASE}/tests/`),
-        fetch(`${API_BASE}/tests/sample-types`),
-        fetch(`${API_BASE}/tests/departments`)
+        fetch(`${API_BASE}/tests/sample-types`)
       ]);
       
       if (recRes.ok) {
@@ -114,10 +107,6 @@ export const TestMaster = () => {
       if (stRes.ok) {
         const data = await stRes.json();
         setSampleTypes(data.map((i: any) => i.name));
-      }
-      if (deptRes.ok) {
-        const data = await deptRes.json();
-        setDepartments(data.map((i: any) => i.name));
       }
     } catch (err) {
       console.error(err);
@@ -134,7 +123,6 @@ export const TestMaster = () => {
     const newErrors: Record<string, string> = {};
     if (!formData.testCode.trim()) newErrors.testCode = 'Test Code is required';
     if (!formData.testName.trim()) newErrors.testName = 'Test Name is required';
-    if (!formData.department) newErrors.department = 'Department is required';
     if (!formData.sampleType) newErrors.sampleType = 'Sample Type is required';
     
     if (!formData.turnaroundTime.trim()) newErrors.turnaroundTime = 'Turnaround Time is required';
@@ -183,7 +171,6 @@ export const TestMaster = () => {
       const payload = {
         testCode:           formData.testCode,
         testName:           formData.testName,
-        department:         formData.department,
         sampleType:         formData.sampleType,
         description:        formData.description || null,
         normalRange:        formData.normalRange || null,
@@ -249,9 +236,8 @@ export const TestMaster = () => {
       record.testCode.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesSampleType = !filterSampleType || record.sampleType === filterSampleType;
-    const matchesDepartment = !filterDepartment || record.department === filterDepartment;
 
-    return matchesSearch && matchesSampleType && matchesDepartment;
+    return matchesSearch && matchesSampleType;
   });
 
   const _totalPages = Math.max(1, Math.ceil(filteredRecords.length / itemsPerPage));
@@ -294,7 +280,7 @@ export const TestMaster = () => {
               <button onClick={() => setShowFilters(!showFilters)} title="Filters" className={showFilters ? "p-2 border rounded-lg transition-colors border-primary bg-primary/5 text-primary" : "p-2 border rounded-lg transition-colors border-slate-200 text-slate-500 hover:bg-slate-50"}>
                 <Filter className="w-4 h-4" />
               </button>
-              <button onClick={() => { setSearchTerm(''); setFilterDepartment(''); setFilterSampleType(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
+              <button onClick={() => { setSearchTerm(''); setFilterSampleType(''); }} title="Clear search & filters" className="p-2 border border-red-200 rounded-lg text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors">
                 <X className="w-4 h-4" />
               </button>
               <button onClick={() => exportToExcel(records, 'TestMaster')} title="Export to Excel" className="p-2 border border-emerald-200 rounded-lg text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300 transition-colors">
@@ -320,14 +306,6 @@ export const TestMaster = () => {
                       <option value="">All Sample Types</option>
                       {sampleTypes.map(st => <option key={st} value={st}>{st}</option>)}
                     </select>
-                    <select
-                      value={filterDepartment}
-                      onChange={(e) => setFilterDepartment(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                    >
-                      <option value="">All Departments</option>
-                      {departments.map(d => <option key={d} value={d}>{d}</option>)}
-                    </select>
                   </div>
                 </motion.div>
               )}
@@ -340,7 +318,6 @@ export const TestMaster = () => {
                     <th className="px-4 py-3 font-medium">Test Code</th>
                     <th className="px-4 py-3 font-medium">Test Name</th>
                     <th className="px-4 py-3 font-medium">Sample Type</th>
-                    <th className="px-4 py-3 font-medium">Department</th>
                     <th className="px-4 py-3 font-medium text-right">Price (₹)</th>
                     <th className="px-4 py-3 font-medium text-center">Action</th>
                   </tr>
@@ -359,7 +336,6 @@ export const TestMaster = () => {
                             {record.sampleType}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-slate-600">{record.department}</td>
                         <td className="px-4 py-3 text-right font-medium text-slate-700">{record.testPrice}</td>
                         <td className="px-4 py-3 text-center">
                           <div className="flex items-center justify-center gap-2">
@@ -438,14 +414,6 @@ export const TestMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Test Name <span className="text-red-500">*</span></label>
                     <input type="text" value={formData.testName} onChange={e => setFormData({...formData, testName: e.target.value})} maxLength={50} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.testName ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
                     {errors.testName && <p className="text-red-500 text-xs mt-1">{errors.testName}</p>}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Department <span className="text-red-500">*</span></label>
-                    <select value={formData.department} onChange={e => setFormData({...formData, department: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.department ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
-                      <option value="">Select Department</option>
-                      {departments.map(d => <option key={d} value={d}>{d}</option>)}
-                    </select>
-                    {errors.department && <p className="text-red-500 text-xs mt-1">{errors.department}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Sample Type <span className="text-red-500">*</span></label>

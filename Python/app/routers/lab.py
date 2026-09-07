@@ -162,13 +162,13 @@ def list_catalogue(db: Session = Depends(get_db)):
     """Active tests from the master, for the order picker."""
     try:
         rows = db.execute(text(
-            "SELECT TestId, TestCode, TestName, Department, SampleType, "
+            "SELECT TestId, TestCode, TestName, SampleType, "
             "NormalRange, Unit, TurnaroundTime, TestPrice, CriticalValueAlert "
             "FROM admin.Master_LabTest WHERE IsDeleted = 0 AND Status = 'Active' ORDER BY TestName"
         )).fetchall()
         return [{
             "testId": r.TestId, "testCode": r.TestCode, "testName": r.TestName,
-            "department": r.Department, "sampleType": r.SampleType,
+            "sampleType": r.SampleType,
             "normalRange": r.NormalRange or "", "unit": r.Unit or "",
             "turnaroundTime": r.TurnaroundTime or "",
             "price": float(r.TestPrice or 0), "criticalValueAlert": bool(r.CriticalValueAlert),

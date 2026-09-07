@@ -29,7 +29,6 @@ def _map_row(row) -> dict:
         "id":                 row.TestId,
         "testCode":           row.TestCode,
         "testName":           row.TestName,
-        "department":         row.Department,
         "sampleType":         row.SampleType,
         "description":        row.Description,
         "normalRange":        row.NormalRange,
@@ -56,7 +55,6 @@ def _call_sp(db: Session, opt: str, test_id: int = 0, **kwargs):
         "p_TestId":             test_id,
         "p_TestCode":           safe_value(kwargs.get("test_code")),
         "p_TestName":           safe_value(kwargs.get("test_name")),
-        "p_Department":         safe_value(kwargs.get("department")),
         "p_SampleType":         safe_value(kwargs.get("sample_type")),
         "p_Description":        safe_value(kwargs.get("description")),
         "p_NormalRange":        safe_value(kwargs.get("normal_range")),
@@ -78,7 +76,7 @@ def _call_sp(db: Session, opt: str, test_id: int = 0, **kwargs):
     sql = text(f"""
         CALL {SP_NAME}(
             :p_Opt, :p_TestId,
-            :p_TestCode, :p_TestName, :p_Department, :p_SampleType,
+            :p_TestCode, :p_TestName, :p_SampleType,
             :p_Description, :p_NormalRange, :p_Unit, :p_TestMethod, :p_TurnaroundTime,
             :p_TestPrice, :p_Gst, :p_ReportTemplate, :p_RequiresApproval, :p_CriticalValueAlert,
             :p_Status, :p_Remarks,
@@ -93,14 +91,6 @@ def _call_sp(db: Session, opt: str, test_id: int = 0, **kwargs):
 def get_sample_types(db: Session = Depends(get_db)):
     sql = text("SELECT SampleTypeId AS id, SampleTypeName AS name FROM Master_SampleType "
                "WHERE IsDeleted = 0 AND Status = 'Active' ORDER BY SampleTypeName")
-    result = db.execute(sql)
-    return [dict(r._mapping) for r in result]
-
-
-@router.get("/departments", response_model=List[LookupResponse])
-def get_departments(db: Session = Depends(get_db)):
-    sql = text("SELECT DepartmentId AS id, DepartmentName AS name FROM Master_Department "
-               "WHERE IsDeleted = 0 AND Status = 'Active' ORDER BY DepartmentName")
     result = db.execute(sql)
     return [dict(r._mapping) for r in result]
 
@@ -141,7 +131,6 @@ def create(test: LabTestCreate, db: Session = Depends(get_db)):
         result = _call_sp(db, "INSERT",
             test_code=d["testCode"],
             test_name=d["testName"],
-            department=d["department"],
             sample_type=d["sampleType"],
             description=d["description"],
             normal_range=d["normalRange"],
@@ -182,7 +171,6 @@ def update(test_id: int, test: LabTestUpdate, db: Session = Depends(get_db)):
             test_id=test_id,
             test_code=d["testCode"],
             test_name=d["testName"],
-            department=d["department"],
             sample_type=d["sampleType"],
             description=d["description"],
             normal_range=d["normalRange"],

@@ -71,7 +71,6 @@ export interface CatalogueTest {
   testId: number;
   testCode: string;
   testName: string;
-  department: string;
   sampleType: string;
   normalRange: string;
   unit: string;
