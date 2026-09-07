@@ -6,8 +6,6 @@ from datetime import datetime
 class LabTestCreate(BaseModel):
     testCode:           str
     testName:           str
-    testCategory:       str
-    department:         str
     sampleType:         str
     description:        Optional[str] = None
     normalRange:        Optional[str] = None
@@ -32,8 +30,6 @@ class LabTestResponse(BaseModel):
     id:                 int
     testCode:           str
     testName:           str
-    testCategory:       str
-    department:         str
     sampleType:         str
     description:        Optional[str] = None
     normalRange:        Optional[str] = None
