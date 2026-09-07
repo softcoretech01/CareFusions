@@ -1,3 +1,6 @@
+import { PatientNameLink } from '../../components/shared/PatientNameLink';
+import { PatientQuickViewModal } from '../../components/shared/PatientQuickViewModal';
+import { usePatientQuickView } from '../../hooks/usePatientQuickView';
 import { useState, useEffect } from 'react';
 import { useIPD } from '../../contexts/IPDContext';
 import { useNavigate } from 'react-router-dom';
@@ -22,6 +25,7 @@ export const AdmissionDesk = () => {
   const today = new Date().toISOString().split('T')[0];
   const firstDay = `${today.split('-')[0]}-${today.split('-')[1]}-01`;
   const [dateFrom, setDateFrom] = useState(firstDay);
+  const { selectedUhid, openPatient, closePatient } = usePatientQuickView();
   const [dateTo, setDateTo] = useState(today);
   const [appliedDateFrom, setAppliedDateFrom] = useState(firstDay);
   const [appliedDateTo, setAppliedDateTo] = useState(today);
@@ -107,7 +111,7 @@ export const AdmissionDesk = () => {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="font-bold text-slate-800">{req.patientName}</div>
+                      <div className="font-bold text-slate-800"><PatientNameLink name={req.patientName || ""} uhid={req.uhid || ""} onClick={openPatient} /></div>
                       <div className="text-xs text-slate-500">{req.uhid}</div>
                     </td>
                     <td className="px-4 py-3 text-sm text-slate-600">{req.specialty}</td>
@@ -137,6 +141,7 @@ export const AdmissionDesk = () => {
           </table>
         </div>
       </div>
+      <PatientQuickViewModal uhid={selectedUhid} onClose={closePatient} />
     </div>
   );
 };

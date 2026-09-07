@@ -1,3 +1,6 @@
+import { PatientNameLink } from '../../components/shared/PatientNameLink';
+import { PatientQuickViewModal } from '../../components/shared/PatientQuickViewModal';
+import { usePatientQuickView } from '../../hooks/usePatientQuickView';
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Search, Printer, Eye, X, Loader2 } from 'lucide-react';
@@ -15,6 +18,7 @@ export const IPPatients = () => {
   const title = 'Inpatient (IP) Records';
 
   const [records, setRecords] = useState<EMRRecord[]>([]);
+  const { selectedUhid, openPatient, closePatient } = usePatientQuickView();
   const [isLoading, setIsLoading] = useState(true);
 
   const [searchText, setSearchText] = useState('');
@@ -132,6 +136,7 @@ export const IPPatients = () => {
           chiefComplaint: adm.admissionReason || '',
           diagnosis: adm.admissionReason || '',
           clinicalNotes: rounds.map((r:any) => `${r.DoctorName}: ${r.Note}`).join('\n\n') || '',
+          operations: details.operations || [],
           vitals: vitals ? {
             bp: vitals.BloodPressure || '',
             pulse: vitals.Pulse || '',
@@ -287,7 +292,7 @@ export const IPPatients = () => {
                   filtered.map(record => (
                     <tr key={record.visitId} className="hover:bg-slate-50/70 transition-colors">
                       <td className="px-6 py-4">
-                        <p className="font-bold text-slate-800">{record.patientName}</p>
+                        <p className="font-bold text-slate-800"><PatientNameLink name={record.patientName || ""} uhid={record.uhid || ""} onClick={openPatient} /></p>
                         <p className="text-xs text-slate-500">{record.age}y / {record.gender}</p>
                       </td>
                       <td className="px-6 py-4 font-mono text-xs text-slate-700">{record.uhid}</td>
@@ -372,6 +377,7 @@ export const IPPatients = () => {
           .print-page-break { page-break-after: always; break-after: page; }
         }
       `}</style>
+      <PatientQuickViewModal uhid={selectedUhid} onClose={closePatient} />
     </div>
   );
 };

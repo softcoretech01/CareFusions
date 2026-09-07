@@ -1,3 +1,6 @@
+import { PatientNameLink } from '../../components/shared/PatientNameLink';
+import { PatientQuickViewModal } from '../../components/shared/PatientQuickViewModal';
+import { usePatientQuickView } from '../../hooks/usePatientQuickView';
 import { useState, useEffect, useRef } from 'react';
 import { uid } from '../../utils/uid';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -73,6 +76,7 @@ export const DoctorConsultation = () => {
   const isAdmitted = latestAdmission && (latestAdmission.status === 'Admitted' || latestAdmission.status === 'Discharge Requested');
   const hasAdmissionRequest = admissionRequests?.some(r => r.uhid === visit?.uhid && r.status === 'Pending');
   const [activeTab, setActiveTab] = useState('history');
+  const { selectedUhid, openPatient, closePatient } = usePatientQuickView();
 
   // Printing state
   const [printTab, setPrintTab] = useState<'prescription' | 'lab' | 'radiology' | null>(null);
@@ -588,7 +592,7 @@ export const DoctorConsultation = () => {
           <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center border border-primary/20 mx-auto mb-3">
             <User className="w-8 h-8 text-primary" />
           </div>
-          <h2 className="text-center font-bold text-slate-800 text-lg">{visit.patientName}</h2>
+          <h2 className="text-center font-bold text-slate-800 text-lg"><PatientNameLink name={visit.patientName || ""} uhid={visit.uhid || ""} onClick={openPatient} /></h2>
           <p className="text-center text-xs text-slate-400 mt-0.5">{visit.uhid}</p>
           <p className="text-center text-sm text-slate-500 mt-1">{visit.age} yrs · {visit.gender}</p>
 
@@ -1416,6 +1420,7 @@ export const DoctorConsultation = () => {
           </div>
         </div>
       )}
+      <PatientQuickViewModal uhid={selectedUhid} onClose={closePatient} />
     </div>
   );
 };

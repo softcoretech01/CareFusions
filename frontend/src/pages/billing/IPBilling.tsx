@@ -1,3 +1,6 @@
+import { PatientNameLink } from '../../components/shared/PatientNameLink';
+import { PatientQuickViewModal } from '../../components/shared/PatientQuickViewModal';
+import { usePatientQuickView } from '../../hooks/usePatientQuickView';
 import { useState, useRef, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Search, Plus, Bed, CheckCircle, Printer, FileText, Shield } from 'lucide-react';
@@ -37,6 +40,7 @@ interface BillResponse {
 export const IPBilling = () => {
   const { state } = useLocation();
   const [bills, setBills] = useState<BillResponse[]>([]);
+  const { selectedUhid, openPatient, closePatient } = usePatientQuickView();
 
   // From IPD
   const [admissions, setAdmissions] = useState<any[]>([]);
@@ -1091,7 +1095,7 @@ export const IPBilling = () => {
               <tr key={bill.IpBillId || idx} className="hover:bg-slate-50">
                 <td className="px-6 py-4 font-mono font-medium text-slate-900">{bill.BillNumber}</td>
                 <td className="px-6 py-4 font-mono text-slate-500 text-xs">{bill.Uhid}</td>
-                <td className="px-6 py-4 text-slate-700">{bill.PatientName}</td>
+                <td className="px-6 py-4 text-slate-700"><PatientNameLink name={bill.PatientName || ""} uhid={bill.Uhid || ""} onClick={openPatient} /></td>
                 <td className="px-6 py-4 text-slate-500 text-xs">{bill.MobileNumber}</td>
                 <td className="px-6 py-4 text-slate-500 text-xs">{new Date(bill.BillDate).toLocaleDateString()}</td>
                 <td className="px-6 py-4 text-slate-600 text-xs">{(bill.Items || []).length} items</td>
@@ -1106,6 +1110,7 @@ export const IPBilling = () => {
           </tbody>
         </table>
       </div>
+      <PatientQuickViewModal uhid={selectedUhid} onClose={closePatient} />
     </div>
   );
 };

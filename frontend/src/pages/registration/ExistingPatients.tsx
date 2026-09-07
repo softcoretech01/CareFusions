@@ -3,6 +3,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Eye, Users, User, Download, X } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { useEffect } from 'react';
+import { PatientNameLink } from '../../components/shared/PatientNameLink';
+import { PatientQuickViewModal } from '../../components/shared/PatientQuickViewModal';
+import { usePatientQuickView } from '../../hooks/usePatientQuickView';
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
 import { exportToExcel } from '../../utils/exportToExcel';
@@ -10,6 +13,7 @@ import { DateFilter } from '../../components/ui/DateFilter';
 
 export const ExistingPatients = () => {
   const [patients, setPatients] = useState<any[]>([]);
+  const { selectedUhid, openPatient, closePatient } = usePatientQuickView();
 
   const fetchPatients = async () => {
     try {
@@ -214,7 +218,7 @@ export const ExistingPatients = () => {
                 filteredRecords.map((record, index) => (
                   <tr key={`${record.uhid}-${index}`} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-4 py-3 font-semibold text-primary">{record.uhid}</td>
-                    <td className="px-4 py-3 font-medium text-slate-800">{record.patientName}</td>
+                    <td className="px-4 py-3"><PatientNameLink name={record.patientName} uhid={record.uhid} onClick={openPatient} /></td>
                     <td className="px-4 py-3 text-slate-600">{record.gender} / {record.age} Yrs</td>
                     <td className="px-4 py-3 text-slate-600">{record.mobileNumber}</td>
                     {/* <td className="px-4 py-3 text-slate-600">
@@ -318,6 +322,7 @@ export const ExistingPatients = () => {
         )}
       </AnimatePresence>
 
+      <PatientQuickViewModal uhid={selectedUhid} onClose={closePatient} />
     </div>
   );
 };

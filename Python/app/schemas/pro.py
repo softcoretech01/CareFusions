@@ -35,6 +35,7 @@ class PROOrderApproveRequest(BaseModel):
     # release requires that amount to be collected in full -- billing less than
     # it would leave the patient paid-up on paper and still blocked.
     AdvanceAmount: Optional[float] = None
+    AssumeFullyInsured: Optional[bool] = False
 
 class PROOrderRejectRequest(BaseModel):
     Reason: str = Field(min_length=1, max_length=500)

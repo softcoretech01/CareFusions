@@ -1,3 +1,6 @@
+import { PatientNameLink } from '../../components/shared/PatientNameLink';
+import { PatientQuickViewModal } from '../../components/shared/PatientQuickViewModal';
+import { usePatientQuickView } from '../../hooks/usePatientQuickView';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useInvestigations, type InvestigationOrder } from '../../contexts/InvestigationContext';
@@ -17,6 +20,7 @@ export const RadiologyOrderList = () => {
   const defaultFrom = monthStart();
   const defaultTo = today();
   const [fromDate, setFromDate] = useState(defaultFrom);
+  const { selectedUhid, openPatient, closePatient } = usePatientQuickView();
   const [toDate, setToDate] = useState(defaultTo);
   const [searchQuery, setSearchQuery] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -162,7 +166,7 @@ export const RadiologyOrderList = () => {
                   </span>
                 </td>
                 <td className="px-5 py-4">
-                  <div className="text-slate-700 font-medium">{order.patientName}</div>
+                  <div className="text-slate-700 font-medium"><PatientNameLink name={order.patientName || ""} uhid={order.patientId || ""} onClick={openPatient} /></div>
                   <div className="text-xs text-slate-500">{order.patientId}</div>
                 </td>
 
@@ -361,6 +365,7 @@ export const RadiologyOrderList = () => {
           </div>
         </div>
       )}
+      <PatientQuickViewModal uhid={selectedUhid} onClose={closePatient} />
     </div>
   );
 };
