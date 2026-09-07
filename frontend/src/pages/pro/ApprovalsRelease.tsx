@@ -1,3 +1,6 @@
+import { PatientNameLink } from '../../components/shared/PatientNameLink';
+import { PatientQuickViewModal } from '../../components/shared/PatientQuickViewModal';
+import { usePatientQuickView } from '../../hooks/usePatientQuickView';
 import React, { useState, useEffect } from 'react';
 import { Loader, CheckCircle, XCircle, Clock, ChevronRight, Eye, Search, Calendar, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -37,6 +40,7 @@ import { monthStart, today } from '../../components/ui/DateFilter';
 export const ApprovalsRelease = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('pending');
+  const { selectedUhid, openPatient, closePatient } = usePatientQuickView();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -110,7 +114,7 @@ export const ApprovalsRelease = () => {
           {filtered.map((o: any, idx: number) => (
             <tr key={o.ServiceOrderId} className="border-t border-slate-50 hover:bg-amber-50/30">
               <td className="px-4 py-3 text-slate-400">{idx + 1}</td>
-              <td className="px-4 py-3 font-medium text-slate-700">{o.PatientName ?? '—'}</td>
+              <td className="px-4 py-3"><PatientNameLink name={o.PatientName ?? '—'} uhid={o.UHID || ''} onClick={openPatient} /></td>
               <td className="px-4 py-3 text-slate-500">{o.UHID}</td>
               <td className="px-4 py-3"><span className="bg-slate-100 text-slate-600 text-xs px-2 py-0.5 rounded-full">{o.SourceModule}</span></td>
               <td className="px-4 py-3"><StatusBadge status={o.PROStatus} /></td>
@@ -288,6 +292,7 @@ export const ApprovalsRelease = () => {
       </div>
 
       <OrderDetailDrawer orderId={detailOrderId} onClose={() => setDetailOrderId(null)} />
+      <PatientQuickViewModal uhid={selectedUhid} onClose={closePatient} />
     </div>
   );
 };

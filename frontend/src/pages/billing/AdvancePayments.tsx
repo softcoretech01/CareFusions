@@ -1,3 +1,6 @@
+import { PatientNameLink } from '../../components/shared/PatientNameLink';
+import { PatientQuickViewModal } from '../../components/shared/PatientQuickViewModal';
+import { usePatientQuickView } from '../../hooks/usePatientQuickView';
 import { useState, useEffect } from 'react';
 import { Loader2, CheckCircle, IndianRupee, Eye, Printer } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -51,6 +54,7 @@ const inr = (v: any) =>
 const AdvancePayments = () => {
   const navigate = useNavigate();
   const [bills, setBills] = useState<AdvanceBill[]>([]);
+  const { selectedUhid, openPatient, closePatient } = usePatientQuickView();
   const [loading, setLoading] = useState(true);
   const [fromDate, setFromDate] = useState(monthStart);
   const [toDate, setToDate] = useState(today);
@@ -214,7 +218,7 @@ const AdvancePayments = () => {
                 {filteredBills.map((bill, idx) => (
                   <tr key={bill.AdvanceId} className="hover:bg-slate-50/60 transition-colors">
                     <td className="px-6 py-4 text-slate-400">{idx + 1}</td>
-                    <td className="px-6 py-4 font-medium text-slate-700">{bill.PatientName || '—'}</td>
+                    <td className="px-6 py-4"><PatientNameLink name={bill.PatientName || '—'} uhid={bill.UHID || ''} onClick={openPatient} /></td>
                     <td className="px-6 py-4 text-slate-600 whitespace-nowrap">{bill.UHID}</td>
                     <td className="px-6 py-4 text-slate-600">{bill.DepartmentName || '—'}</td>
                     <td className="px-6 py-4">
@@ -309,6 +313,7 @@ const AdvancePayments = () => {
         onClose={() => setPayingBill(null)}
         onPaid={fetchBills}
       />
+      <PatientQuickViewModal uhid={selectedUhid} onClose={closePatient} />
     </div>
   );
 };

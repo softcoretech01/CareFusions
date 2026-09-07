@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { Search, Eye, Printer, RotateCcw } from 'lucide-react';
 import { usePharmacyBilling } from '../../contexts/PharmacyBillingContext';
+import { PatientNameLink } from '../shared/PatientNameLink';
 
 interface BillHistoryProps {
   onViewInvoice: (billId: string) => void;
+  onPatientClick?: (uhid: string) => void;
 }
 
-export const BillHistory = ({ onViewInvoice }: BillHistoryProps) => {
+export const BillHistory = ({ onViewInvoice, onPatientClick }: BillHistoryProps) => {
   const { bills, searchBillHistory, refundBill } = usePharmacyBilling();
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -51,7 +53,11 @@ export const BillHistory = ({ onViewInvoice }: BillHistoryProps) => {
               filteredBills.map((bill) => (
                 <tr key={bill.billId} className="hover:bg-slate-50/50 transition-colors">
                   <td className="px-4 py-3 font-medium text-primary">{bill.billId}</td>
-                  <td className="px-4 py-3 text-slate-800">{bill.patientName}</td>
+                  <td className="px-4 py-3 text-slate-800">
+                    {onPatientClick && bill.patientId
+                      ? <PatientNameLink name={bill.patientName} uhid={bill.patientId} onClick={onPatientClick} />
+                      : bill.patientName}
+                  </td>
                   <td className="px-4 py-3 text-slate-600">{new Date(bill.date).toLocaleString()}</td>
                   <td className="px-4 py-3 text-right font-medium text-slate-800">{bill.netAmount.toFixed(2)}</td>
                   <td className="px-4 py-3 text-center">

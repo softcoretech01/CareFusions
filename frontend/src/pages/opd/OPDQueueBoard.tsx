@@ -1,3 +1,6 @@
+import { PatientNameLink } from '../../components/shared/PatientNameLink';
+import { PatientQuickViewModal } from '../../components/shared/PatientQuickViewModal';
+import { usePatientQuickView } from '../../hooks/usePatientQuickView';
 import { useState } from 'react';
 import { useOPDVisits } from '../../contexts/OPDVisitContext';
 import { useNavigate } from 'react-router-dom';
@@ -20,6 +23,7 @@ export const OPDQueueBoard = () => {
   const { visits } = useOPDVisits();
   const navigate = useNavigate();
   const [selectedDept, setSelectedDept] = useState(DEPT_ALL);
+  const { selectedUhid, openPatient, closePatient } = usePatientQuickView();
 
   const today = new Date().toISOString().split('T')[0];
   const todaysVisits = visits.filter(v => v.date === today);
@@ -46,7 +50,7 @@ export const OPDQueueBoard = () => {
         <div className="flex items-start justify-between gap-2 mb-3">
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h4 className="font-bold text-slate-800 text-sm">{visit.patientName}</h4>
+              <h4 className="font-bold text-slate-800 text-sm"><PatientNameLink name={visit.patientName || ""} uhid={visit.uhid || ""} onClick={openPatient} /></h4>
               {visit.priority === 'Emergency' && (
                 <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 flex items-center gap-1">
                   <AlertTriangle className="w-2.5 h-2.5" /> EMR
@@ -186,6 +190,7 @@ export const OPDQueueBoard = () => {
           );
         })}
       </div>
+      <PatientQuickViewModal uhid={selectedUhid} onClose={closePatient} />
     </div>
   );
 };

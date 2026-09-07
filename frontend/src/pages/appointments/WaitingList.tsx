@@ -1,3 +1,6 @@
+import { PatientNameLink } from '../../components/shared/PatientNameLink';
+import { PatientQuickViewModal } from '../../components/shared/PatientQuickViewModal';
+import { usePatientQuickView } from '../../hooks/usePatientQuickView';
 import { useState } from 'react';
 import { Clock, CheckCircle, Stethoscope, CalendarDays, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -21,6 +24,7 @@ import type { AppointmentRecord } from '../../contexts/AppointmentContext';
 export const WaitingList = () => {
   const { appointments, updateAppointmentStatus, loadAppointments } = useAppointments();
   const [busyId, setBusyId] = useState<number | null>(null);
+  const { selectedUhid, openPatient, closePatient } = usePatientQuickView();
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -99,7 +103,7 @@ export const WaitingList = () => {
                 waiting.map(appt => (
                   <tr key={appt.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4">
-                      <div className="font-semibold text-slate-800">{appt.patientName}</div>
+                      <div className="font-semibold text-slate-800"><PatientNameLink name={appt.patientName || ''} uhid={appt.uhid || ''} onClick={openPatient} /></div>
                       <div className="text-xs text-slate-400">
                         {appt.appointmentNumber} · {appt.uhid}
                       </div>
@@ -150,6 +154,7 @@ export const WaitingList = () => {
           </table>
         </div>
       </div>
+      <PatientQuickViewModal uhid={selectedUhid} onClose={closePatient} />
     </div>
   );
 };

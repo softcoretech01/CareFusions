@@ -260,8 +260,87 @@ def get_next_uhid(db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail="Failed to generate next UHID")
 
 
+@router.get("/uhid/{uhid}")
+def get_patient_by_uhid(uhid: str, db: Session = Depends(get_db)):
+    """Retrieve a patient's full profile by UHID — used by all portals for the Patient Quick-View popup."""
+    try:
+        sql = text("""
+            SELECT
+                pr.PatientId, pr.Uhid, pr.Title, pr.PatientName, pr.Gender,
+                pr.DateOfBirth, pr.Age, pr.MaritalStatus, pr.BloodGroup,
+                pr.MobileNumber, pr.AlternateMobile, pr.Email,
+                pr.Address1, pr.Address2, pr.City, pr.State, pr.Country, pr.PinCode,
+                pr.AadhaarNumber,
+                pr.EmergencyContactName, pr.EmergencyRelationship,
+                pr.EmergencyMobile, pr.EmergencyAddress,
+                pr.Allergies, pr.ChronicDiseases, pr.CurrentMedication,
+                pr.InsuranceRequired, pr.InsuranceProvider, pr.Tpa,
+                pr.PolicyNumber, pr.ValidTill,
+                pr.PatientType, pr.RegistrationDate, pr.ReferredBy,
+                pr.PrimaryDoctor, pr.Department, pr.Remarks
+            FROM registration.PatientRegistration pr
+            WHERE pr.Uhid = :uhid
+            LIMIT 1
+        """)
+        row = db.execute(sql, {"uhid": uhid}).fetchone()
+        if not row:
+            # Try QuickRegistration table as fallback
+            sql2 = text("""
+                SELECT
+                    qr.QuickRegId AS PatientId, qr.Uhid, NULL AS Title,
+                    qr.PatientName, qr.Gender, qr.DateOfBirth, qr.Age,
+                    NULL AS MaritalStatus, qr.BloodGroup,
+                    qr.MobileNumber, NULL AS AlternateMobile, NULL AS Email,
+                    NULL AS Address1, NULL AS Address2,
+                    qr.City, qr.State, NULL AS Country, NULL AS PinCode,
+                    NULL AS AadhaarNumber,
+                    qr.EmergencyContactName, qr.EmergencyRelationship,
+                    qr.EmergencyMobile, NULL AS EmergencyAddress,
+                    qr.Allergies, qr.ChronicDiseases, NULL AS CurrentMedication,
+                    qr.InsuranceRequired, qr.InsuranceProvider, qr.Tpa,
+                    qr.PolicyNumber, qr.ValidTill,
+                    'OP' AS PatientType, qr.RegistrationDate, NULL AS ReferredBy,
+                    NULL AS PrimaryDoctor, NULL AS Department, NULL AS Remarks
+                FROM registration.QuickRegistration qr
+                WHERE qr.Uhid = :uhid
+                LIMIT 1
+            """)
+            row = db.execute(sql2, {"uhid": uhid}).fetchone()
+        if not row:
+            # Try EmergencyRegistration as last fallback
+            sql3 = text("""
+                SELECT
+                    er.EmergencyId AS PatientId, er.Uhid, NULL AS Title,
+                    er.PatientName, er.Gender, NULL AS DateOfBirth, er.Age,
+                    NULL AS MaritalStatus, NULL AS BloodGroup,
+                    er.MobileNumber, NULL AS AlternateMobile, NULL AS Email,
+                    NULL AS Address1, NULL AS Address2,
+                    NULL AS City, NULL AS State, NULL AS Country, NULL AS PinCode,
+                    NULL AS AadhaarNumber,
+                    er.EmergencyContactName, NULL AS EmergencyRelationship,
+                    er.EmergencyMobile, NULL AS EmergencyAddress,
+                    NULL AS Allergies, NULL AS ChronicDiseases, NULL AS CurrentMedication,
+                    NULL AS InsuranceRequired, NULL AS InsuranceProvider, NULL AS Tpa,
+                    NULL AS PolicyNumber, NULL AS ValidTill,
+                    'Emergency' AS PatientType, er.RegistrationDate, NULL AS ReferredBy,
+                    NULL AS PrimaryDoctor, er.Department, NULL AS Remarks
+                FROM registration.EmergencyRegistration er
+                WHERE er.Uhid = :uhid
+                LIMIT 1
+            """)
+            row = db.execute(sql3, {"uhid": uhid}).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Patient not found")
+        return dict(row._mapping)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[GET /patients/uhid/{uhid}] Error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch patient profile")
+
 @router.get("/{patient_id}", response_model=PatientRegistrationResponse)
 def get_patient(patient_id: int, db: Session = Depends(get_db)):
+
     """Retrieve a specific patient by ID."""
     try:
         result = _call_sp(db, "SELECT_BY_ID", PatientId=patient_id)

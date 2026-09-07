@@ -1,3 +1,6 @@
+import { PatientNameLink } from '../../components/shared/PatientNameLink';
+import { PatientQuickViewModal } from '../../components/shared/PatientQuickViewModal';
+import { usePatientQuickView } from '../../hooks/usePatientQuickView';
 import { useState, useEffect } from 'react';
 
 import { createPortal } from 'react-dom';
@@ -31,6 +34,7 @@ export const OPPatients = () => {
 
 
   const [records, setRecords] = useState<EMRRecord[]>([]);
+  const { selectedUhid, openPatient, closePatient } = usePatientQuickView();
 
   const [isLoading, setIsLoading] = useState(true);
 
@@ -512,7 +516,7 @@ export const OPPatients = () => {
 
                       <td className="px-6 py-4">
 
-                        <p className="font-bold text-slate-800">{record.patientName}</p>
+                        <p className="font-bold text-slate-800"><PatientNameLink name={record.patientName || ""} uhid={record.uhid || ""} onClick={openPatient} /></p>
 
                         <p className="text-xs text-slate-500">{record.age}y / {record.gender}</p>
 
@@ -676,8 +680,8 @@ export const OPPatients = () => {
 
       `}</style>
 
+      <PatientQuickViewModal uhid={selectedUhid} onClose={closePatient} />
     </div>
-
   );
 
 };

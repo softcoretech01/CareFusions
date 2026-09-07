@@ -1,3 +1,6 @@
+import { PatientNameLink } from '../../components/shared/PatientNameLink';
+import { PatientQuickViewModal } from '../../components/shared/PatientQuickViewModal';
+import { usePatientQuickView } from '../../hooks/usePatientQuickView';
 import { useState, useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { DateFilter } from '@/components/ui/DateFilter';
@@ -22,6 +25,7 @@ export const ClaimsManagement = () => {
   const { patients } = useIPD();
 
   const [activeTab, setActiveTab] = useState<string>('All');
+  const { selectedUhid, openPatient, closePatient } = usePatientQuickView();
   const [search, setSearch] = useState('');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
@@ -84,9 +88,11 @@ export const ClaimsManagement = () => {
       .catch(() => {});
   }, []);
 
+  const activeUhid = (viewClaim?.uhid || form.uhid || '').trim();
+
   // Load lab and radiology orders for patient when UHID is entered
   useEffect(() => {
-    const u = form.uhid.trim();
+    const u = activeUhid;
     if (u.length >= 4) {
       fetch(`${API_BASE}/lab/orders?uhid=${encodeURIComponent(u)}`)
         .then(r => (r.ok ? r.json() : []))
@@ -105,41 +111,41 @@ export const ClaimsManagement = () => {
       setPatientLabOrders([]);
       setPatientRadOrders([]);
     }
-  }, [form.uhid]);
+  }, [activeUhid]);
 
   // Discharged / discharge-requested inpatients are the claimable population.
   // Also match active admissions (Discharge Requested) since that's the state right after saving discharge.
   const matchedAdmission = useMemo(() => {
-    const u = form.uhid.trim().toLowerCase();
+    const u = activeUhid.toLowerCase();
     if (u.length < 4) return null;
     return patients.find(p => p.uhid.toLowerCase() === u
       && (p.status === 'Discharged' || p.status === 'Discharge Requested'
           || p.status === 'Admitted')) || null;
-  }, [form.uhid, patients]);
+  }, [activeUhid, patients]);
 
   // An approved pre-auth for this patient carries the sanctioned amount.
   const relatedPreAuth = useMemo(() => {
-    const u = form.uhid.trim().toLowerCase();
+    const u = activeUhid.toLowerCase();
     if (!u) return null;
     return preAuths.find(p => p.uhid.toLowerCase() === u && p.status === 'Approved')
         || preAuths.find(p => p.uhid.toLowerCase() === u) || null;
-  }, [form.uhid, preAuths]);
+  }, [activeUhid, preAuths]);
 
   // Patient's insurance policy (from Insurance > Eligibility Verification)
   const relatedPolicy = useMemo(() => {
-    const u = form.uhid.trim().toLowerCase();
+    const u = activeUhid.toLowerCase();
     if (!u) return null;
     return policies.find(p => p.uhid.toLowerCase() === u && p.status === 'Active')
         || policies.find(p => p.uhid.toLowerCase() === u) || null;
-  }, [form.uhid, policies]);
+  }, [activeUhid, policies]);
 
   // The patient's actual IP discharge bill (latest one on file for the UHID).
   const ipBill = useMemo(() => {
-    const u = form.uhid.trim().toLowerCase();
+    const u = activeUhid.toLowerCase();
     if (u.length < 4) return null;
     const matches = ipBills.filter(b => (b.Uhid || '').toLowerCase() === u);
     return matches.length ? matches.reduce((a, b) => (b.IpBillId > a.IpBillId ? b : a)) : null;
-  }, [form.uhid, ipBills]);
+  }, [activeUhid, ipBills]);
 
   // Real discharge bill line-items straight from IP billing — fallback to IPD estimated stay items
   const billItems = useMemo(
@@ -411,6 +417,16 @@ export const ClaimsManagement = () => {
       errors[f] ? 'border-red-400' : 'border-slate-200 focus:border-primary'
     }`;
 
+  const getActualBilledAmount = (uhid: string, fallbackAmount: number) => {
+    const matches = ipBills.filter(b => (b.Uhid || '').toLowerCase() === uhid.toLowerCase());
+    const latestBill = matches.length ? matches.reduce((a, b) => (b.IpBillId > a.IpBillId ? b : a)) : null;
+    if (latestBill && latestBill.Items) {
+      const itemsTotal = latestBill.Items.reduce((sum: number, it: any) => sum + Number(it.Subtotal ?? Number(it.Quantity) * Number(it.UnitPrice)), 0);
+      return itemsTotal > 0 ? itemsTotal : fallbackAmount;
+    }
+    return fallbackAmount;
+  };
+
   const { page, setPage, pageSize, total, paged } = usePagination(filteredClaims);
 
   return (
@@ -490,11 +506,11 @@ export const ClaimsManagement = () => {
                 <tr key={claim.id} className="hover:bg-slate-50/70 transition-colors">
                   <td className="px-4 py-3 font-bold text-primary whitespace-nowrap">{claim.id}</td>
                   <td className="px-4 py-3">
-                    <div className="font-bold text-slate-800">{claim.patient}</div>
+                    <div className="font-bold text-slate-800"><PatientNameLink name={claim.patient || '—'} uhid={claim.uhid || ''} onClick={openPatient} /></div>
                     <div className="text-xs text-slate-500">{claim.uhid}</div>
                   </td>
                   <td className="px-4 py-3 text-slate-600">{claim.insurer}</td>
-                  <td className="px-4 py-3 text-right text-slate-700">{inr(claim.amount)}</td>
+                  <td className="px-4 py-3 text-right text-slate-700">{inr(getActualBilledAmount(claim.uhid, claim.amount))}</td>
                   <td className="px-4 py-3 text-right text-slate-500">{inr(claim.preAuth ?? 0)}</td>
                   <td className="px-4 py-3 text-right font-semibold text-slate-800">{inr(claim.claimedAmount ?? 0)}</td>
                   <td className="px-4 py-3 text-right font-semibold text-emerald-600">
@@ -853,7 +869,7 @@ export const ClaimsManagement = () => {
       {/* ── View ── */}
       {viewClaim && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[92vh] overflow-y-auto custom-scrollbar">
             <div className="px-5 py-3 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
               <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                 <FileText className="w-5 h-5 text-primary" /> {viewClaim.id}
@@ -866,7 +882,7 @@ export const ClaimsManagement = () => {
               <div><p className="text-xs text-slate-500">Patient</p><p className="font-bold text-slate-800">{viewClaim.patient}</p><p className="text-xs text-slate-400">{viewClaim.uhid}</p></div>
               <div><p className="text-xs text-slate-500">Insurer</p><p className="font-bold text-slate-800">{viewClaim.insurer}</p></div>
               <div className="col-span-2"><p className="text-xs text-slate-500">Diagnosis</p><p className="font-medium text-slate-700">{viewClaim.diagnosis || '—'}</p></div>
-              <div><p className="text-xs text-slate-500">Total Billed</p><p className="font-bold text-slate-800">{inr(viewClaim.amount)}</p></div>
+              <div><p className="text-xs text-slate-500">Total Billed</p><p className="font-bold text-slate-800">{inr(getActualBilledAmount(viewClaim.uhid, viewClaim.amount))}</p></div>
               <div><p className="text-xs text-slate-500">Pre-Auth</p><p className="font-bold text-slate-800">{inr(viewClaim.preAuth ?? 0)}</p></div>
               <div><p className="text-xs text-slate-500">Claimed</p><p className="font-bold text-slate-800">{inr(viewClaim.claimedAmount ?? 0)}</p></div>
               <div><p className="text-xs text-slate-500">Approved</p><p className="font-bold text-emerald-600">{viewClaim.approvedAmount != null ? inr(viewClaim.approvedAmount) : '—'}</p></div>
@@ -878,6 +894,42 @@ export const ClaimsManagement = () => {
                   <p className="text-xs text-rose-700">{viewClaim.denialReason}</p>
                 </div>
               )}
+              {displayBillItems.length > 0 && (
+                <div className="col-span-2 border border-slate-200 rounded-xl overflow-hidden bg-white mt-2">
+                  <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-primary" />
+                    <h3 className="text-sm font-bold text-slate-800">Discharge Bill Breakdown & Charge Summary</h3>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50 text-[11px] font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                        <tr>
+                          <th className="px-4 py-2.5 text-left">Item Description</th>
+                          <th className="px-4 py-2.5 text-right">Qty/Days</th>
+                          <th className="px-4 py-2.5 text-right">Unit Price (₹)</th>
+                          <th className="px-4 py-2.5 text-right">Total (₹)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {displayBillItems.map((it: { desc: string; qty: number; unit: number; subtotal: number }, idx: number) => (
+                          <tr key={idx} className="hover:bg-slate-50">
+                            <td className="px-4 py-2.5 text-slate-700 font-medium">{it.desc}</td>
+                            <td className="px-4 py-2.5 text-right text-slate-600">{it.qty}</td>
+                            <td className="px-4 py-2.5 text-right text-slate-600">{it.unit ? it.unit.toLocaleString('en-IN') : '0'}</td>
+                            <td className="px-4 py-2.5 text-right font-bold text-slate-800">{it.subtotal ? it.subtotal.toLocaleString('en-IN') : '0'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot className="bg-emerald-50/70 border-t border-slate-200">
+                        <tr>
+                          <td colSpan={3} className="px-4 py-3 text-right font-bold text-slate-700">Calculated Total Bill</td>
+                          <td className="px-4 py-3 text-right font-bold text-primary text-base">₹{calculatedTotal.toLocaleString('en-IN')}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
             <div className="bg-slate-50 border-t border-slate-100 px-5 py-3 flex justify-end">
               <button onClick={() => setViewClaim(null)}
@@ -886,6 +938,7 @@ export const ClaimsManagement = () => {
           </div>
         </div>
       )}
+      <PatientQuickViewModal uhid={selectedUhid} onClose={closePatient} />
     </div>
   );
 };

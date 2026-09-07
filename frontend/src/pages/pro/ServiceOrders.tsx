@@ -1,3 +1,6 @@
+import { PatientNameLink } from '../../components/shared/PatientNameLink';
+import { PatientQuickViewModal } from '../../components/shared/PatientQuickViewModal';
+import { usePatientQuickView } from '../../hooks/usePatientQuickView';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -66,6 +69,7 @@ const ReviewModal = ({
   const itemCount = useMemo(() => orders.reduce((n, o) => n + (o.Items?.length ?? 0), 0), [orders]);
 
   const [editedPrices, setEditedPrices] = useState<Record<number, number>>({});
+  const { selectedUhid, openPatient, closePatient } = usePatientQuickView();
 
   // Whatever cover the patient holds, looked up by UHID. Shown read-only so the
   // officer approving these prices can see who is actually paying — this screen
@@ -148,6 +152,7 @@ const ReviewModal = ({
       for (let i = 0; i < orders.length; i++) {
         const order = orders[i];
         try {
+          const isInsured = order.SourceModule !== 'OPD' && !!policy;
           const res = await fetch(`${API}/orders/${order.ServiceOrderId}/approve`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -163,6 +168,7 @@ const ReviewModal = ({
                 };
               }),
               AdvanceAmount: parts[i],
+              AssumeFullyInsured: isInsured,
             }),
           });
           if (!res.ok) {
@@ -279,7 +285,7 @@ const ReviewModal = ({
                 <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400">Patient Information</h3>
               </div>
               <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 grid grid-cols-2 gap-4 text-sm">
-                <InfoRow label="Patient Name" value={row.PatientName} />
+                <InfoRow label="Patient Name" value={<PatientNameLink name={row.PatientName || ''} uhid={row.UHID || ''} onClick={openPatient} />} />
                 <InfoRow label="UHID" value={row.UHID} />
                 <InfoRow label="Module" value={row.SourceModule} />
                 <InfoRow label="Doctor" value={row.DoctorName} />
@@ -538,6 +544,7 @@ const ReviewModal = ({
           </>
         )}
       </AnimatePresence>
+      <PatientQuickViewModal uhid={selectedUhid} onClose={closePatient} />
     </>
   );
 
