@@ -54,7 +54,6 @@ const KPI_DEFS: {
     cols: [
       { key: 'testCode', label: 'Code', mono: true },
       { key: 'testName', label: 'Test' },
-      { key: 'testCategory', label: 'Category' },
       { key: 'department', label: 'Department' },
       { key: 'testPrice', label: 'Price', mono: true },
     ],

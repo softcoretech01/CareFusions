@@ -29,7 +29,6 @@ def _map_row(row) -> dict:
         "id":                 row.TestId,
         "testCode":           row.TestCode,
         "testName":           row.TestName,
-        "testCategory":       row.TestCategory,
         "department":         row.Department,
         "sampleType":         row.SampleType,
         "description":        row.Description,
@@ -57,7 +56,6 @@ def _call_sp(db: Session, opt: str, test_id: int = 0, **kwargs):
         "p_TestId":             test_id,
         "p_TestCode":           safe_value(kwargs.get("test_code")),
         "p_TestName":           safe_value(kwargs.get("test_name")),
-        "p_TestCategory":       safe_value(kwargs.get("test_category")),
         "p_Department":         safe_value(kwargs.get("department")),
         "p_SampleType":         safe_value(kwargs.get("sample_type")),
         "p_Description":        safe_value(kwargs.get("description")),
@@ -80,7 +78,7 @@ def _call_sp(db: Session, opt: str, test_id: int = 0, **kwargs):
     sql = text(f"""
         CALL {SP_NAME}(
             :p_Opt, :p_TestId,
-            :p_TestCode, :p_TestName, :p_TestCategory, :p_Department, :p_SampleType,
+            :p_TestCode, :p_TestName, :p_Department, :p_SampleType,
             :p_Description, :p_NormalRange, :p_Unit, :p_TestMethod, :p_TurnaroundTime,
             :p_TestPrice, :p_Gst, :p_ReportTemplate, :p_RequiresApproval, :p_CriticalValueAlert,
             :p_Status, :p_Remarks,
@@ -91,13 +89,6 @@ def _call_sp(db: Session, opt: str, test_id: int = 0, **kwargs):
 
 
 # ─── LOOKUPS ──────────────────────────────────────────────────────────────────
-@router.get("/categories", response_model=List[LookupResponse])
-def get_categories(db: Session = Depends(get_db)):
-    sql = text("SELECT CategoryId AS id, CategoryName AS name FROM Master_LabTestCategory")
-    result = db.execute(sql)
-    return [dict(r._mapping) for r in result]
-
-
 @router.get("/sample-types", response_model=List[LookupResponse])
 def get_sample_types(db: Session = Depends(get_db)):
     sql = text("SELECT SampleTypeId AS id, SampleTypeName AS name FROM Master_SampleType "
@@ -150,7 +141,6 @@ def create(test: LabTestCreate, db: Session = Depends(get_db)):
         result = _call_sp(db, "INSERT",
             test_code=d["testCode"],
             test_name=d["testName"],
-            test_category=d["testCategory"],
             department=d["department"],
             sample_type=d["sampleType"],
             description=d["description"],
@@ -192,7 +182,6 @@ def update(test_id: int, test: LabTestUpdate, db: Session = Depends(get_db)):
             test_id=test_id,
             test_code=d["testCode"],
             test_name=d["testName"],
-            test_category=d["testCategory"],
             department=d["department"],
             sample_type=d["sampleType"],
             description=d["description"],

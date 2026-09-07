@@ -12,7 +12,6 @@ interface TestRecord {
   id: number;
   testCode: string;
   testName: string;
-  testCategory: string;
   department: string;
   sampleType: string;
   description: string;
@@ -32,7 +31,6 @@ interface TestRecord {
 const emptyData: Omit<TestRecord, 'id'> = {
   testCode: '',
   testName: '',
-  testCategory: '',
   department: '',
   sampleType: '',
   description: '',
@@ -50,7 +48,6 @@ const emptyData: Omit<TestRecord, 'id'> = {
 };
 
 const sampleTypesMock: string[] = [];
-const testCategoriesMock: string[] = [];
 const departmentsMock: string[] = [];
 
 const API_BASE = import.meta.env.VITE_API_URL as string;
@@ -59,7 +56,6 @@ const mapApiToRecord = (item: any): TestRecord => ({
   id:                 item.id,
   testCode:           item.testCode,
   testName:           item.testName,
-  testCategory:       item.testCategory,
   department:         item.department,
   sampleType:         item.sampleType,
   description:        item.description || '',
@@ -79,7 +75,6 @@ const mapApiToRecord = (item: any): TestRecord => ({
 export const TestMaster = () => {
   const [records, setRecords] = useState<TestRecord[]>([]);
   const [sampleTypes, setSampleTypes] = useState<string[]>(sampleTypesMock);
-  const [testCategories, setTestCategories] = useState<string[]>(testCategoriesMock);
   const [departments, setDepartments] = useState<string[]>(departmentsMock);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -106,9 +101,8 @@ export const TestMaster = () => {
   const fetchData = async () => {
     try {
       setIsLoading(true);
-      const [recRes, catRes, stRes, deptRes] = await Promise.all([
+      const [recRes, stRes, deptRes] = await Promise.all([
         fetch(`${API_BASE}/tests/`),
-        fetch(`${API_BASE}/tests/categories`),
         fetch(`${API_BASE}/tests/sample-types`),
         fetch(`${API_BASE}/tests/departments`)
       ]);
@@ -116,10 +110,6 @@ export const TestMaster = () => {
       if (recRes.ok) {
         const data = await recRes.json();
         setRecords(data.map(mapApiToRecord));
-      }
-      if (catRes.ok) {
-        const data = await catRes.json();
-        setTestCategories(data.map((i: any) => i.name));
       }
       if (stRes.ok) {
         const data = await stRes.json();
@@ -144,7 +134,6 @@ export const TestMaster = () => {
     const newErrors: Record<string, string> = {};
     if (!formData.testCode.trim()) newErrors.testCode = 'Test Code is required';
     if (!formData.testName.trim()) newErrors.testName = 'Test Name is required';
-    if (!formData.testCategory) newErrors.testCategory = 'Test Category is required';
     if (!formData.department) newErrors.department = 'Department is required';
     if (!formData.sampleType) newErrors.sampleType = 'Sample Type is required';
     
@@ -194,7 +183,6 @@ export const TestMaster = () => {
       const payload = {
         testCode:           formData.testCode,
         testName:           formData.testName,
-        testCategory:       formData.testCategory,
         department:         formData.department,
         sampleType:         formData.sampleType,
         description:        formData.description || null,
@@ -450,14 +438,6 @@ export const TestMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Test Name <span className="text-red-500">*</span></label>
                     <input type="text" value={formData.testName} onChange={e => setFormData({...formData, testName: e.target.value})} maxLength={50} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.testName ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`} />
                     {errors.testName && <p className="text-red-500 text-xs mt-1">{errors.testName}</p>}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Test Category <span className="text-red-500">*</span></label>
-                    <select value={formData.testCategory} onChange={e => setFormData({...formData, testCategory: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${errors.testCategory ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`}>
-                      <option value="">Select Category</option>
-                      {testCategories.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                    {errors.testCategory && <p className="text-red-500 text-xs mt-1">{errors.testCategory}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Department <span className="text-red-500">*</span></label>
