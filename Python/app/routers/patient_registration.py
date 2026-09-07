@@ -286,21 +286,25 @@ def get_patient_by_uhid(uhid: str, db: Session = Depends(get_db)):
         if not row:
             # Try QuickRegistration table as fallback
             sql2 = text("""
+                -- QuickRegistration is a slimmer table than PatientRegistration:
+                -- it carries no address, blood group, allergy or next-of-kin
+                -- columns, so those are NULL here rather than selected. Every
+                -- alias below is a column this table actually has.
                 SELECT
-                    qr.QuickRegId AS PatientId, qr.Uhid, NULL AS Title,
+                    qr.QuickRegistrationId AS PatientId, qr.Uhid, qr.Title,
                     qr.PatientName, qr.Gender, qr.DateOfBirth, qr.Age,
-                    NULL AS MaritalStatus, qr.BloodGroup,
-                    qr.MobileNumber, NULL AS AlternateMobile, NULL AS Email,
+                    NULL AS MaritalStatus, NULL AS BloodGroup,
+                    qr.MobileNumber, qr.AlternateMobile, NULL AS Email,
                     NULL AS Address1, NULL AS Address2,
-                    qr.City, qr.State, NULL AS Country, NULL AS PinCode,
+                    NULL AS City, NULL AS State, NULL AS Country, NULL AS PinCode,
                     NULL AS AadhaarNumber,
-                    qr.EmergencyContactName, qr.EmergencyRelationship,
-                    qr.EmergencyMobile, NULL AS EmergencyAddress,
-                    qr.Allergies, qr.ChronicDiseases, NULL AS CurrentMedication,
+                    NULL AS EmergencyContactName, NULL AS EmergencyRelationship,
+                    NULL AS EmergencyMobile, NULL AS EmergencyAddress,
+                    NULL AS Allergies, NULL AS ChronicDiseases, NULL AS CurrentMedication,
                     qr.InsuranceRequired, qr.InsuranceProvider, qr.Tpa,
                     qr.PolicyNumber, qr.ValidTill,
                     'OP' AS PatientType, qr.RegistrationDate, NULL AS ReferredBy,
-                    NULL AS PrimaryDoctor, NULL AS Department, NULL AS Remarks
+                    NULL AS PrimaryDoctor, qr.VisitType AS Department, qr.Remarks
                 FROM registration.QuickRegistration qr
                 WHERE qr.Uhid = :uhid
                 LIMIT 1
@@ -309,21 +313,27 @@ def get_patient_by_uhid(uhid: str, db: Session = Depends(get_db)):
         if not row:
             # Try EmergencyRegistration as last fallback
             sql3 = text("""
+                -- An emergency registration records an approximate age and one
+                -- contact number, which stands in for both the patient's mobile
+                -- and the next-of-kin number. Same aliases as above so the
+                -- quick-view popup sees one shape whichever table answers.
                 SELECT
-                    er.EmergencyId AS PatientId, er.Uhid, NULL AS Title,
-                    er.PatientName, er.Gender, NULL AS DateOfBirth, er.Age,
+                    er.EmergencyRegistrationId AS PatientId, er.Uhid, NULL AS Title,
+                    er.PatientName, er.Gender, NULL AS DateOfBirth,
+                    er.ApproximateAge AS Age,
                     NULL AS MaritalStatus, NULL AS BloodGroup,
-                    er.MobileNumber, NULL AS AlternateMobile, NULL AS Email,
+                    er.EmergencyContactPhone AS MobileNumber,
+                    NULL AS AlternateMobile, NULL AS Email,
                     NULL AS Address1, NULL AS Address2,
                     NULL AS City, NULL AS State, NULL AS Country, NULL AS PinCode,
                     NULL AS AadhaarNumber,
                     er.EmergencyContactName, NULL AS EmergencyRelationship,
-                    er.EmergencyMobile, NULL AS EmergencyAddress,
+                    er.EmergencyContactPhone AS EmergencyMobile, NULL AS EmergencyAddress,
                     NULL AS Allergies, NULL AS ChronicDiseases, NULL AS CurrentMedication,
-                    NULL AS InsuranceRequired, NULL AS InsuranceProvider, NULL AS Tpa,
-                    NULL AS PolicyNumber, NULL AS ValidTill,
+                    er.InsuranceRequired, er.InsuranceProvider, er.Tpa,
+                    er.PolicyNumber, er.ValidTill,
                     'Emergency' AS PatientType, er.RegistrationDate, NULL AS ReferredBy,
-                    NULL AS PrimaryDoctor, er.Department, NULL AS Remarks
+                    NULL AS PrimaryDoctor, 'Emergency' AS Department, NULL AS Remarks
                 FROM registration.EmergencyRegistration er
                 WHERE er.Uhid = :uhid
                 LIMIT 1

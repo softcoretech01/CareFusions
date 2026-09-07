@@ -21,6 +21,7 @@ const StatusBadge = ({ status }: { status?: string }) => {
     CLEARED: 'bg-emerald-100 text-emerald-700',
     NOT_REQUIRED: 'bg-slate-100 text-slate-500',
     NOT_RELEASED: 'bg-red-50 text-red-400',
+    INSURANCE_COVERED: 'bg-indigo-100 text-indigo-700',
   };
   return (
     <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold ${map[status] ?? 'bg-slate-100 text-slate-600'}`}>

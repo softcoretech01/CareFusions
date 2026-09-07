@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Loader, AlertCircle, ShieldCheck, DollarSign, Search, Calendar, X, CheckCircle, Ban } from 'lucide-react';
+import { Loader, AlertCircle, ShieldCheck, DollarSign, Search, Calendar, X, CheckCircle, Ban, Eye } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const API = (import.meta.env.VITE_API_URL as string || 'http://localhost:8000/api/v1') + '/pro';
@@ -49,6 +49,7 @@ export const InsurancePayments = () => {
   const [dateTo, setDateTo] = useState(today());
 
   const [reviewAuth, setReviewAuth] = useState<any>(null);
+  const [viewAuth, setViewAuth] = useState<any>(null);
   const [approvedAmount, setApprovedAmount] = useState<string>('');
 
   useEffect(() => {
@@ -233,7 +234,7 @@ export const InsurancePayments = () => {
                       <td className="px-4 py-3 font-semibold text-slate-700">₹{parseFloat(claim.ApprovedAmount ?? 0).toFixed(2)}</td>
                       <td className="px-4 py-3"><StatusBadge status={claim.Status} /></td>
                       <td className="px-4 py-3 text-center">
-                        {claim.Status === 'PENDING' && (
+                        {claim.Status === 'PENDING' ? (
                           <button
                             onClick={() => {
                               setReviewAuth(claim);
@@ -243,7 +244,15 @@ export const InsurancePayments = () => {
                           >
                             Review
                           </button>
-                        )}
+                        ) : claim.Status === 'APPROVED' ? (
+                          <button
+                            onClick={() => setViewAuth(claim)}
+                            className="text-slate-400 hover:text-emerald-600 transition-colors inline-flex justify-center"
+                            title="View Details"
+                          >
+                            <Eye className="w-5 h-5" />
+                          </button>
+                        ) : null}
                       </td>
                     </tr>
                   ))}
@@ -324,6 +333,38 @@ export const InsurancePayments = () => {
                   className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-colors"
                 >
                   <CheckCircle className="w-4 h-4" /> Approve
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {viewAuth && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <h2 className="text-lg font-bold text-slate-800">Pre-Authorization Details</h2>
+              <button onClick={() => setViewAuth(null)} className="p-2 hover:bg-slate-200 rounded-full">
+                <X className="w-5 h-5 text-slate-500" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="bg-slate-50 rounded-xl p-3 text-sm grid grid-cols-2 gap-y-3 gap-x-2">
+                <div><span className="text-slate-500 block text-xs">Auth No</span> <span className="font-semibold text-slate-700">{viewAuth.PreAuthNumber || '—'}</span></div>
+                <div><span className="text-slate-500 block text-xs">UHID</span> <span className="font-semibold text-slate-700">{viewAuth.UHID}</span></div>
+                <div><span className="text-slate-500 block text-xs">Patient</span> <span className="font-semibold text-slate-700">{viewAuth.PatientName || '—'}</span></div>
+                <div><span className="text-slate-500 block text-xs">Status</span> <div className="mt-0.5"><StatusBadge status={viewAuth.Status} /></div></div>
+                <div><span className="text-slate-500 block text-xs">Requested Amount</span> <span className="font-semibold text-slate-700">₹{parseFloat(viewAuth.RequestedAmount || 0).toFixed(2)}</span></div>
+                <div><span className="text-slate-500 block text-xs">Approved Amount</span> <span className="font-bold text-emerald-600">₹{parseFloat(viewAuth.ApprovedAmount || 0).toFixed(2)}</span></div>
+              </div>
+
+              <div className="pt-2 flex justify-end">
+                <button 
+                  onClick={() => setViewAuth(null)}
+                  className="px-6 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition-colors"
+                >
+                  Close
                 </button>
               </div>
             </div>

@@ -41,6 +41,7 @@ const StatusBadge = ({ status }: { status?: string }) => {
     PAID: 'bg-green-100 text-green-700',
     NOT_REQUIRED: 'bg-slate-100 text-slate-500',
     MIXED: 'bg-slate-100 text-slate-600',
+    COVER_IN_INSURANCE: 'bg-indigo-100 text-indigo-700',
   };
   return (
     <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold ${map[status] ?? 'bg-slate-100 text-slate-600'}`}>
@@ -668,8 +669,8 @@ const ServiceOrdersPage = ({ module }: { module: 'OPD' | 'IPD' | 'EMERGENCY' }) 
     // the amount this row is showing, and rounding that up to PAID would say the
     // opposite. NOT_REQUIRED counts as settled — there is nothing to collect.
     const paymentRollup = (list: any[]) =>
-      list.every(o => o.PaymentStatus === 'PAID' || o.PaymentStatus === 'NOT_REQUIRED')
-        ? 'PAID'
+      list.every(o => o.PaymentStatus === 'PAID' || o.PaymentStatus === 'NOT_REQUIRED' || o.PaymentStatus === 'COVER_IN_INSURANCE')
+        ? (list.some(o => o.PaymentStatus === 'COVER_IN_INSURANCE') ? 'COVER_IN_INSURANCE' : 'PAID')
         : 'UNPAID';
 
     return [...groups.entries()].map(([key, list]) => {
@@ -686,6 +687,7 @@ const ServiceOrdersPage = ({ module }: { module: 'OPD' | 'IPD' | 'EMERGENCY' }) 
         OrderDate: latest.OrderDate,
         PROStatus: rollup(list, 'PROStatus'),
         PaymentStatus: paymentRollup(list),
+        AdmissionCoverageType: firstOf(list, 'AdmissionCoverageType'),
         amount: list.reduce((sum, o) => sum + orderTotal(o), 0),
       };
     }).sort((a, b) => new Date(b.OrderDate).getTime() - new Date(a.OrderDate).getTime());
@@ -837,7 +839,7 @@ const ServiceOrdersPage = ({ module }: { module: 'OPD' | 'IPD' | 'EMERGENCY' }) 
                     <td className="px-4 py-3 text-slate-500">{new Date(row.OrderDate).toLocaleDateString()}</td>
                     <td className="px-4 py-3 text-right font-semibold text-slate-700 tabular-nums">{inr(row.amount)}</td>
                     <td className="px-4 py-3"><StatusBadge status={row.PROStatus} /></td>
-                    <td className="px-4 py-3"><StatusBadge status={row.PaymentStatus} /></td>
+                    <td className="px-4 py-3"><StatusBadge status={['Insurance', 'Covered'].includes(row.AdmissionCoverageType) ? 'COVER_IN_INSURANCE' : row.PaymentStatus} /></td>
                     <td className="px-4 py-3">
                       <button
                         onClick={() => setSelectedRow(row)}

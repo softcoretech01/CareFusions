@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Pagination } from '@/components/ui/Pagination';
 import { usePagination } from '@/hooks/usePagination';
+import { useDepartments } from '../../../hooks/useMasterOptions';
 import { Plus, Search, Download, Edit2, Trash2, AlertTriangle, Save, RefreshCw, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '../../../components/ui/Button';
@@ -56,13 +57,11 @@ const availableTests = [
   'Cholesterol', 'Triglycerides', 'HDL', 'LDL', 
   'Bilirubin Total', 'Bilirubin Direct', 'SGOT', 'SGPT', 'ALP'
 ];
-const departments = ['Pathology', 'Microbiology', 'Biochemistry'];
-
 export const ProfileMaster = () => {
   const [records, setRecords] = useState<ProfileRecord[]>(mockData);
   const [searchTerm, setSearchTerm] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  // Dropdown source: Department Master, not a copy that drifts from it.
+  const { options: departments } = useDepartments();
   
   // Form States
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -138,11 +137,7 @@ export const ProfileMaster = () => {
     record.profileCode.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const _totalPages = Math.max(1, Math.ceil(filteredRecords.length / itemsPerPage));
-  const _page = Math.min(currentPage, _totalPages);
-  const pagedRecords = filteredRecords.slice((_page - 1) * itemsPerPage, _page * itemsPerPage);
-
-  const { page, setPage, pageSize, total, paged } = usePagination(departments);
+  const { page, setPage, pageSize, total, paged } = usePagination(filteredRecords);
 
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="h-full flex flex-col relative">
@@ -196,7 +191,7 @@ export const ProfileMaster = () => {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {filteredRecords.length > 0 ? (
-                    pagedRecords.map((record) => (
+                    paged.map((record) => (
                       <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-4 py-3 font-medium text-slate-800">{record.profileCode}</td>
                         <td className="px-4 py-3 font-bold text-slate-700">{record.profileName}</td>
@@ -234,27 +229,7 @@ export const ProfileMaster = () => {
                 </tbody>
               </table>
             </div>
-        <Pagination page={page} pageSize={pageSize} totalItems={total} onPageChange={setPage} />
-            <div className="flex flex-wrap items-center justify-between gap-3 p-4 border-t border-slate-100 text-sm text-slate-500">
-              <div className="flex items-center gap-2">
-                <span>Show</span>
-                <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
-                  <option value={10}>10</option>
-                  <option value={25}>25</option>
-                  <option value={50}>50</option>
-                  <option value={100}>100</option>
-                </select>
-                <span>entries</span>
-                <span className="text-slate-400">· {filteredRecords.length} total</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <span>Page {_page} of {_totalPages}</span>
-                <div className="flex gap-1">
-                  <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={_page <= 1} className="px-3 py-1 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed">Prev</button>
-                  <button onClick={() => setCurrentPage(p => Math.min(_totalPages, p + 1))} disabled={_page >= _totalPages} className="px-3 py-1 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed">Next</button>
-                </div>
-              </div>
-            </div>
+            <Pagination page={page} pageSize={pageSize} totalItems={total} onPageChange={setPage} />
           </div>
         </>
       ) : (
@@ -284,7 +259,7 @@ export const ProfileMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Department <span className="text-red-500">*</span></label>
                     <select value={formData.department} onChange={e => setFormData({...formData, department: e.target.value})} className={`w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm ${errors.department ? 'border-red-300' : 'border-slate-200'}`}>
                       <option value="">Select Department</option>
-                      {paged.map(d => <option key={d} value={d}>{d}</option>)}
+                      {departments.map(d => <option key={d.id} value={d.departmentName}>{d.departmentName}</option>)}
                     </select>
                   </div>
                   <div>
