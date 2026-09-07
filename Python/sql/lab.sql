@@ -118,17 +118,17 @@ DROP PROCEDURE IF EXISTS admin.SpTmpAddLabTestUq;
 -- NormalRange drives automatic abnormal/critical flagging, replacing the
 -- frontend's hardcoded "value < 7 or > 18 is critical" stub.
 INSERT IGNORE INTO admin.Master_LabTest
-    (TestCode, TestName, TestCategory, Department, SampleType, NormalRange, Unit,
+    (TestCode, TestName, Department, SampleType, NormalRange, Unit,
      TestMethod, TurnaroundTime, TestPrice, Gst, RequiresApproval, CriticalValueAlert, Status, CreatedBy)
 VALUES
-    ('CBC',   'Complete Blood Count (CBC)', 'Hematology',   'Pathology',    'Blood', '4.5 - 11.0',  '10^3/uL', 'Automated Analyser', '2 hours',  350.00, 0, 0, 1, 'Active', 'Seed'),
-    ('HB',    'Hemoglobin',                 'Hematology',   'Pathology',    'Blood', '12.0 - 15.5', 'g/dL',    'Photometric',        '1 hour',   150.00, 0, 0, 1, 'Active', 'Seed'),
-    ('FBS',   'Fasting Blood Sugar',        'Biochemistry', 'Biochemistry', 'Blood', '70 - 100',    'mg/dL',   'GOD-POD',            '2 hours',  120.00, 0, 0, 1, 'Active', 'Seed'),
-    ('LIPID', 'Lipid Profile',              'Biochemistry', 'Biochemistry', 'Blood', '0 - 200',     'mg/dL',   'Enzymatic',          '4 hours',  800.00, 0, 0, 0, 'Active', 'Seed'),
-    ('CREAT', 'Serum Creatinine',           'Biochemistry', 'Biochemistry', 'Blood', '0.7 - 1.3',   'mg/dL',   'Jaffe',              '3 hours',  250.00, 0, 0, 1, 'Active', 'Seed'),
-    ('TROP',  'Troponin I',                 'Biochemistry', 'Biochemistry', 'Blood', '0.0 - 0.4',   'ng/mL',   'Immunoassay',        '1 hour',   1200.00, 0, 1, 1, 'Active', 'Seed'),
-    ('TSH',   'Thyroid Profile',            'Immunology',   'Pathology',    'Blood', '0.4 - 4.0',   'mIU/L',   'CLIA',               '6 hours',  600.00, 0, 0, 0, 'Active', 'Seed'),
-    ('URIN',  'Urine Routine',              'Clinical Pathology', 'Pathology', 'Urine', NULL,       NULL,      'Microscopy',         '2 hours',  200.00, 0, 0, 0, 'Active', 'Seed');
+    ('CBC',   'Complete Blood Count (CBC)', 'Pathology',    'Blood', '4.5 - 11.0',  '10^3/uL', 'Automated Analyser', '2 hours',  350.00, 0, 0, 1, 'Active', 'Seed'),
+    ('HB',    'Hemoglobin',                 'Pathology',    'Blood', '12.0 - 15.5', 'g/dL',    'Photometric',        '1 hour',   150.00, 0, 0, 1, 'Active', 'Seed'),
+    ('FBS',   'Fasting Blood Sugar',        'Biochemistry', 'Blood', '70 - 100',    'mg/dL',   'GOD-POD',            '2 hours',  120.00, 0, 0, 1, 'Active', 'Seed'),
+    ('LIPID', 'Lipid Profile',              'Biochemistry', 'Blood', '0 - 200',     'mg/dL',   'Enzymatic',          '4 hours',  800.00, 0, 0, 0, 'Active', 'Seed'),
+    ('CREAT', 'Serum Creatinine',           'Biochemistry', 'Blood', '0.7 - 1.3',   'mg/dL',   'Jaffe',              '3 hours',  250.00, 0, 0, 1, 'Active', 'Seed'),
+    ('TROP',  'Troponin I',                 'Biochemistry', 'Blood', '0.0 - 0.4',   'ng/mL',   'Immunoassay',        '1 hour',   1200.00, 0, 1, 1, 'Active', 'Seed'),
+    ('TSH',   'Thyroid Profile',            'Pathology',    'Blood', '0.4 - 4.0',   'mIU/L',   'CLIA',               '6 hours',  600.00, 0, 0, 0, 'Active', 'Seed'),
+    ('URIN',  'Urine Routine',              'Pathology', 'Urine', NULL,       NULL,      'Microscopy',         '2 hours',  200.00, 0, 0, 0, 'Active', 'Seed');
 
 
 -- ============================================================
