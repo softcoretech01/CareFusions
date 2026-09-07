@@ -1,3 +1,6 @@
+import { PatientNameLink } from '../../components/shared/PatientNameLink';
+import { PatientQuickViewModal } from '../../components/shared/PatientQuickViewModal';
+import { usePatientQuickView } from '../../hooks/usePatientQuickView';
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, CalendarPlus, Calendar, Clock, Edit2, Eye, Download, X, CheckCircle, AlertTriangle, Building2, Stethoscope, AlertCircle } from 'lucide-react';
@@ -34,6 +37,7 @@ export const AppointmentList = () => {
   const departmentOptions = departments.map(d => d.departmentName).sort();
 
   const [searchTerm, setSearchTerm] = useState('');
+  const { selectedUhid, openPatient, closePatient } = usePatientQuickView();
   const [filterDept, setFilterDept] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [dateFrom, setDateFrom] = useState('');   // DateFilter seeds the default range
@@ -224,7 +228,7 @@ export const AppointmentList = () => {
                   <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
                     <td className="px-4 py-2 font-semibold text-primary text-sm whitespace-nowrap">{item.appointmentNumber}</td>
                     <td className="px-4 py-2 text-slate-500 text-sm whitespace-nowrap">{item.uhid}</td>
-                    <td className="px-4 py-2 font-bold text-slate-800 text-sm">{item.patientName}</td>
+                    <td className="px-4 py-2 font-bold text-slate-800 text-sm"><PatientNameLink name={item.patientName || ""} uhid={item.uhid || ""} onClick={openPatient} /></td>
                     <td className="px-4 py-2 text-slate-600 text-sm">{item.mobileNumber}</td>
                     <td className="px-4 py-2">
                       <div className="flex items-center gap-1 text-slate-700 text-sm font-medium">
@@ -477,6 +481,7 @@ export const AppointmentList = () => {
           </div>
         </div>
       )}
+      <PatientQuickViewModal uhid={selectedUhid} onClose={closePatient} />
     </div>
   );
 };

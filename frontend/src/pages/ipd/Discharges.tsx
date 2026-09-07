@@ -1,3 +1,6 @@
+import { PatientNameLink } from '../../components/shared/PatientNameLink';
+import { PatientQuickViewModal } from '../../components/shared/PatientQuickViewModal';
+import { usePatientQuickView } from '../../hooks/usePatientQuickView';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
@@ -17,6 +20,7 @@ export const Discharges = () => {
   const { patients, beds, wards, dischargePatient, requestDischarge, refreshAll } = useIPD();
 
   const [bills, setBills] = useState<any[]>([]);
+  const { selectedUhid, openPatient, closePatient } = usePatientQuickView();
 
   // Bed and admission state moves constantly — re-pull whenever this screen
   // opens. Keyed to mount rather than the callback identity so it fires exactly
@@ -275,7 +279,7 @@ export const Discharges = () => {
                   return (
                     <tr key={patient.id} className="hover:bg-slate-50/70 transition-colors">
                       <td className="px-4 py-3">
-                        <div className="font-bold text-slate-800">{patient.patientName}</div>
+                        <div className="font-bold text-slate-800"><PatientNameLink name={patient.patientName || ''} uhid={patient.uhid || ''} onClick={openPatient} /></div>
                         <div className="text-xs text-slate-500">{patient.uhid}</div>
                       </td>
                       <td className="px-4 py-3">
@@ -819,6 +823,7 @@ export const Discharges = () => {
           dischargedBy={printPatient.dischargeInfo?.dischargedBy ?? ''}
         />
       )}
+      <PatientQuickViewModal uhid={selectedUhid} onClose={closePatient} />
     </div>
   );
 };

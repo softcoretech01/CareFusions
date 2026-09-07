@@ -1,3 +1,6 @@
+import { PatientNameLink } from '../../components/shared/PatientNameLink';
+import { PatientQuickViewModal } from '../../components/shared/PatientQuickViewModal';
+import { usePatientQuickView } from '../../hooks/usePatientQuickView';
 import { useState } from 'react';
 import { Pagination } from '@/components/ui/Pagination';
 import { usePagination } from '@/hooks/usePagination';
@@ -17,6 +20,7 @@ export const EligibilityVerification = () => {
   const { patients } = usePatients();
 
   const [search, setSearch] = useState('');
+  const { selectedUhid, openPatient, closePatient } = usePatientQuickView();
 
   const [selected, setSelected] = useState<Policy | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -197,7 +201,7 @@ export const EligibilityVerification = () => {
               {paged.map(row => (
                 <tr key={row.policyId} className="hover:bg-slate-50/70 transition-colors">
                   <td className="px-5 py-3">
-                    <div className="font-bold text-slate-800">{row.patientName}</div>
+                    <div className="font-bold text-slate-800"><PatientNameLink name={row.patientName || ""} uhid={row.uhid || ""} onClick={openPatient} /></div>
                     <div className="text-xs text-slate-500">{row.uhid}</div>
                   </td>
                   <td className="px-5 py-3 font-medium text-slate-600">{row.insurerName}</td>
@@ -560,6 +564,7 @@ export const EligibilityVerification = () => {
           </div>
         </div>
       )}
+      <PatientQuickViewModal uhid={selectedUhid} onClose={closePatient} />
     </div>
   );
 };

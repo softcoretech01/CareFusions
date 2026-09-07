@@ -1,3 +1,6 @@
+import { PatientNameLink } from '../../components/shared/PatientNameLink';
+import { PatientQuickViewModal } from '../../components/shared/PatientQuickViewModal';
+import { usePatientQuickView } from '../../hooks/usePatientQuickView';
 import { useState, useMemo, useEffect } from 'react';
 import { Pagination } from '@/components/ui/Pagination';
 import { usePagination } from '@/hooks/usePagination';
@@ -39,6 +42,7 @@ export const WardTransfers = () => {
 
   // Search state for main history table
   const [search, setSearch] = useState('');
+  const { selectedUhid, openPatient, closePatient } = usePatientQuickView();
   const [appliedSearch, setAppliedSearch] = useState('');
   const today = new Date().toISOString().split('T')[0];
   const firstDay = `${today.split('-')[0]}-${today.split('-')[1]}-01`;
@@ -265,7 +269,7 @@ export const WardTransfers = () => {
                         <p className="text-xs text-slate-500">{new Date(transfer.transferDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                       </td>
                       <td className="px-4 py-3">
-                        <p className="font-bold text-slate-800">{transfer.patientName}</p>
+                        <p className="font-bold text-slate-800"><PatientNameLink name={transfer.patientName || ""} uhid={transfer.uhid || ""} onClick={openPatient} /></p>
                         <p className="text-xs text-slate-500">{transfer.uhid}</p>
                       </td>
                       <td className="px-4 py-3">
@@ -611,6 +615,7 @@ export const WardTransfers = () => {
           </div>
         </div>
       )}
+      <PatientQuickViewModal uhid={selectedUhid} onClose={closePatient} />
     </div>
   );
 };

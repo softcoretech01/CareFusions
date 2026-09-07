@@ -80,12 +80,26 @@ def get_ipd_visit_details(admission_id: int, db: Session = Depends(get_db)):
                 except:
                     pass
 
+        # Fetch OperationsData independently since GET_DETAILS doesn't return it
+        operations = []
+        try:
+            cursor.execute("SELECT OperationsData FROM hospital.IPD_Admission WHERE AdmissionId = %s", (admission_id,))
+            ops_row = cursor.fetchone()
+            if ops_row and ops_row.get("OperationsData"):
+                try:
+                    operations = json.loads(ops_row["OperationsData"])
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
         data = {
             "admissionInfo": result_sets[0][0] if len(result_sets[0]) > 0 else None,
             "vitals": result_sets[1] if len(result_sets) > 1 else [],
             "rounds": result_sets[2] if len(result_sets) > 2 else [],
             "medications": medications,
-            "investigations": result_sets[4] if len(result_sets) > 4 else []
+            "investigations": result_sets[4] if len(result_sets) > 4 else [],
+            "operations": operations
         }
         return data
     except Exception as e:

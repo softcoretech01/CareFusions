@@ -1,3 +1,6 @@
+﻿import { PatientNameLink } from '../../components/shared/PatientNameLink';
+import { PatientQuickViewModal } from '../../components/shared/PatientQuickViewModal';
+import { usePatientQuickView } from '../../hooks/usePatientQuickView';
 import { useState } from 'react';
 import { Search, History, Calendar, User, Activity, Clock, FileText } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
@@ -22,6 +25,7 @@ export const VisitHistory = () => {
   const [loadingPatients, setLoadingPatients] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUhid, setSelectedUhid] = useState<string>('');
+  const { selectedUhid: quickViewUhid, openPatient, closePatient } = usePatientQuickView();
   const [visits, setVisits] = useState<VisitRecord[]>([]);
   const [loadingVisits, setLoadingVisits] = useState<boolean>(false);
 
@@ -242,7 +246,7 @@ export const VisitHistory = () => {
                     </div>
                     <div>
                       <h3 className="text-xl font-bold text-slate-800">
-                        {selectedPatient.patientName}
+                        <PatientNameLink name={selectedPatient.patientName || ""} uhid={selectedPatient.uhid || ''} onClick={openPatient} />
                       </h3>
                       <p className="text-sm text-slate-500 mt-1">
                         UHID: {selectedPatient.uhid}
@@ -320,6 +324,7 @@ export const VisitHistory = () => {
           </div>
         </div>
       </div>
+      <PatientQuickViewModal uhid={quickViewUhid} onClose={closePatient} />
     </div>
   );
 };

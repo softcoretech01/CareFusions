@@ -1,3 +1,6 @@
+import { PatientNameLink } from '../../components/shared/PatientNameLink';
+import { PatientQuickViewModal } from '../../components/shared/PatientQuickViewModal';
+import { usePatientQuickView } from '../../hooks/usePatientQuickView';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Users, CalendarDays, Activity, Zap, Eye, Edit2, X, User } from 'lucide-react';
@@ -8,9 +11,9 @@ const API_BASE = import.meta.env.VITE_API_URL as string;
 
 export const TodayRegistrations = () => {
   const navigate = useNavigate();
-
   const [records, setRecords] = useState<any[]>([]);
   const [viewModalRecord, setViewModalRecord] = useState<any | null>(null);
+  const { selectedUhid, openPatient, closePatient } = usePatientQuickView();
 
   const fetchTodayRegistrations = async () => {
     try {
@@ -18,7 +21,7 @@ export const TodayRegistrations = () => {
       if (res.ok) {
         const data = await res.json();
         const mappedData = data.map((d: any, idx: number) => ({
-          id: idx, // or use Uhid
+          id: idx,
           uhid: d.Uhid,
           patientName: d.PatientName,
           registrationType: d.RegistrationType,
@@ -30,7 +33,6 @@ export const TodayRegistrations = () => {
           age: d.Age || d.ApproximateAge || 0,
           mobileNumber: d.MobileNumber || d.EmergencyContactPhone || ''
         }));
-
         const uniqueRecords = new Map();
         mappedData.forEach((p: any) => {
           if (!uniqueRecords.has(p.uhid)) {
@@ -44,29 +46,19 @@ export const TodayRegistrations = () => {
             }
           }
         });
-
         const finalRecords = Array.from(uniqueRecords.values());
-
-        // Sort by UHID descending to show latest records first
         const getSeq = (uhid: string) => {
           if (!uhid) return 0;
           const match = uhid.match(/\d+$/);
           return match ? parseInt(match[0], 10) : 0;
         };
-
         finalRecords.sort((a: any, b: any) => getSeq(b.uhid) - getSeq(a.uhid));
-
         setRecords(finalRecords);
       }
-    } catch (e) {
-      console.error(e);
-    }
+    } catch (e) { console.error(e); }
   };
 
-  useEffect(() => {
-    fetchTodayRegistrations();
-  }, []);
-
+  useEffect(() => { fetchTodayRegistrations(); }, []);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('');
@@ -178,7 +170,7 @@ export const TodayRegistrations = () => {
                 filteredRecords.map((record) => (
                   <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-4 py-3 font-semibold text-primary">{record.uhid}</td>
-                    <td className="px-4 py-3 font-medium text-slate-800">{record.patientName}</td>
+                    <td className="px-4 py-3"><PatientNameLink name={record.patientName || record.PatientName || ''} uhid={record.uhid || ''} onClick={openPatient} /></td>
                     <td className="px-4 py-3 text-slate-600">
                       <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${record.registrationType === 'Emergency' ? 'bg-red-100 text-red-700' :
                           record.registrationType === 'Quick' ? 'bg-amber-100 text-amber-700' :
@@ -292,6 +284,7 @@ export const TodayRegistrations = () => {
           </div>
         )}
       </AnimatePresence>
+      <PatientQuickViewModal uhid={selectedUhid} onClose={closePatient} />
     </div>
   );
 };

@@ -1,3 +1,6 @@
+import { PatientNameLink } from '../../components/shared/PatientNameLink';
+import { PatientQuickViewModal } from '../../components/shared/PatientQuickViewModal';
+import { usePatientQuickView } from '../../hooks/usePatientQuickView';
 import { useState, useEffect } from 'react';
 import { useIPD } from '../../contexts/IPDContext';
 import { useInvestigations } from '../../contexts/InvestigationContext';
@@ -21,6 +24,7 @@ export const ActiveInpatients = () => {
   const selectedWard = wardIdParam ? wards.find(w => w.id === Number(wardIdParam)) : null;
 
   const [activeViewer, setActiveViewer] = useState<{ patientId: string; category: 'Lab' | 'Radiology' } | null>(null);
+  const { selectedUhid, openPatient, closePatient } = usePatientQuickView();
 
   const [search, setSearch] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
@@ -160,7 +164,7 @@ export const ActiveInpatients = () => {
                   return (
                     <tr key={patient.id} className="hover:bg-slate-50/70 transition-colors">
                       <td className="px-4 py-3">
-                        <div className="font-bold text-slate-800">{patient.patientName}</div>
+                        <div className="font-bold text-slate-800"><PatientNameLink name={patient.patientName || ""} uhid={patient.uhid || ""} onClick={openPatient} /></div>
                         <div className="text-xs text-slate-500">{patient.uhid} • {patient.age}y {patient.gender}</div>
                       </td>
                       <td className="px-4 py-3">
@@ -226,6 +230,7 @@ export const ActiveInpatients = () => {
           onClose={() => setActiveViewer(null)}
         />
       )}
+      <PatientQuickViewModal uhid={selectedUhid} onClose={closePatient} />
     </div>
   );
 };

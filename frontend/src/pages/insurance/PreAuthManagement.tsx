@@ -1,3 +1,6 @@
+import { PatientNameLink } from '../../components/shared/PatientNameLink';
+import { PatientQuickViewModal } from '../../components/shared/PatientQuickViewModal';
+import { usePatientQuickView } from '../../hooks/usePatientQuickView';
 import { useState, useEffect, useMemo } from 'react';
 import { DateFilter } from '@/components/ui/DateFilter';
 import { Pagination } from '@/components/ui/Pagination';
@@ -22,6 +25,7 @@ export const PreAuthManagement = () => {
   const { patients: ipdAdmissions } = useIPD();
   const API_BASE = import.meta.env.VITE_API_URL as string;
   const [ipBills, setIpBills] = useState<any[]>([]);
+  const { selectedUhid, openPatient, closePatient } = usePatientQuickView();
   const [patientLabOrders, setPatientLabOrders] = useState<any[]>([]);
   const [patientRadOrders, setPatientRadOrders] = useState<any[]>([]);
   const [wardCharges, setWardCharges] = useState<Record<string, number>>({});
@@ -71,8 +75,10 @@ export const PreAuthManagement = () => {
       .catch(() => {});
   }, []);
 
+  const activeUhid = (viewRequest?.uhid || form.uhid || '').trim();
+
   useEffect(() => {
-    const u = form.uhid.trim();
+    const u = activeUhid;
     if (u.length >= 4) {
       fetch(`${API_BASE}/lab/orders?uhid=${encodeURIComponent(u)}`)
         .then(r => (r.ok ? r.json() : []))
@@ -91,38 +97,33 @@ export const PreAuthManagement = () => {
       setPatientLabOrders([]);
       setPatientRadOrders([]);
     }
-  }, [form.uhid]);
+  }, [activeUhid]);
 
   const matchedAdmission = useMemo(() => {
-    const u = form.uhid.trim().toLowerCase();
+    const u = activeUhid.toLowerCase();
     if (u.length < 4) return null;
     return ipdAdmissions.find(p => p.uhid.toLowerCase() === u
       && (p.status === 'Discharged' || p.status === 'Discharge Requested'
           || p.status === 'Admitted')) || null;
-  }, [form.uhid, ipdAdmissions]);
+  }, [activeUhid, ipdAdmissions]);
 
   const ipBill = useMemo(() => {
-    const u = form.uhid.trim().toLowerCase();
+    const u = activeUhid.toLowerCase();
     if (u.length < 4) return null;
-    return ipBills.find(b => b.Uhid?.toLowerCase() === u) || null;
-  }, [form.uhid, ipBills]);
+    const matches = ipBills.filter(b => (b.Uhid || '').toLowerCase() === u);
+    return matches.length ? matches.reduce((a, b) => (b.IpBillId > a.IpBillId ? b : a)) : null;
+  }, [activeUhid, ipBills]);
 
-  const billItems = useMemo(() => {
-    if (!ipBill || !ipBill.ItemDetails) return [];
-    try {
-      return JSON.parse(ipBill.ItemDetails);
-    } catch { return []; }
-  }, [ipBill]);
+  const billItems = useMemo(
+    () => (ipBill?.Items || []).map((it: any) => ({
+      desc: it.ItemDescription, qty: Number(it.Quantity), unit: Number(it.UnitPrice),
+      subtotal: Number(it.Subtotal ?? Number(it.Quantity) * Number(it.UnitPrice)),
+    })),
+    [ipBill],
+  );
 
   const displayBillItems = useMemo(() => {
-    if (billItems.length > 0) {
-      return billItems.map((b: any) => ({
-        desc: b.description || b.name,
-        qty: Number(b.quantity) || 1,
-        unit: Number(b.unitPrice) || 0,
-        subtotal: Number(b.total) || 0
-      }));
-    }
+    if (billItems.length > 0) return billItems;
 
     if (!matchedAdmission) return [];
     
@@ -489,7 +490,7 @@ export const PreAuthManagement = () => {
                     className={inputCls('uhid')}>
                     <option value="">Select Eligible Patient...</option>
                     {Array.from(new Map(policies.filter((p: any) => !preAuths.some((req: any) => req.uhid === p.uhid)).map((p: any) => [p.uhid, p])).values()).map((p: any) => (
-                      <option key={p.id} value={p.uhid}>{p.patientName} ({p.uhid})</option>
+                      <option key={p.id} value={p.uhid}><PatientNameLink name={p.patientName || ""} uhid={p.uhid || ""} onClick={openPatient} /> ({p.uhid})</option>
                     ))}
                   </select>
                   {errors.uhid && <p className="text-[11px] text-red-500 mt-1">{errors.uhid}</p>}
@@ -716,7 +717,7 @@ export const PreAuthManagement = () => {
       {/* ── View ── */}
       {viewRequest && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[92vh] overflow-y-auto custom-scrollbar">
             <div className="px-5 py-3 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
               <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                 <FileText className="w-5 h-5 text-primary" /> {viewRequest.id}
@@ -739,6 +740,42 @@ export const PreAuthManagement = () => {
                   <p className="text-xs text-slate-600">{viewRequest.decisionReason}</p>
                 </div>
               )}
+              {displayBillItems.length > 0 && (
+                <div className="col-span-2 border border-slate-200 rounded-xl overflow-hidden bg-white mt-2">
+                  <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-primary" />
+                    <h3 className="text-sm font-bold text-slate-800">Discharge Bill Breakdown & Charge Summary</h3>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50 text-[11px] font-semibold text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                        <tr>
+                          <th className="px-4 py-2.5 text-left">Item Description</th>
+                          <th className="px-4 py-2.5 text-right">Qty/Days</th>
+                          <th className="px-4 py-2.5 text-right">Unit Price (₹)</th>
+                          <th className="px-4 py-2.5 text-right">Total (₹)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {displayBillItems.map((it: { desc: string; qty: number; unit: number; subtotal: number }, idx: number) => (
+                          <tr key={idx} className="hover:bg-slate-50">
+                            <td className="px-4 py-2.5 text-slate-700 font-medium">{it.desc}</td>
+                            <td className="px-4 py-2.5 text-right text-slate-600">{it.qty}</td>
+                            <td className="px-4 py-2.5 text-right text-slate-600">{it.unit ? it.unit.toLocaleString('en-IN') : '0'}</td>
+                            <td className="px-4 py-2.5 text-right font-bold text-slate-800">{it.subtotal ? it.subtotal.toLocaleString('en-IN') : '0'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot className="bg-emerald-50/70 border-t border-slate-200">
+                        <tr>
+                          <td colSpan={3} className="px-4 py-2.5 text-right font-semibold text-emerald-800">Total Estimated Cost</td>
+                          <td className="px-4 py-2.5 text-right font-bold text-emerald-700 text-base">{calculatedTotal.toLocaleString('en-IN')}</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
             <div className="bg-slate-50 border-t border-slate-100 px-5 py-3 flex justify-end">
               <button onClick={() => setViewRequest(null)}
@@ -747,6 +784,7 @@ export const PreAuthManagement = () => {
           </div>
         </div>
       )}
+      <PatientQuickViewModal uhid={selectedUhid} onClose={closePatient} />
     </div>
   );
 };
