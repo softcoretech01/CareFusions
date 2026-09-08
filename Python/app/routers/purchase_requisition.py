@@ -1,6 +1,7 @@
 import logging
 import json
 from typing import List, Optional
+from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import text
@@ -125,6 +126,35 @@ def get_all_prs(db: Session = Depends(get_db)):
         logger.error(f"[GET /purchase-requisitions] Error: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to fetch PRs")
 
+def _next_pr_no(db: Session) -> str:
+    """The next PR number in sequence, as PR-<year>-<seq>.
+
+    Reads the highest sequence already issued this year rather than counting
+    rows: a count is wrong the moment any requisition is deleted, which is how
+    the Low Stock Monitor came to mint a PR-2026-013 that already existed.
+    """
+    year = date.today().year
+    row = db.execute(text("""
+        SELECT COALESCE(MAX(CAST(SUBSTRING_INDEX(PrNo, '-', -1) AS UNSIGNED)), 0) AS max_seq
+        FROM inventory.PurchaseRequisition
+        WHERE PrNo LIKE :prefix
+    """), {"prefix": f"PR-{year}-%"}).fetchone()
+    next_seq = int(row.max_seq if row else 0) + 1
+    return "PR-{}-{:03d}".format(year, next_seq)
+
+
+# NOTE: declared BEFORE /{pr_id} so "next-code" is not swallowed as an ID.
+@router.get("/next-code")
+def get_next_pr_no(db: Session = Depends(get_db)):
+    """Preview the PR number the next create would assign (provisional)."""
+    try:
+        return {"prNo": _next_pr_no(db)}
+    except Exception as e:
+        logger.error(f"[GET /purchase-requisitions/next-code] Error: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                            detail="Failed to generate next PR number")
+
+
 @router.get("/{pr_id}", response_model=PurchaseRequisitionResponse)
 def get_pr_by_id(pr_id: int, db: Session = Depends(get_db)):
     try:
@@ -153,9 +183,25 @@ def get_pr_by_id(pr_id: int, db: Session = Depends(get_db)):
 @router.post("/", response_model=PurchaseRequisitionResponse, status_code=status.HTTP_201_CREATED)
 def create_pr(payload: PurchaseRequisitionCreate, db: Session = Depends(get_db)):
     try:
+        # The number is assigned here, not by the caller. A client that sends
+        # none gets the next in sequence; one that sends a number already in use
+        # is corrected rather than allowed to create a second PR under it.
+        pr_no = (payload.prNo or "").strip()
+        if not pr_no:
+            pr_no = _next_pr_no(db)
+        else:
+            taken = db.execute(
+                text("SELECT 1 FROM inventory.PurchaseRequisition WHERE PrNo = :n LIMIT 1"),
+                {"n": pr_no}).fetchone()
+            if taken:
+                replacement = _next_pr_no(db)
+                logger.warning("[POST /purchase-requisitions] %s is already in use; "
+                               "assigning %s instead", pr_no, replacement)
+                pr_no = replacement
+
         result = _call_sp(
             db, "CREATE",
-            pr_no=payload.prNo,
+            pr_no=pr_no,
             requisition_date=payload.requisitionDate,
             department=payload.department,
             inventory_type=payload.inventoryType,

@@ -56,7 +56,7 @@ export const VendorQuotation = () => {
   const fetchQuotations = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/vendor-quotations`);
+      const res = await fetch(`${API_BASE}/vendor-quotations/`);
       if (res.ok) setRecords(await res.json());
     } catch (err) {
       console.error(err);
@@ -68,9 +68,9 @@ export const VendorQuotation = () => {
   const fetchMasters = async () => {
     try {
       const [rfqRes, vendRes, ptRes] = await Promise.all([
-        fetch(`${API_BASE}/rfqs`),
-        fetch(`${API_BASE}/vendors`),
-        fetch(`${API_BASE}/payment-terms`)
+        fetch(`${API_BASE}/rfqs/`),
+        fetch(`${API_BASE}/vendors/`),
+        fetch(`${API_BASE}/payment-terms/`)
       ]);
       if (rfqRes.ok) setAllRFQs(await rfqRes.json());
       if (vendRes.ok) setVendorsList(await vendRes.json());
@@ -158,7 +158,7 @@ export const VendorQuotation = () => {
     if (validateForm()) {
       const payload = { ...formData, status };
       try {
-        const url = selectedRecord ? `${API_BASE}/vendor-quotations/${selectedRecord.id}` : `${API_BASE}/vendor-quotations`;
+        const url = selectedRecord ? `${API_BASE}/vendor-quotations/${selectedRecord.id}` : `${API_BASE}/vendor-quotations/`;
         const method = selectedRecord ? 'PUT' : 'POST';
         const res = await fetch(url, {
           method,
