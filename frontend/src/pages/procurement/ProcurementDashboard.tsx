@@ -43,9 +43,9 @@ export const ProcurementDashboard = () => {
     setDetailsLoading(true);
     try {
       let url = '';
-      if (type === 'PR') url = `${API_BASE}/purchase-requisitions`;
-      else if (type === 'PO') url = `${API_BASE}/purchase-orders`;
-      else if (type === 'GRN') url = `${API_BASE}/grns`;
+      if (type === 'PR') url = `${API_BASE}/purchase-requisitions/`;
+      if (type === 'PO') url = `${API_BASE}/purchase-orders/`;
+      else if (type === 'GRN') url = `${API_BASE}/grns/`;
 
       const res = await fetch(url);
       const data = await res.json();

@@ -19,8 +19,8 @@ export const VendorsCatalog = () => {
     setIsLoading(true);
     try {
       const [catRes, ctgRes] = await Promise.all([
-        fetch(`${API_BASE}/vendor-catalogs`),
-        fetch(`${API_BASE}/categories`)
+        fetch(`${API_BASE}/vendor-catalogs/`),
+        fetch(`${API_BASE}/categories/`)
       ]);
       
       if (catRes.ok) setCatalogs(await catRes.json());

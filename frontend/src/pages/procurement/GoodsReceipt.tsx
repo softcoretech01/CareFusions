@@ -63,10 +63,10 @@ export const GoodsReceipt = () => {
     setIsLoading(true);
     try {
       const [grnsRes, posRes, venRes, whRes] = await Promise.all([
-        fetch(`${API_BASE}/grns`),
-        fetch(`${API_BASE}/purchase-orders`),
-        fetch(`${API_BASE}/vendors`),
-        fetch(`${API_BASE}/stores`)
+        fetch(`${API_BASE}/grns/`),
+        fetch(`${API_BASE}/purchase-orders/`),
+        fetch(`${API_BASE}/vendors/`),
+        fetch(`${API_BASE}/stores/`)
       ]);
       
       if (grnsRes.ok) setRecords(await grnsRes.json());
@@ -155,7 +155,7 @@ export const GoodsReceipt = () => {
 
       const payload = { ...formData, status, qcStatus };
       try {
-        const url = selectedRecord ? `${API_BASE}/grns/${selectedRecord.id}` : `${API_BASE}/grns`;
+        const url = selectedRecord ? `${API_BASE}/grns/${selectedRecord.id}` : `${API_BASE}/grns/`;
         const method = selectedRecord ? 'PUT' : 'POST';
         const res = await fetch(url, {
           method,

@@ -259,16 +259,39 @@ BEGIN
             ModifiedBy = p_ModifiedBy
         WHERE PatientId = p_PatientId;
 
-        -- A patient first seen in Emergency keeps their EmergencyRegistration
-        -- row under the same UHID, and both rows feed the unioned registration
-        -- lists. Correcting the age here has to reach that row too, or the same
-        -- patient shows up twice with two different ages and reads as two people.
+        -- One person can hold a row in all three registration tables under the
+        -- same UHID -- a walk-in quick registration, an emergency visit, and a
+        -- full registration. All three feed the unioned registration lists, so
+        -- demographics corrected here have to reach the other two, or the same
+        -- patient reads as two or three different people.
+        --
+        -- Only columns that describe the PERSON are pushed. Registration date,
+        -- time, status, visit details and the insurance policy quoted for a
+        -- given encounter stay per-visit and are left alone. COALESCE keeps a
+        -- blank field here from wiping what the other row already holds.
+        UPDATE registration.QuickRegistration qr
+        JOIN registration.PatientRegistration pr ON pr.Uhid = qr.Uhid
+        SET qr.Title           = COALESCE(NULLIF(TRIM(pr.Title), ''), qr.Title),
+            qr.PatientName     = COALESCE(NULLIF(TRIM(pr.PatientName), ''), qr.PatientName),
+            qr.Gender          = COALESCE(NULLIF(TRIM(pr.Gender), ''), qr.Gender),
+            qr.DateOfBirth     = COALESCE(pr.DateOfBirth, qr.DateOfBirth),
+            qr.Age             = COALESCE(pr.Age, qr.Age),
+            qr.MobileNumber    = COALESCE(NULLIF(TRIM(pr.MobileNumber), ''), qr.MobileNumber),
+            qr.AlternateMobile = COALESCE(NULLIF(TRIM(pr.AlternateMobile), ''), qr.AlternateMobile)
+        WHERE pr.PatientId = p_PatientId
+          AND pr.Uhid IS NOT NULL;
+
+        -- EmergencyRegistration is a thinner table: no date of birth, no title,
+        -- and no column for the patient's own mobile -- EmergencyContactPhone
+        -- belongs to the next of kin, so it is deliberately not overwritten.
+        -- ApproximateAge records the same fact as PatientRegistration.Age.
         UPDATE registration.EmergencyRegistration er
         JOIN registration.PatientRegistration pr ON pr.Uhid = er.Uhid
-        SET er.ApproximateAge = pr.Age
+        SET er.PatientName    = COALESCE(NULLIF(TRIM(pr.PatientName), ''), er.PatientName),
+            er.Gender         = COALESCE(NULLIF(TRIM(pr.Gender), ''), er.Gender),
+            er.ApproximateAge = COALESCE(pr.Age, er.ApproximateAge)
         WHERE pr.PatientId = p_PatientId
-          AND pr.Uhid IS NOT NULL
-          AND pr.Age IS NOT NULL;
+          AND pr.Uhid IS NOT NULL;
 
         SELECT * FROM registration.PatientRegistration WHERE PatientId = p_PatientId;
         

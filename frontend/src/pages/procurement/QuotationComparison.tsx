@@ -60,9 +60,9 @@ export const QuotationComparison = () => {
     setIsLoading(true);
     try {
       const [rfqRes, qtnsRes, vendorCatRes] = await Promise.all([
-        fetch(`${API_BASE}/rfqs`),
-        fetch(`${API_BASE}/vendor-quotations`),
-        fetch(`${API_BASE}/vendor-catalogs`)
+        fetch(`${API_BASE}/rfqs/`),
+        fetch(`${API_BASE}/vendor-quotations/`),
+        fetch(`${API_BASE}/vendor-catalogs/`)
       ]);
       if (rfqRes.ok) setRfqs(await rfqRes.json());
       if (qtnsRes.ok) setQtns(await qtnsRes.json());

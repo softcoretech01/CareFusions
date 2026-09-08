@@ -69,13 +69,10 @@ export const LowStockMonitor = () => {
         return acc;
       }, {});
       const raised: string[] = [];
-      let seqOffset = 0;
       for (const [invType, groupItems] of Object.entries(groups)) {
-      const existing = await fetch(`${API_BASE}/purchase-requisitions`)
-        .then(r => (r.ok ? r.json() : [])).catch(() => []);
-      const seq = (Array.isArray(existing) ? existing.length : 0) + 1 + seqOffset;
-      seqOffset += 1;
-      const prNo = `PR-${new Date().getFullYear()}-${String(seq).padStart(3, '0')}`;
+      // The PR number is assigned by the server. Deriving it here from the row
+      // count issued numbers that already existed the moment any PR had been
+      // deleted -- that is how a second PR-2026-013 was created.
       const wanted = invType === 'MEDICINE' ? 'Pharmacy Store' : 'Main Store';
       const store = (stores.find(st => st.storeType === wanted)
         ?? stores.find(st => st.storeType === 'Main Store')
@@ -94,7 +91,6 @@ export const LowStockMonitor = () => {
       }));
 
       const payload = {
-        prNo,
         requisitionDate: today(),
         department: store,
         inventoryType: invType,
@@ -111,11 +107,12 @@ export const LowStockMonitor = () => {
         createdBy: 'Inventory',
       };
 
-      const res = await fetch(`${API_BASE}/purchase-requisitions`, {
+      const res = await fetch(`${API_BASE}/purchase-requisitions/`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
       });
       if (res.ok) {
-        raised.push(prNo);
+        const created = await res.json().catch(() => null);
+        raised.push(created?.prNo ?? '(number assigned)');
       } else {
         console.error('PR create failed', res.status, await res.text().catch(() => ''));
         toast.error(`Failed to create requisition for ${typeLabel(invType)}`);
@@ -179,7 +176,6 @@ export const LowStockMonitor = () => {
                 <th className="px-4 py-3 text-left">Deficit</th>
                 <th className="px-4 py-3 text-left">Status</th>
                 <th className="px-4 py-3 text-right">Action</th>
-                <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
