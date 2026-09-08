@@ -69,7 +69,7 @@ export const IPBilling = () => {
         setWardCharges(prices);
         setWardNames(names);
       }
-    }).catch(() => {});
+    }).catch(() => { });
     fetch(`${API_BASE}/departments/`)
       .then(r => r.json())
       .then((rows: any[]) => {
@@ -97,7 +97,7 @@ export const IPBilling = () => {
         });
         setMedicinePrices(m);
       }
-    }).catch(() => {});
+    }).catch(() => { });
 
     axios.get(`${API_BASE}/tests/`).then(res => {
       if (Array.isArray(res.data)) {
@@ -111,7 +111,7 @@ export const IPBilling = () => {
         });
         setLabPrices(m);
       }
-    }).catch(() => {});
+    }).catch(() => { });
 
     axios.get(`${API_BASE}/radiology-services/`).then(res => {
       if (Array.isArray(res.data)) {
@@ -125,7 +125,7 @@ export const IPBilling = () => {
         });
         setRadPrices(m);
       }
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   /** Consultation fee for the admitting department; 0 when the master has none. */
@@ -215,84 +215,84 @@ export const IPBilling = () => {
     const visitFee = consultationFeeFor(foundIPD.specialty || foundIPD.department) || 400;
     const isFromOP = foundIPD.admissionType === 'OPD';
     const feeQty = isFromOP ? Math.max(0, stayDays - 1) : stayDays;
-    
+
     const newItems: BillItem[] = [];
-    
+
     const transfers = foundIPD.wardTransferHistory || [];
-    
+
     if (transfers.length === 0) {
       const wardId = foundIPD.currentWardId;
       const charge = wardCharges[String(wardId)] || 1500;
       const wName = wardNames[String(wardId)] || `Ward ${wardId || 'General'}`;
-      
-      newItems.push({ 
-        id: 'ITM-ROOM-1', 
-        description: `Room Charges - ${wName} (${stayDays} Days)`, 
-        price: charge, 
-        qty: stayDays, 
-        total: charge * stayDays, 
-        category: 'IPD' 
+
+      newItems.push({
+        id: 'ITM-ROOM-1',
+        description: `Room Charges - ${wName} (${stayDays} Days)`,
+        price: charge,
+        qty: stayDays,
+        total: charge * stayDays,
+        category: 'IPD'
       });
     } else {
       let lastDate = new Date(foundIPD.admissionDate);
       lastDate.setHours(0, 0, 0, 0);
-      
+
       let totalBilledDays = 0;
       transfers.forEach((t: any, idx: number) => {
-         const tDate = new Date(t.transferDate);
-         tDate.setHours(0, 0, 0, 0);
-         
-         let days = Math.floor((tDate.getTime() - lastDate.getTime()) / 86400000);
-         if (days < 0) days = 0;
-         
-         let billedDays = days === 0 ? 1 : days;
-         const wardId = t.fromWardId;
-         const charge = wardCharges[String(wardId)] || 1500;
-         const wName = wardNames[String(wardId)] || `Ward ${wardId}`;
-         
-         newItems.push({ 
-           id: `ITM-ROOM-${idx+1}`, 
-           description: `Room Charges - ${wName} (${billedDays} Days)`, 
-           price: charge, 
-           qty: billedDays, 
-           total: charge * billedDays, 
-           category: 'IPD' 
-         });
-         
-         totalBilledDays += billedDays;
-         lastDate = tDate;
+        const tDate = new Date(t.transferDate);
+        tDate.setHours(0, 0, 0, 0);
+
+        let days = Math.floor((tDate.getTime() - lastDate.getTime()) / 86400000);
+        if (days < 0) days = 0;
+
+        let billedDays = days === 0 ? 1 : days;
+        const wardId = t.fromWardId;
+        const charge = wardCharges[String(wardId)] || 1500;
+        const wName = wardNames[String(wardId)] || `Ward ${wardId}`;
+
+        newItems.push({
+          id: `ITM-ROOM-${idx + 1}`,
+          description: `Room Charges - ${wName} (${billedDays} Days)`,
+          price: charge,
+          qty: billedDays,
+          total: charge * billedDays,
+          category: 'IPD'
+        });
+
+        totalBilledDays += billedDays;
+        lastDate = tDate;
       });
-      
+
       let finalDays = stayDays - totalBilledDays;
       if (finalDays <= 0) finalDays = 1; // Guarantee at least 1 day for the final ward
-      
+
       const finalWardId = transfers[transfers.length - 1].toWardId;
       const charge = wardCharges[String(finalWardId)] || 1500;
       const wName = wardNames[String(finalWardId)] || `Ward ${finalWardId}`;
-      
-      newItems.push({ 
-        id: `ITM-ROOM-${transfers.length+1}`, 
-        description: `Room Charges - ${wName} (${finalDays} Days)`, 
-        price: charge, 
-        qty: finalDays, 
-        total: charge * finalDays, 
-        category: 'IPD' 
+
+      newItems.push({
+        id: `ITM-ROOM-${transfers.length + 1}`,
+        description: `Room Charges - ${wName} (${finalDays} Days)`,
+        price: charge,
+        qty: finalDays,
+        total: charge * finalDays,
+        category: 'IPD'
       });
     }
-    
+
     newItems.push({ id: 'ITM-NURSING', description: `Nursing Charges (Per Day)`, price: 500, qty: stayDays, total: 500 * stayDays, category: 'IPD' });
 
     if (feeQty > 0) {
-      newItems.push({ 
-        id: 'ITM-003', 
-        description: `Doctor Visit Fee (Per Day)${foundIPD.specialty ? ` - ${foundIPD.specialty}` : ''}`, 
-        price: visitFee, 
-        qty: feeQty, 
+      newItems.push({
+        id: 'ITM-003',
+        description: `Doctor Visit Fee (Per Day)${foundIPD.specialty ? ` - ${foundIPD.specialty}` : ''}`,
+        price: visitFee,
+        qty: feeQty,
         total: visitFee * feeQty,
         category: 'IPD'
       });
     }
-    
+
     /**
      * Resolve a medicine's selling price from the master.
      *
@@ -320,16 +320,16 @@ export const IPBilling = () => {
     // 1. Take-home medicines from the discharge summary
     if (foundIPD.dischargeInfo?.medicines?.length > 0) {
       foundIPD.dischargeInfo.medicines.forEach((med: any, index: number) => {
-         const price = priceForMedicine(med);
-         const qty = Number(med.quantity || 1);
-         newItems.push({
-            id: `MED-${index+1}`,
-            description: med.medicineName,
-            price: price,
-            qty: qty,
-            total: price * qty,
-            category: 'IPD'
-         });
+        const price = priceForMedicine(med);
+        const qty = Number(med.quantity || 1);
+        newItems.push({
+          id: `MED-${index + 1}`,
+          description: med.medicineName,
+          price: price,
+          qty: qty,
+          total: price * qty,
+          category: 'IPD'
+        });
       });
     }
 
@@ -405,7 +405,7 @@ export const IPBilling = () => {
     try {
       const radRes = await axios.get(`${API_BASE}/radiology/orders`);
       if (Array.isArray(radRes.data)) {
-        const patientRad = radRes.data.filter((r: any) => 
+        const patientRad = radRes.data.filter((r: any) =>
           (r.uhid || r.Uhid || '').toLowerCase() === foundIPD.uhid.toLowerCase() &&
           (r.status === 'Completed' || r.status === 'Verified')
         );
@@ -456,14 +456,14 @@ export const IPBilling = () => {
     // 4. Add unbilled OPD Charges
     try {
       const opdRes = await axios.get(`${API_BASE}/opd-visits/schedule?source=emr`);
-      const unbilledOpd = opdRes.data.filter((p: any) => 
-        (p.uhid === foundIPD.uhid || (p.uhid && p.uhid.toLowerCase() === foundIPD.uhid.toLowerCase())) && 
+      const unbilledOpd = opdRes.data.filter((p: any) =>
+        (p.uhid === foundIPD.uhid || (p.uhid && p.uhid.toLowerCase() === foundIPD.uhid.toLowerCase())) &&
         (p.status === 'Completed' || p.isFinalized) &&
-        p.billingStatus !== 'Paid' && 
-        p.billingStatus !== 'Billed' && 
+        p.billingStatus !== 'Paid' &&
+        p.billingStatus !== 'Billed' &&
         p.billingStatus !== 'Completed'
       );
-      
+
       unbilledOpd.forEach((visit: any, vIdx: number) => {
         const consultFee = consultationFeeFor(visit.department) || 500;
         newItems.push({
@@ -530,7 +530,7 @@ export const IPBilling = () => {
     } catch (e) {
       console.error("Failed to fetch OPD visits for billing", e);
     }
-    
+
     setItems(newItems);
   };
 
@@ -1001,12 +1001,12 @@ export const IPBilling = () => {
                                 <input type="number" className="w-full text-center bg-transparent border-0 p-1 focus:ring-1 focus:ring-primary/30 rounded text-sm" value={item.qty} onChange={e => handleItemChange(item.id, 'qty', Number(e.target.value))} />
                               )}
                             </td>
-                            <td className="px-5 py-3 text-right font-semibold text-slate-800">₹{item.total.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                            <td className="px-5 py-3 text-right font-semibold text-slate-800">₹{item.total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                           </tr>
                         ))}
                         <tr className="bg-slate-50 font-semibold">
                           <td colSpan={3} className="px-5 py-2 text-right text-slate-600 text-xs">OPD Subtotal:</td>
-                          <td className="px-5 py-2 text-right text-slate-800 text-sm">₹{items.filter(i => i.category === 'OPD').reduce((s, i) => s + i.total, 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                          <td className="px-5 py-2 text-right text-slate-800 text-sm">₹{items.filter(i => i.category === 'OPD').reduce((s, i) => s + i.total, 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                         </tr>
                       </>
                     )}
@@ -1037,12 +1037,12 @@ export const IPBilling = () => {
                                 <input type="number" className="w-full text-center bg-transparent border-0 p-1 focus:ring-1 focus:ring-primary/30 rounded text-sm" value={item.qty} onChange={e => handleItemChange(item.id, 'qty', Number(e.target.value))} />
                               )}
                             </td>
-                            <td className="px-5 py-3 text-right font-semibold text-slate-800">₹{item.total.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                            <td className="px-5 py-3 text-right font-semibold text-slate-800">₹{item.total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                           </tr>
                         ))}
                         <tr className="bg-slate-50 font-semibold">
                           <td colSpan={3} className="px-5 py-2 text-right text-slate-600 text-xs">IPD Subtotal:</td>
-                          <td className="px-5 py-2 text-right text-slate-800 text-sm">₹{items.filter(i => i.category !== 'OPD').reduce((s, i) => s + i.total, 0).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                          <td className="px-5 py-2 text-right text-slate-800 text-sm">₹{items.filter(i => i.category !== 'OPD').reduce((s, i) => s + i.total, 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                         </tr>
                       </>
                     )}
@@ -1051,7 +1051,7 @@ export const IPBilling = () => {
                         {insuranceDetails ? 'Patient Payable:' : 'Total Amount:'}
                       </td>
                       <td className="px-5 py-4 text-right text-primary text-lg">
-                        ₹{(insuranceDetails ? insuranceDetails.balance : totalAmount).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                        ₹{(insuranceDetails ? insuranceDetails.balance : totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
                     </tr>
                   </tbody>

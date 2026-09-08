@@ -88,6 +88,7 @@ def get_pro_orders(
     payment_status: Optional[str] = None,
     order_type: Optional[str] = None,
     exclude_order_type: Optional[str] = None,
+    uhid: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
     try:
@@ -97,6 +98,10 @@ def get_pro_orders(
         if source_module:
             where_clauses.append("so.SourceModule = :source_module")
             params['source_module'] = source_module
+
+        if uhid:
+            where_clauses.append("so.UHID = :uhid")
+            params['uhid'] = uhid
 
         # The Operations screen is defined by what was ordered, not by which module
         # raised it -- an operation on an IPD admission is still an operation. So it
@@ -132,6 +137,11 @@ def get_pro_orders(
         # so the UNION cannot fan a Service_Order row out into duplicates.
         orders_query = text(f"""
             SELECT so.*,
+                   (SELECT CASE 
+                        WHEN adm2.CoverageType = 'Insurance' THEN 'Insurance'
+                        WHEN adm2.InsuranceStatus = 'Covered' THEN 'Insurance'
+                        ELSE adm2.CoverageType 
+                    END FROM hospital.IPD_Admission adm2 WHERE adm2.Uhid = so.UHID AND adm2.IsDeleted = 0 ORDER BY adm2.AdmissionId DESC LIMIT 1) as AdmissionCoverageType,
                    COALESCE(
                        NULLIF(TRIM(p.PatientName), ''),
                        NULLIF(TRIM(src.PatientName), ''),
@@ -200,13 +210,14 @@ def get_pro_orders(
             items_rows = db.execute(items_query, {"order_id": order_dict["ServiceOrderId"]}).fetchall()
             
             order_dict["Items"] = [dict(item._mapping) for item in items_rows]
-            # How much insurance an APPROVED pre-authorization actually permits on
-            # this order, so the Price Review drawer shows the ceiling instead of an
-            # editable field the backend will silently override.
             order_dict["AuthorizedInsuranceCap"] = float(
                 gate.approved_insurance_cover(db, order_dict["ServiceOrderId"]))
             order_dict["AuthorizationStatus"] = gate.authorization_status_for(
                 db, order_dict["ServiceOrderId"])
+
+            if order_dict.get("SourceModule") != "OPD" and order_dict.get("AdmissionCoverageType") in ('Insurance', 'Covered') and order_dict.get("PaymentStatus") in ("UNPAID", "PENDING", "NOT_REQUIRED", "PAID"):
+                order_dict["PaymentStatus"] = "COVER_IN_INSURANCE"
+
             result_list.append(order_dict)
             
         return result_list
@@ -354,6 +365,17 @@ def approve_pro_order(
         # ── Insurance: what an approved pre-authorization actually permits ──
         cap_remaining = gate.approved_insurance_cover(db, order_id)
         auth_status = gate.authorization_status_for(db, order_id)
+
+        if order.get("SourceModule") == "IPD":
+            if order.get("AdmissionId"):
+                adm = db.execute(text("SELECT CASE WHEN CoverageType = 'Insurance' THEN 'Insurance' WHEN InsuranceStatus = 'Covered' THEN 'Insurance' ELSE CoverageType END as CoverageType FROM hospital.IPD_Admission WHERE AdmissionId = :id"), {"id": order["AdmissionId"]}).fetchone()
+            else:
+                adm = db.execute(text("SELECT CASE WHEN CoverageType = 'Insurance' THEN 'Insurance' WHEN InsuranceStatus = 'Covered' THEN 'Insurance' ELSE CoverageType END as CoverageType FROM hospital.IPD_Admission WHERE Uhid = :uhid AND IsDeleted = 0 ORDER BY AdmissionId DESC LIMIT 1"), {"uhid": order["UHID"]}).fetchone()
+                
+            if adm and adm.CoverageType == 'Insurance':
+                setattr(payload, "AssumeFullyInsured", True)
+                if auth_status not in gate.AUTH_PAYS:
+                    auth_status = "APPROVED"
 
         approved_any = False
 

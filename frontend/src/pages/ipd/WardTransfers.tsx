@@ -193,7 +193,7 @@ export const WardTransfers = () => {
 
   const inputCls = "w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-medium";
 
-  const { page, setPage, pageSize, total, paged } = usePagination(activePatients);
+  const { page, setPage, pageSize, total, paged } = usePagination(filteredTransfers);
 
   return (
     <div className="space-y-4">
@@ -256,7 +256,7 @@ export const WardTransfers = () => {
                   </td>
                 </tr>
               ) : (
-                filteredTransfers.map(transfer => {
+                paged.map(transfer => {
                   const fromWard = wards.find(w => w.id === transfer.fromWardId);
                   const toWard = wards.find(w => w.id === transfer.toWardId);
                   const fromBed = beds.find(b => b.id === transfer.fromBedId);
@@ -320,7 +320,7 @@ export const WardTransfers = () => {
               required
             >
               <option value="">-- Select Patient --</option>
-              {paged.map(p => (
+              {activePatients.map(p => (
                 <option key={p.id} value={p.id}>{p.patientName} ({p.uhid})</option>
               ))}
             </select>

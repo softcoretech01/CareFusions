@@ -490,7 +490,7 @@ export const PreAuthManagement = () => {
                     className={inputCls('uhid')}>
                     <option value="">Select Eligible Patient...</option>
                     {Array.from(new Map(policies.filter((p: any) => !preAuths.some((req: any) => req.uhid === p.uhid)).map((p: any) => [p.uhid, p])).values()).map((p: any) => (
-                      <option key={p.id} value={p.uhid}><PatientNameLink name={p.patientName || ""} uhid={p.uhid || ""} onClick={openPatient} /> ({p.uhid})</option>
+                      <option key={p.id} value={p.uhid}>{p.patientName || ""} ({p.uhid})</option>
                     ))}
                   </select>
                   {errors.uhid && <p className="text-[11px] text-red-500 mt-1">{errors.uhid}</p>}

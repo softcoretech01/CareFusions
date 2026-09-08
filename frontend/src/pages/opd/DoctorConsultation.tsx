@@ -18,7 +18,6 @@ interface ApiLabTest {
   testId: number;
   code: string;
   name: string;
-  category: string;
 }
 
 interface ApiRadiologyService {
@@ -130,7 +129,6 @@ export const DoctorConsultation = () => {
               testId: item.testId,
               code: item.testCode,
               name: item.testName,
-              category: item.testCategory || '',
             }));
           setApiLabTests(active);
         }
@@ -873,7 +871,7 @@ export const DoctorConsultation = () => {
                   >
                     <option value="">Select Test...</option>
                     {apiLabTests.map(test => (
-                      <option key={test.code} value={test.code}>{test.name} ({test.category})</option>
+                      <option key={test.code} value={test.code}>{test.name}</option>
                     ))}
                   </select>
                 </div>
@@ -919,7 +917,7 @@ export const DoctorConsultation = () => {
                               <div className="flex items-center gap-2 mb-1">
                                 <span className="font-mono text-xs font-bold text-slate-500">ID: {getLabOrderId(l, i)}</span>
                                 <span className="px-2 py-0.5 text-[10px] font-bold rounded-md uppercase bg-blue-50 text-blue-600 border border-blue-200">
-                                  {apiLabTests.find(t => t.code === l.testCode)?.category || 'Lab'}
+                                  Lab
                                 </span>
                                 <span className="px-2 py-0.5 text-[10px] font-bold rounded-md uppercase border bg-amber-50 text-amber-700 border-amber-200 flex items-center gap-1">
                                   <Activity className="w-3 h-3" /> Applied in OPD

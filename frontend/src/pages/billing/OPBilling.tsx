@@ -231,8 +231,8 @@ export const OPBilling = () => {
 
       // Only hide the visit if they actually PAID for a bill on or after the visit date.
       // If they have a pending bill, keep it in this list as a reminder that the visit is unpaid.
-      const hasPaidBill = bills.some(b => 
-        b.Uhid === p.uhid && 
+      const hasPaidBill = bills.some(b =>
+        b.Uhid === p.uhid &&
         b.PaymentStatus === 'Paid' &&
         localDay(b.BillDate) >= localDay(p.date)
       );
@@ -247,7 +247,7 @@ export const OPBilling = () => {
     return d !== '' && d < todayStr;
   }).length;
 
-  const selectPatient = (visit: OpdVisit) => {
+  const selectPatient = async (visit: OpdVisit) => {
     if (visit.billingStatus === 'Paid' || visit.billingStatus === 'Billed' || visit.billingStatus === 'Completed') {
       toast.error(`This visit (${visit.queueToken}) has already been billed.`);
       return;
@@ -325,19 +325,19 @@ export const OPBilling = () => {
     if (visit.prescriptions && visit.prescriptions.length > 0) {
       visit.prescriptions.forEach((pres, idx) => {
         const itemQty = pres.quantity ? parseFloat(pres.quantity) : 1;
-        
+
         // 1. Try matching by exact medicineId
         // 2. Fallback to full string match (e.g. "Omeprazole 20mg")
         // 3. Fallback to core name (e.g. "Omeprazole")
         let itemPrice = pres.medicineId ? (medicinePrices[String(pres.medicineId)] ?? undefined) : undefined;
-        
+
         if (itemPrice === undefined) {
           itemPrice = lookup(medicinePrices, pres.medicineName);
         }
-        
+
         if (itemPrice === undefined) {
-            const coreName = pres.medicineName ? pres.medicineName.split(' ')[0] : '';
-            itemPrice = lookup(medicinePrices, coreName) ?? pres.price ?? 0;
+          const coreName = pres.medicineName ? pres.medicineName.split(' ')[0] : '';
+          itemPrice = lookup(medicinePrices, coreName) ?? pres.price ?? 0;
         }
 
         newItems.push({
@@ -348,6 +348,32 @@ export const OPBilling = () => {
           total: itemPrice * (isNaN(itemQty) ? 1 : itemQty)
         });
       });
+    }
+
+    try {
+      const proRes = await axios.get(`${API_BASE}/pro/orders?uhid=${encodeURIComponent(visit.uhid)}`);
+      const proOrders = Array.isArray(proRes.data) ? proRes.data : [];
+      
+      newItems.forEach(item => {
+        let isPaid = false;
+        proOrders.forEach((order: any) => {
+          if (order.PaymentStatus === 'PAID' || order.PaymentStatus === 'INSURANCE_COVERED') {
+            if (Array.isArray(order.Items)) {
+              order.Items.forEach((proItem: any) => {
+                // If it's a lab/rad test, the item description usually matches
+                if (item.description.toLowerCase().includes(proItem.ItemName.toLowerCase())) {
+                  isPaid = true;
+                }
+              });
+            }
+          }
+        });
+        if (isPaid) {
+          item.isPaidInAdvance = true;
+        }
+      });
+    } catch (e) {
+      console.error("Failed to fetch PRO orders", e);
     }
 
     setItems(newItems);
@@ -386,8 +412,11 @@ export const OPBilling = () => {
 
   let remainingAdvance = availableAdvance;
   const itemsWithAdvance = items.map(item => {
+    if (item.isPaidInAdvance) {
+      return { ...item, advanceApplied: item.total };
+    }
     let advanceApplied = 0;
-    if ((item.id.startsWith('LAB-') || item.id.startsWith('RAD-')) && remainingAdvance > 0) {
+    if (remainingAdvance > 0 && item.total > 0) {
       advanceApplied = Math.min(item.total, remainingAdvance);
       remainingAdvance -= advanceApplied;
     }
@@ -395,7 +424,7 @@ export const OPBilling = () => {
   });
 
   const totalAmount = itemsWithAdvance.reduce((sum, item) => sum + (item.total - item.advanceApplied), 0);
-  
+
   const handleGenerateBill = async () => {
     if (!patientName || items.length === 0) {
       toast.error('Please select a patient and add items first.');
@@ -629,16 +658,30 @@ export const OPBilling = () => {
                           )}
                         </td>
                         <td className="px-5 py-3 text-right font-semibold text-slate-800">
-                          {item.advanceApplied === item.total && item.total > 0 ? (
-                            <span className="text-emerald-600 text-xs font-bold uppercase">Paid in advance</span>
-                          ) : item.advanceApplied > 0 ? (
-                            <div className="flex flex-col items-end leading-tight">
-                              <span>₹{(item.total - item.advanceApplied).toFixed(2)}</span>
-                              <span className="text-[10px] text-emerald-600 uppercase">Includes ₹{item.advanceApplied.toFixed(2)} Adv</span>
-                            </div>
-                          ) : (
-                            <span>₹{item.total.toFixed(2)}</span>
-                          )}
+                          <div className="flex flex-col items-end gap-1">
+                            {item.isPaidInAdvance ? (
+                              <>
+                                <span className="line-through text-slate-400">₹{item.total.toFixed(2)}</span>
+                                <span className="text-[10px] text-green-700 bg-green-100 px-2 py-0.5 rounded-full whitespace-nowrap">
+                                  Paid in advance
+                                </span>
+                              </>
+                            ) : item.advanceApplied === item.total && item.total > 0 ? (
+                              <>
+                                <span className="line-through text-slate-400">₹{item.total.toFixed(2)}</span>
+                                <span className="text-[10px] text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full whitespace-nowrap">
+                                  Fully Paid by Adv
+                                </span>
+                              </>
+                            ) : item.advanceApplied > 0 ? (
+                              <>
+                                <span>₹{(item.total - item.advanceApplied).toFixed(2)}</span>
+                                <span className="text-[10px] text-emerald-600 uppercase">Includes ₹{item.advanceApplied.toFixed(2)} Adv</span>
+                              </>
+                            ) : (
+                              <span>₹{item.total.toFixed(2)}</span>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
