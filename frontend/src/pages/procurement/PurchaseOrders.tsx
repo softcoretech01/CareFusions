@@ -68,15 +68,15 @@ export const PurchaseOrders = () => {
     setIsLoading(true);
     try {
       const [posRes, prsRes, rfqsRes, qtnsRes, venRes, deptRes, ptRes, whRes, curRes] = await Promise.all([
-        fetch(`${API_BASE}/purchase-orders`),
-        fetch(`${API_BASE}/purchase-requisitions`),
-        fetch(`${API_BASE}/rfqs`),
-        fetch(`${API_BASE}/vendor-quotations`),
-        fetch(`${API_BASE}/vendors`),
-        fetch(`${API_BASE}/departments`),
-        fetch(`${API_BASE}/payment-terms`),
-        fetch(`${API_BASE}/stores`),
-        fetch(`${API_BASE}/currencies`)
+        fetch(`${API_BASE}/purchase-orders/`),
+        fetch(`${API_BASE}/purchase-requisitions/`),
+        fetch(`${API_BASE}/rfqs/`),
+        fetch(`${API_BASE}/vendor-quotations/`),
+        fetch(`${API_BASE}/vendors/`),
+        fetch(`${API_BASE}/departments/`),
+        fetch(`${API_BASE}/payment-terms/`),
+        fetch(`${API_BASE}/stores/`),
+        fetch(`${API_BASE}/currencies/`)
       ]);
 
       if (posRes.ok) setRecords(await posRes.json());
@@ -172,7 +172,7 @@ export const PurchaseOrders = () => {
     if (validateForm()) {
       const payload = { ...formData, status };
       try {
-        const url = selectedRecord ? `${API_BASE}/purchase-orders/${selectedRecord.id}` : `${API_BASE}/purchase-orders`;
+        const url = selectedRecord ? `${API_BASE}/purchase-orders/${selectedRecord.id}` : `${API_BASE}/purchase-orders/`;
         const method = selectedRecord ? 'PUT' : 'POST';
         const res = await fetch(url, {
           method,

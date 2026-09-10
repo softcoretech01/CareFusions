@@ -43,7 +43,7 @@ export const Approvals = () => {
 
   const fetchApprovals = async () => {
     try {
-      const res = await fetch(`${API_BASE}/approvals`);
+      const res = await fetch(`${API_BASE}/approvals/`);
       if (res.ok) setPendingRecords(await res.json());
     } catch (err) {
       console.error(err);
@@ -99,7 +99,7 @@ export const Approvals = () => {
     setSelectedDocDetails(null);
     try {
       let endpoint = '';
-      if (record.documentType === 'Purchase Requisition') endpoint = `${API_BASE}/purchase-requisitions/${record.originalId}`;
+      if (record.documentType === 'Purchase Requisition') endpoint = `${API_BASE}/purchase-requisitions/${record.originalId}/`;
       else if (record.documentType === 'Purchase Order') endpoint = `${API_BASE}/purchase-orders/${record.originalId}`;
       else if (record.documentType === 'Purchase Return') endpoint = `${API_BASE}/purchase-returns/${record.originalId}`;
       

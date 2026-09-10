@@ -84,14 +84,6 @@ const LIMITS = {
   claimMax: 365,
 };
 
-const insuranceProvidersList = [
-  'Star Health Insurance',
-  'HDFC Ergo',
-  'CGHS',
-  'ICICI Lombard',
-  'Max Bupa'
-];
-
 const blockIntKeys = (e: KeyboardEvent<HTMLInputElement>) => {
   if (['e', 'E', '+', '-', '.'].includes(e.key)) e.preventDefault();
 };
@@ -128,12 +120,11 @@ const mapApiToRecord = (item: Record<string, unknown>): TpaRecord => ({
 export const TpaMaster = () => {
   const [records, setRecords] = useState<TpaRecord[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [nextCode, setNextCode] = useState('');
+  const [providerOptions, setProviderOptions] = useState<{ providerName: string; status: string }[]>([]);
 
   // Filter States
   const [showFilters, setShowFilters] = useState(false);
@@ -162,7 +153,21 @@ export const TpaMaster = () => {
     }
   };
 
-  useEffect(() => { fetchTpas(); }, []);
+  // Dropdown source: Insurance Provider Master.
+  const fetchProviders = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/insurance-providers/`);
+      if (res.ok) {
+        const data: Record<string, unknown>[] = await res.json();
+        setProviderOptions(data.map(d => ({
+          providerName: d.providerName as string,
+          status: d.status as string,
+        })));
+      }
+    } catch { /* leave options as-is */ }
+  };
+
+  useEffect(() => { fetchTpas(); fetchProviders(); }, []);
 
   const fetchNextCode = async () => {
     setNextCode('');
@@ -304,6 +309,11 @@ export const TpaMaster = () => {
     }
   };
 
+  const allProviders = Array.from(new Set([
+    ...providerOptions.map(p => p.providerName),
+    ...records.map(r => r.insuranceProvider),
+  ].filter(Boolean))).sort();
+
   const filteredRecords = records.filter(record => {
     const matchesSearch =
       record.tpaName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -319,11 +329,7 @@ export const TpaMaster = () => {
   const inputCls = (err?: string) =>
     `w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:ring-2 transition-all ${err ? 'border-red-300 focus:ring-red-200' : 'border-slate-200 focus:ring-primary/20'}`;
 
-  const _totalPages = Math.max(1, Math.ceil(filteredRecords.length / itemsPerPage));
-  const _page = Math.min(currentPage, _totalPages);
-  const pagedRecords = filteredRecords.slice((_page - 1) * itemsPerPage, _page * itemsPerPage);
-
-  const { page, setPage, pageSize, total, paged } = usePagination(insuranceProvidersList);
+  const { page, setPage, pageSize, total, paged } = usePagination(filteredRecords);
 
   return (
     <motion.div
@@ -393,7 +399,7 @@ export const TpaMaster = () => {
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     >
                       <option value="">All Insurance Providers</option>
-                      {paged.map(ip => <option key={ip} value={ip}>{ip}</option>)}
+                      {allProviders.map(ip => <option key={ip} value={ip}>{ip}</option>)}
                     </select>
                   </div>
                 </motion.div>
@@ -420,7 +426,7 @@ export const TpaMaster = () => {
                       </td>
                     </tr>
                   ) : filteredRecords.length > 0 ? (
-                    pagedRecords.map((record) => (
+                    paged.map((record) => (
                       <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-4 py-3 font-medium text-slate-800">{record.tpaCode}</td>
                         <td className="px-4 py-3 font-medium text-slate-800">{record.tpaName}</td>
@@ -457,27 +463,7 @@ export const TpaMaster = () => {
                 </tbody>
               </table>
             </div>
-        <Pagination page={page} pageSize={pageSize} totalItems={total} onPageChange={setPage} />
-            <div className="flex flex-wrap items-center justify-between gap-3 p-4 border-t border-slate-100 text-sm text-slate-500">
-              <div className="flex items-center gap-2">
-                <span>Show</span>
-                <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
-                  <option value={10}>10</option>
-                  <option value={25}>25</option>
-                  <option value={50}>50</option>
-                  <option value={100}>100</option>
-                </select>
-                <span>entries</span>
-                <span className="text-slate-400">· {filteredRecords.length} total</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <span>Page {_page} of {_totalPages}</span>
-                <div className="flex gap-1">
-                  <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={_page <= 1} className="px-3 py-1 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed">Prev</button>
-                  <button onClick={() => setCurrentPage(p => Math.min(_totalPages, p + 1))} disabled={_page >= _totalPages} className="px-3 py-1 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed">Next</button>
-                </div>
-              </div>
-            </div>
+            <Pagination page={page} pageSize={pageSize} totalItems={total} onPageChange={setPage} />
           </div>
         </>
       ) : (
@@ -512,7 +498,9 @@ export const TpaMaster = () => {
                     <label className="block text-sm font-medium text-slate-700 mb-1">Insurance Provider <span className="text-red-500">*</span></label>
                     <select value={formData.insuranceProvider} onChange={e => setFormData({...formData, insuranceProvider: e.target.value})} className={inputCls(errors.insuranceProvider)}>
                       <option value="">Select Insurance Provider</option>
-                      {insuranceProvidersList.map(type => <option key={type} value={type}>{type}</option>)}
+                      {providerOptions
+                        .filter(p => p.status === 'Active' || p.providerName === formData.insuranceProvider)
+                        .map(p => <option key={p.providerName} value={p.providerName}>{p.providerName}</option>)}
                     </select>
                     {errors.insuranceProvider && <p className="text-red-500 text-xs mt-1">{errors.insuranceProvider}</p>}
                   </div>

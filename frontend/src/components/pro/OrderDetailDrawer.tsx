@@ -45,6 +45,7 @@ const BADGE: Record<string, string> = {
   COMPLETED: 'bg-green-100 text-green-700',
   CANCELLED: 'bg-slate-200 text-slate-600',
   NOT_RELEASED: 'bg-red-50 text-red-500',
+  INSURANCE_COVERED: 'bg-indigo-100 text-indigo-700',
   UNPAID: 'bg-orange-100 text-orange-700',
   PARTIALLY_PAID: 'bg-amber-100 text-amber-700',
   PAID: 'bg-green-100 text-green-700',

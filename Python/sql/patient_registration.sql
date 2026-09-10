@@ -1,6 +1,15 @@
-USE registration;
+-- ============================================================
+-- Patient Registration - SQL Script
+-- Database : registration
+--
+-- Object names are fully qualified with `registration.` because init_db.py
+-- strips the USE line, so anything unqualified would be created in the
+-- connection's default schema (admin) and the live procedure would never be
+-- replaced.
+-- ============================================================
+CREATE DATABASE IF NOT EXISTS registration;
 
-CREATE TABLE IF NOT EXISTS PatientRegistration (
+CREATE TABLE IF NOT EXISTS registration.PatientRegistration (
     PatientId INT AUTO_INCREMENT PRIMARY KEY,
     Uhid VARCHAR(20) UNIQUE,
     RegistrationDate DATE,
@@ -55,6 +64,10 @@ CREATE TABLE IF NOT EXISTS PatientRegistration (
     EmailConsent BOOLEAN,
     WhatsappConsent BOOLEAN,
     Remarks VARCHAR(250),
+    CreatedBy VARCHAR(50) NULL,
+    CreatedDate TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+    ModifiedBy VARCHAR(50) NULL,
+    ModifiedDate TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UpdatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -63,8 +76,8 @@ DELIMITER //
 -- Terminated with the ACTIVE delimiter. Ending it with ';' while '//' is in
 -- force made init_db.py buffer this DROP together with the CREATE that follows
 -- and send both as one malformed statement, so this file could never deploy.
-DROP PROCEDURE IF EXISTS SpPatientRegistration //
-CREATE PROCEDURE SpPatientRegistration(
+DROP PROCEDURE IF EXISTS registration.SpPatientRegistration //
+CREATE PROCEDURE registration.SpPatientRegistration(
     IN p_Opt VARCHAR(20),
     IN p_Uhid VARCHAR(20),
     IN p_PatientId INT,
@@ -119,17 +132,19 @@ CREATE PROCEDURE SpPatientRegistration(
     IN p_SmsConsent BOOLEAN,
     IN p_EmailConsent BOOLEAN,
     IN p_WhatsappConsent BOOLEAN,
-    IN p_Remarks VARCHAR(250)
+    IN p_Remarks VARCHAR(250),
+    IN p_CreatedBy VARCHAR(50),
+    IN p_ModifiedBy VARCHAR(50)
 )
 BEGIN
     IF p_Opt = 'SELECT_ALL' THEN
         -- Merged duplicates are soft deleted and must drop out of the directory.
         -- SELECT_BY_ID deliberately still returns them, so an old reference to a
         -- merged UHID resolves and can show where it went.
-        SELECT * FROM PatientRegistration WHERE COALESCE(IsDeleted, 0) = 0 ORDER BY PatientId DESC;
+        SELECT * FROM registration.PatientRegistration WHERE COALESCE(IsDeleted, 0) = 0 ORDER BY PatientId DESC;
         
     ELSEIF p_Opt = 'SELECT_BY_ID' THEN
-        SELECT * FROM PatientRegistration WHERE PatientId = p_PatientId;
+        SELECT * FROM registration.PatientRegistration WHERE PatientId = p_PatientId;
         
     ELSEIF p_Opt = 'INSERT' THEN
         IF p_Uhid IS NOT NULL AND p_Uhid != '' THEN
@@ -154,7 +169,7 @@ BEGIN
             DO RELEASE_LOCK('generate_uhid_lock');
         END IF;
 
-        INSERT INTO PatientRegistration (
+        INSERT INTO registration.PatientRegistration (
             Uhid, RegistrationDate, Title, PatientName, Gender, DateOfBirth, Age,
             MaritalStatus, BloodGroup, Nationality, Religion, Occupation,
             MobileNumber, AlternateMobile, Email, Address1, Address2,
@@ -164,7 +179,8 @@ BEGIN
             Allergies, ChronicDiseases, CurrentMedication, OrganDonor, Disability,
             InsuranceRequired, InsuranceProvider, Tpa, PolicyNumber, ValidTill,
             PatientType, ReferredBy, PrimaryDoctor, Department, RegistrationSource,
-            PrivacyConsent, SmsConsent, EmailConsent, WhatsappConsent, Remarks
+            PrivacyConsent, SmsConsent, EmailConsent, WhatsappConsent, Remarks,
+            CreatedBy
         ) VALUES (
             @new_uhid, p_RegistrationDate, p_Title, p_PatientName, p_Gender, p_DateOfBirth, p_Age,
             p_MaritalStatus, p_BloodGroup, p_Nationality, p_Religion, p_Occupation,
@@ -175,7 +191,8 @@ BEGIN
             p_Allergies, p_ChronicDiseases, p_CurrentMedication, p_OrganDonor, p_Disability,
             p_InsuranceRequired, p_InsuranceProvider, p_Tpa, p_PolicyNumber, p_ValidTill,
             p_PatientType, p_ReferredBy, p_PrimaryDoctor, p_Department, p_RegistrationSource,
-            p_PrivacyConsent, p_SmsConsent, p_EmailConsent, p_WhatsappConsent, p_Remarks
+            p_PrivacyConsent, p_SmsConsent, p_EmailConsent, p_WhatsappConsent, p_Remarks,
+            p_CreatedBy
         );
         
         SET @new_id = LAST_INSERT_ID();
@@ -183,10 +200,10 @@ BEGIN
         COMMIT;
         SELECT RELEASE_LOCK('generate_uhid_lock') INTO @lock_released;
         
-        SELECT * FROM PatientRegistration WHERE PatientId = @new_id;
+        SELECT * FROM registration.PatientRegistration WHERE PatientId = @new_id;
         
     ELSEIF p_Opt = 'UPDATE' THEN
-        UPDATE PatientRegistration SET
+        UPDATE registration.PatientRegistration SET
             RegistrationDate = p_RegistrationDate,
             Title = p_Title,
             PatientName = p_PatientName,
@@ -238,13 +255,48 @@ BEGIN
             SmsConsent = p_SmsConsent,
             EmailConsent = p_EmailConsent,
             WhatsappConsent = p_WhatsappConsent,
-            Remarks = p_Remarks
+            Remarks = p_Remarks,
+            ModifiedBy = p_ModifiedBy
         WHERE PatientId = p_PatientId;
-        
-        SELECT * FROM PatientRegistration WHERE PatientId = p_PatientId;
+
+        -- One person can hold a row in all three registration tables under the
+        -- same UHID -- a walk-in quick registration, an emergency visit, and a
+        -- full registration. All three feed the unioned registration lists, so
+        -- demographics corrected here have to reach the other two, or the same
+        -- patient reads as two or three different people.
+        --
+        -- Only columns that describe the PERSON are pushed. Registration date,
+        -- time, status, visit details and the insurance policy quoted for a
+        -- given encounter stay per-visit and are left alone. COALESCE keeps a
+        -- blank field here from wiping what the other row already holds.
+        UPDATE registration.QuickRegistration qr
+        JOIN registration.PatientRegistration pr ON pr.Uhid = qr.Uhid
+        SET qr.Title           = COALESCE(NULLIF(TRIM(pr.Title), ''), qr.Title),
+            qr.PatientName     = COALESCE(NULLIF(TRIM(pr.PatientName), ''), qr.PatientName),
+            qr.Gender          = COALESCE(NULLIF(TRIM(pr.Gender), ''), qr.Gender),
+            qr.DateOfBirth     = COALESCE(pr.DateOfBirth, qr.DateOfBirth),
+            qr.Age             = COALESCE(pr.Age, qr.Age),
+            qr.MobileNumber    = COALESCE(NULLIF(TRIM(pr.MobileNumber), ''), qr.MobileNumber),
+            qr.AlternateMobile = COALESCE(NULLIF(TRIM(pr.AlternateMobile), ''), qr.AlternateMobile)
+        WHERE pr.PatientId = p_PatientId
+          AND pr.Uhid IS NOT NULL;
+
+        -- EmergencyRegistration is a thinner table: no date of birth, no title,
+        -- and no column for the patient's own mobile -- EmergencyContactPhone
+        -- belongs to the next of kin, so it is deliberately not overwritten.
+        -- ApproximateAge records the same fact as PatientRegistration.Age.
+        UPDATE registration.EmergencyRegistration er
+        JOIN registration.PatientRegistration pr ON pr.Uhid = er.Uhid
+        SET er.PatientName    = COALESCE(NULLIF(TRIM(pr.PatientName), ''), er.PatientName),
+            er.Gender         = COALESCE(NULLIF(TRIM(pr.Gender), ''), er.Gender),
+            er.ApproximateAge = COALESCE(pr.Age, er.ApproximateAge)
+        WHERE pr.PatientId = p_PatientId
+          AND pr.Uhid IS NOT NULL;
+
+        SELECT * FROM registration.PatientRegistration WHERE PatientId = p_PatientId;
         
     ELSEIF p_Opt = 'DELETE' THEN
-        DELETE FROM PatientRegistration WHERE PatientId = p_PatientId;
+        DELETE FROM registration.PatientRegistration WHERE PatientId = p_PatientId;
         SELECT ROW_COUNT() as affected_rows;
     END IF;
 END //

@@ -7,7 +7,6 @@ class NurseCreate(BaseModel):
     gender:             str
     dob:                Optional[date]      = None
     qualification:      str
-    registrationNumber: str
     department:         str
     designation:        str
     hospital:           Optional[str]       = None
@@ -45,7 +44,6 @@ class NurseResponse(BaseModel):
     gender:             str
     dob:                Optional[date]      = None
     qualification:      str
-    registrationNumber: str
     department:         str
     designation:        str
     hospital:           Optional[str]       = None

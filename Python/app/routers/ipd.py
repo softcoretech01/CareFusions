@@ -318,7 +318,7 @@ def _map_admission(r) -> dict:
         "currentWardName": getattr(r, "WardName", None) or "",
         "currentBedId": r.CurrentBedId,
         "admissionReason": getattr(r, "AdmissionReason", None) or "",
-        "coverageType": getattr(r, "CoverageType", None) or "Self Pay",
+        "coverageType": getattr(r, "CoverageType", None) or ("Insurance" if getattr(r, "InsuranceStatus", None) == "Covered" else "Self Pay"),
         "insuranceStatus": getattr(r, "InsuranceStatus", None) or "NOT_APPLICABLE",
         "financialStatus": getattr(r, "FinancialStatus", None) or "PENDING",
         "insuranceCompany": getattr(r, "InsuranceCompany", None),

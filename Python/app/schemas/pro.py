@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import Optional, List, Any, Literal
 from datetime import datetime
+from enum import Enum
 from .services import (
     PROStatusEnum,
     PaymentStatusEnum,
@@ -8,6 +9,24 @@ from .services import (
     ServiceStatusEnum,
     AuthorizationStatusEnum
 )
+
+
+class PROPaymentStatusEnum(str, Enum):
+    """Payment status as the PRO order list shows it.
+
+    The stored values, plus INSURANCE_COVERED -- which is never persisted. The
+    order list substitutes it for UNPAID when the admission's CoverageType is
+    Insurance, so the reviewer sees that the patient is not the one being asked
+    to pay. PaymentStatusEnum mirrors the database column and must keep only
+    values that column accepts, so this display-only value lives here.
+    """
+    NOT_REQUIRED = "NOT_REQUIRED"
+    UNPAID = "UNPAID"
+    PARTIALLY_PAID = "PARTIALLY_PAID"
+    PAID = "PAID"
+    REFUNDED = "REFUNDED"
+    PARTIALLY_REFUNDED = "PARTIALLY_REFUNDED"
+    COVER_IN_INSURANCE = "COVER_IN_INSURANCE"
 
 class PROOrderItemUpdate(BaseModel):
     ServiceOrderItemId: int
@@ -78,7 +97,7 @@ class PROOrderResponse(BaseModel):
     RejectionReason: Optional[str] = None
     ReviewedBy: Optional[str] = None
     ReviewedAt: Optional[datetime] = None
-    PaymentStatus: Optional[PaymentStatusEnum] = None
+    PaymentStatus: Optional[PROPaymentStatusEnum] = None
     FinancialStatus: Optional[FinancialStatusEnum] = None
     ServiceStatus: Optional[ServiceStatusEnum] = None
     AuthorizationStatus: Optional[AuthorizationStatusEnum] = None

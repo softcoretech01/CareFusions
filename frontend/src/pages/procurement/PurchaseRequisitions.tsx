@@ -91,7 +91,7 @@ export const PurchaseRequisitions = () => {
   const fetchPRs = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/purchase-requisitions`);
+      const res = await fetch(`${API_BASE}/purchase-requisitions/`);
       if (res.ok) {
         const data = await res.json();
         setRecords(data);
@@ -129,8 +129,8 @@ export const PurchaseRequisitions = () => {
   const fetchMasters = async () => {
     try {
       const [deptsRes, storesRes] = await Promise.all([
-        fetch(`${API_BASE}/departments`),
-        fetch(`${API_BASE}/stores`)
+        fetch(`${API_BASE}/departments/`),
+        fetch(`${API_BASE}/stores/`)
       ]);
       if (deptsRes.ok) setDepartmentsList(await deptsRes.json());
       if (storesRes.ok) setWarehousesList(await storesRes.json());
@@ -199,9 +199,32 @@ export const PurchaseRequisitions = () => {
     return Object.keys(newErrors).length === 0;
   };
 
+  // Local preview only, used until the server answers. The number actually
+  // stored is assigned by POST /purchase-requisitions, so a stale preview can
+  // no longer create a duplicate.
+  const generatePRNo = (currentRecords: PRRecord[]) => {
+    const year = new Date().getFullYear();
+    if (!currentRecords || currentRecords.length === 0) return `PR-${year}-001`;
+    const maxSeq = currentRecords.reduce((max, r) => {
+      const parts = r.prNo ? r.prNo.split('-') : [];
+      const seq = parseInt(parts[parts.length - 1]) || 0;
+      return seq > max ? seq : max;
+    }, 0);
+    return `PR-${year}-${String(maxSeq + 1).padStart(3, '0')}`;
+  };
+
+  const fetchNextPRNo = async (): Promise<string | null> => {
+    try {
+      const res = await fetch(`${API_BASE}/purchase-requisitions/next-code`);
+      if (!res.ok) return null;
+      return (await res.json()).prNo ?? null;
+    } catch { return null; }
+  };
+
   const handleCreateNew = () => {
     setSelectedRecord(null);
-    setFormData({ ...emptyForm, prNo: `PR-${new Date().getFullYear()}-${String(records.length + 1).padStart(3, '0')}` });
+    setFormData({ ...emptyForm, prNo: generatePRNo(records) });
+    fetchNextPRNo().then(n => { if (n) setFormData((prev: any) => ({ ...prev, prNo: n })); });
     setErrors({});
     setCatalogList([]); setCatalogCategories([]);
     setIsFormOpen(true);
@@ -216,7 +239,7 @@ export const PurchaseRequisitions = () => {
       setSelectedRecord(null);
       setFormData({
         ...emptyForm,
-        prNo: `PR-${new Date().getFullYear()}-${String(records.length + 1).padStart(3, '0')}`,
+        prNo: generatePRNo(records),
         inventoryType: handedOver.inventoryType,
         items: [{
           id: nextLineKey(),
@@ -285,7 +308,7 @@ export const PurchaseRequisitions = () => {
       const payload = { ...formData, approvalStatus: status, currentStage };
 
       try {
-        const url = selectedRecord ? `${API_BASE}/purchase-requisitions/${selectedRecord.id}` : `${API_BASE}/purchase-requisitions`;
+        const url = selectedRecord ? `${API_BASE}/purchase-requisitions/${selectedRecord.id}` : `${API_BASE}/purchase-requisitions/`;
         const method = selectedRecord ? 'PUT' : 'POST';
 
         const res = await fetch(url, {
@@ -679,7 +702,7 @@ export const PurchaseRequisitions = () => {
               {errors.department && <span className="text-xs text-red-500">{errors.department}</span>}
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-500 mb-1">Inventory Type*</label>
+              <label className="block text-xs font-medium text-slate-500 mb-1">Item Type*</label>
               <select
                 value={formData.inventoryType || ''}
                 disabled={formData.items.length > 0}
@@ -737,7 +760,7 @@ export const PurchaseRequisitions = () => {
             {errors.items && <div className="text-sm text-red-500 mb-2">{errors.items}</div>}
             {!formData.inventoryType && (
               <div className="text-sm text-slate-500 mb-2 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-                Select an <strong>Inventory Type</strong> first. Categories and items are filtered to that type,
+                Select an <strong>Item Type</strong> first. Categories and items are filtered to that type,
                 and one requisition covers one type only.
               </div>
             )}
@@ -853,7 +876,6 @@ export const PurchaseRequisitions = () => {
           <div className="text-xs text-slate-500">Fields marked with * are required</div>
           <div className="flex gap-3">
             <Button variant="outline" onClick={() => setIsFormOpen(false)}>Cancel</Button>
-            <Button variant="outline" onClick={() => handleSave('Draft')} icon={Save}>Save Draft</Button>
             <Button variant="filled" color="primary" onClick={() => handleSave('Submitted')} icon={Send}>Submit Requisition</Button>
           </div>
         </div>

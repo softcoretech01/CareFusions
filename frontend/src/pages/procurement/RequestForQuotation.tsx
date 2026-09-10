@@ -63,7 +63,7 @@ export const RequestForQuotation = () => {
   const fetchRFQs = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/rfqs`);
+      const res = await fetch(`${API_BASE}/rfqs/`);
       if (res.ok) setRecords(await res.json());
     } catch (err) {
       console.error(err);
@@ -75,10 +75,10 @@ export const RequestForQuotation = () => {
   const fetchMasters = async () => {
     try {
       const [prsRes, deptRes, vendRes, storeRes] = await Promise.all([
-        fetch(`${API_BASE}/purchase-requisitions`),
-        fetch(`${API_BASE}/departments`),
-        fetch(`${API_BASE}/vendors`),
-        fetch(`${API_BASE}/stores`)
+        fetch(`${API_BASE}/purchase-requisitions/`),
+        fetch(`${API_BASE}/departments/`),
+        fetch(`${API_BASE}/vendors/`),
+        fetch(`${API_BASE}/stores/`)
       ]);
       if (prsRes.ok) setAllPRs(await prsRes.json());
       if (deptRes.ok) setDepartmentsList(await deptRes.json());
@@ -156,7 +156,7 @@ export const RequestForQuotation = () => {
     if (validateForm()) {
       const payload = { ...formData, status, vendorCount: formData.vendors.length };
       try {
-        const url = selectedRecord ? `${API_BASE}/rfqs/${selectedRecord.id}` : `${API_BASE}/rfqs`;
+        const url = selectedRecord ? `${API_BASE}/rfqs/${selectedRecord.id}` : `${API_BASE}/rfqs/`;
         const method = selectedRecord ? 'PUT' : 'POST';
         const res = await fetch(url, {
           method,
@@ -324,7 +324,7 @@ export const RequestForQuotation = () => {
                 <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm">Department</th>
                 <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm">Due Date</th>
                 <th className="text-center py-3 px-4 font-medium text-slate-500 text-sm">Vendors Sent</th>
-                <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm">Status</th>
+                <th className="text-left py-3 px-4 font-medium text-slate-500 text-sm min-w-[130px]">Status</th>
                 <th className="text-right py-3 px-4 font-medium text-slate-500 text-sm">Target Total</th>
                 <th className="text-right py-3 px-4 font-medium text-slate-500 text-sm">Actions</th>
               </tr>
@@ -340,7 +340,7 @@ export const RequestForQuotation = () => {
                   <td className="py-3 px-4 text-slate-800">{record.department}</td>
                   <td className="py-3 px-4 text-slate-800">{record.dueDate}</td>
                   <td className="py-3 px-4 text-center"><span className="px-2.5 py-1 bg-slate-100 text-slate-700 rounded font-medium">{record.vendorCount}</span></td>
-                  <td className="py-3 px-4"><span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(record.status)}`}>{record.status}</span></td>
+                  <td className="py-3 px-4"><span className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap ${getStatusColor(record.status)}`}>{record.status}</span></td>
                   <td className="py-3 px-4 text-right font-medium text-slate-800">
                     ₹{record.items.reduce((sum, item) => sum + ((item.targetPrice || 0) * (item.requestedQty || 0)), 0).toLocaleString()}
                   </td>

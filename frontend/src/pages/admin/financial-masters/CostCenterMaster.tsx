@@ -60,8 +60,6 @@ export const CostCenterMaster = () => {
   const [records, setRecords] = useState<CostCenterRecord[]>([]);
   const [departmentOptions, setDepartmentOptions] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -220,11 +218,7 @@ export const CostCenterMaster = () => {
     return matchesSearch && matchesDepartment;
   });
 
-  const _totalPages = Math.max(1, Math.ceil(filteredRecords.length / itemsPerPage));
-  const _page = Math.min(currentPage, _totalPages);
-  const pagedRecords = filteredRecords.slice((_page - 1) * itemsPerPage, _page * itemsPerPage);
-
-  const { page, setPage, pageSize, total, paged } = usePagination(allDepartments);
+  const { page, setPage, pageSize, total, paged } = usePagination(filteredRecords);
 
   return (
     <motion.div
@@ -294,7 +288,7 @@ export const CostCenterMaster = () => {
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                     >
                       <option value="">All Departments</option>
-                      {paged.map(d => <option key={d} value={d}>{d}</option>)}
+                      {allDepartments.map(d => <option key={d} value={d}>{d}</option>)}
                     </select>
                   </div>
                 </motion.div>
@@ -316,7 +310,7 @@ export const CostCenterMaster = () => {
                   {isLoading ? (
                     <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-500">Loading cost centers...</td></tr>
                   ) : filteredRecords.length > 0 ? (
-                    pagedRecords.map((record) => (
+                    paged.map((record) => (
                       <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-4 py-3 font-medium text-slate-800">{record.costCenterCode}</td>
                         <td className="px-4 py-3 font-medium text-primary">{record.costCenterName}</td>
@@ -344,27 +338,7 @@ export const CostCenterMaster = () => {
                 </tbody>
               </table>
             </div>
-        <Pagination page={page} pageSize={pageSize} totalItems={total} onPageChange={setPage} />
-            <div className="flex flex-wrap items-center justify-between gap-3 p-4 border-t border-slate-100 text-sm text-slate-500">
-              <div className="flex items-center gap-2">
-                <span>Show</span>
-                <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20">
-                  <option value={10}>10</option>
-                  <option value={25}>25</option>
-                  <option value={50}>50</option>
-                  <option value={100}>100</option>
-                </select>
-                <span>entries</span>
-                <span className="text-slate-400">· {filteredRecords.length} total</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <span>Page {_page} of {_totalPages}</span>
-                <div className="flex gap-1">
-                  <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={_page <= 1} className="px-3 py-1 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed">Prev</button>
-                  <button onClick={() => setCurrentPage(p => Math.min(_totalPages, p + 1))} disabled={_page >= _totalPages} className="px-3 py-1 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed">Next</button>
-                </div>
-              </div>
-            </div>
+            <Pagination page={page} pageSize={pageSize} totalItems={total} onPageChange={setPage} />
           </div>
         </>
       ) : (
