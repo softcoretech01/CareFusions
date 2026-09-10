@@ -287,6 +287,9 @@ export const NewAdmission = () => {
       expectedStayDays: form.expectedStayDays,
       status: 'Admitted',
       currentWardId: Number(form.wardId),
+      // IPDPatient requires the ward's name alongside its id -- the lists show
+      // the name and would otherwise render blank until a refresh refetched it.
+      currentWardName: wards.find(w => w.id === Number(form.wardId))?.name ?? '',
       currentBedId: Number(form.bedId),
       admissionReason: form.admissionReason,
       coverageType: form.coverageType as any,

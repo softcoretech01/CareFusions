@@ -2,7 +2,7 @@
 import { PatientQuickViewModal } from '../../components/shared/PatientQuickViewModal';
 import { usePatientQuickView } from '../../hooks/usePatientQuickView';
 import { useState } from 'react';
-import { Search, History, Calendar, User, Activity, Clock, FileText } from 'lucide-react';
+import { Search, History, User, FileText } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { useEffect } from 'react';
 

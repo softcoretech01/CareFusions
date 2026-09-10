@@ -25,7 +25,6 @@ export const InvestigationsTab: React.FC<InvestigationsTabProps> = ({
   patientName, 
   uhid, 
   doctorName, 
-  department 
 }) => {
   // Orders + lab catalogue come from the shared Investigation context — the
   // SAME source the Lab and Radiology menus read from, so an order placed here

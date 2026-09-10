@@ -1,4 +1,5 @@
 import { Calendar, Stethoscope, FlaskConical, ScanLine, Pill, FileText, User, CheckCircle } from 'lucide-react';
+import { resultFileUrl } from '../../utils/fileUrl';
 import { useOPDVisits } from '../../contexts/OPDVisitContext';
 import { useIPD } from '../../contexts/IPDContext';
 import { useInvestigations } from '../../contexts/InvestigationContext';
@@ -103,10 +104,7 @@ export const UnifiedPatientHistory = ({ patientUhid, excludeVisitId }: { patient
                                       {l.resultFile && (
                                         <a href="#" onClick={(e) => {
                                             e.preventDefault();
-                                            const baseUrl = (import.meta.env.VITE_API_URL as string || 'http://localhost:8000').replace('/api/v1', '');
-                                            const rf = l.resultFile ?? '';
-                                            const filename = rf.startsWith(patientUhid) ? rf : `${patientUhid}_${rf}`;
-                                            window.open(`${baseUrl}/uploads/${encodeURIComponent(filename)}`, '_blank');
+                                            window.open(resultFileUrl(patientUhid, l.resultFile), '_blank');
                                         }} className="inline-flex items-center gap-1 mt-2 text-xs font-bold text-blue-600 hover:text-blue-700">
                                           <FileText className="w-3 h-3" /> View Report
                                         </a>
@@ -139,10 +137,7 @@ export const UnifiedPatientHistory = ({ patientUhid, excludeVisitId }: { patient
                                       {r.resultFile && (
                                         <a href="#" onClick={(e) => {
                                             e.preventDefault();
-                                            const baseUrl = (import.meta.env.VITE_API_URL as string || 'http://localhost:8000').replace('/api/v1', '');
-                                            const rf = r.resultFile ?? '';
-                                            const filename = rf.startsWith(patientUhid) ? rf : `${patientUhid}_${rf}`;
-                                            window.open(`${baseUrl}/uploads/${encodeURIComponent(filename)}`, '_blank');
+                                            window.open(resultFileUrl(patientUhid, r.resultFile), '_blank');
                                         }} className="inline-flex items-center gap-1 mt-2 text-xs font-bold text-blue-600 hover:text-blue-700">
                                           <FileText className="w-3 h-3" /> View Report
                                         </a>
@@ -244,10 +239,7 @@ export const UnifiedPatientHistory = ({ patientUhid, excludeVisitId }: { patient
                                     {st.resultFile && (
                                       <a href="#" onClick={(e) => {
                                           e.preventDefault();
-                                          const baseUrl = (import.meta.env.VITE_API_URL as string || 'http://localhost:8000').replace('/api/v1', '');
-                                          const rf = st.resultFile ?? '';
-                                          const filename = rf.startsWith(past.uhid) ? rf : `${past.uhid}_${rf}`;
-                                          window.open(`${baseUrl}/uploads/${encodeURIComponent(filename)}`, '_blank');
+                                            window.open(resultFileUrl(past.uhid, st.resultFile), '_blank');
                                       }} className="inline-flex items-center gap-1 mt-2 text-xs font-bold text-blue-600 hover:text-blue-700">
                                         <FileText className="w-3 h-3" /> View Report
                                       </a>
@@ -290,10 +282,7 @@ export const UnifiedPatientHistory = ({ patientUhid, excludeVisitId }: { patient
                                     {st.resultFile && (
                                       <a href="#" onClick={(e) => {
                                           e.preventDefault();
-                                          const baseUrl = (import.meta.env.VITE_API_URL as string || 'http://localhost:8000').replace('/api/v1', '');
-                                          const rf = st.resultFile ?? '';
-                                          const filename = rf.startsWith(past.uhid) ? rf : `${past.uhid}_${rf}`;
-                                          window.open(`${baseUrl}/uploads/${encodeURIComponent(filename)}`, '_blank');
+                                            window.open(resultFileUrl(past.uhid, st.resultFile), '_blank');
                                       }} className="inline-flex items-center gap-1 mt-2 text-xs font-bold text-blue-600 hover:text-blue-700">
                                         <FileText className="w-3 h-3" /> View Report
                                       </a>

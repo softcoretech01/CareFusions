@@ -4,6 +4,7 @@ from sqlalchemy import text
 from typing import Any, List
 import logging
 import os
+import uuid
 import shutil
 
 from app.database import get_db
@@ -63,15 +64,21 @@ async def upload_document(
 ):
     try:
         file_name = file.filename
-        file_path = os.path.join(UPLOAD_DIR, f"{uhid}_{file_name}")
-        
+        # Stored under a random name, not "<UHID>_<filename>". The old scheme
+        # made every document URL guessable from a UHID, so the directory could
+        # be walked without ever listing it. The display name is kept in
+        # DocumentName; only the stored path is opaque.
+        ext = os.path.splitext(file_name or "")[1]
+        stored_name = f"{uuid.uuid4().hex}{ext}"
+        file_path = os.path.join(UPLOAD_DIR, stored_name)
+
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
-            
+
         file_size_bytes = os.path.getsize(file_path)
         size_str = f"{(file_size_bytes / (1024 * 1024)):.2f} MB"
-        
-        rel_path = f"/uploads/{uhid}_{file_name}"
+
+        rel_path = f"/uploads/{stored_name}"
         
         result = _call_sp(
             db, 

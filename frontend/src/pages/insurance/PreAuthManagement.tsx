@@ -1,4 +1,3 @@
-import { PatientNameLink } from '../../components/shared/PatientNameLink';
 import { PatientQuickViewModal } from '../../components/shared/PatientQuickViewModal';
 import { usePatientQuickView } from '../../hooks/usePatientQuickView';
 import { useState, useEffect, useMemo } from 'react';

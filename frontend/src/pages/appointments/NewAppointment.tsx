@@ -126,9 +126,12 @@ export const NewAppointment = () => {
   // Filter patients for search
   const patientResults = patientSearch.length >= 2
     ? patients.filter(p =>
-        p.patientName.toLowerCase().includes(patientSearch.toLowerCase()) ||
-        p.uhid.toLowerCase().includes(patientSearch.toLowerCase()) ||
-        p.mobileNumber.includes(patientSearch)
+        // Emergency registrations may be saved without a name, and quick
+        // registrations without a mobile, so neither can be dereferenced
+        // directly -- searching threw the moment such a record was in the list.
+        (p.patientName ?? '').toLowerCase().includes(patientSearch.toLowerCase()) ||
+        (p.uhid ?? '').toLowerCase().includes(patientSearch.toLowerCase()) ||
+        (p.mobileNumber ?? '').includes(patientSearch)
       ).slice(0, 5)
     : [];
 
@@ -136,11 +139,14 @@ export const NewAppointment = () => {
     setSelectedPatient(patient);
     setFormData(prev => ({
       ...prev,
-      patientName: patient.patientName,
-      mobileNumber: patient.mobileNumber,
+      // A patient record may be missing any of these -- emergency intake does
+      // not require a name, quick intake does not require a mobile -- while the
+      // form state is all strings. Default rather than write undefined into it.
+      patientName: patient.patientName ?? '',
+      mobileNumber: patient.mobileNumber ?? '',
       email: patient.email || '',
-      gender: patient.gender,
-      age: String(patient.age),
+      gender: patient.gender ?? '',
+      age: String(patient.age ?? ''),
     }));
     setPatientSearch(`${patient.patientName} (${patient.uhid})`);
     setShowDropdown(false);

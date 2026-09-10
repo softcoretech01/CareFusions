@@ -532,7 +532,8 @@ export const router = createBrowserRouter([
       },
       {
         path: 'alerts',
-},
+        element: <LabAlerts />
+      },
       {
         path: 'qc',
         element: <LabQualityControl />
