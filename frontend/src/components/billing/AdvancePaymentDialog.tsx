@@ -18,7 +18,7 @@
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  X, Loader2, IndianRupee, CheckCircle2, AlertTriangle, ShieldCheck, Wallet,
+  X, Loader2, IndianRupee, CheckCircle2, AlertTriangle, Wallet,
 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
@@ -56,7 +56,7 @@ interface Props {
   onPaid: () => void;
 }
 
-export const AdvancePaymentDialog: React.FC<Props> = ({ bill, cover, onClose, onPaid }) => {
+export const AdvancePaymentDialog: React.FC<Props> = ({ bill, onClose, onPaid }) => {
   const outstanding = useMemo(
     () => Math.max(0, Number(bill?.Outstanding ?? (Number(bill?.TotalAmount ?? 0) - Number(bill?.PaidAmount ?? 0)))),
     [bill],

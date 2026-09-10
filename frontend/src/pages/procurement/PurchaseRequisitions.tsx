@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect , useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { INVENTORY_TYPES, typeLabel } from '../../utils/inventoryTypes';
-import { Plus, Search, Filter, Download, Edit2, Trash2, Save, ChevronLeft, ChevronRight, Eye, Send, FileText, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Plus, Search, Filter, Download, Edit2, Trash2, ChevronLeft, ChevronRight, Eye, Send, FileText, CheckCircle, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../components/ui/Button';
 import { Modal } from '../../components/ui/Modal';

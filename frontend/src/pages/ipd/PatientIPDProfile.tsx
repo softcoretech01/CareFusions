@@ -151,12 +151,13 @@ export const PatientIPDProfile = () => {
     requestDischarge(patient.id, dischargeInfo);
     toast.success('Discharge information saved. Patient moved to Discharge list.');
 
-    // IPDPatient records an `insuranceStatus` ('Self Pay' | 'Covered' |
-    // 'Pending Approval'), set on the admission form. The check used to read
-    // `insuranceRequired`, which does not exist on this type — so it was always
-    // undefined and no insured discharge ever reached the claims screen.
-    const isInsured = patient.insuranceStatus === 'Covered'
-      || patient.insuranceStatus === 'Pending Approval';
+    // Who pays is `coverageType` ('Self Pay' | 'Insurance'), taken from the
+    // admission. `insuranceStatus` is a different fact — the authorisation state
+    // ('NOT_APPLICABLE' | 'PENDING' | 'APPROVED' | 'REJECTED') — and the check
+    // here compared it against 'Covered' and 'Pending Approval', values that
+    // column has never held. It was therefore always false, and no insured
+    // discharge ever reached the claims screen.
+    const isInsured = patient.coverageType === 'Insurance';
 
     if (isInsured) {
       navigate('/insurance/claims', { state: { uhid: patient.uhid } });

@@ -53,6 +53,12 @@ export interface PrescriptionItem {
   medicineId?: number;
   medicineName: string;
   quantity: string | number;
+  /** Dose duration and directions as the prescriber typed them. Both are also
+   *  folded into `quantity` for the compact one-line display, but the printout
+   *  wants them separately -- it read these fields before they existed, so it
+   *  always fell back to "As prescribed" and a blank duration. */
+  duration?: string;
+  instructions?: string;
   alerts: string[];
 }
 
@@ -64,7 +70,12 @@ export interface LabOrder {
   testCode: string;
   priority: 'Routine' | 'Urgent' | 'STAT';
   clinicalNotes: string;
-  status: 'Ordered' | 'Collected' | 'Processing' | 'Resulted';
+  // Mirrors TestStatus in app/schemas/lab.py, plus 'Cancelled', which the
+  // data contains and the schema omits. Previously read
+  // 'Ordered' | 'Collected' | 'Processing' | 'Resulted' -- none of which the
+  // API has ever returned, so every status check against it was dead code.
+  status: 'Pending' | 'Sample Collected' | 'Sample Accepted' | 'Processing'
+        | 'Completed' | 'Verified' | 'Cancelled';
   result?: string;
   resultSummary?: string;
 }
@@ -78,7 +89,10 @@ export interface RadiologyOrder {
   priority: 'Routine' | 'Urgent' | 'STAT';
   contrastRequired: boolean;
   specialInstructions: string;
-  status: 'Ordered' | 'Scheduled' | 'Completed' | 'Reported';
+  // Matches hospital.Rad_OrderTest.Status. 'Ordered' / 'Scheduled' /
+  // 'Reported' were never written by the API. 'Verified' is accepted because
+  // the reporting screens branch on it alongside the lab flow.
+  status: 'Pending' | 'Partial' | 'Completed' | 'Verified' | 'Cancelled';
   result?: string;
   resultSummary?: string;
 }

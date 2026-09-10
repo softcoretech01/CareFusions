@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Loader, FileText, History, Search, RefreshCw, AlertCircle, Calendar, X } from 'lucide-react';
 
 import { monthStart, today } from '../../components/ui/DateFilter';

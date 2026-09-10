@@ -31,4 +31,8 @@ AUTH_TOKEN_TTL_HOURS = int(os.getenv("AUTH_TOKEN_TTL_HOURS", "12"))
 REQUIRE_AUTH = os.getenv("REQUIRE_AUTH", "false").strip().lower() in {"1", "true", "yes", "on"}
 
 # Endpoints that must stay reachable without a token even when REQUIRE_AUTH is on.
-AUTH_EXEMPT_PATHS = ("/api/v1/auth/login", "/docs", "/redoc", "/openapi.json", "/uploads")
+# /api/v1/files is exempt from the GLOBAL check only because it accepts the
+# token as a query parameter as well as a header -- window.open and <img src>
+# cannot send a header. It verifies the token itself; see routers/files.py.
+AUTH_EXEMPT_PATHS = ("/api/v1/auth/login", "/docs", "/redoc", "/openapi.json",
+                     "/api/v1/files")

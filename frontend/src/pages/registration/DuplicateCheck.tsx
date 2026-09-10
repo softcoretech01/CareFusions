@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Search, AlertCircle, Users } from 'lucide-react';
-import { Button } from '../../components/ui/Button';
 const API_BASE = import.meta.env.VITE_API_URL as string;
 import type { GlobalPatientRecord } from '../../contexts/PatientContext';
 
