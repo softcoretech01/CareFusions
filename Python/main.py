@@ -1,7 +1,6 @@
 import logging
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 import os
 
 from app.core.audit_middleware import AuditLogMiddleware
@@ -25,7 +24,7 @@ from app.routers import (
     vendor_catalog, approval, procurement_dashboard,
     doctor_specialization, housekeeping, ipd_clinical, pharmacy, insurance, inventory, executive,
     scheduled_reports, minor_operation, major_operation, ward_charge, services, pro,
-    billing_advance, insurance_claims
+    billing_advance, insurance_claims, files
 )
 
 
@@ -73,11 +72,13 @@ app.add_middleware(
 # Records an entry for every create/update/delete across all masters.
 app.add_middleware(AuditLogMiddleware)
 
-# ── Static file uploads ───────────────────────────────────────
-# Same absolute path the upload router writes to, so what is saved is served.
+# ── Uploaded files ────────────────────────────────────────────
+# Deliberately NOT a StaticFiles mount. Serving this directory statically made
+# every scanned ID proof and insurance card public, and the /uploads exemption
+# meant enabling REQUIRE_AUTH would not have closed it. Files are streamed by
+# routers/files.py, which verifies a token on every request.
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 # ── Routers ───────────────────────────────────────────────────
 app.include_router(hospital.router,    prefix="/api/v1")
@@ -127,6 +128,7 @@ app.include_router(reminder_rule.router, prefix="/api/v1")
 app.include_router(audit_log.router, prefix="/api/v1")
 app.include_router(doctor.router,      prefix="/api/v1")
 app.include_router(upload.router,      prefix="/api/v1")
+app.include_router(files.router,       prefix="/api/v1")
 app.include_router(nurse.router,       prefix="/api/v1")
 app.include_router(pharmacist.router,  prefix="/api/v1")
 app.include_router(lab_technician.router, prefix="/api/v1")

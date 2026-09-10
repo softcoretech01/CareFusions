@@ -23,6 +23,9 @@ interface BillItem {
   price: number;
   qty: number;
   total: number;
+  /** Already settled through a PRO advance, so the advance must not be applied
+   *  to it a second time. Set while reconciling against PRO orders. */
+  isPaidInAdvance?: boolean;
 }
 
 interface OpdVisit {

@@ -24,8 +24,6 @@ CREATE TABLE IF NOT EXISTS registration.QuickRegistration (
     MobileNumber VARCHAR(10),
     AlternateMobile VARCHAR(10),
     VisitType VARCHAR(50),
-    Department VARCHAR(50),
-    Doctor VARCHAR(50),
     Priority VARCHAR(20),
     VisitReason VARCHAR(250),
     ConsultationRequired VARCHAR(10),
@@ -59,8 +57,6 @@ CREATE PROCEDURE registration.SpQuickRegistration(
     IN p_MobileNumber VARCHAR(10),
     IN p_AlternateMobile VARCHAR(10),
     IN p_VisitType VARCHAR(50),
-    IN p_Department VARCHAR(50),
-    IN p_Doctor VARCHAR(50),
     IN p_Priority VARCHAR(20),
     IN p_VisitReason VARCHAR(250),
     IN p_ConsultationRequired VARCHAR(10),
@@ -104,14 +100,14 @@ BEGIN
         INSERT INTO registration.QuickRegistration (
             Uhid, RegistrationDate, RegistrationTime, Title, PatientName,
             Gender, DateOfBirth, Age, MobileNumber, AlternateMobile,
-            VisitType, Department, Doctor, Priority, VisitReason,
+            VisitType, Priority, VisitReason,
             ConsultationRequired, ConsultationFee, PaymentMode, InsuranceRequired,
             InsuranceProvider, Tpa, PolicyNumber, ValidTill,
             Status, Remarks, CreatedBy
         ) VALUES (
             @new_uhid, p_RegistrationDate, p_RegistrationTime, p_Title, p_PatientName,
             p_Gender, p_DateOfBirth, p_Age, p_MobileNumber, p_AlternateMobile,
-            p_VisitType, p_Department, p_Doctor, p_Priority, p_VisitReason,
+            p_VisitType, p_Priority, p_VisitReason,
             p_ConsultationRequired, p_ConsultationFee, p_PaymentMode, p_InsuranceRequired,
             p_InsuranceProvider, p_Tpa, p_PolicyNumber, p_ValidTill,
             p_Status, p_Remarks, p_CreatedBy
@@ -136,8 +132,6 @@ BEGIN
             MobileNumber = p_MobileNumber,
             AlternateMobile = p_AlternateMobile,
             VisitType = p_VisitType,
-            Department = p_Department,
-            Doctor = p_Doctor,
             Priority = p_Priority,
             VisitReason = p_VisitReason,
             ConsultationRequired = p_ConsultationRequired,
@@ -152,6 +146,37 @@ BEGIN
             Remarks = p_Remarks,
             ModifiedBy = p_ModifiedBy
         WHERE QuickRegistrationId = p_QuickRegistrationId;
+
+        -- One person can hold a row in all three registration tables under the
+        -- same UHID. The sync used to run only from PatientRegistration, so an
+        -- edit made here drifted away from the other two and the patient showed
+        -- up twice in the unioned lists with different details.
+        --
+        -- Only columns describing the PERSON are pushed; visit details, status
+        -- and the insurance quoted for a given encounter stay per-visit.
+        -- COALESCE stops a blank here wiping what the other row already holds.
+        UPDATE registration.PatientRegistration pr
+        JOIN registration.QuickRegistration qr ON qr.Uhid = pr.Uhid
+        SET pr.Title           = COALESCE(NULLIF(TRIM(qr.Title), ''), pr.Title),
+            pr.PatientName     = COALESCE(NULLIF(TRIM(qr.PatientName), ''), pr.PatientName),
+            pr.Gender          = COALESCE(NULLIF(TRIM(qr.Gender), ''), pr.Gender),
+            pr.DateOfBirth     = COALESCE(qr.DateOfBirth, pr.DateOfBirth),
+            pr.Age             = COALESCE(qr.Age, pr.Age),
+            pr.MobileNumber    = COALESCE(NULLIF(TRIM(qr.MobileNumber), ''), pr.MobileNumber),
+            pr.AlternateMobile = COALESCE(NULLIF(TRIM(qr.AlternateMobile), ''), pr.AlternateMobile)
+        WHERE qr.QuickRegistrationId = p_QuickRegistrationId
+          AND qr.Uhid IS NOT NULL;
+
+        -- EmergencyRegistration has no date of birth or title, and its
+        -- EmergencyContactPhone belongs to the next of kin rather than the
+        -- patient, so it is deliberately not overwritten.
+        UPDATE registration.EmergencyRegistration er
+        JOIN registration.QuickRegistration qr ON qr.Uhid = er.Uhid
+        SET er.PatientName    = COALESCE(NULLIF(TRIM(qr.PatientName), ''), er.PatientName),
+            er.Gender         = COALESCE(NULLIF(TRIM(qr.Gender), ''), er.Gender),
+            er.ApproximateAge = COALESCE(qr.Age, er.ApproximateAge)
+        WHERE qr.QuickRegistrationId = p_QuickRegistrationId
+          AND qr.Uhid IS NOT NULL;
 
         SELECT * FROM registration.QuickRegistration WHERE QuickRegistrationId = p_QuickRegistrationId;
 
