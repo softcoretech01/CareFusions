@@ -138,11 +138,6 @@ const AdvancePayments = () => {
 
   // The grid now carries settled bills too, so the headline figures count only what
   // is still owed — a paid advance is history, not an amount to collect.
-  const pendingBills = filteredBills.filter(isPending);
-  const totalDue = pendingBills.reduce((sum, b) => sum + (parseFloat(b.TotalAmount as any) || 0), 0);
-  const totalCollected = filteredBills
-    .filter(b => b.Status === 'PAID')
-    .reduce((sum, b) => sum + (parseFloat((b.PaidAmount ?? b.TotalAmount) as any) || 0), 0);
 
   if (loading) {
     return (

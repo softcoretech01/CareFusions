@@ -1,4 +1,5 @@
 import { PatientNameLink } from '../../components/shared/PatientNameLink';
+import { resultFileUrl } from '../../utils/fileUrl';
 import { PatientQuickViewModal } from '../../components/shared/PatientQuickViewModal';
 import { usePatientQuickView } from '../../hooks/usePatientQuickView';
 import { useState, useEffect } from 'react';
@@ -312,11 +313,15 @@ export const RadiologyOrderList = () => {
                                     formData.append('documentType', 'Radiology Report');
                                     formData.append('file', file);
                                     try {
-                                      await axios.post(`${API_BASE}/documents/`, formData, {
+                                      // Keep the path the server assigned. Documents are now stored
+                                      // under an opaque name, so reconstructing "<UHID>_<file name>"
+                                      // no longer finds the file.
+                                      const res = await axios.post(`${API_BASE}/documents/`, formData, {
                                         headers: { 'Content-Type': 'multipart/form-data' }
                                       });
+                                      const stored = res?.data?.FilePath as string | undefined;
                                       toast.success('File uploaded successfully');
-                                      handleTempChange(test.id, 'resultFile', file.name);
+                                      handleTempChange(test.id, 'resultFile', stored || file.name);
                                     } catch (err) {
                                       toast.error('Failed to upload file');
                                       handleTempChange(test.id, 'resultFile', file.name); // Keep for UI mockup
@@ -333,7 +338,7 @@ export const RadiologyOrderList = () => {
                             <div className="flex items-center gap-1.5 shrink-0">
                               <button
                                 type="button"
-                                onClick={() => window.open(`${API_BASE.replace('/api/v1', '')}/uploads/${encodeURIComponent(activeOrder.patientId + '_' + tempResults[test.id].resultFile)}`, '_blank')}
+                                onClick={() => window.open(resultFileUrl(activeOrder.patientId, tempResults[test.id].resultFile), '_blank')}
                                 title="View Uploaded File"
                                 className="p-2.5 bg-purple-50 border border-purple-200 text-purple-600 hover:bg-purple-100 hover:border-purple-300 rounded-lg transition-colors flex items-center justify-center shadow-sm"
                               >

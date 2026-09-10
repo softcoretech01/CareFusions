@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, Plus, Filter, Edit2, Download, Printer, Eye,
-  User, Phone, FileText, Heart, Shield, Activity, Calendar, FileDigit, AlertTriangle, CalendarPlus, X
+  User, Phone, FileText, Heart, Shield, Activity, Calendar, FileDigit, AlertTriangle, CalendarPlus
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -354,8 +354,6 @@ export const PatientRegistration = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [filterPatientType, setFilterPatientType] = useState('');
   const [filterGender, setFilterGender] = useState('');
-  const today = new Date().toISOString().split('T')[0];
-  const firstDay = `${today.split('-')[0]}-${today.split('-')[1]}-01`;
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [appliedDateFrom, setAppliedDateFrom] = useState('');
@@ -1532,16 +1530,23 @@ export const PatientRegistration = () => {
         </div>
       )}
 
-      {/* Book Appointment Modal */}
+      {/* Book Appointment Screen */}
       {bookAppointmentPatient && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 sm:p-6 overflow-y-auto">
-          <div className="bg-slate-50 w-full max-w-6xl rounded-3xl overflow-hidden relative shadow-2xl flex flex-col" style={{ maxHeight: '95vh', minHeight: '80vh' }}>
-            <button onClick={() => setBookAppointmentPatient(null)} className="absolute top-4 right-4 z-50 text-slate-400 hover:text-red-500 bg-white rounded-full p-2 shadow-sm border border-slate-100 transition-colors">
-              <X className="w-5 h-5" />
-            </button>
-            <div className="overflow-y-auto flex-1">
-              <BookAppointment passedPatientProps={bookAppointmentPatient} onClose={() => setBookAppointmentPatient(null)} />
+        <div className="absolute inset-0 z-50 flex flex-col bg-slate-50 rounded-3xl overflow-hidden shadow-sm border border-slate-100">
+          <div className="flex items-center justify-between p-4 bg-white border-b border-slate-200 shrink-0 shadow-sm z-20">
+            <div>
+              <h2 className="text-xl font-bold text-slate-800">
+                Book Appointment
+              </h2>
             </div>
+            <div className="flex items-center gap-3">
+              <Button size="sm" variant="outline" onClick={() => setBookAppointmentPatient(null)}>
+                Back to Registration
+              </Button>
+            </div>
+          </div>
+          <div className="overflow-y-auto flex-1 custom-scrollbar p-6">
+            <BookAppointment passedPatientProps={bookAppointmentPatient} onClose={() => setBookAppointmentPatient(null)} />
           </div>
         </div>
       )}

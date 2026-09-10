@@ -19,7 +19,6 @@ const API = (import.meta.env.VITE_API_URL as string || 'http://localhost:8000/ap
 const num = (v: any) => parseFloat(v ?? 0) || 0;
 const inr = (v: any) => `₹${num(v).toFixed(2)}`;
 const dash = (v: any) => (v === null || v === undefined || v === '' ? '—' : v);
-const round2 = (v: number) => Math.round(v * 100) / 100;
 
 // An item's amount is its original (or master) price times the quantity ordered — the same
 // figure the order-creation endpoints write into GrossAmount / PatientResponsibility.
@@ -119,7 +118,6 @@ const ReviewModal = ({
   const total = useMemo(() => {
     return Object.values(editedPrices).reduce((sum, val) => sum + val, 0);
   }, [editedPrices]);
-  const originalTotal = useMemo(() => orderTotals.reduce((a, b) => a + b, 0), [orderTotals]);
 
   // Esc closes the reject prompt first, then the review; page scroll stays locked behind it.
   useEffect(() => {

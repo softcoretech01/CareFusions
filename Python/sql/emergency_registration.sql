@@ -116,6 +116,26 @@ BEGIN
             ModifiedBy = p_ModifiedBy
         WHERE EmergencyRegistrationId = p_EmergencyRegistrationId;
 
+        -- Same reasoning as the other two registration procedures: all three
+        -- feed the unioned lists, so a correction made here has to reach the
+        -- rows the same patient holds elsewhere. Emergency records only a name,
+        -- a gender and an approximate age, so only those three travel.
+        UPDATE registration.PatientRegistration pr
+        JOIN registration.EmergencyRegistration er ON er.Uhid = pr.Uhid
+        SET pr.PatientName = COALESCE(NULLIF(TRIM(er.PatientName), ''), pr.PatientName),
+            pr.Gender      = COALESCE(NULLIF(TRIM(er.Gender), ''), pr.Gender),
+            pr.Age         = COALESCE(er.ApproximateAge, pr.Age)
+        WHERE er.EmergencyRegistrationId = p_EmergencyRegistrationId
+          AND er.Uhid IS NOT NULL;
+
+        UPDATE registration.QuickRegistration qr
+        JOIN registration.EmergencyRegistration er ON er.Uhid = qr.Uhid
+        SET qr.PatientName = COALESCE(NULLIF(TRIM(er.PatientName), ''), qr.PatientName),
+            qr.Gender      = COALESCE(NULLIF(TRIM(er.Gender), ''), qr.Gender),
+            qr.Age         = COALESCE(er.ApproximateAge, qr.Age)
+        WHERE er.EmergencyRegistrationId = p_EmergencyRegistrationId
+          AND er.Uhid IS NOT NULL;
+
         SELECT * FROM registration.EmergencyRegistration WHERE EmergencyRegistrationId = p_EmergencyRegistrationId;
 
     ELSEIF p_Opt = 'DELETE' THEN
