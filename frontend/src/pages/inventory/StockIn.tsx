@@ -78,7 +78,7 @@ export const StockIn = () => {
   const load = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/grns`);
+      const res = await fetch(`${API_BASE}/grns/`);
       const data = res.ok ? await res.json() : [];
       setRecords(Array.isArray(data) ? data : []);
     } catch {

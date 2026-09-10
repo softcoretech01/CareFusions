@@ -48,12 +48,12 @@ export const PurchaseReturn = () => {
     setIsLoading(true);
     try {
       const [prRes, grnRes, itemRes, venRes, whRes] = await Promise.all([
-        fetch(`${API_BASE}/purchase-returns`),
-        fetch(`${API_BASE}/grns`),
+        fetch(`${API_BASE}/purchase-returns/`),
+        fetch(`${API_BASE}/grns/`),
         // Unified catalog: a return can cover a medicine as well as an item.
         fetch(`${API_BASE}/catalog/`),
-        fetch(`${API_BASE}/vendors`),
-        fetch(`${API_BASE}/stores`)
+        fetch(`${API_BASE}/vendors/`),
+        fetch(`${API_BASE}/stores/`)
       ]);
       
       if (prRes.ok) setRecords(await prRes.json());
@@ -125,7 +125,7 @@ export const PurchaseReturn = () => {
     if (validateForm()) {
       const payload = { ...formData, status };
       try {
-        const url = selectedRecord ? `${API_BASE}/purchase-returns/${selectedRecord.id}` : `${API_BASE}/purchase-returns`;
+        const url = selectedRecord ? `${API_BASE}/purchase-returns/${selectedRecord.id}` : `${API_BASE}/purchase-returns/`;
         const method = selectedRecord ? 'PUT' : 'POST';
         const res = await fetch(url, {
           method,

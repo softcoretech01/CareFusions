@@ -24,7 +24,10 @@ class PRItemBase(BaseModel):
     remarks: Optional[str] = None
 
 class PurchaseRequisitionBase(BaseModel):
-    prNo: str = Field(..., max_length=50)
+    # Optional on input: the server assigns the next number in sequence when
+    # it is omitted, and overrides one that would collide. Clients must not
+    # derive it themselves -- counting existing rows produced duplicates.
+    prNo: Optional[str] = Field(None, max_length=50)
     requisitionDate: date
     department: str = Field(..., max_length=100)
     # A requisition covers exactly ONE inventory type; the category varies per
