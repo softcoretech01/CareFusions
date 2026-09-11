@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { ClipboardCheck, Ban, Clock, CheckCircle, IndianRupee, TrendingUp, X, Search } from 'lucide-react';
+import { ClipboardCheck, Ban, Clock, CheckCircle, IndianRupee, Wallet, TrendingUp, X, Search } from 'lucide-react';
 import Chart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
 
@@ -127,8 +127,15 @@ const DetailsPanel = ({
 
 export const InsuranceDashboard = () => {
   const today = new Date().toISOString().split('T')[0];
-  const [fromDate, setFromDate] = useState(today);
+  // Default to month-to-date. Defaulting both ends to today loaded the page
+  // with an empty board — no insurers, no settlements, every card at zero —
+  // which read as "the dashboard is broken" rather than "no activity today".
+  const monthStart = `${today.slice(0, 7)}-01`;
+  const [fromDate, setFromDate] = useState(monthStart);
   const [toDate, setToDate] = useState(today);
+  // The range actually sent to the API. Only Search and Clear move it, so
+  // typing in the date boxes does not refetch until you ask for it.
+  const [range, setRange] = useState({ from: monthStart, to: today });
   const [data, setData] = useState<DashboardData | null>(null);
 
   // The dashboard endpoint returns counts only, so pull the underlying lists
@@ -141,11 +148,18 @@ export const InsuranceDashboard = () => {
 
   // Real KPIs and charts — every figure on this page used to be hardcoded.
   useEffect(() => {
-    fetch(`${API_BASE}/insurance/dashboard`)
+    const params = new URLSearchParams();
+    if (range.from) params.append('from', range.from);
+    if (range.to) params.append('to', range.to);
+    const query = params.toString() ? `?${params.toString()}` : '';
+
+    fetch(`${API_BASE}/insurance/dashboard${query}`)
       .then(r => r.json())
       .then(setData)
       .catch(e => console.error('[Insurance] dashboard load failed', e));
 
+    // The list endpoints take no date params — passing them did nothing. The
+    // drill-downs narrow to the range in the browser instead, below.
     const list = (path: string, set: (v: any[]) => void) =>
       fetch(`${API_BASE}/insurance/${path}`)
         .then(r => r.json())
@@ -156,22 +170,22 @@ export const InsuranceDashboard = () => {
     list('claims', setClaims);
     list('appeals', setAppeals);
     list('settlements', setSettlements);
-  }, []);
+  }, [range]);
 
   const kpis = [
     { key: 'preAuths', label: 'Pending Pre-Auths', value: String(data?.pendingPreAuths ?? 0), icon: ClipboardCheck, color: 'text-amber-500', bg: 'bg-amber-500/10' },
     { key: 'claims', label: 'Claims Under Review', value: String(data?.claimsUnderReview ?? 0), icon: Clock, color: 'text-purple-500', bg: 'bg-purple-500/10' },
     { key: 'appeals', label: 'Pending Appeals', value: String(data?.pendingAppeals ?? 0), icon: Ban, color: 'text-orange-500', bg: 'bg-orange-500/10' },
-    { key: 'reconciled', label: 'Reconciled MTD', value: inr(data?.reconciledMtd ?? 0), icon: IndianRupee, color: 'text-teal-500', bg: 'bg-teal-500/10' },
+    { key: 'reconciled', label: 'Reconciled', value: inr(data?.reconciledMtd ?? 0), icon: IndianRupee, color: 'text-teal-500', bg: 'bg-teal-500/10' },
+    { key: 'outstanding', label: 'Outstanding', value: inr(data?.totalOutstanding ?? 0), icon: Wallet, color: 'text-rose-500', bg: 'bg-rose-500/10' },
   ];
 
   // Each drill-down repeats the exact filter its KPI query uses, so the list
   // length always matches the number on the card.
-  const now = new Date();
-  const isThisMonth = (iso?: string) => {
+  const inRange = (iso?: string) => {
     if (!iso) return false;
-    const d = new Date(iso);
-    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+    const day = String(iso).split('T')[0];
+    return day >= range.from && day <= range.to;
   };
 
   const DRILLS: Record<string, { label: string; icon: typeof Clock; color: string; bg: string; cols: DrillCol[]; rows: DrillRow[] }> = {
@@ -187,7 +201,7 @@ export const InsuranceDashboard = () => {
         { key: 'date', label: 'Raised' },
         { key: 'status', label: 'Status' },
       ],
-      rows: preAuths.filter(p => p.status === 'Pending').map(p => ({
+      rows: preAuths.filter(p => p.status === 'Pending' && inRange(p.date)).map(p => ({
         id: p.id, uhid: p.uhid, patient: p.patient, insurer: p.insurer,
         diagnosis: p.diagnosis, amount: inr(p.amount),
         date: String(p.date ?? '').split('T')[0], status: p.status,
@@ -205,7 +219,7 @@ export const InsuranceDashboard = () => {
         { key: 'date', label: 'Filed' },
         { key: 'status', label: 'Status' },
       ],
-      rows: claims.filter(c => c.status === 'Submitted' || c.status === 'In Process').map(c => ({
+      rows: claims.filter(c => (c.status === 'Submitted' || c.status === 'In Process') && inRange(c.date)).map(c => ({
         id: c.id, uhid: c.uhid, patient: c.patient, insurer: c.insurer,
         claimedAmount: inr(c.claimedAmount), approvedAmount: inr(c.approvedAmount),
         date: String(c.date ?? '').split('T')[0], status: c.status,
@@ -221,7 +235,7 @@ export const InsuranceDashboard = () => {
         { key: 'reason', label: 'Reason' },
         { key: 'status', label: 'Status' },
       ],
-      rows: appeals.filter(a => a.status === 'Denied' || a.status === 'Appealing').map(a => ({
+      rows: appeals.filter(a => (a.status === 'Denied' || a.status === 'Appealing') && inRange(a.date)).map(a => ({
         id: a.id ?? a.appealId, claimId: a.claimId, patient: a.patient, insurer: a.insurer,
         reason: a.reason ?? a.denialReason, status: a.status,
       })),
@@ -240,7 +254,7 @@ export const InsuranceDashboard = () => {
         { key: 'status', label: 'Status' },
       ],
       rows: settlements
-        .filter(x => x.status === 'Reconciled' && isThisMonth(x.reconciledDate))
+        .filter(x => x.status === 'Reconciled' && inRange(x.reconciledDate))
         .map(x => ({
           id: x.id, claimId: x.claimId, patient: x.patient, insurer: x.insurer,
           billedAmt: inr(x.billedAmt), netReceivable: inr(x.netReceivable),
@@ -248,6 +262,27 @@ export const InsuranceDashboard = () => {
           reconciledDate: String(x.reconciledDate ?? '').split('T')[0], status: x.status,
         })),
     },
+  };
+
+  DRILLS.outstanding = {
+    label: 'Outstanding Settlements', icon: Wallet, color: 'text-rose-500', bg: 'bg-rose-500/10',
+    cols: [
+      { key: 'id', label: 'Settlement ID', mono: true },
+      { key: 'claimId', label: 'Claim ID', mono: true },
+      { key: 'patient', label: 'Patient' },
+      { key: 'insurer', label: 'Insurer' },
+      { key: 'billedAmt', label: 'Billed' },
+      { key: 'netReceivable', label: 'Net Receivable' },
+      { key: 'date', label: 'Raised' },
+      { key: 'status', label: 'Status' },
+    ],
+    rows: settlements
+      .filter(x => x.status === 'Pending' && inRange(x.date))
+      .map(x => ({
+        id: x.id, claimId: x.claimId, patient: x.patient, insurer: x.insurer,
+        billedAmt: inr(x.billedAmt), netReceivable: inr(x.netReceivable),
+        date: String(x.date ?? '').split('T')[0], status: x.status,
+      })),
   };
 
   const monthLabel = (m: string) => {
@@ -292,10 +327,14 @@ export const InsuranceDashboard = () => {
   const decided = totalApproved + totalDenied;
   const approvalRate = decided > 0 ? Math.round((totalApproved / decided) * 100) : null;
 
+  const handleSearch = () => setRange({ from: fromDate, to: toDate });
+
+  // Clear used to setTimeout a refetch, which read the pre-reset dates off a
+  // stale closure and reloaded the range the user had just cleared.
   const handleClearFilters = () => {
-    const todayStr = new Date().toISOString().split('T')[0];
-    setFromDate(todayStr);
-    setToDate(todayStr);
+    setFromDate(monthStart);
+    setToDate(today);
+    setRange({ from: monthStart, to: today });
   };
 
   return (
@@ -323,14 +362,17 @@ export const InsuranceDashboard = () => {
             </div>
             <div className="h-6 w-px bg-slate-200"></div>
             <div className="flex items-center gap-2">
-              <button className="px-5 py-1.5 bg-primary text-white rounded-xl text-sm font-bold shadow-sm hover:bg-primary/90 transition-colors">
+              <button 
+                onClick={handleSearch}
+                className="px-5 py-1.5 bg-primary text-white rounded-xl text-sm font-bold shadow-sm hover:bg-primary/90 transition-colors"
+              >
                 Search
               </button>
               <button 
                 onClick={handleClearFilters}
                 className="px-5 py-1.5 bg-slate-100 text-slate-700 rounded-xl text-sm font-bold shadow-sm hover:bg-slate-200 transition-colors"
               >
-                Cancel
+                Clear
               </button>
             </div>
           </div>
@@ -338,7 +380,7 @@ export const InsuranceDashboard = () => {
       </div>
       
       {/* KPIs Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
         {kpis.map((kpi, idx) => {
           const Icon = kpi.icon;
           return (

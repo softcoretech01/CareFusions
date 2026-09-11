@@ -561,41 +561,71 @@ def reconcile_settlement(settlement_id: int, payload: SettlementReconcile,
 
 # ══════════════════════════ DASHBOARD ══════════════════════════
 @router.get("/dashboard")
-def dashboard(db: Session = Depends(get_db)):
+def dashboard(
+    from_date: Optional[str] = Query(None, alias="from"),
+    to_date: Optional[str] = Query(None, alias="to"),
+    db: Session = Depends(get_db)
+):
     """Real KPIs — the prototype dashboard was entirely hardcoded."""
     try:
         kpi = db.execute(text("""
             SELECT
-              (SELECT COUNT(*) FROM hospital.Ins_PreAuth WHERE Status = 'Pending')            AS pendingPreAuths,
-              (SELECT COUNT(*) FROM hospital.Ins_Claim WHERE Status IN ('Submitted','In Process')) AS claimsUnderReview,
-              (SELECT COUNT(*) FROM hospital.Ins_Appeal WHERE Status IN ('Denied','Appealing'))     AS pendingAppeals,
+              (SELECT COUNT(*) FROM hospital.Ins_PreAuth WHERE Status = 'Pending'
+               AND (:from_date IS NULL OR DATE(RequestDate) >= :from_date)
+               AND (:to_date IS NULL OR DATE(RequestDate) <= :to_date)) AS pendingPreAuths,
+               
+              (SELECT COUNT(*) FROM hospital.Ins_Claim WHERE Status IN ('Submitted','In Process')
+               AND (:from_date IS NULL OR DATE(ClaimDate) >= :from_date)
+               AND (:to_date IS NULL OR DATE(ClaimDate) <= :to_date)) AS claimsUnderReview,
+               
+              (SELECT COUNT(*) FROM hospital.Ins_Appeal WHERE Status IN ('Denied','Appealing')
+               AND (:from_date IS NULL OR DATE(COALESCE(AppealDate, CreatedDate)) >= :from_date)
+               AND (:to_date IS NULL OR DATE(COALESCE(AppealDate, CreatedDate)) <= :to_date)) AS pendingAppeals,
+               
               (SELECT COALESCE(SUM(NetReceivable), 0) FROM hospital.Ins_Settlement
-                 WHERE Status = 'Reconciled' AND YEAR(ReconciledDate) = YEAR(CURDATE())
-                   AND MONTH(ReconciledDate) = MONTH(CURDATE()))                              AS reconciledMtd,
+                 WHERE Status = 'Reconciled' 
+                   AND (
+                     (:from_date IS NULL AND YEAR(ReconciledDate) = YEAR(CURDATE()) AND MONTH(ReconciledDate) = MONTH(CURDATE()))
+                     OR
+                     (:from_date IS NOT NULL AND DATE(ReconciledDate) >= :from_date AND DATE(ReconciledDate) <= :to_date)
+                   )) AS reconciledMtd,
+                   
               (SELECT COALESCE(SUM(NetReceivable), 0) FROM hospital.Ins_Settlement
-                 WHERE Status = 'Pending')                                                    AS totalOutstanding
-        """)).fetchone()
+                 WHERE Status = 'Pending'
+                 AND (:from_date IS NULL OR DATE(SettlementDate) >= :from_date)
+                 AND (:to_date IS NULL OR DATE(SettlementDate) <= :to_date)) AS totalOutstanding
+        """), {"from_date": from_date, "to_date": to_date}).fetchone()
 
-        by_insurer = db.execute(text(
-            "SELECT InsurerName AS name, COUNT(*) AS claims, COALESCE(SUM(ClaimedAmount),0) AS amount "
-            "FROM hospital.Ins_Claim GROUP BY InsurerName ORDER BY claims DESC"
-        )).fetchall()
+        by_insurer = db.execute(text("""
+            SELECT InsurerName AS name, COUNT(*) AS claims, COALESCE(SUM(ClaimedAmount),0) AS amount 
+            FROM hospital.Ins_Claim 
+            WHERE (:from_date IS NULL OR DATE(ClaimDate) >= :from_date)
+              AND (:to_date IS NULL OR DATE(ClaimDate) <= :to_date)
+            GROUP BY InsurerName ORDER BY claims DESC
+        """), {"from_date": from_date, "to_date": to_date}).fetchall()
 
+        # The trend stays six months wide so it reads as a trend, but it ends at
+        # the selected range. Anchoring it to CURDATE() left the bars showing
+        # months the filter had already excluded, so the chart contradicted the
+        # cards beside it.
         monthly = db.execute(text("""
             SELECT DATE_FORMAT(ClaimDate, '%Y-%m') AS month,
                    SUM(Status = 'Settled') AS approved,
                    SUM(Status = 'Denied')  AS denied
             FROM hospital.Ins_Claim
-            WHERE ClaimDate >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
+            WHERE ClaimDate >= DATE_SUB(COALESCE(:to_date, CURDATE()), INTERVAL 6 MONTH)
+              AND (:to_date IS NULL OR DATE(ClaimDate) <= :to_date)
             GROUP BY month ORDER BY month
-        """)).fetchall()
+        """), {"to_date": to_date}).fetchall()
 
-        recent = db.execute(text(
-            "SELECT s.SettlementNumber, c.ClaimNumber, c.PatientName, c.InsurerName, "
-            "s.BilledAmount, s.ApprovedAmount, s.Status, s.SettlementDate "
-            "FROM hospital.Ins_Settlement s JOIN hospital.Ins_Claim c ON c.ClaimId = s.ClaimId "
-            "ORDER BY s.SettlementId DESC LIMIT 5"
-        )).fetchall()
+        recent = db.execute(text("""
+            SELECT s.SettlementNumber, c.ClaimNumber, c.PatientName, c.InsurerName, 
+                   s.BilledAmount, s.ApprovedAmount, s.Status, s.SettlementDate 
+            FROM hospital.Ins_Settlement s JOIN hospital.Ins_Claim c ON c.ClaimId = s.ClaimId 
+            WHERE (:from_date IS NULL OR DATE(s.SettlementDate) >= :from_date)
+              AND (:to_date IS NULL OR DATE(s.SettlementDate) <= :to_date)
+            ORDER BY s.SettlementId DESC LIMIT 5
+        """), {"from_date": from_date, "to_date": to_date}).fetchall()
 
         return {
             "pendingPreAuths": kpi.pendingPreAuths,
