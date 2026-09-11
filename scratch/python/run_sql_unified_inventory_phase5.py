@@ -29,7 +29,7 @@ from sqlalchemy import text
 from app.database import engine
 from init_db import split_statements
 
-SQL_DIR = Path(__file__).parent / "sql"
+SQL_DIR = Path(__file__).parent.parent.parent / "Python" / "sql"
 
 # Errors that simply mean "this statement already ran".
 BENIGN = (

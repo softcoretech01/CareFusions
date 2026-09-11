@@ -403,7 +403,7 @@ export const NewAdmission = () => {
             </div>
             <div>
               <label className={labelCls}>Patient Name <span className="text-red-500">*</span></label>
-              <input type="text" maxLength={150} value={form.patientName} onChange={e => setForm({ ...form, patientName: e.target.value.replace(/[^A-Za-z\s]/g, '') })} className={fieldCls('patientName')} placeholder="Letters only" disabled={isRegisteredPatient} />
+              <input type="text" maxLength={150} value={form.patientName} onChange={e => setForm({ ...form, patientName: e.target.value.replace(/[^A-Za-z\s]/g, '') })} className={fieldCls('patientName')} placeholder="Letters only" />
               <Err f="patientName" />
             </div>
             <div>

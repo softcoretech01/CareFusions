@@ -96,7 +96,7 @@ BEGIN
         WHERE IsDeleted = 0 
           AND (
             TestCode LIKE CONCAT('%', p_Search, '%') OR
-            TestName LIKE CONCAT('%', p_Search, '%') OR
+            TestName LIKE CONCAT('%', p_Search, '%')
           )
         ORDER BY TestId DESC;
 
