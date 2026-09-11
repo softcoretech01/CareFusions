@@ -74,8 +74,8 @@ CREATE OR REPLACE VIEW inventory.Vw_CatalogItem AS
            m.MedicineId      AS ItemId,
            m.MedicineCode    AS ItemCode,
            TRIM(CONCAT(m.GenericName, ' ', COALESCE(m.Strength, ''))) AS ItemName,
-           m.Category        AS Category,
-           m.SubCategory     AS SubCategory,
+           c.CategoryName    AS Category,
+           sc.SubCategoryName AS SubCategory,
            NULL              AS Department,
            NULL              AS Brand,
            NULL              AS Manufacturer,
@@ -95,6 +95,8 @@ CREATE OR REPLACE VIEW inventory.Vw_CatalogItem AS
            m.Status          AS Status,
            m.IsDeleted       AS IsDeleted
       FROM admin.Master_Medicine m
+      LEFT JOIN admin.Master_Category c ON m.CategoryId = c.CategoryId
+      LEFT JOIN admin.Master_SubCategory sc ON m.SubCategoryId = sc.SubCategoryId
     UNION ALL
     SELECT COALESCE(i.InventoryType, 'MEDICAL_ITEM'),
            i.ItemId, i.ItemCode, i.ItemName, i.Category, i.SubCategory, i.Department,
